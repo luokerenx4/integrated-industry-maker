@@ -7,6 +7,7 @@ import {
   type CompiledFactoryProject,
   type FactoryMetrics,
   type ScoreBreakdown,
+  type SimulationResult,
 } from "./types";
 import { stableStringify } from "./utils";
 
@@ -275,6 +276,11 @@ export interface FactoryBlueprintEvaluation {
   blueprintHash: string;
   metrics: BlueprintMetricSnapshot;
   capacityPlan: ProductionCapacityPlan;
+}
+
+export interface FactoryBlueprintEvaluationTrace {
+  evaluation: FactoryBlueprintEvaluation;
+  simulation: SimulationResult;
 }
 
 function equal(left: unknown, right: unknown): boolean {
@@ -728,12 +734,24 @@ export function evaluateFactoryBlueprint(
   label: string,
   seed = 42,
 ): FactoryBlueprintEvaluation {
+  return evaluateFactoryBlueprintWithTrace(project, label, seed).evaluation;
+}
+
+export function evaluateFactoryBlueprintWithTrace(
+  project: CompiledFactoryProject,
+  label: string,
+  seed = 42,
+): FactoryBlueprintEvaluationTrace {
   if (!Number.isSafeInteger(seed) || seed < 0) throw new Error("Blueprint evaluation seed must be a non-negative safe integer");
   try {
+    const simulation = runUntil(project, undefined, { seed });
     return {
-      blueprintHash: project.hashes.blueprintHash,
-      metrics: metricSnapshot(runUntil(project, undefined, { seed }).metrics),
-      capacityPlan: planProductionCapacity(project),
+      evaluation: {
+        blueprintHash: project.hashes.blueprintHash,
+        metrics: metricSnapshot(simulation.metrics),
+        capacityPlan: planProductionCapacity(project),
+      },
+      simulation,
     };
   } catch (error) {
     throw new Error(`Could not evaluate Blueprint '${label}': ${error instanceof Error ? error.message : String(error)}`);

@@ -24,6 +24,8 @@ Fixed baseline evaluation is content-addressed below the project's ignored `.inm
 
 Core also owns one operational `BlueprintBenchmarkProgress` V2 stream. Every baseline and Candidate case has ordered start/completion events, completed/total work, explicit cache reuse, and separate compilation, cache-read, simulation, and comparison timings. CLI projects it on stderr; Studio requests `application/x-ndjson` and renders the same event before the final result exists. Timings and transport envelopes are diagnostic state only and never enter the evaluator verdict or immutable evidence.
 
+Design wraps that same stream as `DesignRunProgress` V3 without discarding its timing or cache evidence. It reports completed/planned case evaluations rather than simulations, because a hash-checked baseline cache hit is real evaluation work but not a fresh physical run. The already evaluated driver case supplies an ephemeral exact trace for proposal diagnosis and causal-target comparison. A continuation-only driver replay is named as its own progress phase instead of appearing as invisible work. CLI and Studio project this identical contract; none of it enters immutable Design identity.
+
 `listBlueprintBenchmarks()` discovers project-local `benchmarks/*.benchmark.json` files in stable id order and projects their immutable case and acceptance contracts. Studio does not invent sessions or copy Benchmark state into browser storage.
 
 Studio exposes project-qualified endpoints:

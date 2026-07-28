@@ -493,6 +493,9 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "baseline")).toHaveLength(5);
   expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "seed")).toHaveLength(5);
   expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "candidate")).toHaveLength(5);
+  expect(progress.filter((event) => event.progress.phase === "case-completed").every((event) =>
+    typeof event.progress.timing.durationMs === "number")).toBeTrue();
+  expect(progress.filter((event) => event.progress.phase.startsWith("driver-replay"))).toEqual([]);
   expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
     phase: "proposal-started",
     branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
@@ -534,7 +537,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
       limitingCase: expect.any(String),
     }),
   }) }));
-  expect(progress.at(-1)).toEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "run-completed", work: { completedSimulations: 15, plannedSimulations: 15 } }) }));
+  expect(progress.at(-1)).toEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "run-completed", work: { completedCases: 15, plannedCases: 15 } }) }));
   const run = JSON.parse(executed.stdout);
   expect(run).toEqual(expect.objectContaining({
     command: "design",
@@ -577,7 +580,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect(continued.exitCode).toBe(0);
   const continuationProgress = continued.stderr.trim().split("\n").map((line) => JSON.parse(line));
   expect(continuationProgress[0]).toEqual(expect.objectContaining({ progress: expect.objectContaining({
-    version: 2,
+    version: 3,
     phase: "run-started",
     continuation: { sourceResultHash: resultHash, reusedIterations: 1 },
     budget: { maximum: 2, previousEvaluated: 1, additional: 1 },
@@ -585,6 +588,8 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect(continuationProgress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "baseline")).toHaveLength(5);
   expect(continuationProgress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "seed")).toHaveLength(0);
   expect(continuationProgress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "candidate")).toHaveLength(5);
+  expect(continuationProgress.filter((event) => event.progress.phase.startsWith("driver-replay"))
+    .map((event) => event.progress.phase)).toEqual(["driver-replay-started", "driver-replay-completed"]);
   const continuedEnvelope = JSON.parse(continued.stdout);
   expect(continuedEnvelope.data).toEqual(expect.objectContaining({
     section: "summary",

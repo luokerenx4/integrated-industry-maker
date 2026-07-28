@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   compareFactoryBlueprints,
   evaluateFactoryBlueprint,
+  evaluateFactoryBlueprintWithTrace,
   type BlueprintMetricSnapshot,
   type BlueprintSemanticChange,
   type FactoryBlueprintComparison,
@@ -12,7 +13,7 @@ import {
 import type { JsonPatchOperation } from "./artifacts";
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
-import type { Blueprint, CompiledFactoryProject, ProjectHashes } from "./types";
+import type { Blueprint, CompiledFactoryProject, ProjectHashes, SimulationResult } from "./types";
 import { atomicWriteJson, ENGINE_VERSION, hashValue, readJson } from "./utils";
 
 const id = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase kebab-case");
@@ -252,6 +253,11 @@ export type BlueprintBenchmarkProgressHandler = (progress: BlueprintBenchmarkPro
 export interface BlueprintBenchmarkEvaluationOptions {
   candidateBlueprint?: Blueprint;
   onProgress?: BlueprintBenchmarkProgressHandler;
+  onCandidateCaseEvaluated?: (result: {
+    case: BlueprintBenchmarkManifest["cases"][number];
+    project: CompiledFactoryProject;
+    simulation: SimulationResult;
+  }) => void;
   evaluationId?: string;
   signal?: AbortSignal;
 }
@@ -545,8 +551,10 @@ export async function evaluatePreparedBlueprintBenchmark(
     const candidate = await openSelectedProject(projectDir, { ...selection, blueprint: manifest.candidateBlueprint }, options.candidateBlueprint);
     const compileMs = performance.now() - compileStartedAt;
     const evaluationStartedAt = performance.now();
-    const candidateEvaluation = evaluateFactoryBlueprint(candidate, manifest.candidateBlueprint, item.seed);
+    const candidateTrace = evaluateFactoryBlueprintWithTrace(candidate, manifest.candidateBlueprint, item.seed);
+    const candidateEvaluation = candidateTrace.evaluation;
     const evaluationMs = performance.now() - evaluationStartedAt;
+    options.onCandidateCaseEvaluated?.({ case: item, project: candidate, simulation: candidateTrace.simulation });
     const comparisonStartedAt = performance.now();
     const comparison = compareFactoryBlueprints(preparedCase.baseline, candidate, {
       seed: item.seed,

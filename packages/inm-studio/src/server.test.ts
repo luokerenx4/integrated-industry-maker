@@ -532,7 +532,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     const continuationRecords = (await continuationResponse.text()).trim().split("\n").map((line) => JSON.parse(line));
     const continuationProgress = continuationRecords.filter((record) => record.type === "progress");
     expect(continuationProgress[0]).toEqual(expect.objectContaining({ progress: expect.objectContaining({
-      version: 2,
+      version: 3,
       phase: "run-started",
       continuation: { sourceResultHash: campaignRepairRunId, reusedIterations: 7 },
       budget: { maximum: 8, previousEvaluated: 7, additional: 1 },
@@ -641,6 +641,9 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(progress[0]).toEqual(expect.objectContaining({ version: 1, progress: expect.objectContaining({ phase: "run-started", sequence: 1 }) }));
     expect(progress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "baseline")).toHaveLength(5);
     expect(progress.filter((record) => record.progress.phase === "case-completed" && record.progress.evaluation.kind === "candidate")).toHaveLength(5);
+    expect(progress.filter((record) => record.progress.phase === "case-completed").every((record) =>
+      typeof record.progress.timing.durationMs === "number")).toBeTrue();
+    expect(progress.filter((record) => record.progress.phase.startsWith("driver-replay"))).toEqual([]);
     expect(progress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
       phase: "proposal-started",
       branch: { nodeId: "seed", role: "leader", depth: 0, leaderNodeId: "seed" },
@@ -678,7 +681,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
         limitingCase: expect.any(String),
       }),
     }) }));
-    expect(progress.at(-1)).toEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "run-completed", work: { completedSimulations: 15, plannedSimulations: 15 } }) }));
+    expect(progress.at(-1)).toEqual(expect.objectContaining({ progress: expect.objectContaining({ phase: "run-completed", work: { completedCases: 15, plannedCases: 15 } }) }));
     const resultRecord = records.find((record) => record.type === "result");
     expect(resultRecord).toBeDefined();
     const run = resultRecord.result as { manifest: { resultHash: string; best: { iteration: number; verdict: string; promotionPatchOperations: number }; budget: { maximum: number; evaluated: number }; exhaustions: unknown[]; iterations: Array<{ addressedLoss?: string; promotionBoundary: { promotable: boolean }; driverEvidence: { metricsHash: string; fabLoss: { chain: string[] } | null }; decisionEvidence: { limitingCase: string } }> }; artifact: { id: string; created: boolean } };

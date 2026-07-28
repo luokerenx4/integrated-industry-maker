@@ -16,6 +16,17 @@ const projectDir = resolve("examples/memory-fab");
 const temporaryDirectories: string[] = [];
 afterAll(async () => { await Promise.all(temporaryDirectories.map((directory) => rm(directory, { recursive: true, force: true }))); });
 
+function deterministicDesignProgress(events: DesignRunProgress[]): unknown[] {
+  return events.map((event) => {
+    if (event.phase !== "case-started" && event.phase !== "case-completed") {
+      return event;
+    }
+    const operational = event as DesignRunProgress & { timing: unknown; cached?: boolean };
+    const { timing: _timing, cached: _cached, ...stable } = operational;
+    return stable;
+  });
+}
+
 function migrateArchivedBlueprintForTest<T>(value: T): T {
   const blueprint = structuredClone(value) as {
     devices: Array<{ policy?: { preventiveMaintenance?: Record<string, unknown> } }>;
@@ -285,9 +296,16 @@ test("inspection supply Design closes one exact causal frontier without changing
     && iteration.lossTargetEvidence?.improved === true
     && iteration.decision === "REJECT")).toBeTrue();
   expect(progress.filter((event) => event.phase === "loss-target-completed")).toHaveLength(6);
+  expect(progress.filter((event) => event.phase === "driver-replay-started"
+    || event.phase === "driver-replay-completed")).toEqual([]);
+  const completedCaseProgress = progress.filter((event): event is DesignRunProgress & { phase: "case-completed" } =>
+    event.phase === "case-completed");
+  expect(completedCaseProgress.every((event) =>
+    event.timing.durationMs !== undefined && event.timing.durationMs >= 0)).toBeTrue();
   expect(progress.at(-1)).toEqual(expect.objectContaining({
+    version: 3,
     phase: "run-completed",
-    work: { completedSimulations: 46, plannedSimulations: 46 },
+    work: { completedCases: 40, plannedCases: 40 },
   }));
   expect(await readFile(seedPath, "utf8")).toBe(seedBefore);
   expect((await loadDesignRun(cleanProject, "inspection-supply-path", result.manifest.resultHash)).manifest.resultHash)
@@ -515,11 +533,11 @@ test("Design stops only after every retained frontier node is search-exhausted",
   expect(progress).toContainEqual(expect.objectContaining({
     phase: "node-exhausted",
     exhaustion: expect.objectContaining({ node: expect.objectContaining({ nodeId: "seed" }), nextNodeId: null }),
-    work: { completedSimulations: 10, plannedSimulations: 15 },
+    work: { completedCases: 10, plannedCases: 15 },
   }));
   expect(progress.at(-1)).toEqual(expect.objectContaining({
     phase: "run-completed",
-    work: { completedSimulations: 10, plannedSimulations: 10 },
+    work: { completedCases: 10, plannedCases: 10 },
   }));
   expect(await loadDesignRun(copy, "integrated-dram-fab", result.manifest.resultHash)).toEqual({
     ...result,
@@ -662,7 +680,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   expect(progress.at(-1)).toEqual(expect.objectContaining({
     phase: "run-completed",
     resultHash: first.manifest.resultHash,
-    work: { completedSimulations: 45, plannedSimulations: 45 },
+    work: { completedCases: 45, plannedCases: 45 },
   }));
   const repeatedProgress: DesignRunProgress[] = [];
   const second = await runDesignProgram(copy, "greenfield-dram-fab", {
@@ -670,7 +688,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     onProgress: (event) => repeatedProgress.push(event),
   });
   expect(second.manifest.resultHash).toBe(first.manifest.resultHash);
-  expect(repeatedProgress).toEqual(progress);
+  expect(deterministicDesignProgress(repeatedProgress)).toEqual(deterministicDesignProgress(progress));
   expect(second.artifact).toEqual({ ...first.artifact, created: false });
   expect(await loadDesignRun(copy, "greenfield-dram-fab", first.manifest.resultHash)).toEqual({
     manifest: first.manifest,

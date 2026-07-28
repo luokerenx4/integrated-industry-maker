@@ -105,10 +105,16 @@ function guardrailDetail(program: DesignProgramSummary): { title: string; detail
 function progressLabel(progress: DesignRunProgress): { title: string; detail: string } {
   if (progress.phase === "run-started") return progress.continuation
     ? { title: "REBUILDING VERIFIED FRONTIER", detail: `${shortHash(progress.continuation.sourceResultHash)} · ${progress.continuation.reusedIterations} reused iterations · ${progress.budget.additional} new candidates` }
-    : { title: "PREPARING LOCKED BASELINE", detail: `${progress.caseCount} operating cases · ${progress.work.plannedSimulations} planned simulations` };
+    : { title: "PREPARING LOCKED BASELINE", detail: `${progress.caseCount} operating cases · ${progress.work.plannedCases} planned case evaluations` };
   if (progress.phase === "case-started" || progress.phase === "case-completed") return {
     title: `${progress.evaluation.kind.toUpperCase()} · CASE ${progress.case.index}/${progress.case.total}`,
-    detail: `${progress.case.id} · ${progress.phase === "case-started" ? "simulating" : `complete${progress.candidateScore === undefined ? "" : ` · score ${progress.candidateScore.toFixed(6)}`}`}`,
+    detail: `${progress.case.id} · ${progress.phase === "case-started"
+      ? "evaluating"
+      : `complete${progress.cached ? " · reused" : ""}${progress.timing.durationMs === undefined ? "" : ` · ${progress.timing.durationMs.toFixed(0)} ms`}${progress.candidateScore === undefined ? "" : ` · score ${progress.candidateScore.toFixed(6)}`}`}`,
+  };
+  if (progress.phase === "driver-replay-started" || progress.phase === "driver-replay-completed") return {
+    title: "RECOVERING HISTORICAL DRIVER TRACE",
+    detail: `${progress.nodeId} · ${progress.case.id}${progress.phase === "driver-replay-completed" ? ` · ${progress.durationMs.toFixed(0)} ms` : ""}`,
   };
   if (progress.phase === "proposal-started") return {
     title: `DIAGNOSING ITERATION ${progress.iteration}`,
@@ -129,6 +135,12 @@ function progressLabel(progress: DesignRunProgress): { title: string; detail: st
   if (progress.phase === "candidate-completed") return { title: `ITERATION ${progress.iteration} · ${progress.decision}`, detail: !progress.decisionEvidence ? progress.error ?? progress.strategy : `${progress.frontierEvidence.parent.nodeId} → ${progress.frontierEvidence.outcome}${progress.addressedCase ? ` · repaired ${progress.addressedCase}` : ""} · leader ${signed(progress.decisionEvidence.aggregate.scoreDelta)} · ${decisionDetail(progress.decisionEvidence)}` };
   if (progress.phase === "run-completed") return { title: "IMMUTABLE RESULT READY", detail: `${shortHash(progress.resultHash)} · best iteration ${progress.best.iteration}` };
   return { title: "DESIGN RUNNING", detail: progress.phase };
+}
+
+type CompletedDesignCaseProgress = DesignRunProgress & { phase: "case-completed" };
+
+function completedCaseLabel(progress: CompletedDesignCaseProgress): string {
+  return `LAST ${progress.evaluation.kind.toUpperCase()} · ${progress.case.id} · ${progress.cached ? "reused" : "simulated"}${progress.timing.durationMs === undefined ? "" : ` · ${progress.timing.durationMs.toFixed(0)} ms`}`;
 }
 
 export function DesignWorkbench({
@@ -152,6 +164,7 @@ export function DesignWorkbench({
   const [budget, setBudget] = useState(1);
   const [running, setRunning] = useState(false);
   const [runProgress, setRunProgress] = useState<DesignRunProgress | null>(null);
+  const [lastCompletedCase, setLastCompletedCase] = useState<CompletedDesignCaseProgress | null>(null);
   const [promoting, setPromoting] = useState(false);
   const [candidateId, setCandidateId] = useState("");
   const [promoted, setPromoted] = useState<CandidateChangeSet | null>(null);
@@ -193,7 +206,7 @@ export function DesignWorkbench({
   };
 
   useEffect(() => {
-    setBrief(null); setRuns([]); setInvalidRuns([]); setSelectedRun(null); setSelectedRunIssue(null); setPromoted(null); setCommissionedCandidate(null); setRunProgress(null); setError(null);
+    setBrief(null); setRuns([]); setInvalidRuns([]); setSelectedRun(null); setSelectedRunIssue(null); setPromoted(null); setCommissionedCandidate(null); setRunProgress(null); setLastCompletedCase(null); setError(null);
     if (!selectedProgramId) return;
     let active = true;
     void loadProgram(selectedProgramId).catch((nextError) => { if (active) setError(nextError instanceof Error ? nextError.message : String(nextError)); });
@@ -235,14 +248,19 @@ export function DesignWorkbench({
     return () => { active = false; };
   }, [projectId, selectedProgram, selectedProgramId, selectedRunId]);
 
+  const recordRunProgress = (progress: DesignRunProgress) => {
+    setRunProgress(progress);
+    if (progress.phase === "case-completed") setLastCompletedCase(progress as CompletedDesignCaseProgress);
+  };
+
   const run = async () => {
     if (!selectedProgram || running) return;
-    setRunning(true); setRunProgress(null); setError(null); setPromoted(null);
+    setRunning(true); setRunProgress(null); setLastCompletedCase(null); setError(null); setPromoted(null);
     try {
       const result = await responseDesignStream(await fetch(
         `/api/projects/${encodeURIComponent(projectId)}/designs/${encodeURIComponent(selectedProgram.id)}/run`,
         { method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: budget }) },
-      ), setRunProgress);
+      ), recordRunProgress);
       await loadProgram(selectedProgram.id);
       onSelectRun(result.manifest.resultHash);
     } catch (nextError) { setError(nextError instanceof Error ? nextError.message : String(nextError)); }
@@ -251,12 +269,12 @@ export function DesignWorkbench({
 
   const continueRun = async () => {
     if (!selectedProgram || !selectedRun || !selectedRunContinuable || running) return;
-    setRunning(true); setRunProgress(null); setError(null); setPromoted(null);
+    setRunning(true); setRunProgress(null); setLastCompletedCase(null); setError(null); setPromoted(null);
     try {
       const result = await responseDesignStream(await fetch(
         `/api/projects/${encodeURIComponent(projectId)}/designs/${encodeURIComponent(selectedProgram.id)}/runs/${encodeURIComponent(selectedRun.manifest.resultHash)}/continue`,
         { method: "POST", headers: { "content-type": "application/json", accept: "application/x-ndjson" }, body: JSON.stringify({ maxCandidates: budget }) },
-      ), setRunProgress);
+      ), recordRunProgress);
       await loadProgram(selectedProgram.id);
       onSelectRun(result.manifest.resultHash);
     } catch (nextError) { setError(nextError instanceof Error ? nextError.message : String(nextError)); }
@@ -297,9 +315,9 @@ export function DesignWorkbench({
           <section className="design-contract">
             <div><span className="eyebrow">DESIGN CONTRACT</span><h3>{selectedProgram.name}</h3><p>{selectedProgram.description}</p><code>{selectedProgram.id} · {shortHash(selectedProgram.programHash)}</code></div>
             <div className="design-seed"><small>LOCKED BENCHMARK</small><strong>{brief.benchmark.id}</strong><span>{brief.benchmark.cases} operating cases</span><i>PROGRAM FOCUS</i><strong>{selectedProgram.focus.kind === "broad" ? "BROAD INDUSTRIAL SEARCH" : selectedProgram.focus.losses.join(" + ")}</strong><span>{selectedProgram.focus.kind === "broad" ? "eligible for any measured loss" : "preferred for matching Workbench diagnostics"}</span><i>HARD INDUSTRIAL OUTCOMES</i><strong>{brief.benchmark.acceptance.outcomeGuardrails?.length ?? 0} ABSOLUTE GUARDRAILS</strong><span>{brief.benchmark.acceptance.outcomeGuardrails?.reduce((total, guardrail) => total + Object.keys(guardrail.thresholds).length, 0) ?? 0} case thresholds · Benchmark-owned</span><i>CURRENT-BEST GUARDRAIL</i><strong>{guardrailDetail(selectedProgram).title}</strong><span>{guardrailDetail(selectedProgram).detail}</span><i>PARETO FRONTIER</i><strong>1 LEADER + {selectedProgram.frontier.maximumAlternativeBranches} ALTERNATIVE</strong><span>only the policy-compliant leader is promotable</span><i>{selectedProgram.seed.kind === "synthesis" ? "GENERATED FROM" : "AUTHORED SEED"}</i><strong>{selectedProgram.seed.kind === "synthesis" ? selectedProgram.seed.inputBlueprint : selectedProgram.seed.blueprint}</strong><span>{brief.seed.synthesis?.method ?? "Blueprint"} · {shortHash(brief.seed.blueprintHash)}</span><i>CURRENT PROMOTION TARGET</i><strong>{brief.promotionBase.blueprint}</strong><span>{shortHash(brief.promotionBase.hash)} · driver {brief.driver.case.id}</span></div>
-            <div className="design-run-control"><label>NEW / ADDITIONAL BUDGET <b>{budget}</b></label><input type="range" min="1" max={selectedProgram.budget.maxCandidates} value={budget} onChange={(event) => setBudget(Number(event.target.value))}/><button data-testid="run-design" disabled={running || !selectedProgram.locked} onClick={() => void run()}>{running && runProgress ? `RUNNING ${runProgress.work.completedSimulations}/${runProgress.work.plannedSimulations}` : running ? "STARTING…" : `NEW RUN · ${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>
+            <div className="design-run-control"><label>NEW / ADDITIONAL BUDGET <b>{budget}</b></label><input type="range" min="1" max={selectedProgram.budget.maxCandidates} value={budget} onChange={(event) => setBudget(Number(event.target.value))}/><button data-testid="run-design" disabled={running || !selectedProgram.locked} onClick={() => void run()}>{running && runProgress ? `RUNNING ${runProgress.work.completedCases}/${runProgress.work.plannedCases}` : running ? "STARTING…" : `NEW RUN · ${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>
           </section>
-          {running && runProgress && <section className="design-live-progress" aria-live="polite" data-testid="design-progress"><div><span>SHARED CORE PROGRESS</span><strong>{progressLabel(runProgress).title}</strong><code>{progressLabel(runProgress).detail}</code></div><div><b>{runProgress.work.completedSimulations}/{runProgress.work.plannedSimulations}</b><small>SIMULATIONS</small><progress value={runProgress.work.completedSimulations} max={runProgress.work.plannedSimulations}/></div></section>}
+          {running && runProgress && <section className="design-live-progress" aria-live="polite" data-testid="design-progress"><div><span>SHARED CORE PROGRESS</span><strong>{progressLabel(runProgress).title}</strong><code>{progressLabel(runProgress).detail}</code>{lastCompletedCase && runProgress.phase !== "case-completed" && <code data-testid="design-last-completed-case">{completedCaseLabel(lastCompletedCase)}</code>}</div><div><b>{runProgress.work.completedCases}/{runProgress.work.plannedCases}</b><small>CASES</small><progress value={runProgress.work.completedCases} max={runProgress.work.plannedCases}/></div></section>}
           <section className="design-families"><span>PROPOSAL PROVIDER</span><div><code>{selectedProgram.proposal.kind}</code>{selectedProgram.proposal.kind === "project-strategy" && <code>{selectedProgram.proposal.entry}</code>}</div></section>
           <section className="design-readiness">
             <span><small>CAPACITY</small><b className={brief.staticEvidence.capacity.state}>{brief.staticEvidence.capacity.state.toUpperCase()}</b><em>{brief.staticEvidence.capacity.gapCount} gaps</em></span>

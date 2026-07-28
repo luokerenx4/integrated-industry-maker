@@ -142,11 +142,13 @@ function writeDesignProgress(progress: DesignRunProgress, mode: ProgressMode): v
     process.stderr.write(`${stableStringify(cliProgress("design", progress))}\n`);
     return;
   }
-  const work = `${progress.work.completedSimulations}/${progress.work.plannedSimulations}`;
+  const work = `${progress.work.completedCases}/${progress.work.plannedCases}`;
   let line: string;
   if (progress.phase === "run-started") line = `DESIGN  ${work}  ${progress.continuation ? `continuing ${progress.continuation.sourceResultHash.slice(0, 12)} after ${progress.continuation.reusedIterations} iterations` : "preparing"} · ${progress.caseCount} locked cases`;
   else if (progress.phase === "case-started") line = `CASE    ${work}  ${progress.evaluation.kind} ${progress.case.index}/${progress.case.total} ${progress.case.id}`;
-  else if (progress.phase === "case-completed") line = `DONE    ${work}  ${progress.evaluation.kind} ${progress.case.id}${progress.candidateScore === undefined ? ` · baseline ${progress.baselineScore?.toFixed(6)}` : ` · score ${progress.candidateScore.toFixed(6)} · Δ ${(progress.scoreDelta ?? 0).toFixed(6)}`}`;
+  else if (progress.phase === "case-completed") line = `DONE    ${work}  ${progress.evaluation.kind} ${progress.case.id}${progress.candidateScore === undefined ? ` · baseline ${progress.baselineScore?.toFixed(6)}` : ` · score ${progress.candidateScore.toFixed(6)} · Δ ${(progress.scoreDelta ?? 0).toFixed(6)}`}${progress.cached ? " · reused" : ""}${progress.timing.durationMs === undefined ? "" : ` · ${progress.timing.durationMs.toFixed(0)} ms`}`;
+  else if (progress.phase === "driver-replay-started") line = `REPLAY  ${work}  ${progress.nodeId} · recovering ${progress.case.id} causal trace`;
+  else if (progress.phase === "driver-replay-completed") line = `REPLAY  ${work}  ${progress.nodeId} · recovered ${progress.case.id} causal trace · ${progress.durationMs.toFixed(0)} ms`;
   else if (progress.phase === "proposal-started") line = `DIAGNOSE ${work}  iteration ${progress.iteration} · ${progress.branch.role} ${progress.branch.nodeId} · ${designPromotionBoundaryDetail(progress.promotionBoundary)} · ${progress.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}`;
   else if (progress.phase === "proposal-completed") line = `PROPOSE ${work}  ${progress.branch.nodeId} → ${progress.strategy}${progress.addressedCase ? ` · repairs ${progress.addressedCase}` : progress.addressedLoss ? ` · addresses ${progress.addressedLoss}` : ""}`;
   else if (progress.phase === "loss-target-completed") line = `CAUSE   ${work}  ${progress.lossTargetEvidence.target.contributor}.${progress.lossTargetEvidence.target.metric} ${progress.lossTargetEvidence.before} → ${progress.lossTargetEvidence.after} · Δ ${signed(progress.lossTargetEvidence.delta, 3)} · ${progress.lossTargetEvidence.improved ? "improved" : "not improved"}`;

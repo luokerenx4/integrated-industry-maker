@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/single-pass-design-evidence]] | Reuse each locked driver-case simulation for causal Design evidence and expose honest timed case progress. | 2026-07-28 |
 
 ## Proposed plans
 

@@ -1,6 +1,6 @@
 # Development operations
 
-Status: lifecycle and feedback-loop redesign in progress under [[plans/low-friction-development-operations]].
+Status: managed lifecycle, bounded feedback loops, observable evaluation, and single-pass Design driver evidence implemented.
 
 Related: [[docs/design/studio-debugger]], [[docs/design/agent-cli-contract]], [[docs/design/operator-workbench]], [[docs/CLI]], [[plans/low-friction-development-operations]].
 
@@ -35,6 +35,8 @@ The repository has two named confidence boundaries:
 A fast pass is not described as release or merge proof. Full checks run at intentional checkpoints, not after every edit. Targeted subsystem tests remain the preferred first response while changing one known surface.
 
 Locked Benchmark execution also removes deterministic duplicate work without hiding design decisions. Fixed baseline simulations may be reused only through the exact cache contract in [[docs/design/experiment-workbench]]; candidate simulations and every acceptance decision remain fresh.
+
+Design execution likewise avoids duplicate work without caching Candidate decisions. Each fresh locked driver-case simulation supplies both the compact Benchmark score and the ephemeral event trace used for causal loss evidence. CLI and Studio report case evaluations, cache reuse, and timing; they never label a reused baseline as a fresh simulation. Historical continuation may explicitly replay a driver trace when the source artifact cannot retain runtime events.
 
 ## Source of truth
 

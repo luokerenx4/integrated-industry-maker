@@ -1,6 +1,12 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { SCORE_BREAKDOWN_COMPONENTS, type Blueprint, type ScoreBreakdown } from "./types";
+import {
+  SCORE_BREAKDOWN_COMPONENTS,
+  type Blueprint,
+  type CompiledFactoryProject,
+  type ScoreBreakdown,
+  type SimulationResult,
+} from "./types";
 import { hasBlueprintBenchmarkCadenceEvidence, type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult } from "./benchmark";
 import { evaluatePreparedBlueprintBenchmark, loadBlueprintBenchmark, prepareBlueprintBenchmark } from "./benchmark";
 import { createBlueprintPatch, subtractScoreBreakdown } from "./blueprint-comparison";
@@ -40,6 +46,21 @@ import { analyzeFabLossProfile, type FabLossBucketId, type FabLossProfile } from
 export interface DesignDriverEvidence {
   metricsHash: string;
   fabLoss: FabLossProfile | null;
+}
+
+function designDriverEvidence(
+  project: CompiledFactoryProject,
+  simulation: SimulationResult,
+): DesignDriverEvidence {
+  return {
+    metricsHash: hashValue(simulation.metrics),
+    fabLoss: analyzeFabLossProfile(
+      simulation.metrics,
+      project.scenario.durationTicks,
+      project,
+      simulation.events,
+    ),
+  };
 }
 
 export interface DesignLossTargetEvidence {
@@ -184,13 +205,13 @@ export interface DesignRunResult {
 }
 
 interface DesignRunProgressBase {
-  version: 2;
+  version: 3;
   sequence: number;
   program: string;
   benchmark: string;
   continuation: null | { sourceResultHash: string; reusedIterations: number };
   budget: { maximum: number; previousEvaluated: number; additional: number };
-  work: { completedSimulations: number; plannedSimulations: number };
+  work: { completedCases: number; plannedCases: number };
 }
 
 export type DesignRunProgress =
@@ -203,7 +224,11 @@ export type DesignRunProgress =
     candidateScore?: number;
     scoreDelta?: number;
     candidateCapacityReady?: boolean;
+    cached?: boolean;
+    timing: BlueprintBenchmarkProgress["timing"];
   }
+  | DesignRunProgressBase & { phase: "driver-replay-started"; iteration: number; nodeId: DesignSearchNodeId; case: BlueprintBenchmarkProgress["case"] }
+  | DesignRunProgressBase & { phase: "driver-replay-completed"; iteration: number; nodeId: DesignSearchNodeId; case: BlueprintBenchmarkProgress["case"]; durationMs: number }
   | DesignRunProgressBase & { phase: "proposal-started"; iteration: number; branch: ResearchBranchContext; promotionBoundary: ResearchPromotionBoundary; driverEvidence: DesignDriverEvidence }
   | DesignRunProgressBase & { phase: "proposal-completed"; iteration: number; branch: ResearchBranchContext; promotionBoundary: ResearchPromotionBoundary; strategy: string; decisionFamily: DesignDecisionFamily; addressedLoss?: FabLossBucketId; addressedLossTarget?: ResearchLossTarget; addressedCase?: string; driverEvidence: DesignDriverEvidence; proposalHash: string }
   | DesignRunProgressBase & { phase: "loss-target-completed"; iteration: number; strategy: string; addressedLoss: FabLossBucketId; candidateDriverEvidence: DesignDriverEvidence; lossTargetEvidence: DesignLossTargetEvidence }
@@ -511,6 +536,8 @@ interface DesignSearchNode {
   depth: number;
   blueprintHash: string;
   evaluation: BlueprintBenchmarkResult;
+  driverEvidence?: DesignDriverEvidence;
+  driverSimulation?: SimulationResult;
   blueprint?: Blueprint;
   history: ResearchHistoryEntry[];
 }
@@ -847,6 +874,7 @@ function rebuildDesignFrontierState(
       "design.continuation-diverged",
       `Design run '${manifest.resultHash}' iteration ${iteration.iteration} has no reconstructable parent Blueprint`,
     );
+    parent.driverEvidence ??= structuredClone(iteration.driverEvidence);
     if (iteration.error !== undefined) {
       parent.history.push({
         iteration: iteration.iteration,
@@ -877,6 +905,9 @@ function rebuildDesignFrontierState(
       depth: parent.depth + 1,
       blueprintHash: candidateHash,
       evaluation: iteration.evaluation!,
+      ...(iteration.candidateDriverEvidence
+        ? { driverEvidence: structuredClone(iteration.candidateDriverEvidence) }
+        : {}),
       blueprint: candidateBlueprint,
       history: [],
     };
@@ -1169,26 +1200,28 @@ export async function runDesignProgram(
   const previousEvaluated = source?.manifest.budget.evaluated ?? 0;
   const maximum = (source?.manifest.budget.maximum ?? 0) + additionalMaximum;
   let sequence = 0;
-  let completedSimulations = 0;
-  let plannedSimulations = benchmark.cases.length * (additionalMaximum + (source ? 1 : 2));
+  let completedCases = 0;
+  let plannedCases = benchmark.cases.length * (additionalMaximum + (source ? 1 : 2));
   const progressBase = (): DesignRunProgressBase => ({
-    version: 2,
+    version: 3,
     sequence: ++sequence,
     program: program.id,
     benchmark: benchmark.id,
     continuation: source ? { sourceResultHash: source.manifest.resultHash, reusedIterations: source.manifest.iterations.length } : null,
     budget: { maximum, previousEvaluated, additional: additionalMaximum },
-    work: { completedSimulations, plannedSimulations },
+    work: { completedCases, plannedCases },
   });
   const emit = (progress: DesignRunProgressPayload) => {
     options.onProgress?.({ ...progressBase(), ...progress } as DesignRunProgress);
   };
   const benchmarkProgress = (kind: "baseline" | "seed" | "candidate", iteration: number) => (progress: BlueprintBenchmarkProgress) => {
-    if (progress.phase.endsWith("completed")) completedSimulations++;
+    if (progress.phase.endsWith("completed")) completedCases++;
     emit({
       phase: progress.phase.endsWith("started") ? "case-started" : "case-completed",
       evaluation: { kind, id: progress.evaluationId, iteration },
       case: progress.case,
+      timing: progress.timing,
+      ...(progress.cached === undefined ? {} : { cached: progress.cached }),
       ...(progress.baselineScore === undefined ? {} : { baselineScore: progress.baselineScore }),
       ...(progress.candidateScore === undefined ? {} : { candidateScore: progress.candidateScore }),
       ...(progress.scoreDelta === undefined ? {} : { scoreDelta: progress.scoreDelta }),
@@ -1203,10 +1236,18 @@ export async function runDesignProgram(
   const driverCase = prepared.driverCase;
   const loaded = prepared.loaded;
   const seedBlueprint = structuredClone(prepared.seedBlueprint);
+  let seedDriverProject: CompiledFactoryProject | undefined;
+  let seedDriverSimulation: SimulationResult | undefined;
   const seedEvaluation = source?.manifest.seed.evaluation ?? await evaluatePreparedBlueprintBenchmark(preparedBenchmark, {
       candidateBlueprint: seedBlueprint,
       evaluationId: "seed",
       onProgress: benchmarkProgress("seed", 0),
+      onCandidateCaseEvaluated: ({ case: item, project, simulation }) => {
+        if (item.id === driverCase.id) {
+          seedDriverProject = project;
+          seedDriverSimulation = simulation;
+        }
+      },
     });
   const seedHash = hashValue(seedBlueprint);
   if (seedHash !== brief.seed.blueprintHash) throw new Error(`Design Program '${program.id}' resolved inconsistent seed identities`);
@@ -1239,6 +1280,12 @@ export async function runDesignProgram(
         depth: 0,
         blueprintHash: seedHash,
         evaluation: seedEvaluation,
+        ...(seedDriverProject && seedDriverSimulation
+          ? {
+            driverEvidence: designDriverEvidence(seedDriverProject, seedDriverSimulation),
+            driverSimulation: seedDriverSimulation,
+          }
+          : {}),
         blueprint: seedBlueprint,
         history: [],
       }]]),
@@ -1255,11 +1302,38 @@ export async function runDesignProgram(
     const parent = frontierState.nodes.get(selectedNodeId)!;
     const leader = frontierState.nodes.get(frontierState.leader)!;
     const driverProject = compileFactoryProject(withBlueprint(loaded, parent.blueprint!));
-    const driverResult = runUntil(driverProject, undefined, { seed: driverCase.seed });
-    const driverEvidence: DesignDriverEvidence = {
-      metricsHash: hashValue(driverResult.metrics),
-      fabLoss: analyzeFabLossProfile(driverResult.metrics, driverProject.scenario.durationTicks, driverProject, driverResult.events),
-    };
+    let driverResult = parent.driverSimulation;
+    if (!driverResult) {
+      const replayStartedAt = performance.now();
+      emit({ phase: "driver-replay-started", iteration, nodeId: parent.nodeId, case: {
+        id: driverCase.id,
+        name: driverCase.name,
+        index: benchmark.cases.findIndex((item) => item.id === driverCase.id) + 1,
+        total: benchmark.cases.length,
+      } });
+      driverResult = runUntil(driverProject, undefined, { seed: driverCase.seed });
+      emit({
+        phase: "driver-replay-completed",
+        iteration,
+        nodeId: parent.nodeId,
+        case: {
+          id: driverCase.id,
+          name: driverCase.name,
+          index: benchmark.cases.findIndex((item) => item.id === driverCase.id) + 1,
+          total: benchmark.cases.length,
+        },
+        durationMs: performance.now() - replayStartedAt,
+      });
+      parent.driverSimulation = driverResult;
+    }
+    const driverEvidence = designDriverEvidence(driverProject, driverResult);
+    if (parent.driverEvidence && stableStringify(parent.driverEvidence) !== stableStringify(driverEvidence)) {
+      throw new DesignRunError(
+        "design.continuation-diverged",
+        `Design node '${parent.nodeId}' driver replay no longer matches its immutable evidence`,
+      );
+    }
+    parent.driverEvidence = driverEvidence;
     const history = structuredClone(parent.history);
     const branch: ResearchBranchContext = {
       nodeId: parent.nodeId,
@@ -1327,27 +1401,26 @@ export async function runDesignProgram(
       // the declared seed; revision lineage belongs to Candidate apply, not search order.
       candidateBlueprint.revision = brief.promotionBase.hash;
       compileFactoryProject(withBlueprint(loaded, candidateBlueprint));
+      let candidateDriverSimulation: SimulationResult | undefined;
+      let candidateDriverProject: CompiledFactoryProject | undefined;
       const evaluation = await evaluatePreparedBlueprintBenchmark(preparedBenchmark, {
         candidateBlueprint,
         evaluationId: `candidate-${iteration}`,
         onProgress: benchmarkProgress("candidate", iteration),
+        onCandidateCaseEvaluated: ({ case: item, project, simulation }) => {
+          if (item.id === driverCase.id) {
+            candidateDriverProject = project;
+            candidateDriverSimulation = simulation;
+          }
+        },
       });
       let candidateDriverEvidence: DesignDriverEvidence | undefined;
       let lossTargetEvidence: DesignLossTargetEvidence | undefined;
       if (proposal.addressedLossTarget) {
-        plannedSimulations++;
-        const candidateDriverProject = compileFactoryProject(withBlueprint(loaded, candidateBlueprint));
-        const candidateDriverResult = runUntil(candidateDriverProject, undefined, { seed: driverCase.seed });
-        completedSimulations++;
-        candidateDriverEvidence = {
-          metricsHash: hashValue(candidateDriverResult.metrics),
-          fabLoss: analyzeFabLossProfile(
-            candidateDriverResult.metrics,
-            candidateDriverProject.scenario.durationTicks,
-            candidateDriverProject,
-            candidateDriverResult.events,
-          ),
-        };
+        if (!candidateDriverProject || !candidateDriverSimulation) throw new Error(
+          `Design Program '${program.id}' did not evaluate driver case '${driverCase.id}'`,
+        );
+        candidateDriverEvidence = designDriverEvidence(candidateDriverProject, candidateDriverSimulation);
         lossTargetEvidence = addressedLossTargetEvidence(
           proposal.addressedLoss!,
           proposal.addressedLossTarget,
@@ -1374,6 +1447,13 @@ export async function runDesignProgram(
         depth: parent.depth + 1,
         blueprintHash: hashValue(candidateBlueprint),
         evaluation,
+        ...(candidateDriverSimulation
+          ? {
+            driverEvidence: candidateDriverEvidence
+              ?? designDriverEvidence(candidateDriverProject!, candidateDriverSimulation),
+            driverSimulation: candidateDriverSimulation,
+          }
+          : {}),
         blueprint: candidateBlueprint,
         history: [],
       };
@@ -1497,7 +1577,7 @@ export async function runDesignProgram(
   };
   const manifest: DesignRunManifest = { ...withoutHash, resultHash: hashValue(manifestHashInput(withoutHash)) };
   const artifact = await writeDesignRunArtifact(brief.project.rootDir, manifest, bestBlueprint);
-  plannedSimulations = completedSimulations;
+  plannedCases = completedCases;
   emit({ phase: "run-completed", resultHash: manifest.resultHash, stopReason: manifest.stopReason, best: manifest.best });
   return { manifest, bestBlueprint, artifact };
 }
