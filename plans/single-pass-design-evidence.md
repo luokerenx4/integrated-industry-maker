@@ -1,6 +1,6 @@
 # Single-pass Design evidence
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-28`
 - Related design: [[docs/design/design-programs]], [[docs/design/experiment-workbench]], [[docs/design/development-operations]], [[docs/design/fab-loss-attribution]], and [[docs/design/simulation-runtime]].
 
@@ -39,7 +39,7 @@ INM is pre-alpha. This plan replaces the misleading progress fields directly and
 - [x] Causal loss evidence, Candidate verdict, immutable result hash, events, and metrics remain exact.
 - [x] CLI and Studio show identical honest case progress, cache reuse, and elapsed timing without calling cached work a simulation.
 - [x] The representative one-Candidate memory-fab run is materially faster than the recorded `18,930 ms` baseline.
-- [ ] Focused tests, a real Design run, browser observation, full verification, commit, and push pass.
+- [x] Focused tests, a real Design run, browser observation, full verification, commit, and push pass.
 
 ## Work
 
@@ -47,7 +47,7 @@ INM is pre-alpha. This plan replaces the misleading progress fields directly and
 - [x] Add a single-pass case-result projection at the Benchmark boundary.
 - [x] Reuse driver evidence across seed, Candidate, and retained frontier nodes.
 - [x] Replace Design progress fields and update CLI, Studio, tests, and durable design docs.
-- [ ] Measure, visually verify, complete all gates, commit, and push.
+- [x] Measure, visually verify, complete all gates, commit, and push.
 
 ## Findings and decisions
 
@@ -73,7 +73,10 @@ INM is pre-alpha. This plan replaces the misleading progress fields directly and
 - 2026-07-28 — Plan created from real full-checkpoint and one-Candidate Design timing evidence.
 - 2026-07-28 — Implemented single-pass driver trace projection, Design progress V3, exact continuation replay visibility, and persistent Studio timing after browser-led correction.
 - 2026-07-28 — Corrected the deterministic-versus-operational progress contract, passed every final gate, and prepared the checkpoint for `main`.
+- 2026-07-28 — Committed the implementation as `9dcdf50` and pushed it to `origin/main`.
 
 ## Completion
 
-Complete this section after the implementation checkpoint is committed and pushed.
+Fresh Design now reuses the exact locked driver-case `SimulationResult` for causal evidence and performs zero hidden seed, parent, or Candidate replay. The representative one-Candidate run improved from `18,930 ms` to `15,900 ms` (about 16%), while the six-Candidate focused run improved from `81.19 s` to `63.25 s` (about 22%). Both retained exact immutable artifact identities; the one-Candidate result remained `197c4310560a…`.
+
+Core, CLI, and Studio now share Design progress V3 with honest case counts, cache reuse, phase timings, and explicit historical continuation replay. Studio keeps the most recently completed case visible while the next case runs. Full repository and example-project verification passed before implementation commit `9dcdf50` was pushed to `origin/main`.
