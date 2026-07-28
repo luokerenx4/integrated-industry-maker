@@ -118,7 +118,7 @@ Treatment-aware jobs use the same host boundary. Programs see exact level batche
 
 Device programs are trusted local project code, not a security sandbox. They must be synchronous and deterministic; clocks, network access, ambient process state, and unseeded randomness are outside the runtime contract. Their exact context is exposed through one invocation-scoped read-only lifetime: mutation fails, accepted decisions are detached by host parsing, and every root or nested view expires before control returns to the simulator.
 
-Parallel locked cases remain isolated jobs even when their Worker runtimes are reused. A Design operation owns one bounded set across seed and Candidate waves, sends every job its complete exact identity and Blueprint, resets the set after a failed wave, and disposes it at the operation boundary. Worker lifecycle and timing never enter industrial hashes or Design authority.
+Locked-case host scheduling is explicit. CLI `auto` runs one/two-case work sequentially and uses bounded parallel Workers for larger sets; Studio requests responsive `background` execution, which uses one isolated Worker for one/two cases and the same bounded parallel policy for larger sets. Uncached baseline, seed, and Candidate waves share one operation-owned Worker set. Every job still carries its complete exact identity and Blueprint; a failed wave resets the set and the operation boundary disposes it. Worker lifecycle and timing never enter industrial hashes or Design authority.
 
 ## Runtime and determinism
 

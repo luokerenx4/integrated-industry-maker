@@ -473,35 +473,103 @@ export async function evaluateBlueprintBenchmark(
   benchmarkId: string,
   options: BlueprintBenchmarkEvaluationOptions = {},
 ): Promise<BlueprintBenchmarkResult> {
-  const prepared = await prepareBlueprintBenchmark(projectDir, benchmarkId, {
-    onProgress: options.onProgress,
-    evaluationId: options.evaluationId ?? "evaluation",
-    signal: options.signal,
-  });
-  return evaluatePreparedBlueprintBenchmark(prepared, options);
+  const manifest = await loadBlueprintBenchmark(projectDir, benchmarkId);
+  assertBenchmarkLock(manifest, benchmarkId);
+  const execution = resolveBenchmarkCaseExecution(manifest.cases.length, options.caseExecution);
+  const caseExecutor = options.caseExecutor
+    ?? (execution.mode === "sequential" ? undefined : createBenchmarkCaseExecutor(execution));
+  const ownedExecutor = options.caseExecutor ? undefined : caseExecutor;
+  try {
+    const prepared = await prepareLoadedBlueprintBenchmark(projectDir, manifest, {
+      onProgress: options.onProgress,
+      evaluationId: options.evaluationId ?? "evaluation",
+      signal: options.signal,
+      caseExecution: options.caseExecution,
+      caseExecutor,
+    });
+    return await evaluatePreparedBlueprintBenchmark(prepared, { ...options, caseExecutor });
+  } finally {
+    ownedExecutor?.dispose();
+  }
 }
 
 export async function prepareBlueprintBenchmark(
   projectDir: string,
   benchmarkId: string,
-  options: Pick<BlueprintBenchmarkEvaluationOptions, "onProgress" | "evaluationId" | "signal"> = {},
+  options: Pick<BlueprintBenchmarkEvaluationOptions, "onProgress" | "evaluationId" | "signal" | "caseExecution" | "caseExecutor"> = {},
 ): Promise<PreparedBlueprintBenchmark> {
   const manifest = await loadBlueprintBenchmark(projectDir, benchmarkId);
   assertBenchmarkLock(manifest, benchmarkId);
+  const execution = resolveBenchmarkCaseExecution(manifest.cases.length, options.caseExecution);
+  const caseExecutor = options.caseExecutor
+    ?? (execution.mode === "sequential" ? undefined : createBenchmarkCaseExecutor(execution));
+  const ownedExecutor = options.caseExecutor ? undefined : caseExecutor;
+  try {
+    return await prepareLoadedBlueprintBenchmark(projectDir, manifest, { ...options, caseExecutor });
+  } finally {
+    ownedExecutor?.dispose();
+  }
+}
+
+async function prepareLoadedBlueprintBenchmark(
+  projectDir: string,
+  manifest: BlueprintBenchmarkManifest & { lock: NonNullable<BlueprintBenchmarkManifest["lock"]> },
+  options: Pick<BlueprintBenchmarkEvaluationOptions, "onProgress" | "evaluationId" | "signal" | "caseExecution" | "caseExecutor">,
+): Promise<PreparedBlueprintBenchmark> {
   const evaluationId = options.evaluationId ?? "evaluation";
-  const cases: PreparedBlueprintBenchmarkCase[] = [];
+  const execution = resolveBenchmarkCaseExecution(manifest.cases.length, options.caseExecution);
+  if (options.caseExecutor && (
+    options.caseExecutor.execution.mode !== execution.mode
+    || options.caseExecutor.execution.concurrency !== execution.concurrency
+  )) throw new Error(
+    `Benchmark case executor ${options.caseExecutor.execution.mode} ×${options.caseExecutor.execution.concurrency}`
+    + ` does not match requested ${execution.mode} ×${execution.concurrency}`,
+  );
+  const cases = new Array<PreparedBlueprintBenchmarkCase>(manifest.cases.length);
+  const deferredTimings = new Array<BlueprintBenchmarkProgress["timing"]>(manifest.cases.length);
+  const pending: Array<{
+    index: number;
+    item: BlueprintBenchmarkManifest["cases"][number];
+    baseline: CompiledFactoryProject;
+    compileMs: number;
+    cacheReadMs: number;
+  }> = [];
+  let sequence = 0;
+  let completed = 0;
+  const emitCompleted = (
+    index: number,
+    evaluation: FactoryBlueprintEvaluation,
+    cached: boolean,
+    timing: BlueprintBenchmarkProgress["timing"],
+  ) => {
+    const item = manifest.cases[index]!;
+    completed++;
+    options.onProgress?.({
+      version: 3,
+      sequence: ++sequence,
+      phase: "baseline-case-completed",
+      benchmark: manifest.id,
+      case: { id: item.id, name: item.name, index: index + 1, total: manifest.cases.length },
+      work: { completed, total: manifest.cases.length * 2 },
+      execution,
+      evaluationId,
+      timing,
+      baselineScore: evaluation.metrics.score,
+      cached,
+    });
+  };
   for (const [index, item] of manifest.cases.entries()) {
     options.signal?.throwIfAborted();
     const caseIdentity = { id: item.id, name: item.name, index: index + 1, total: manifest.cases.length };
     const caseStartedAt = performance.now();
     options.onProgress?.({
       version: 3,
-      sequence: index * 2 + 1,
+      sequence: ++sequence,
       phase: "baseline-case-started",
       benchmark: manifest.id,
       case: caseIdentity,
-      work: { completed: index, total: manifest.cases.length * 2 },
-      execution: { mode: "sequential", concurrency: 1 },
+      work: { completed, total: manifest.cases.length * 2 },
+      execution,
       evaluationId,
       timing: {},
     });
@@ -510,30 +578,89 @@ export async function prepareBlueprintBenchmark(
       world: item.world, blueprint: manifest.baselineBlueprint, scenario: item.scenario, objective: item.objective,
     });
     const compileMs = performance.now() - compileStartedAt;
-    assertLockedHashes(benchmarkId, item.id, manifest.lock.cases[item.id]!, baseline.hashes);
+    assertLockedHashes(manifest.id, item.id, manifest.lock.cases[item.id]!, baseline.hashes);
     const cacheStartedAt = performance.now();
     const cachedEvaluation = await readCachedBaselineEvaluation(projectDir, manifest, item, baseline);
     const cacheReadMs = performance.now() - cacheStartedAt;
     const cached = cachedEvaluation !== null;
+    if (cachedEvaluation) {
+      cases[index] = { manifest: item, baseline, evaluation: cachedEvaluation, cached };
+      const timing = {
+        durationMs: performance.now() - caseStartedAt,
+        compileMs,
+        cacheReadMs,
+        evaluationMs: 0,
+      };
+      if (execution.mode === "sequential") emitCompleted(index, cachedEvaluation, cached, timing);
+      else deferredTimings[index] = timing;
+      continue;
+    }
+    if (execution.mode !== "sequential") {
+      pending.push({ index, item, baseline, compileMs, cacheReadMs });
+      continue;
+    }
     const evaluationStartedAt = performance.now();
-    const evaluation = cachedEvaluation ?? evaluateFactoryBlueprint(baseline, manifest.baselineBlueprint, item.seed);
-    const evaluationMs = cached ? 0 : performance.now() - evaluationStartedAt;
-    if (!cached) await writeCachedBaselineEvaluation(projectDir, manifest, item, baseline, evaluation);
+    const evaluation = evaluateFactoryBlueprint(baseline, manifest.baselineBlueprint, item.seed);
+    const evaluationMs = performance.now() - evaluationStartedAt;
+    await writeCachedBaselineEvaluation(projectDir, manifest, item, baseline, evaluation);
     options.signal?.throwIfAborted();
-    cases.push({ manifest: item, baseline, evaluation, cached });
-    options.onProgress?.({
-      version: 3,
-      sequence: index * 2 + 2,
-      phase: "baseline-case-completed",
-      benchmark: manifest.id,
-      case: caseIdentity,
-      work: { completed: index + 1, total: manifest.cases.length * 2 },
-      execution: { mode: "sequential", concurrency: 1 },
-      evaluationId,
-      timing: { durationMs: performance.now() - caseStartedAt, compileMs, cacheReadMs, evaluationMs },
-      baselineScore: evaluation.metrics.score,
-      cached,
+    cases[index] = { manifest: item, baseline, evaluation, cached };
+    emitCompleted(index, evaluation, cached, {
+      durationMs: performance.now() - caseStartedAt,
+      compileMs,
+      cacheReadMs,
+      evaluationMs,
     });
+  }
+  if (pending.length) {
+    const caseExecutor = options.caseExecutor ?? createBenchmarkCaseExecutor(execution);
+    const ownedExecutor = options.caseExecutor ? undefined : caseExecutor;
+    let results: BenchmarkCaseWorkerResult[];
+    try {
+      results = await caseExecutor.execute(pending.map(({ item, baseline }) => ({
+        id: item.id,
+        projectDir: resolve(projectDir),
+        selection: { world: item.world, scenario: item.scenario, objective: item.objective },
+        blueprintName: manifest.baselineBlueprint,
+        blueprint: structuredClone(baseline.blueprint),
+        seed: item.seed,
+        includeTrace: false,
+      })), { signal: options.signal });
+    } finally {
+      ownedExecutor?.dispose();
+    }
+    for (const [pendingIndex, result] of results.entries()) {
+      options.signal?.throwIfAborted();
+      const item = pending[pendingIndex]!;
+      if (result.id !== item.item.id) throw new Error(
+        `Benchmark worker returned baseline case '${result.id}' for '${item.item.id}'`,
+      );
+      if (result.evaluation.blueprintHash !== item.baseline.hashes.blueprintHash) throw new Error(
+        `Benchmark worker baseline case '${result.id}' evaluated Blueprint ${result.evaluation.blueprintHash}, not ${item.baseline.hashes.blueprintHash}`,
+      );
+      const cacheWriteStartedAt = performance.now();
+      await writeCachedBaselineEvaluation(projectDir, manifest, item.item, item.baseline, result.evaluation);
+      const cacheWriteMs = performance.now() - cacheWriteStartedAt;
+      cases[item.index] = {
+        manifest: item.item,
+        baseline: item.baseline,
+        evaluation: result.evaluation,
+        cached: false,
+      };
+      deferredTimings[item.index] = {
+        durationMs: item.compileMs + item.cacheReadMs + result.timing.durationMs + cacheWriteMs,
+        compileMs: item.compileMs + result.timing.compileMs,
+        cacheReadMs: item.cacheReadMs,
+        evaluationMs: result.timing.evaluationMs,
+        workerStartupMs: result.timing.workerStartupMs,
+        workerReused: result.timing.workerReused,
+        workerSlot: result.timing.workerSlot,
+      };
+    }
+  }
+  if (execution.mode !== "sequential") for (const [index, item] of cases.entries()) {
+    options.signal?.throwIfAborted();
+    emitCompleted(index, item.evaluation, item.cached, deferredTimings[index]!);
   }
   return { projectDir: resolve(projectDir), manifest, cases };
 }

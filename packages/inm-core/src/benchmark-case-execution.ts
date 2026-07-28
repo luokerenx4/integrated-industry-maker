@@ -3,8 +3,8 @@ import type { FactoryBlueprintEvaluation } from "./blueprint-comparison";
 import type { ProjectSelection } from "./loader";
 import type { Blueprint, SimulationResult } from "./types";
 
-export type BenchmarkCaseExecutionMode = "sequential" | "parallel";
-export type BenchmarkCaseExecutionRequest = "auto" | BenchmarkCaseExecutionMode;
+export type BenchmarkCaseExecutionMode = "sequential" | "isolated" | "parallel";
+export type BenchmarkCaseExecutionRequest = "auto" | "background" | BenchmarkCaseExecutionMode;
 
 export interface BenchmarkCaseExecution {
   mode: BenchmarkCaseExecutionMode;
@@ -80,8 +80,10 @@ export function resolveBenchmarkCaseExecution(
 ): BenchmarkCaseExecution {
   if (!Number.isSafeInteger(caseCount) || caseCount < 1) throw new Error("Benchmark case count must be a positive integer");
   if (request === "sequential" || (request === "auto" && caseCount < 3)) return { mode: "sequential", concurrency: 1 };
+  if (request === "isolated" || (request === "background" && caseCount < 3)) return { mode: "isolated", concurrency: 1 };
   const concurrency = Math.min(caseCount, 8, Math.max(1, availableParallelism() - 1));
-  return concurrency > 1 ? { mode: "parallel", concurrency } : { mode: "sequential", concurrency: 1 };
+  if (concurrency > 1) return { mode: "parallel", concurrency };
+  return request === "auto" ? { mode: "sequential", concurrency: 1 } : { mode: "isolated", concurrency: 1 };
 }
 
 function cancellationReason(signal: AbortSignal): unknown {
@@ -243,8 +245,11 @@ class ReusableBenchmarkCaseExecutor implements BenchmarkCaseExecutor {
   private completedWaves = 0;
 
   constructor(readonly execution: BenchmarkCaseExecution) {
-    if (execution.mode !== "parallel" || execution.concurrency < 2) {
-      throw new Error("Benchmark case executor requires parallel execution");
+    const valid = execution.mode === "isolated"
+      ? execution.concurrency === 1
+      : execution.mode === "parallel" && execution.concurrency >= 2;
+    if (!valid) {
+      throw new Error("Benchmark case executor requires isolated ×1 or parallel ×2+ execution");
     }
   }
 

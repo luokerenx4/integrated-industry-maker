@@ -12,6 +12,7 @@ import {
   validateProjectOperation,
 } from "./operation";
 import {
+  evaluateBlueprintBenchmark,
   evaluatePreparedBlueprintBenchmark,
   prepareBlueprintBenchmark,
   type BlueprintBenchmarkProgress,
@@ -187,6 +188,49 @@ test("parallel Benchmark cases preserve exact ordered evidence and terminate coo
   })).rejects.toMatchObject({ name: "AbortError" });
   expect(starts).toBe(prepared.cases.length);
 }, 45_000);
+
+test("background Benchmark execution shares one isolated Worker across cold baseline and candidate evidence", async () => {
+  const projectDir = await temporaryProject("memory-fab");
+  const executor = createBenchmarkCaseExecutor(resolveBenchmarkCaseExecution(1, "background"));
+  const progress: BlueprintBenchmarkProgress[] = [];
+  let isolatedTrace: SimulationResult | undefined;
+  const isolated = await evaluateBlueprintBenchmark(projectDir, "equipment-energy-research", {
+    caseExecution: "background",
+    caseExecutor: executor,
+    traceCaseId: "equipment-energy-window",
+    onTraceCaseEvaluated: ({ simulation }) => { isolatedTrace = simulation; },
+    onProgress: (event) => progress.push(event),
+  });
+  let sequentialTrace: SimulationResult | undefined;
+  const sequential = await evaluateBlueprintBenchmark(projectDir, "equipment-energy-research", {
+    caseExecution: "sequential",
+    traceCaseId: "equipment-energy-window",
+    onTraceCaseEvaluated: ({ simulation }) => { sequentialTrace = simulation; },
+  });
+
+  expect(stableStringify(isolated)).toBe(stableStringify(sequential));
+  expect(hashValue(isolatedTrace)).toBe(hashValue(sequentialTrace));
+  expect(progress.map((event) => event.phase)).toEqual([
+    "baseline-case-started",
+    "baseline-case-completed",
+    "candidate-case-started",
+    "candidate-case-completed",
+  ]);
+  expect(progress.map((event) => event.sequence)).toEqual([1, 2, 3, 4]);
+  expect(progress.every((event) => event.execution.mode === "isolated"
+    && event.execution.concurrency === 1)).toBeTrue();
+  expect(progress[1]!.cached).toBeFalse();
+  expect(progress[1]!.timing).toEqual(expect.objectContaining({
+    workerReused: false,
+    workerSlot: 0,
+  }));
+  expect(progress[3]!.timing).toEqual(expect.objectContaining({
+    workerReused: true,
+    workerSlot: 0,
+  }));
+  expect(executor.stats()).toEqual({ workerStarts: 1, completedJobs: 2, completedWaves: 2 });
+  executor.dispose();
+}, 20_000);
 
 test("aborting after Candidate simulation cannot record a partial review receipt", async () => {
   const projectDir = await temporaryProject("memory-fab");

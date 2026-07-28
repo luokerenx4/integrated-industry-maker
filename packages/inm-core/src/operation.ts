@@ -7,6 +7,7 @@ import {
   type BlueprintBenchmarkProgressHandler,
   type BlueprintBenchmarkResult,
 } from "./benchmark";
+import type { BenchmarkCaseExecutionRequest } from "./benchmark-case-execution";
 import { inspectCandidateDecision, recordCandidateReview } from "./candidate-review";
 import {
   applyCandidateChangeSet,
@@ -198,6 +199,7 @@ async function benchmarkProject(projectDir: string, benchmarkId: string, candida
 export interface ObservableEvaluationOptions {
   onProgress?: BlueprintBenchmarkProgressHandler;
   signal?: AbortSignal;
+  caseExecution?: BenchmarkCaseExecutionRequest;
 }
 
 export async function evaluateBenchmarkOperation(
@@ -212,6 +214,7 @@ export async function evaluateBenchmarkOperation(
       evaluationId: `benchmark:${benchmarkId}`,
       onProgress: options.onProgress,
       signal: options.signal,
+      caseExecution: options.caseExecution,
     });
     return {
       diagnostics: [],

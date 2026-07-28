@@ -10,12 +10,38 @@ import { loadFactoryProject } from "./loader";
 test("Benchmark case execution remains sequential for small work and bounds parallel workers", () => {
   expect(resolveBenchmarkCaseExecution(1)).toEqual({ mode: "sequential", concurrency: 1 });
   expect(resolveBenchmarkCaseExecution(2)).toEqual({ mode: "sequential", concurrency: 1 });
+  expect(resolveBenchmarkCaseExecution(1, "background")).toEqual({ mode: "isolated", concurrency: 1 });
+  expect(resolveBenchmarkCaseExecution(2, "background")).toEqual({ mode: "isolated", concurrency: 1 });
+  expect(resolveBenchmarkCaseExecution(1, "isolated")).toEqual({ mode: "isolated", concurrency: 1 });
   expect(resolveBenchmarkCaseExecution(5, "sequential")).toEqual({ mode: "sequential", concurrency: 1 });
+  expect(resolveBenchmarkCaseExecution(5, "background").mode).toBe("parallel");
   const parallel = resolveBenchmarkCaseExecution(128, "parallel");
   expect(parallel.mode).toBe("parallel");
   expect(parallel.concurrency).toBeGreaterThan(1);
   expect(parallel.concurrency).toBeLessThanOrEqual(8);
 });
+
+test("isolated execution reuses one Worker while keeping jobs in exact order", async () => {
+  const projectDir = resolve(import.meta.dir, "../../../examples/ironworks");
+  const loaded = await loadFactoryProject(projectDir);
+  const job = (id: string): BenchmarkCaseWorkerJob => ({
+    id,
+    projectDir,
+    selection: { world: "main", scenario: "baseline", objective: "default" },
+    blueprintName: "main",
+    blueprint: structuredClone(loaded.blueprint),
+    seed: 42,
+    includeTrace: false,
+  });
+  const executor = createBenchmarkCaseExecutor({ mode: "isolated", concurrency: 1 });
+  const results = await executor.execute([job("first"), job("second")]);
+
+  expect(results.map((result) => result.id)).toEqual(["first", "second"]);
+  expect(results[0]!.timing).toEqual(expect.objectContaining({ workerReused: false, workerSlot: 0 }));
+  expect(results[1]!.timing).toEqual(expect.objectContaining({ workerReused: true, workerSlot: 0 }));
+  expect(executor.stats()).toEqual({ workerStarts: 1, completedJobs: 2, completedWaves: 1 });
+  executor.dispose();
+}, 15_000);
 
 test("a failed worker wave is replaced cleanly and explicit disposal is terminal", async () => {
   const projectDir = resolve(import.meta.dir, "../../../examples/ironworks");

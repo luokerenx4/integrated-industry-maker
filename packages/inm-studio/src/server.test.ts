@@ -372,7 +372,10 @@ test("opening a project without runs does not write a Studio baseline", async ()
     expect(streamedRunOperation.progressLog).toHaveLength(4);
     expect(streamedRunOperation.progressLog[0]).toEqual(expect.objectContaining({
       version: 3, sequence: 1, work: { completed: 0, total: 2 },
+      execution: { mode: "isolated", concurrency: 1 },
     }));
+    expect(streamedRunOperation.progressLog.every((item) =>
+      "execution" in item && item.execution.mode === "isolated" && item.execution.concurrency === 1)).toBeTrue();
     expect(streamedRunOperation.result).toEqual(expect.objectContaining({
       command: "benchmark", benchmark: "power-priority", verdict: expected.verdict,
     }));
@@ -397,6 +400,8 @@ test("opening a project without runs does not write a Studio baseline", async ()
       command: "candidate"; action: "preview"; result: { verdict: string };
     }>(port, "ironworks", streamedPreviewResponse);
     expect(streamedPreviewOperation.progressLog).toHaveLength(4);
+    expect(streamedPreviewOperation.progressLog.every((item) =>
+      "execution" in item && item.execution.mode === "isolated" && item.execution.concurrency === 1)).toBeTrue();
     expect(streamedPreviewOperation.result).toEqual(expect.objectContaining({
       command: "candidate", action: "preview", result: expect.objectContaining({ verdict: "KEEP" }),
     }));
@@ -694,6 +699,8 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(progress.filter((item) => item.phase === "case-completed" && item.evaluation.kind === "candidate")).toHaveLength(5);
     expect(progress.filter((item) => item.phase === "case-completed").every((item) =>
       typeof item.timing.durationMs === "number")).toBeTrue();
+    expect(progress.filter((item) => item.phase === "case-completed").every((item) =>
+      item.execution.mode === "parallel" && item.execution.concurrency > 1)).toBeTrue();
     expect(progress.filter((item) => item.phase.startsWith("driver-replay"))).toEqual([]);
     expect(progress).toContainEqual(expect.objectContaining({
       phase: "proposal-started",

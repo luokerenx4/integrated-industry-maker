@@ -1244,16 +1244,18 @@ export async function runDesignProgram(
     });
   };
   emit({ phase: "run-started", caseCount: benchmark.cases.length });
+  const caseExecution = resolveBenchmarkCaseExecution(benchmark.cases.length, options.caseExecution);
+  const caseExecutor = caseExecution.mode === "sequential"
+    ? undefined
+    : createBenchmarkCaseExecutor(caseExecution);
+  try {
   const preparedBenchmark = await prepareBlueprintBenchmark(projectDir, program.benchmark, {
     evaluationId: "baseline",
     onProgress: benchmarkProgress("baseline", 0),
     signal: options.signal,
+    caseExecution: options.caseExecution,
+    caseExecutor,
   });
-  const caseExecution = resolveBenchmarkCaseExecution(benchmark.cases.length, options.caseExecution);
-  const caseExecutor = caseExecution.mode === "parallel"
-    ? createBenchmarkCaseExecutor(caseExecution)
-    : undefined;
-  try {
   const driverCase = prepared.driverCase;
   const loaded = prepared.loaded;
   const seedBlueprint = structuredClone(prepared.seedBlueprint);

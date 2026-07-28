@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { CandidateChangeSet, DesignDecisionEvidence, DesignProgramBrief, DesignProgramSummary, DesignRunProgress, DesignRunResult, DesignRunSummary, InvalidDesignRunSummary, ResearchPromotionBoundary } from "@inm/core";
+import type { BlueprintBenchmarkProgress, CandidateChangeSet, DesignDecisionEvidence, DesignProgramBrief, DesignProgramSummary, DesignRunProgress, DesignRunResult, DesignRunSummary, InvalidDesignRunSummary, ResearchPromotionBoundary } from "@inm/core";
 import { CadenceControlEvidence } from "./cadence-control-evidence";
 import { ScoreBreakdownDetails } from "./score-breakdown";
 import { cancelStudioOperation, followStudioOperation, listStudioOperations, readStudioOperation, startStudioOperation } from "./studio-operation-client";
@@ -73,6 +73,11 @@ function guardrailDetail(program: DesignProgramSummary): { title: string; detail
   return { title: `${Object.keys(policy.maximumCaseScoreRegression).length} CASE BUDGETS`, detail: "explicit current-best regression limits" };
 }
 
+function caseExecutionLabel(execution: BlueprintBenchmarkProgress["execution"]): string {
+  if (execution.mode === "isolated") return " · isolated worker";
+  return execution.mode === "parallel" ? ` · parallel ×${execution.concurrency}` : "";
+}
+
 function progressLabel(progress: DesignRunProgress): { title: string; detail: string } {
   if (progress.phase === "run-started") return progress.continuation
     ? { title: "REBUILDING VERIFIED FRONTIER", detail: `${shortHash(progress.continuation.sourceResultHash)} · ${progress.continuation.reusedIterations} reused iterations · ${progress.budget.additional} new candidates` }
@@ -80,8 +85,8 @@ function progressLabel(progress: DesignRunProgress): { title: string; detail: st
   if (progress.phase === "case-started" || progress.phase === "case-completed") return {
     title: `${progress.evaluation.kind.toUpperCase()} · CASE ${progress.case.index}/${progress.case.total}`,
     detail: `${progress.case.id} · ${progress.phase === "case-started"
-      ? `evaluating${progress.execution.mode === "parallel" ? ` · parallel ×${progress.execution.concurrency}` : ""}`
-      : `complete${progress.cached ? " · reused" : ""}${progress.execution.mode === "parallel" ? ` · parallel ×${progress.execution.concurrency}` : ""}${progress.timing.workerReused === undefined ? "" : progress.timing.workerReused ? ` · warm worker #${(progress.timing.workerSlot ?? 0) + 1}` : ` · cold worker #${(progress.timing.workerSlot ?? 0) + 1} · ${(progress.timing.workerStartupMs ?? 0).toFixed(0)} ms startup`}${progress.timing.durationMs === undefined ? "" : ` · ${progress.timing.durationMs.toFixed(0)} ms`}${progress.candidateScore === undefined ? "" : ` · score ${progress.candidateScore.toFixed(6)}`}`}`,
+      ? `evaluating${caseExecutionLabel(progress.execution)}`
+      : `complete${progress.cached ? " · reused" : ""}${caseExecutionLabel(progress.execution)}${progress.timing.workerReused === undefined ? "" : progress.timing.workerReused ? ` · warm worker #${(progress.timing.workerSlot ?? 0) + 1}` : ` · cold worker #${(progress.timing.workerSlot ?? 0) + 1} · ${(progress.timing.workerStartupMs ?? 0).toFixed(0)} ms startup`}${progress.timing.durationMs === undefined ? "" : ` · ${progress.timing.durationMs.toFixed(0)} ms`}${progress.candidateScore === undefined ? "" : ` · score ${progress.candidateScore.toFixed(6)}`}`}`,
   };
   if (progress.phase === "driver-replay-started" || progress.phase === "driver-replay-completed") return {
     title: "RECOVERING HISTORICAL DRIVER TRACE",
@@ -123,7 +128,7 @@ export function latestCompletedDesignCase(
 }
 
 function completedCaseLabel(progress: CompletedDesignCaseProgress): string {
-  return `LAST ${progress.evaluation.kind.toUpperCase()} · ${progress.case.id} · ${progress.cached ? "reused" : "simulated"}${progress.execution.mode === "parallel" ? ` · parallel ×${progress.execution.concurrency}` : ""}${progress.timing.workerReused === undefined ? "" : progress.timing.workerReused ? " · warm worker" : ` · cold worker · ${(progress.timing.workerStartupMs ?? 0).toFixed(0)} ms startup`}${progress.timing.durationMs === undefined ? "" : ` · ${progress.timing.durationMs.toFixed(0)} ms`}`;
+  return `LAST ${progress.evaluation.kind.toUpperCase()} · ${progress.case.id} · ${progress.cached ? "reused" : "simulated"}${caseExecutionLabel(progress.execution)}${progress.timing.workerReused === undefined ? "" : progress.timing.workerReused ? " · warm worker" : ` · cold worker · ${(progress.timing.workerStartupMs ?? 0).toFixed(0)} ms startup`}${progress.timing.durationMs === undefined ? "" : ` · ${progress.timing.durationMs.toFixed(0)} ms`}`;
 }
 
 export function DesignWorkbench({

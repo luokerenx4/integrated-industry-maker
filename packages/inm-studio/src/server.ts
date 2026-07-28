@@ -616,7 +616,9 @@ const server = Bun.serve({
         const started = await operationRegistry.start(projectDir, decoded(designExecuteMatch[1]!), {
           kind: "design-run", programId, maxCandidates,
         }, async ({ signal, report }) => {
-          const result = await runDesignProgram(projectDir, programId, { maxCandidates, signal, onProgress: report });
+          const result = await runDesignProgram(projectDir, programId, {
+            maxCandidates, signal, onProgress: report, caseExecution: "background",
+          });
           return {
             result,
             artifacts: [{ kind: "design-run", id: result.artifact.id, path: result.artifact.path, immutable: true }],
@@ -645,7 +647,9 @@ const server = Bun.serve({
         const started = await operationRegistry.start(projectDir, decoded(designContinueMatch[1]!), {
           kind: "design-continue", programId, sourceResultHash, maxCandidates,
         }, async ({ signal, report }) => {
-          const result = await continueDesignRun(projectDir, programId, sourceResultHash, { maxCandidates, signal, onProgress: report });
+          const result = await continueDesignRun(projectDir, programId, sourceResultHash, {
+            maxCandidates, signal, onProgress: report, caseExecution: "background",
+          });
           return {
             result,
             artifacts: [{ kind: "design-run", id: result.artifact.id, path: result.artifact.path, immutable: true }],
@@ -671,7 +675,9 @@ const server = Bun.serve({
         const started = await operationRegistry.start(projectDir, decoded(experimentRunMatch[1]!), {
           kind: "benchmark", benchmarkId,
         }, async ({ signal, report }) => {
-          const operation = await evaluateBenchmarkOperation(projectDir, benchmarkId, { signal, onProgress: report });
+          const operation = await evaluateBenchmarkOperation(projectDir, benchmarkId, {
+            signal, onProgress: report, caseExecution: "background",
+          });
           return {
             result: { command: "benchmark", ...operation.data, operation },
             artifacts: operation.artifacts,
@@ -715,7 +721,9 @@ const server = Bun.serve({
           const started = await operationRegistry.start(projectDir, decoded(candidateActionMatch[1]!), {
             kind: "candidate-preview", benchmarkId, candidateId,
           }, async ({ signal, report }) => {
-            const operation = await previewCandidateOperation(projectDir, candidateId, { signal, onProgress: report });
+            const operation = await previewCandidateOperation(projectDir, candidateId, {
+              signal, onProgress: report, caseExecution: "background",
+            });
             return {
               result: {
                 command: "candidate",
@@ -740,7 +748,7 @@ const server = Bun.serve({
             proposalHash: reviewed.proposalHash as string,
             currentCandidateHash: reviewed.currentCandidateHash as string,
             proposedCandidateHash: reviewed.proposedCandidateHash as string,
-          }, { signal, onProgress: report });
+          }, { signal, onProgress: report, caseExecution: "background" });
           return {
             result: { command: "candidate", action, decisionState: "verified", ...operation.data, operation },
             artifacts: operation.artifacts,

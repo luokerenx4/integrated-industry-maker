@@ -7,6 +7,7 @@ import {
   type BlueprintBenchmarkProgressHandler,
   type BlueprintBenchmarkResult,
 } from "./benchmark";
+import type { BenchmarkCaseExecutionRequest } from "./benchmark-case-execution";
 import { compileFactoryProject } from "./compiler";
 import { applyResearchPatch, validateResearchPatch } from "./research";
 import { blueprintSchema } from "./schema";
@@ -110,6 +111,7 @@ export async function listCandidateChangeSets(projectDir: string, benchmarkId?: 
 export interface CandidateEvaluationOptions {
   onProgress?: BlueprintBenchmarkProgressHandler;
   signal?: AbortSignal;
+  caseExecution?: BenchmarkCaseExecutionRequest;
 }
 
 export async function prepareCandidateChangeSet(
@@ -160,6 +162,7 @@ export async function prepareCandidateChangeSet(
       evaluationId: `candidate:${candidate.id}`,
       onProgress: options.onProgress,
       signal: options.signal,
+      caseExecution: options.caseExecution,
     });
   }
   catch (error) {

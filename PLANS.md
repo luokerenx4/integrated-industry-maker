@@ -16,7 +16,9 @@ There are no active plans.
 
 ## Proposed plans
 
-There are no proposed plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/compact-retained-operation-index]] | Separate lightweight reconnectable operation lifecycle records from dense retained industrial results. | 2026-07-29 |
 
 ## Paused plans
 
@@ -26,6 +28,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/responsive-studio-experiment-execution]] | Keep Studio responsive while every warm or cold locked Benchmark case executes outside the HTTP/UI event loop. | 2026-07-29 |
 | [[plans/project-discovered-studio-lifecycle]] | Discover or allocate a project's managed Studio port so routine lifecycle commands require no port memory. | 2026-07-29 |
 | [[plans/prepared-priority-power-consumers]] | Visit only statically possible Device/kind consumers during live priority power arbitration. | 2026-07-29 |
 | [[plans/single-pass-grid-power-observation]] | Observe exact live grid and transport power once per metric or scheduling boundary. | 2026-07-29 |
