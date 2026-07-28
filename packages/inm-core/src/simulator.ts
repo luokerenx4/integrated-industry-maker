@@ -3,9 +3,9 @@ import { evaluateFactory, type SimulationStats } from "./evaluator";
 import { evaluateDeviceProgram } from "./device-runtime";
 import { connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth, stationRouteDispatchProfile } from "./dispatch-priority";
 import type {
-  ActiveDeviceJob, BeltTransit, CarrierMission, CompiledConnection, CompiledDevice, CompiledFactoryProject, DeviceProgramDecision, DeviceRuntimeState,
-  FactoryEvent, FactoryState, InputSupplyObservation, MaintenanceCause, MaintenanceTrigger, MaterialInputShortage, ResourceBufferQuantity, ResourceTransit,
-  SimulationResult, Tick, TransportBlockCause, TransportBlockStage,
+  ActiveDeviceJob, BeltTransit, CarrierMission, CompiledConnection, CompiledDevice, CompiledFactoryProject, DeviceProgramContext, DeviceProgramDecision,
+  DeviceRuntimeState, FactoryEvent, FactoryState, InputSupplyObservation, MaintenanceCause, MaintenanceTrigger, MaterialInputShortage,
+  ResourceBufferQuantity, ResourceTransit, SimulationResult, Tick, TransportBlockCause, TransportBlockStage,
 } from "./types";
 import { hashValue } from "./utils";
 import { mutateFactoryState } from "./state";
@@ -29,6 +29,15 @@ type InternalEvent =
   | { kind: "sleep-boundary"; device: string; idleSinceTick: Tick }
   | { kind: "breakdown"; device: string }
   | { kind: "recover"; device: string };
+
+type PreparedDeviceProgramDescription = {
+  device: DeviceProgramContext["device"];
+  treatment?: NonNullable<DeviceProgramContext["treatment"]>;
+  extraction?: Omit<NonNullable<DeviceProgramContext["extraction"]>, "nodes"> & {
+    nodes: Array<Pick<NonNullable<DeviceProgramContext["extraction"]>["nodes"][number], "id" | "resource">>;
+  };
+  generation?: NonNullable<DeviceProgramContext["generation"]>;
+};
 
 export interface RunOptions { untilTick?: number; maxEvents?: number; seed?: number }
 
@@ -324,6 +333,63 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const proportionalPower = project.blueprint.policies.powerAllocation === "proportional";
   const powerGridIds = Object.keys(project.powerGrids).sort();
   const devices = Object.values(project.devices);
+  const processProgramDescriptions = new Map<
+    NonNullable<CompiledDevice["processPlan"]>,
+    NonNullable<DeviceProgramContext["process"]>
+  >();
+  const deviceProgramDescriptions: Record<string, PreparedDeviceProgramDescription> = {};
+  for (const device of devices) {
+    for (const plan of device.processPlans) processProgramDescriptions.set(plan, {
+      id: plan.definition.id,
+      name: plan.definition.name,
+      category: plan.definition.category,
+      durationTicks: plan.durationTicks,
+      mode: {
+        id: plan.mode.id,
+        name: plan.mode.name,
+        inputCycles: plan.mode.inputCycles,
+        outputCycles: plan.mode.outputCycles,
+        preventsDefects: [...plan.mode.preventsDefects],
+      },
+      powerMilliWatts: plan.powerMilliWatts,
+      inputs: plan.inputs,
+      tooling: plan.tooling,
+      toolingProviders: plan.toolingProviders,
+      utilities: plan.utilities,
+      utilityProviders: plan.utilityProviders,
+      outputs: plan.outputs,
+    });
+    const description: PreparedDeviceProgramDescription = {
+      device: { id: device.id, asset: device.asset, config: device.config ?? {} },
+    };
+    if (device.treatmentPlan) description.treatment = {
+      id: device.treatmentPlan.mode.id,
+      name: device.treatmentPlan.mode.name,
+      level: device.treatmentPlan.mode.level,
+      durationTicks: device.treatmentPlan.mode.durationTicks,
+      itemCount: device.treatmentPlan.mode.itemCount,
+      inputBuffer: device.treatmentPlan.inputBuffer,
+      outputBuffer: device.treatmentPlan.outputBuffer,
+      agent: {
+        buffer: device.treatmentPlan.agentBuffer,
+        resource: device.treatmentPlan.mode.agent.resource,
+        count: device.treatmentPlan.mode.agent.count,
+      },
+    };
+    if (device.extractionPlan) description.extraction = {
+      outputBuffer: device.extractionPlan.outputBuffer,
+      cycleTicks: device.extractionPlan.cycleTicks,
+      itemsPerCycle: device.extractionPlan.itemsPerCycle,
+      nodes: device.extractionPlan.nodes.map((node) => ({ id: node.id, resource: node.resource })),
+    };
+    if (device.generationPlan?.kind === "fuel") description.generation = {
+      kind: "fuel",
+      outputMilliWatts: device.generationPlan.outputMilliWatts,
+      fuelBuffer: device.generationPlan.fuelBuffer,
+      fuels: device.generationPlan.fuels,
+    };
+    deviceProgramDescriptions[device.id] = description;
+  }
   const devicesByRegion = Object.fromEntries(Object.keys(project.regions).map((region) => [
     region,
     devices.filter((device) => device.region === region),
@@ -2552,58 +2618,27 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     }
     if (selectedProcessPlan && requiresChangeover(device, selectedProcessPlan, commitments)) return tryStartChangeover(device, selectedProcessPlan);
     const inputStarvationChanged = setProcessInputStarvation(device, selectedProcessPlan);
-    const decision = evaluateDeviceProgram(device.asset, device.assetDef.program, {
+    const prepared = deviceProgramDescriptions[device.id]!;
+    const context: DeviceProgramContext = {
       apiVersion: 1, tick: state.tick,
-      device: { id: device.id, asset: device.asset, config: device.config ?? {} },
+      device: prepared.device,
       buffers: runtime.buffers,
       materialBatches: runtime.materialBatches,
-      ...(selectedProcessPlan ? { process: {
-        id: selectedProcessPlan.definition.id,
-        name: selectedProcessPlan.definition.name,
-        category: selectedProcessPlan.definition.category,
-        durationTicks: selectedProcessPlan.durationTicks,
-        mode: {
-          id: selectedProcessPlan.mode.id,
-          name: selectedProcessPlan.mode.name,
-          inputCycles: selectedProcessPlan.mode.inputCycles,
-          outputCycles: selectedProcessPlan.mode.outputCycles,
-          preventsDefects: [...selectedProcessPlan.mode.preventsDefects],
-        },
-        powerMilliWatts: selectedProcessPlan.powerMilliWatts,
-        inputs: selectedProcessPlan.inputs,
-        tooling: selectedProcessPlan.tooling,
-        toolingProviders: selectedProcessPlan.toolingProviders,
-        utilities: selectedProcessPlan.utilities,
-        utilityProviders: selectedProcessPlan.utilityProviders,
-        outputs: selectedProcessPlan.outputs,
-      } } : {}),
-      ...(device.treatmentPlan ? { treatment: {
-        id: device.treatmentPlan.mode.id,
-        name: device.treatmentPlan.mode.name,
-        level: device.treatmentPlan.mode.level,
-        durationTicks: device.treatmentPlan.mode.durationTicks,
-        itemCount: device.treatmentPlan.mode.itemCount,
-        inputBuffer: device.treatmentPlan.inputBuffer,
-        outputBuffer: device.treatmentPlan.outputBuffer,
-        agent: {
-          buffer: device.treatmentPlan.agentBuffer,
-          resource: device.treatmentPlan.mode.agent.resource,
-          count: device.treatmentPlan.mode.agent.count,
-        },
-      } } : {}),
-      ...(device.extractionPlan ? { extraction: {
-        outputBuffer: device.extractionPlan.outputBuffer,
-        cycleTicks: device.extractionPlan.cycleTicks,
-        itemsPerCycle: device.extractionPlan.itemsPerCycle,
-        nodes: device.extractionPlan.nodes.map((node) => ({ id: node.id, resource: node.resource, remaining: state.resourceNodes[node.id]!.remaining })),
-      } } : {}),
-      ...(device.generationPlan?.kind === "fuel" ? { generation: {
-        kind: "fuel" as const,
-        outputMilliWatts: device.generationPlan.outputMilliWatts,
-        fuelBuffer: device.generationPlan.fuelBuffer,
-        fuels: device.generationPlan.fuels,
-      } } : {}),
-    });
+    };
+    if (selectedProcessPlan) context.process = processProgramDescriptions.get(selectedProcessPlan)!;
+    if (prepared.treatment) context.treatment = prepared.treatment;
+    if (prepared.extraction) context.extraction = {
+      outputBuffer: prepared.extraction.outputBuffer,
+      cycleTicks: prepared.extraction.cycleTicks,
+      itemsPerCycle: prepared.extraction.itemsPerCycle,
+      nodes: prepared.extraction.nodes.map((node) => ({
+        id: node.id,
+        resource: node.resource,
+        remaining: state.resourceNodes[node.id]!.remaining,
+      })),
+    };
+    if (prepared.generation) context.generation = prepared.generation;
+    const decision = evaluateDeviceProgram(device.asset, device.assetDef.program, context);
     return tryDecision(device, decision, selectedProcessPlan) || inputStarvationChanged;
   };
   const rebalanceActivePower = (): boolean => {

@@ -7,7 +7,7 @@ import {
   findBlueprintConnectionPath, listRuns, loadBlueprintBenchmark, loadFactoryProject, lockBlueprintBenchmark, openFactoryProject, optimizeResourceDemand, optimizeResourceDemands, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
   hashValue, listCandidateChangeSets, previewCandidateChangeSet, stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom, evaluatePowerEnvelope, optimizePowerInfrastructure,
   parallelizeWorkCenter, rotatePortSide, specializeSharedWorkCenterCandidates, transportEndpointRotation, blueprintSchema,
-  type Blueprint, type BlueprintResearchAgent, type DeviceProgram, type FactoryEvent, type LoadedFactoryProject,
+  type Blueprint, type BlueprintResearchAgent, type DeviceProgram, type DeviceProgramContext, type FactoryEvent, type LoadedFactoryProject,
 } from "./index";
 import { ENGINE_VERSION } from "./utils";
 
@@ -2263,6 +2263,50 @@ describe("deterministic discrete-event simulation", () => {
     const first = new SeededRandom(42); const second = new SeededRandom(42); const third = new SeededRandom(43);
     const a = Array.from({ length: 8 }, () => first.nextUint32()); const b = Array.from({ length: 8 }, () => second.nextUint32()); const c = Array.from({ length: 8 }, () => third.nextUint32());
     expect(a).toEqual(b); expect(a).not.toEqual(c);
+  });
+  test("Device Program contexts preserve exact optional shape while extraction observations stay live", async () => {
+    const source = await loaded();
+    const observations: Record<string, Array<{
+      keys: string[];
+      descriptionKeys: string[];
+      process?: { id: string; mode: string };
+      remaining?: number[];
+    }>> = {};
+    for (const assetId of ["mining-machine", "smelter", "generator"]) {
+      const original = source.deviceAssets[assetId]!.program;
+      source.deviceAssets[assetId]!.program = {
+        ...original,
+        evaluate(context: Readonly<DeviceProgramContext>) {
+          const description = context.process ?? context.extraction ?? context.generation!;
+          (observations[context.device.id] ??= []).push({
+            keys: Object.keys(context),
+            descriptionKeys: Object.keys(description),
+            ...(context.process ? { process: { id: context.process.id, mode: context.process.mode.id } } : {}),
+            ...(context.extraction ? { remaining: context.extraction.nodes.map((node) => node.remaining) } : {}),
+          });
+          return original.evaluate(context);
+        },
+      };
+    }
+
+    runUntil(compileFactoryProject(source), undefined, { untilTick: 2_200 });
+
+    expect(observations["smelter-1"]![0]).toEqual(expect.objectContaining({
+      keys: ["apiVersion", "tick", "device", "buffers", "materialBatches", "process"],
+      descriptionKeys: ["id", "name", "category", "durationTicks", "mode", "powerMilliWatts", "inputs", "tooling", "toolingProviders", "utilities", "utilityProviders", "outputs"],
+      process: { id: "smelt-iron", mode: "standard" },
+    }));
+    expect(observations["generator-1"]![0]).toEqual(expect.objectContaining({
+      keys: ["apiVersion", "tick", "device", "buffers", "materialBatches", "generation"],
+      descriptionKeys: ["kind", "outputMilliWatts", "fuelBuffer", "fuels"],
+    }));
+    const extraction = observations["ore-source-1"]!;
+    expect(extraction[0]).toEqual(expect.objectContaining({
+      keys: ["apiVersion", "tick", "device", "buffers", "materialBatches", "extraction"],
+      descriptionKeys: ["outputBuffer", "cycleTicks", "itemsPerCycle", "nodes"],
+    }));
+    expect(extraction.length).toBeGreaterThan(1);
+    expect(extraction.at(-1)!.remaining![0]).toBeLessThan(extraction[0]!.remaining![0]!);
   });
   test("static production analysis exposes nominal material deficits before simulation", async () => {
     const analysis = analyzeProduction(await openFactoryProject(ironworks));
