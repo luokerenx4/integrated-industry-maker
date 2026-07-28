@@ -45,7 +45,6 @@ import {
   type ProjectSelection,
 } from "@inm/core";
 import { StudioOperationRegistry } from "./operation-registry";
-import { summarizeOperationExecution } from "@inm/core";
 
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
@@ -572,7 +571,7 @@ const server = Bun.serve({
         if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
         const projectId = decoded(operationsMatch[1]!);
         const projectDir = await projectDirectory(projectId);
-        return Response.json({ operations: (await operationRegistry.list(projectDir)).map(summarizeOperationExecution) });
+        return Response.json({ operations: await operationRegistry.list(projectDir) });
       }
 
       const retainedOperationMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/operations\/([^/]+)$/);

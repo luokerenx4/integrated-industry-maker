@@ -34,9 +34,12 @@ async function temporaryProject(example: "ironworks" | "memory-fab"): Promise<st
   const parent = await mkdtemp(join(tmpdir(), `inm-operation-${example}-`));
   temporaryDirectories.push(parent);
   const projectDir = join(parent, example);
-  await cp(join(repository, "examples", example), projectDir, { recursive: true });
-  await rm(join(projectDir, "runs"), { recursive: true, force: true });
-  await rm(join(projectDir, ".inm"), { recursive: true, force: true });
+  const source = join(repository, "examples", example);
+  const excluded = [join(source, "runs"), join(source, ".inm")];
+  await cp(source, projectDir, {
+    recursive: true,
+    filter: (path) => excluded.every((directory) => path !== directory && !path.startsWith(`${directory}/`)),
+  });
   return projectDir;
 }
 

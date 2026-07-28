@@ -117,5 +117,5 @@ export function operationExecutionError(error: unknown, signal?: AbortSignal): O
 
 export function summarizeOperationExecution(snapshot: OperationExecutionSnapshot): OperationExecutionSummary {
   const { progressLog: _, result, ...state } = snapshot;
-  return { ...state, resultAvailable: result !== null };
+  return { ...state, resultAvailable: snapshot.status === "completed" };
 }
