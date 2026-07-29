@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/selection-scoped-evidence-identity]] | Keep unused project-local design options from invalidating the exact selected factory's evidence. | 2026-07-29 |
 
 ## Proposed plans
 
