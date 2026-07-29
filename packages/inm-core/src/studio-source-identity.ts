@@ -32,6 +32,15 @@ async function collectRuntimeSourceFiles(directory: string): Promise<string[]> {
 
 export async function studioSourceHash(): Promise<string> {
   const override = process.env.INM_STUDIO_SOURCE_HASH_OVERRIDE;
+  const identityFile = process.env.INM_STUDIO_SOURCE_HASH_FILE;
+  if (override !== undefined && identityFile !== undefined) {
+    throw new Error("INM_STUDIO_SOURCE_HASH_OVERRIDE and INM_STUDIO_SOURCE_HASH_FILE are mutually exclusive");
+  }
+  if (identityFile !== undefined) {
+    const value = (await readFile(resolve(identityFile), "utf8")).trim();
+    if (!/^[0-9a-f]{64}$/.test(value)) throw new Error("INM_STUDIO_SOURCE_HASH_FILE must contain one lowercase SHA-256 value");
+    return value;
+  }
   if (override !== undefined) {
     if (!/^[0-9a-f]{64}$/.test(override)) throw new Error("INM_STUDIO_SOURCE_HASH_OVERRIDE must be a lowercase SHA-256 value");
     return override;
@@ -49,4 +58,11 @@ export async function studioSourceHash(): Promise<string> {
     hash.update("\0");
   }
   return hash.digest("hex");
+}
+
+export function studioSourceWatchPaths(): string[] {
+  const identityFile = process.env.INM_STUDIO_SOURCE_HASH_FILE;
+  return identityFile === undefined
+    ? [...sourceDirectories, ...sourceFiles]
+    : [resolve(identityFile)];
 }

@@ -26,12 +26,13 @@ const outcomeValue = (metric: string, value: number) => metric === "contractFulf
   : Number.isInteger(value) ? String(value) : value.toFixed(3);
 
 export function ExperimentWorkbench({
-  projectId, experiments, selectedId, selectedCandidateId, onSelect, onSelectCandidate, onDesignSource, onClose,
+  projectId, experiments, selectedId, selectedCandidateId, refreshRevision, onSelect, onSelectCandidate, onDesignSource, onClose,
 }: {
   projectId: string;
   experiments: BlueprintBenchmarkSummary[];
   selectedId: string | null;
   selectedCandidateId: string | null;
+  refreshRevision: number;
   onSelect: (id: string) => void;
   onSelectCandidate: (id: string | null) => void;
   onDesignSource: (programId: string, runId: string) => void;
@@ -68,7 +69,7 @@ export function ExperimentWorkbench({
       setCandidates(value.candidates);
     }).catch((nextError) => { if (active) setError(nextError instanceof Error ? nextError.message : String(nextError)); });
     return () => { active = false; };
-  }, [projectId, selectedId]);
+  }, [projectId, refreshRevision, selectedId]);
   useEffect(() => {
     setBenchmarkResult(null); setCandidatePreview(null); setDecisionState(null); setApplied(null); setApplyArmed(false); setProgress(null); setError(null);
     if (!selectedId || !selectedCandidateId) return;
@@ -80,7 +81,7 @@ export function ExperimentWorkbench({
         setCandidatePreview(value.review);
       }).catch((nextError) => { if (active) setError(nextError instanceof Error ? nextError.message : String(nextError)); });
     return () => { active = false; };
-  }, [projectId, selectedCandidateId, selectedId]);
+  }, [projectId, refreshRevision, selectedCandidateId, selectedId]);
   useEffect(() => {
     setSourceAvailable(null);
     if (!activeCandidate?.source) return;
@@ -90,7 +91,7 @@ export function ExperimentWorkbench({
       .then((response) => { if (active) setSourceAvailable(response.ok); })
       .catch(() => { if (active) setSourceAvailable(false); });
     return () => { active = false; };
-  }, [activeCandidate, projectId]);
+  }, [activeCandidate, projectId, refreshRevision]);
 
   const applyOperationSnapshot = (snapshot: OperationExecutionSnapshot<BenchmarkResponse | CandidatePreviewResponse | CandidateApplyResponse>) => {
     setActiveOperation(snapshot);

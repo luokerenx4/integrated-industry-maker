@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
 import { evaluateBlueprintBenchmark, hashValue, lockBlueprintBenchmark, openFactoryObservationBrief, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
 import { isTerminalOperationExecution, type OperationExecutionSnapshot, type OperationExecutionStartResponse } from "@inm/core";
+import { parseStudioWatchMessage, type StudioWatchEvent } from "./watch-protocol";
 
 const repository = resolve(import.meta.dir, "../../..");
 const ironworks = join(repository, "examples/ironworks");
@@ -229,6 +230,13 @@ test("Studio file watching uses WebSockets without occupying project API connect
     "--port", String(port), "--no-open",
   ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
   const sockets: WebSocket[] = [];
+  const nextMessage = (socket: WebSocket) => new Promise<StudioWatchEvent>((resolveMessage, rejectMessage) => {
+    socket.addEventListener("message", (event) => {
+      const message = parseStudioWatchMessage(String(event.data));
+      if (message) resolveMessage(message);
+      else rejectMessage(new Error(`Invalid Studio watch message: ${String(event.data)}`));
+    }, { once: true });
+  });
 
   try {
     const reader = child.stdout.getReader();
@@ -241,6 +249,7 @@ test("Studio file watching uses WebSockets without occupying project API connect
     reader.releaseLock();
 
     for (let index = 0; index < 8; index++) sockets.push(new WebSocket(`ws://localhost:${port}/api/watch`));
+    const readyMessages = sockets.map(nextMessage);
     await Promise.race([
       Promise.all(sockets.map((socket) => new Promise<void>((resolveOpen, rejectOpen) => {
         socket.addEventListener("open", () => resolveOpen(), { once: true });
@@ -248,6 +257,14 @@ test("Studio file watching uses WebSockets without occupying project API connect
       }))),
       Bun.sleep(5_000).then(() => { throw new Error("Studio watch WebSockets did not open"); }),
     ]);
+    expect(await Promise.race([
+      Promise.all(readyMessages),
+      Bun.sleep(5_000).then(() => { throw new Error("Studio watch readiness was not published"); }),
+    ])).toEqual(Array.from({ length: 8 }, () => ({
+      version: 1,
+      type: "ready",
+      sourceHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+    })));
 
     const response = await Promise.race([
       fetch(`http://localhost:${port}/api/projects/ironworks/data`),
@@ -255,16 +272,146 @@ test("Studio file watching uses WebSockets without occupying project API connect
     ]);
     expect(response.status).toBe(200);
 
-    const refreshes = sockets.map((socket) => new Promise<string>((resolveMessage) => {
-      socket.addEventListener("message", (event) => resolveMessage(String(event.data)), { once: true });
-    }));
+    const refreshes = sockets.map(nextMessage);
     await writeFile(join(projectDir, "watch-probe.txt"), "refresh\n");
     expect(await Promise.race([
       Promise.all(refreshes),
       Bun.sleep(5_000).then(() => { throw new Error("Studio watch refresh was not published"); }),
-    ])).toEqual(Array.from({ length: 8 }, () => "refresh"));
+    ])).toEqual(Array.from({ length: 8 }, () => ({
+      version: 1,
+      type: "project-refresh",
+      projectId: "ironworks",
+      reason: "project-source",
+      artifactId: null,
+    })));
+
+    const partialRefresh = nextMessage(sockets[0]!);
+    await mkdir(join(projectDir, "runs/partial"), { recursive: true });
+    await writeFile(join(projectDir, "runs/partial/manifest.json"), "{}\n");
+    expect(await Promise.race([
+      partialRefresh.then(() => "published"),
+      Bun.sleep(250).then(() => "quiet"),
+    ])).toBe("quiet");
+
+    const runRefreshes = sockets.slice(1).map(nextMessage);
+    const simulated = await fetch(`http://localhost:${port}/api/projects/ironworks/operations/simulate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ seed: 42 }),
+    });
+    expect(simulated.status).toBe(200);
+    const simulation = await simulated.json() as { data: { run: { id: string } } };
+    expect(await Promise.race([
+      Promise.all(runRefreshes),
+      Bun.sleep(5_000).then(() => { throw new Error("Completed Run refresh was not published"); }),
+    ])).toEqual(Array.from({ length: 7 }, () => ({
+      version: 1,
+      type: "project-refresh",
+      projectId: "ironworks",
+      reason: "run",
+      artifactId: simulation.data.run.id,
+    })));
+    const exactRun = await fetch(
+      `http://localhost:${port}/api/projects/ironworks/data?run=${encodeURIComponent(simulation.data.run.id)}`,
+    );
+    expect(exactRun.status).toBe(200);
+    expect(await exactRun.json()).toEqual(expect.objectContaining({ selectedRun: simulation.data.run.id }));
   } finally {
     for (const socket of sockets) socket.close();
+    child.kill();
+    await child.exited;
+  }
+}, 30_000);
+
+test("Studio workspace refresh events retain exact project ownership", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-studio-workspace-watch-"));
+  const projectsDir = join(root, "projects");
+  await mkdir(projectsDir);
+  await Promise.all([
+    cp(ironworks, join(projectsDir, "ironworks"), {
+      recursive: true,
+      filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm"),
+    }),
+    cp(join(repository, "examples/memory-fab"), join(projectsDir, "memory-fab"), {
+      recursive: true,
+      filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm"),
+    }),
+  ]);
+  await writeFile(join(root, "inm-workspace.json"), `${JSON.stringify({
+    version: 1,
+    name: "Watch isolation",
+    projectsDirectory: "projects",
+    defaultProject: "memory-fab",
+  }, null, 2)}\n`);
+  const port = 49_500 + process.pid % 400;
+  const child = Bun.spawn([
+    process.execPath, join(repository, "packages/inm-studio/src/server.ts"), root,
+    "--port", String(port), "--no-open",
+  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
+  let socket: WebSocket | null = null;
+  const nextMessage = () => new Promise<StudioWatchEvent>((resolveMessage, rejectMessage) => {
+    if (!socket) return rejectMessage(new Error("Studio workspace watch socket is not open"));
+    socket.addEventListener("message", (event) => {
+      const message = parseStudioWatchMessage(String(event.data));
+      if (message) resolveMessage(message);
+      else rejectMessage(new Error(`Invalid Studio watch message: ${String(event.data)}`));
+    }, { once: true });
+  });
+
+  try {
+    const reader = child.stdout.getReader();
+    let output = "";
+    while (!output.includes("INM Studio:")) {
+      const chunk = await reader.read();
+      if (chunk.done) throw new Error(`Studio stopped before startup: ${output}`);
+      output += new TextDecoder().decode(chunk.value);
+    }
+    reader.releaseLock();
+    socket = new WebSocket(`ws://localhost:${port}/api/watch`);
+    expect(await Promise.race([
+      nextMessage(),
+      Bun.sleep(5_000).then(() => { throw new Error("Studio workspace watch readiness was not published"); }),
+    ])).toEqual(expect.objectContaining({ version: 1, type: "ready" }));
+
+    const memoryRefresh = nextMessage();
+    await writeFile(join(projectsDir, "memory-fab", "watch-probe.txt"), "memory\n");
+    expect(await Promise.race([
+      memoryRefresh,
+      Bun.sleep(5_000).then(() => { throw new Error("Memory-fab refresh was not published"); }),
+    ])).toEqual({
+      version: 1,
+      type: "project-refresh",
+      projectId: "memory-fab",
+      reason: "project-source",
+      artifactId: null,
+    });
+
+    const ironworksRefresh = nextMessage();
+    await writeFile(join(projectsDir, "ironworks", "watch-probe.txt"), "ironworks\n");
+    expect(await Promise.race([
+      ironworksRefresh,
+      Bun.sleep(5_000).then(() => { throw new Error("Ironworks refresh was not published"); }),
+    ])).toEqual({
+      version: 1,
+      type: "project-refresh",
+      projectId: "ironworks",
+      reason: "project-source",
+      artifactId: null,
+    });
+
+    const indexRefresh = nextMessage();
+    await writeFile(join(root, "inm-workspace.json"), `${JSON.stringify({
+      version: 1,
+      name: "Watch isolation updated",
+      projectsDirectory: "projects",
+      defaultProject: "memory-fab",
+    }, null, 2)}\n`);
+    expect(await Promise.race([
+      indexRefresh,
+      Bun.sleep(5_000).then(() => { throw new Error("Workspace index refresh was not published"); }),
+    ])).toEqual({ version: 1, type: "index-refresh" });
+  } finally {
+    socket?.close();
     child.kill();
     await child.exited;
   }

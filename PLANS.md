@@ -16,9 +16,7 @@ There are no active plans.
 
 ## Proposed plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/live-project-evidence-refresh]] | Make running Studio sessions discover newly completed project evidence without restart or port knowledge. | 2026-07-29 |
+There are no proposed plans.
 
 ## Paused plans
 
@@ -28,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/live-project-evidence-refresh]] | Keep a running Studio source-current and refresh newly completed project evidence without restart or port knowledge. | 2026-07-29 |
 | [[plans/in-process-wip-conservation]] | Keep active production material inside conserved, targetable Objective inventory evidence. | 2026-07-29 |
 | [[plans/objective-focused-design-programs]] | Continue the human/Agent Design loop from bounded fab losses into exact Objective components and physical exposure locations. | 2026-07-29 |
 | [[plans/candidate-revision-handoff]] | Reopen recorded Candidate decisions cheaply and hand rejected proposals back to exact human/Agent industrial design. | 2026-07-29 |

@@ -37,7 +37,7 @@ function data(stdout: string) {
     command: string;
     data: {
       state: string;
-      health: { pid: number; inputDir: string; url: string; service: string; sourceHash: string };
+      health: { pid: number; managerPid: number | null; inputDir: string; url: string; service: string; sourceHash: string };
       logPath: string;
       port: number;
       portSelection: "explicit" | "managed" | "default" | "fallback";
@@ -203,6 +203,60 @@ test("Studio lifecycle starts, reuses, reports, restarts, and stops one exact pr
   expect(status.exitCode).toBe(0);
   expect(data(status.stdout).data.state).toBe("not-running");
 }, 60_000);
+
+test("managed Studio adopts changed runtime source on the same port without a lifecycle command", async () => {
+  const project = await temporaryProject("source-supervision");
+  const port = 52_300 + process.pid % 150;
+  const identityFile = join(project, "studio-source.sha256");
+  const firstHash = "a".repeat(64);
+  const secondHash = "b".repeat(64);
+  const environment = { INM_STUDIO_SOURCE_HASH_FILE: identityFile };
+  await writeFile(identityFile, `${firstHash}\n`);
+
+  try {
+    const started = await runCli([
+      "studio", "start", project, "--port", String(port), "--no-open", "--json",
+    ], environment);
+    expect(started.exitCode).toBe(0);
+    const first = data(started.stdout).data.health;
+    expect(first).toEqual(expect.objectContaining({
+      sourceHash: firstHash,
+      managerPid: expect.any(Number),
+    }));
+
+    await writeFile(identityFile, `${secondHash}\n`);
+    let replacement: typeof first | null = null;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      await Bun.sleep(50);
+      try {
+        const health = await fetch(`http://127.0.0.1:${port}/api/health`).then((response) => response.json()) as typeof first;
+        if (health.sourceHash === secondHash) {
+          replacement = health;
+          break;
+        }
+      } catch {
+        // The verified supervisor is replacing its child on this same port.
+      }
+    }
+    expect(replacement).toEqual(expect.objectContaining({
+      sourceHash: secondHash,
+      managerPid: first.managerPid,
+    }));
+    expect(replacement!.pid).not.toBe(first.pid);
+
+    const status = await runCli([
+      "studio", "status", project, "--port", String(port), "--json",
+    ], environment);
+    expect(status.exitCode).toBe(0);
+    expect(data(status.stdout).data).toEqual(expect.objectContaining({
+      state: "running",
+      port,
+      source: { state: "current", expectedHash: secondHash, runningHash: secondHash },
+    }));
+  } finally {
+    await runCli(["studio", "stop", project, "--port", String(port), "--json"], environment);
+  }
+}, 30_000);
 
 test("an abandoned detached test Studio exits when its idle lease expires", async () => {
   const project = await temporaryProject("leased");

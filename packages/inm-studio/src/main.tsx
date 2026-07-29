@@ -11,6 +11,7 @@ import { factoryPresentation, type FactoryLabelDensity, type FactoryPresentation
 import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, factoryRunId, overlayReturnPath, projectPath, requiresFullProjectData, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
 import { ExperimentWorkbench } from "./experiment-workbench";
 import { DesignWorkbench } from "./design-workbench";
+import { parseStudioWatchMessage } from "./watch-protocol";
 
 type Status = "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
 
@@ -2378,6 +2379,7 @@ function App() {
   const [data, setData] = useState<StudioData | null>(null);
   const [experimentCatalog, setExperimentCatalog] = useState<{ projectId: string; experiments: BlueprintBenchmarkSummary[] } | null>(null);
   const [routeSurfaceError, setRouteSurfaceError] = useState<string | null>(null);
+  const [projectRefreshRevision, setProjectRefreshRevision] = useState(0);
   const [overview, setOverview] = useState<ProjectWorkbenchSnapshot | null>(null);
   const [observation, setObservation] = useState<FactoryObservationBrief | null>(null);
   const [run, setRun] = useState<string | null>(null);
@@ -2394,6 +2396,7 @@ function App() {
   const [factoryPresentationRequest, setFactoryPresentationRequest] = useState<FactoryPresentationRequest>("auto");
   const [factoryPresentationMode, setFactoryPresentationMode] = useState<FactoryPresentationPolicy["mode"]>(initialRoute.selection ? "selection" : "overview");
   const runRef = useRef<string | null>(null);
+  const sourceHashRef = useRef<string | null>(null);
   const projectRef = useRef<string | null>(routeProject);
   const viewRef = useRef<StudioView>(routeView);
   const requestSequence = useRef(0);
@@ -2628,11 +2631,22 @@ function App() {
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       source = new WebSocket(`${protocol}//${window.location.host}/api/watch`);
       source.onmessage = (event) => {
-        if (event.data !== "refresh") return;
+        const message = parseStudioWatchMessage(event.data);
+        if (!message) return;
+        if (message.type === "ready") {
+          if (sourceHashRef.current === null) sourceHashRef.current = message.sourceHash;
+          else if (sourceHashRef.current !== message.sourceHash) window.location.reload();
+          return;
+        }
         void loadIndex();
-        if (!projectRef.current) return;
+        if (message.type === "index-refresh") return;
+        if (!projectRef.current || message.projectId !== projectRef.current) return;
+        setProjectRefreshRevision((revision) => revision + 1);
         if (viewRef.current === "experiments") void loadExperimentCatalog(projectRef.current);
-        else void loadProject(projectRef.current, runRef.current);
+        else void loadProject(
+          projectRef.current,
+          viewRef.current === "factory" ? factoryRunId() : runRef.current,
+        );
       };
       source.onclose = () => {
         if (!closed) reconnectTimer = window.setTimeout(connect, 1_000);
@@ -2702,6 +2716,7 @@ function App() {
     return <main className="project-shell experiment-route-shell">
       <ExperimentWorkbench
         projectId={routeProject} experiments={experiments} selectedId={routeExperiment || null} selectedCandidateId={routeCandidate}
+        refreshRevision={projectRefreshRevision}
         onSelect={(experimentId) => navigateExperiment(experimentId)} onSelectCandidate={navigateCandidate} onDesignSource={navigateDesignSource} onClose={closeRouteSurface}
       />
     </main>;
@@ -2764,6 +2779,7 @@ function App() {
       {routeView === "analysis" && <AnalysisBrowser data={data} focusDiagnostic={focusedDiagnostic} onClose={closeRouteSurface} />}
       {routeView === "designs" && <DesignWorkbench
         projectId={data.projectId} programs={data.designPrograms} selectedProgramId={routeDesignProgram || null} selectedRunId={routeDesignRun}
+        refreshRevision={projectRefreshRevision}
         onSelectProgram={navigateDesignProgram} onSelectRun={navigateDesignRun} onCandidate={navigateCandidateDirect} onClose={closeRouteSurface}
       />}
       {operationStatus && !operationResult && <div className="modal-backdrop"><section className={`operation-progress ${operationError ? "failed" : ""}`} role="dialog" aria-modal="true" aria-label={`Operation progress: ${operationStatus.id}`}><span className="eyebrow">SHARED CORE OPERATION</span><h2>{operationError ? "OPERATION FAILED" : "OPERATION RUNNING"}</h2><strong>{operationStatus.id}</strong>{operationError ? <><p>{operationError}</p><button onClick={() => { setOperationStatus(null); setOperationError(null); }}>CLOSE</button></> : <><div className="loading-bar"><i /></div><code>{operationStatus.cli}</code></>}</section></div>}

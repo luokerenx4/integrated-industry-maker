@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
-import { mkdir, readFile, readdir, realpath, watch } from "node:fs/promises";
+import { watch as watchProjectFiles, type FSWatcher } from "node:fs";
+import { mkdir, readFile, readdir, realpath } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import {
@@ -46,6 +47,8 @@ import {
   type ProjectSelection,
 } from "@inm/core";
 import { StudioOperationRegistry } from "./operation-registry";
+import { completedProjectRefresh, projectRefreshProbePath } from "./evidence-watch";
+import { studioWatchMessage } from "./watch-protocol";
 
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
@@ -63,6 +66,12 @@ if (positionals.length !== 1) {
 
 const inputDir = resolve(positionals[0]!);
 const port = Number(values.port);
+const managerPid = process.env.INM_STUDIO_MANAGER_PID === undefined
+  ? null
+  : Number(process.env.INM_STUDIO_MANAGER_PID);
+if (managerPid !== null && (!Number.isSafeInteger(managerPid) || managerPid <= 0)) {
+  throw new Error("INM_STUDIO_MANAGER_PID must be a positive integer");
+}
 const configuredIdleExitMs = process.env.INM_STUDIO_IDLE_EXIT_MS === undefined
   ? null
   : Number(process.env.INM_STUDIO_IDLE_EXIT_MS);
@@ -495,7 +504,7 @@ function errorResponse(error: unknown): Response {
   return Response.json(details.body, { status: details.status });
 }
 
-const WATCH_TOPIC = "studio:refresh";
+const WATCH_TOPIC = "studio:watch";
 const startedAt = new Date().toISOString();
 const html = `<!doctype html><html><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="theme-color" content="#071014"/><title>INM Studio</title><link rel="stylesheet" href="/main.css"/></head><body><div id="root"></div><script type="module" src="/main.js"></script></body></html>`;
 
@@ -512,9 +521,10 @@ const server = Bun.serve({
         const rootUrl = `http://127.0.0.1:${port}`;
         return Response.json({
           service: "inm-studio",
-          protocolVersion: 2,
+          protocolVersion: 3,
           engineVersion: ENGINE_VERSION,
           pid: process.pid,
+          managerPid,
           inputDir,
           project: values.project ?? null,
           sourceHash,
@@ -528,7 +538,9 @@ const server = Bun.serve({
       }
       if (url.pathname === "/main.js" || url.pathname === "/main.js.map" || url.pathname === "/main.css") {
         const file = Bun.file(join(cacheDir, url.pathname.slice(1)));
-        return await file.exists() ? new Response(file) : new Response("Not found", { status: 404 });
+        return await file.exists()
+          ? new Response(file, { headers: { "cache-control": "no-store" } })
+          : new Response("Not found", { status: 404 });
       }
       if (url.pathname === "/api/projects") return Response.json(await loadProjectIndex());
 
@@ -786,7 +798,7 @@ const server = Bun.serve({
 
       if (url.pathname === "/" || /^\/[^/]+\/?$/.test(url.pathname)
         || /^\/[^/]+\/(?:factory(?:\/(?:devices|connections)\/[^/]+)?|runs|catalog(?:\/(?:devices|resources|processes|routes)(?:\/[^/]+)?)?|analysis(?:\/diagnostics\/[^/]+)?|experiments(?:\/[^/]+(?:\/candidates\/[^/]+)?)?|designs(?:\/[^/]+(?:\/runs\/[^/]+)?)?)\/?$/.test(url.pathname)) {
-        return new Response(html, { headers: { "content-type": "text/html; charset=utf-8" } });
+        return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
       }
       return new Response("Not found", { status: 404 });
     } catch (error) {
@@ -794,22 +806,103 @@ const server = Bun.serve({
     }
   },
   websocket: {
-    open(socket) { renewIdleExitLease(); socket.subscribe(WATCH_TOPIC); },
+    open(socket) {
+      renewIdleExitLease();
+      socket.subscribe(WATCH_TOPIC);
+      socket.send(studioWatchMessage({ version: 1, type: "ready", sourceHash }));
+    },
     message() { renewIdleExitLease(); },
     close(socket) { socket.unsubscribe(WATCH_TOPIC); },
   },
 });
 renewIdleExitLease();
 
-(async () => {
-  try {
-    for await (const event of watch(inputDir, { recursive: true })) {
-      const name = event.filename?.toString() ?? "";
-      if (name.startsWith(".inm/") || name.includes("/.inm/") || name.startsWith("runs/") || name.includes("/runs/")) continue;
-      server.publish(WATCH_TOPIC, "refresh");
-    }
-  } catch { /* Recursive watch is best-effort; manual refresh remains available. */ }
-})();
+interface PendingProjectRefresh {
+  attempt: number;
+  timer: ReturnType<typeof setTimeout>;
+}
+const pendingProjectRefreshes = new Map<string, PendingProjectRefresh>();
+const publishedEvidenceRefreshes = new Set<string>();
+function scheduleProjectRefresh(projectDir: string, projectId: string, changedPath: string): void {
+  const probePath = projectRefreshProbePath(changedPath);
+  if (!probePath) return;
+  const key = `${projectId}\0${probePath}`;
+  const pending = pendingProjectRefreshes.get(key);
+  if (pending) clearTimeout(pending.timer);
+  scheduleProbe(projectDir, projectId, probePath, key, 0, 75);
+}
+
+function scheduleProbe(
+  projectDir: string,
+  projectId: string,
+  probePath: string,
+  key: string,
+  attempt: number,
+  delay: number,
+): void {
+  const evidence = probePath.startsWith("runs/")
+    || probePath.startsWith("design-runs/")
+    || probePath.startsWith("candidate-reviews/");
+  const timer = setTimeout(() => {
+    pendingProjectRefreshes.delete(key);
+    void completedProjectRefresh(projectDir, projectId, probePath)
+      .then((refresh) => {
+        if (refresh) {
+          const evidenceKey = `${refresh.projectId}\0${refresh.reason}\0${refresh.artifactId ?? ""}`;
+          if (!evidence || !publishedEvidenceRefreshes.has(evidenceKey)) {
+            if (evidence) publishedEvidenceRefreshes.add(evidenceKey);
+            server.publish(WATCH_TOPIC, studioWatchMessage(refresh));
+          }
+        } else if (evidence && attempt < 39) {
+          scheduleProbe(projectDir, projectId, probePath, key, attempt + 1, 125);
+        }
+      })
+      .catch(() => {
+        if (evidence && attempt < 39) {
+          scheduleProbe(projectDir, projectId, probePath, key, attempt + 1, 125);
+        }
+      });
+  }, delay);
+  pendingProjectRefreshes.set(key, { attempt, timer });
+}
+
+const projectWatchers = new Map<string, FSWatcher>();
+const workspaceWatchers: FSWatcher[] = [];
+async function synchronizeProjectWatchers(): Promise<void> {
+  const projects = await workspaceProjects();
+  const currentPaths = new Set(projects.map((project) => resolve(project.path)));
+  for (const [path, watcher] of projectWatchers) {
+    if (currentPaths.has(path)) continue;
+    watcher.close();
+    projectWatchers.delete(path);
+  }
+  for (const project of projects) {
+    const path = resolve(project.path);
+    if (projectWatchers.has(path)) continue;
+    const watcher = watchProjectFiles(path, { recursive: true }, (_event, fileName) => {
+      if (fileName) scheduleProjectRefresh(path, project.id, fileName.toString().split(sep).join("/"));
+    });
+    watcher.on("error", () => undefined);
+    projectWatchers.set(path, watcher);
+  }
+}
+await synchronizeProjectWatchers();
+
+if (workspaceMode) {
+  const workspace = await loadWorkspace(inputDir);
+  const publishWorkspaceRefresh = () => {
+    void synchronizeProjectWatchers()
+      .then(() => server.publish(WATCH_TOPIC, studioWatchMessage({ version: 1, type: "index-refresh" })))
+      .catch(() => undefined);
+  };
+  const manifestWatcher = watchProjectFiles(inputDir, { recursive: false }, (_event, fileName) => {
+    if (fileName?.toString() === "inm-workspace.json") publishWorkspaceRefresh();
+  });
+  const projectsWatcher = watchProjectFiles(join(inputDir, workspace.manifest.projectsDirectory), { recursive: false }, publishWorkspaceRefresh);
+  manifestWatcher.on("error", () => undefined);
+  projectsWatcher.on("error", () => undefined);
+  workspaceWatchers.push(manifestWatcher, projectsWatcher);
+}
 
 if (values.project) await projectDirectory(values.project);
 const rootUrl = `http://127.0.0.1:${server.port}`;

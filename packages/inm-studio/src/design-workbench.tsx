@@ -150,12 +150,13 @@ function completedCaseLabel(progress: CompletedDesignCaseProgress): string {
 }
 
 export function DesignWorkbench({
-  projectId, programs, selectedProgramId, selectedRunId, onSelectProgram, onSelectRun, onCandidate, onClose,
+  projectId, programs, selectedProgramId, selectedRunId, refreshRevision, onSelectProgram, onSelectRun, onCandidate, onClose,
 }: {
   projectId: string;
   programs: DesignProgramSummary[];
   selectedProgramId: string | null;
   selectedRunId: string | null;
+  refreshRevision: number;
   onSelectProgram: (id: string) => void;
   onSelectRun: (id: string | null) => void;
   onCandidate: (benchmarkId: string, candidateId: string) => void;
@@ -230,7 +231,7 @@ export function DesignWorkbench({
     let active = true;
     void loadProgram(selectedProgramId).catch((nextError) => { if (active) setError(nextError instanceof Error ? nextError.message : String(nextError)); });
     return () => { active = false; };
-  }, [projectId, selectedProgramId]);
+  }, [projectId, refreshRevision, selectedProgramId]);
 
   useEffect(() => {
     setSelectedRun(null); setSelectedRunIssue(null); setPromoted(null); setCommissionedCandidate(null); setError(null);
@@ -265,7 +266,7 @@ export function DesignWorkbench({
       }
     })();
     return () => { active = false; };
-  }, [projectId, selectedProgram, selectedProgramId, selectedRunId]);
+  }, [projectId, refreshRevision, selectedProgram, selectedProgramId, selectedRunId]);
 
   const recordRunProgress = (progress: DesignRunProgress) => {
     setRunProgress(progress);

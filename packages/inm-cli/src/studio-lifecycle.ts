@@ -9,7 +9,7 @@ import type { OperationExecutionSnapshot, OperationExecutionStartResponse } from
 import { CliCommandError, cliSuccess, manifestProjectContext } from "./contract";
 
 const STUDIO_PROTOCOL = "inm-studio";
-const STUDIO_PROTOCOL_VERSION = 2;
+const STUDIO_PROTOCOL_VERSION = 3;
 const configuredDefaultPort = Number(process.env.INM_STUDIO_DEFAULT_PORT ?? 4176);
 const DEFAULT_STUDIO_PORT = Number.isSafeInteger(configuredDefaultPort) && configuredDefaultPort > 0 && configuredDefaultPort <= 65_535
   ? configuredDefaultPort
@@ -18,6 +18,7 @@ const FALLBACK_STUDIO_PORTS = 24;
 const START_TIMEOUT_MS = 15_000;
 const repository = resolve(import.meta.dir, "../../..");
 const serverEntry = join(repository, "packages/inm-studio/src/server.ts");
+const supervisorEntry = join(repository, "packages/inm-studio/src/supervisor.ts");
 
 export type StudioLifecycleAction = "start" | "status" | "restart" | "stop" | "serve";
 
@@ -45,6 +46,7 @@ export interface StudioHealth {
   protocolVersion: typeof STUDIO_PROTOCOL_VERSION;
   engineVersion: string;
   pid: number;
+  managerPid: number | null;
   inputDir: string;
   project: string | null;
   sourceHash: string;
@@ -53,7 +55,7 @@ export interface StudioHealth {
 }
 
 interface StudioState {
-  version: 2;
+  version: 3;
   backend: "launchd" | "detached";
   inputDir: string;
   project: string | null;
@@ -126,10 +128,12 @@ function xml(value: string): string {
 function plist(state: StudioState): string {
   const args = [
     process.execPath,
-    serverEntry,
+    supervisorEntry,
     state.inputDir,
     "--port",
     String(state.port),
+    "--state-path",
+    statePath(state.inputDir, state.port),
     "--no-open",
     ...(state.project ? ["--project", state.project] : []),
   ];
@@ -156,7 +160,7 @@ async function readState(inputDir: string, port: number): Promise<StudioState | 
   try {
     const state = JSON.parse(await readFile(statePath(inputDir, port), "utf8")) as Partial<StudioState>;
     const expectedRuntimeDirectory = runtimeDirectory(inputDir, port);
-    if (state.version !== 2 || state.inputDir !== inputDir || state.port !== port
+    if (state.version !== 3 || state.inputDir !== inputDir || state.port !== port
       || (state.backend !== "launchd" && state.backend !== "detached")
       || state.label !== serviceLabel(inputDir, port)
       || state.logPath !== join(expectedRuntimeDirectory, "studio.log")
@@ -206,6 +210,7 @@ async function probeHealth(port: number): Promise<{ kind: "free" } | { kind: "st
     const value = await response.json() as Partial<StudioHealth>;
     if (value.service !== STUDIO_PROTOCOL || value.protocolVersion !== STUDIO_PROTOCOL_VERSION
       || typeof value.pid !== "number" || typeof value.inputDir !== "string"
+      || (value.managerPid !== null && (typeof value.managerPid !== "number" || !Number.isSafeInteger(value.managerPid) || value.managerPid <= 0))
       || typeof value.startedAt !== "string" || typeof value.url !== "string"
       || !/^[0-9a-f]{64}$/.test(value.sourceHash ?? "")) return { kind: "foreign" };
     return { kind: "studio", health: value as StudioHealth };
@@ -241,7 +246,8 @@ function healthMatchesTarget(health: StudioHealth, inputDir: string, project: st
 function stateVerifiesHealth(state: StudioState, health: StudioHealth): boolean {
   return state.inputDir === health.inputDir
     && state.project === health.project
-    && state.pid === health.pid
+    && health.managerPid !== null
+    && state.pid === health.managerPid
     && state.sourceHash === health.sourceHash;
 }
 
@@ -350,6 +356,15 @@ async function waitForHealth(inputDir: string, project: string | null, port: num
   throw new CliCommandError("studio.start-timeout", `Studio did not become healthy on port ${port} within ${START_TIMEOUT_MS / 1000}s.`);
 }
 
+function processIsAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
 async function runProcess(command: string, args: string[]): Promise<{ exitCode: number; stderr: string }> {
   const child = Bun.spawn([command, ...args], { stdout: "ignore", stderr: "pipe" });
   const [exitCode, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
@@ -364,9 +379,9 @@ async function unload(state: StudioState, health: StudioHealth | null): Promise<
       "studio.manager-failed",
       `Could not stop Studio through launchd: ${unloaded.stderr || `exit ${unloaded.exitCode}`}`,
     );
-  } else if (health && health.inputDir === state.inputDir && health.pid === state.pid) {
+  } else if (state.pid !== null && (!health || stateVerifiesHealth(state, health))) {
     try {
-      process.kill(health.pid, "SIGTERM");
+      process.kill(state.pid, "SIGTERM");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
     }
@@ -387,14 +402,14 @@ async function startManaged(inputDir: string, options: ResolvedStudioLifecycleOp
   const sourceHash = await studioSourceHash();
   const existing = await probeHealth(options.port);
   const logPath = join(runtimeDirectory(inputDir, options.port), "studio.log");
+  const localState = await readState(inputDir, options.port);
   if (existing.kind === "studio") {
     if (existing.health.inputDir !== inputDir || existing.health.project !== (options.project ?? null)) throw new CliCommandError(
       "studio.port-owned-by-other-project",
       `Port ${options.port} already serves '${existing.health.inputDir}'${existing.health.project ? ` project '${existing.health.project}'` : ""}.`,
     );
     if (existing.health.sourceHash === sourceHash) return result("start", "reused", inputDir, options, existing.health, sourceHash, logPath);
-    const localState = await readState(inputDir, options.port);
-    if (!localState || localState.pid !== existing.health.pid || localState.sourceHash !== existing.health.sourceHash) throw new CliCommandError(
+    if (!localState || !stateVerifiesHealth(localState, existing.health)) throw new CliCommandError(
       "studio.stale-unmanaged-instance",
       `Port ${options.port} serves stale source ${existing.health.sourceHash.slice(0, 12)}, but matching managed ownership could not be verified. Stop its owning foreground process explicitly.`,
     );
@@ -405,12 +420,23 @@ async function startManaged(inputDir: string, options: ResolvedStudioLifecycleOp
     "studio.port-owned-by-unknown-service",
     `Port ${options.port} is occupied by an unknown service. Choose another port or stop that service explicitly.`,
   );
+  if (existing.kind === "free" && localState?.pid !== null && localState?.pid !== undefined
+    && processIsAlive(localState.pid)) {
+    const health = await waitForHealth(inputDir, options.project ?? null, options.port, sourceHash);
+    if (!stateVerifiesHealth(await readState(inputDir, options.port) ?? localState, health)) {
+      throw new CliCommandError(
+        "studio.manager-transition-unverified",
+        `Studio manager ${localState.pid} recovered port ${options.port}, but its live identity no longer matches managed state.`,
+      );
+    }
+    return result("start", "reused", inputDir, options, health, sourceHash, logPath);
+  }
 
   const runtimeDir = runtimeDirectory(inputDir, options.port);
   await mkdir(runtimeDir, { recursive: true });
   const useLaunchd = platform() === "darwin" && process.env.INM_STUDIO_BACKEND !== "detached";
   const state: StudioState = {
-    version: 2,
+    version: 3,
     backend: useLaunchd ? "launchd" : "detached",
     inputDir,
     project: options.project ?? null,
@@ -436,10 +462,12 @@ async function startManaged(inputDir: string, options: ResolvedStudioLifecycleOp
       const logFd = openSync(logPath, "a");
       try {
         const child = spawn(process.execPath, [
-          serverEntry,
+          supervisorEntry,
           inputDir,
           "--port",
           String(options.port),
+          "--state-path",
+          statePath(inputDir, options.port),
           "--no-open",
           ...(options.project ? ["--project", options.project] : []),
         ], {
@@ -455,7 +483,11 @@ async function startManaged(inputDir: string, options: ResolvedStudioLifecycleOp
       }
     }
     const health = await waitForHealth(inputDir, options.project ?? null, options.port, sourceHash);
-    state.pid = health.pid;
+    if (health.managerPid === null) throw new CliCommandError(
+      "studio.manager-missing",
+      `Managed Studio on port ${options.port} did not report its supervisor identity.`,
+    );
+    state.pid = health.managerPid;
     state.startedAt = health.startedAt;
     await writeState(state);
     return result("start", "running", inputDir, options, health, sourceHash, logPath);
