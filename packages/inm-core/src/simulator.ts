@@ -12,6 +12,7 @@ import { mutateFactoryState } from "./state";
 import { emptyTransportBlockTicks } from "./transport-blocking";
 import {
   bufferInventoryLocation,
+  inProcessInventoryLocation,
   localTransitInventoryLocation,
   stationTransitInventoryLocation,
   wipInventoryLocationId,
@@ -962,6 +963,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const wipLocationInventory: Record<string, number> = {};
     const addWipLocationInventory = (
       location: ReturnType<typeof bufferInventoryLocation>
+        | ReturnType<typeof inProcessInventoryLocation>
         | ReturnType<typeof localTransitInventoryLocation>
         | ReturnType<typeof stationTransitInventoryLocation>,
       count: number,
@@ -978,6 +980,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           if (measurementWipResources.has(resource)) {
             addWipLocationInventory(bufferInventoryLocation(resource, deviceId, bufferId), count);
           }
+        }
+      }
+      for (const input of runtime.activeJob?.processInputs ?? []) {
+        inventory[input.resource] = (inventory[input.resource] ?? 0) + input.count;
+        if (measurementWipResources.has(input.resource)) {
+          addWipLocationInventory(
+            inProcessInventoryLocation(input.resource, deviceId, runtime.activeJob!.operation),
+            input.count,
+          );
         }
       }
     }
@@ -1848,6 +1859,12 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         operation: decision.operation, startedAt: state.tick, durationTicks: decision.durationTicks,
         remainingTicks: decision.durationTicks, workedTicks: 0, resumedAt: state.tick, powerSatisfactionPpm: POWER_SATISFACTION_SCALE,
         powerMilliWatts: required, produce,
+        processInputs: [{
+          buffer: plan.inputBuffer,
+          resource: decision.resource,
+          count: decision.count,
+          treatmentLevel: decision.inputTreatmentLevel,
+        }],
         treatment: {
           resource: decision.resource, fromLevel: decision.inputTreatmentLevel, toLevel: plan.mode.level, count: decision.count,
           agentResource: agent.resource, agentCount: agent.count,
@@ -1993,6 +2010,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       operation: decision.operation, startedAt: state.tick, durationTicks: effectiveDurationTicks,
       remainingTicks: effectiveDurationTicks, workedTicks: 0, resumedAt: state.tick, powerSatisfactionPpm: POWER_SATISFACTION_SCALE,
       powerMilliWatts: required, produce: actualProduce,
+      processInputs: structuredClone(decision.consume),
       ...(toolingProvider && selectedProcessPlan ? { tooling: {
         provider: toolingProvider.device, amounts: structuredClone(selectedProcessPlan.tooling),
       } } : {}),

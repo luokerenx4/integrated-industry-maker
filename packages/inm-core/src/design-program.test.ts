@@ -535,7 +535,7 @@ test("commissioned Design pins its live promotion base and rejects a score winne
       decision: "REJECT",
       decisionEvidence: {
         basis: "benchmark-gate",
-        guardrail: { kind: "uniform", passed: false, violations: ["lithography-interruption"] },
+        guardrail: { kind: "uniform", passed: true, violations: [] },
         gateReasons: expect.arrayContaining([
           expect.stringContaining("outcome guardrail 'preserve-contract-fulfillment' failed"),
         ]),
@@ -545,15 +545,15 @@ test("commissioned Design pins its live promotion base and rejects a score winne
   });
   const iteration = result.manifest.iterations[0]!;
   const evidence = iteration.decisionEvidence!;
-  expect(evidence.aggregate.scoreDelta).toBeCloseTo(22.878825125, 6);
+  expect(evidence.aggregate.scoreDelta).toBeCloseTo(21.60453941071429, 6);
   expect(evidence.cases.filter((item) => item.id !== "lithography-interruption").every((item) =>
     item.maximumScoreRegression === 0 && item.guardrailPassed && item.scoreDelta >= 0)).toBeTrue();
   const lithographyInterruption = evidence.cases.find((item) => item.id === "lithography-interruption")!;
   expect(lithographyInterruption).toEqual(expect.objectContaining({
     maximumScoreRegression: 0,
-    guardrailPassed: false,
+    guardrailPassed: true,
   }));
-  expect(lithographyInterruption.scoreDelta).toBeCloseTo(-0.37221, 5);
+  expect(lithographyInterruption.scoreDelta).toBeCloseTo(0.00779, 5);
   expect(iteration.evaluation!.scoreDelta).toBeGreaterThan(0);
   expect(iteration.evaluation!.outcomeGuardrails).toEqual(expect.arrayContaining([
     expect.objectContaining({
@@ -826,7 +826,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     .rejects.toMatchObject({ code: "design.promotion-base-stale" });
 }, 360_000);
 
-test("objective-focused Design verifies exact physical WIP improvement before locked Benchmark judgment", async () => {
+test("objective-focused Design verifies exact in-process WIP replay before locked Benchmark judgment", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-design-objective-wip-"));
   temporaryDirectories.push(root);
   const cleanProject = join(root, "memory-fab");
@@ -834,6 +834,18 @@ test("objective-focused Design verifies exact physical WIP improvement before lo
     recursive: true,
     filter: (source) => !source.split("/").includes("design-runs") && !source.split("/").includes(".inm"),
   });
+  const programPath = join(cleanProject, "design-programs", "back-end-wip-convergence.design.json");
+  const providerPath = join(cleanProject, "strategies", "back-end-wip-convergence-proposals.ts");
+  const bufferLocation = "buffer:packaging-1:die-input:known-good-dram-die";
+  const processLocation = "in-process:packaging-1:package-known-good-dram:known-good-dram-die";
+  await writeFile(
+    programPath,
+    (await readFile(programPath, "utf8")).replaceAll(bufferLocation, processLocation),
+  );
+  await writeFile(
+    providerPath,
+    (await readFile(providerPath, "utf8")).replaceAll(bufferLocation, processLocation),
+  );
   const result = await runDesignProgram(cleanProject, "back-end-wip-convergence", {
     maxCandidates: 3,
   });
@@ -854,11 +866,11 @@ test("objective-focused Design verifies exact physical WIP improvement before lo
       basis: "benchmark-gate",
       target: {
         component: "wip",
-        location: "buffer:packaging-1:die-input:known-good-dram-die",
+        location: processLocation,
         metric: "averageInventory",
         direction: "decrease",
       },
-      evidence: expect.objectContaining({ before: 7.965816666666667, after: 3.764483333333333, improved: true }),
+      evidence: expect.objectContaining({ before: 0.6, after: 0.6, delta: 0, improved: false }),
     }),
     expect.objectContaining({
       strategy: "dispatch:back-end-wip-conwip-4-3",
@@ -866,11 +878,11 @@ test("objective-focused Design verifies exact physical WIP improvement before lo
       basis: "benchmark-gate",
       target: {
         component: "wip",
-        location: "buffer:packaging-1:die-input:known-good-dram-die",
+        location: processLocation,
         metric: "averageInventory",
         direction: "decrease",
       },
-      evidence: expect.objectContaining({ before: 7.965816666666667, after: 2.5047, improved: true }),
+      evidence: expect.objectContaining({ before: 0.6, after: 0.6, delta: 0, improved: false }),
     }),
   ]);
   expect(result.manifest.frontier.scheduler).toEqual({

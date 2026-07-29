@@ -72,22 +72,22 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 8, infoCount: 8 },
-    evidence: { state: "current", runId: "092-simulate" },
+    evidence: { state: "current", runId: "093-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 16, verifiedCount: 0 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.objective.wipResources).toContain("packaged-dram-device");
   expect(snapshot.objective.wipResources).not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "092-simulate",
-    averageWip: 19.872825,
-    averageTotalInventory: 116.16841666666667,
-    averageExcludedInventory: 96.29559166666667,
-    peakWip: 56,
+    runId: "093-simulate",
+    averageWip: 27.834429166666666,
+    averageTotalInventory: 124.73002083333333,
+    peakWip: 59,
   }));
+  expect(snapshot.inventoryAccounting!.averageExcludedInventory).toBeCloseTo(96.89559166666666, 12);
   expect(snapshot.inventoryAccounting?.resources["dram-package-substrate"]).toEqual(expect.objectContaining({
     includedInWip: false,
-    averageInventory: 39.4292,
+    averageInventory: 40.0292,
   }));
   expect(snapshot.inventoryAccounting?.locations["buffer:burn-in-1:package-input:packaged-dram-device"]).toEqual(expect.objectContaining({
     kind: "buffer",
@@ -96,24 +96,24 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     averageInventory: 9.781316666666667,
   }));
   expect(snapshot.objectiveEvidence).toEqual(expect.objectContaining({
-    runId: "092-simulate",
-    finalScore: 42.826105841666674,
-    dominantPenalty: { id: "wip", contribution: -29.8092375, role: "penalty" },
+    runId: "093-simulate",
+    finalScore: 30.88369959166667,
+    dominantPenalty: { id: "wip", contribution: -41.75164375, role: "penalty" },
     wip: expect.objectContaining({
       weight: 1.5,
-      scoreContribution: -29.8092375,
-      averageWip: 19.872825,
-      peakWip: 56,
+      scoreContribution: -41.75164375,
+      averageWip: 27.834429166666666,
+      peakWip: 59,
       resources: [
         expect.objectContaining({
           resource: "packaged-dram-device",
-          averageInventory: 10.152566666666667,
-          scoreContribution: -15.228850000000001,
+          averageInventory: 15.152566666666667,
+          scoreContribution: -22.72885,
         }),
         expect.objectContaining({
           resource: "known-good-dram-die",
-          averageInventory: 8.9929,
-          scoreContribution: -13.489350000000002,
+          averageInventory: 9.5929,
+          scoreContribution: -14.38935,
         }),
         ...snapshot.objectiveEvidence!.wip.resources.slice(2),
       ],
@@ -610,7 +610,7 @@ test("shared handoff opens the exact Objective-focused Program after diagnostic 
     lossDispositions: [],
   });
   expect(nextAction).toEqual(expect.objectContaining({
-    id: `design.run.objective:back-end-wip-convergence:${objectiveAuthority}:wip:092-simulate`,
+    id: `design.run.objective:back-end-wip-convergence:${objectiveAuthority}:wip:093-simulate`,
     title: "Expand Back-end WIP Convergence's intervention portfolio",
     argv: ["inm", "design", snapshot.project.rootDir, "--program", "back-end-wip-convergence", "--run-id", objectiveAuthority!, "--json"],
     studioRoute: `/memory-fab/designs/back-end-wip-convergence/runs/${objectiveAuthority}`,
@@ -618,7 +618,7 @@ test("shared handoff opens the exact Objective-focused Program after diagnostic 
       kind: "design-run",
       programId: "back-end-wip-convergence",
       objectiveComponent: "wip",
-      evidenceRunId: "092-simulate",
+      evidenceRunId: "093-simulate",
       phase: "exhausted",
       runId: objectiveAuthority,
     },
@@ -694,7 +694,7 @@ test("an active physical loss still outranks current Objective Design evidence",
           benchmarkId: "greenfield-dram-design",
           runId: inspectionEvidence.authorityRunId,
         }),
-        observed: expect.objectContaining({ runId: "092-simulate" }),
+        observed: expect.objectContaining({ runId: "093-simulate" }),
         evidence: expect.objectContaining({
           attemptedCandidates: 6,
           improvedCandidates: 6,
@@ -734,7 +734,7 @@ test("an active physical loss still outranks current Objective Design evidence",
         benchmarkId: "greenfield-dram-design",
         runId: "df85fdd774f34544e9598dd7868ca0b99457e98abc6f939c047fd0c3211939a2",
       }),
-      observed: expect.objectContaining({ runId: "092-simulate" }),
+      observed: expect.objectContaining({ runId: "093-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 6,
         improvedCandidates: 6,
@@ -758,7 +758,7 @@ test("an active physical loss still outranks current Objective Design evidence",
         benchmarkId: "greenfield-dram-design",
         runId: "b74253a284862a7569e943b8a3b436823f3f7d390b2b09373554486687c71414",
       }),
-      observed: expect.objectContaining({ runId: "092-simulate" }),
+      observed: expect.objectContaining({ runId: "093-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 1,
         improvedCandidates: 1,
@@ -783,7 +783,7 @@ test("an active physical loss still outranks current Objective Design evidence",
         benchmarkId: "greenfield-dram-design",
         runId: "53b3a0eddf272358284e736fa86187a0f868bf992fc28ee3166ab0e604d77039",
       }),
-      observed: expect.objectContaining({ runId: "092-simulate" }),
+      observed: expect.objectContaining({ runId: "093-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 1,
         improvedCandidates: 1,
@@ -808,7 +808,7 @@ test("an active physical loss still outranks current Objective Design evidence",
         benchmarkId: "greenfield-dram-design",
         runId: "f85f4cc3769246c53239e08070618d8b2e2177ab75cb36912197544be90fd859",
       }),
-      observed: expect.objectContaining({ runId: "092-simulate" }),
+      observed: expect.objectContaining({ runId: "093-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 1,
         improvedCandidates: 1,
@@ -833,7 +833,7 @@ test("an active physical loss still outranks current Objective Design evidence",
         benchmarkId: "greenfield-dram-design",
         runId: "7e530131290764610d16e3b253749c7792e8dfff935841f22d6480cb4245ad59",
       }),
-      observed: expect.objectContaining({ runId: "092-simulate" }),
+      observed: expect.objectContaining({ runId: "093-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 1,
         improvedCandidates: 1,
@@ -858,7 +858,7 @@ test("an active physical loss still outranks current Objective Design evidence",
         benchmarkId: "greenfield-dram-design",
         runId: "f380b7f17083275669bf571a89a1c675a4bf11f88fd61b7528fcadbcc80b62ad",
       }),
-      observed: expect.objectContaining({ runId: "092-simulate" }),
+      observed: expect.objectContaining({ runId: "093-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 1,
         improvedCandidates: 1,
@@ -883,7 +883,7 @@ test("an active physical loss still outranks current Objective Design evidence",
         benchmarkId: "greenfield-dram-design",
         runId: "f373ce6d778faea79cc2dfee70ea36125be23a10b642178c943d700bb32b6310",
       }),
-      observed: expect.objectContaining({ runId: "092-simulate" }),
+      observed: expect.objectContaining({ runId: "093-simulate" }),
       evidence: expect.objectContaining({
         attemptedCandidates: 1,
         improvedCandidates: 1,

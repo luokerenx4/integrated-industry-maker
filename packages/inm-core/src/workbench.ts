@@ -199,7 +199,7 @@ export interface WorkbenchObjectiveEvidence {
     locations: Array<{
       id: string;
       resource: string;
-      kind: "buffer" | "local-transit" | "station-transit";
+      kind: "buffer" | "in-process" | "local-transit" | "station-transit";
       physicalLocation: string;
       subject: { kind: "device" | "connection"; id: string } | null;
       averageInventory: number;
@@ -965,7 +965,7 @@ function buildWorkbenchObjectiveEvidence(
       resource: accounting.resource,
       kind: accounting.kind,
       physicalLocation: describeWipInventoryLocation(accounting),
-      subject: accounting.kind === "buffer"
+      subject: accounting.kind === "buffer" || accounting.kind === "in-process"
         ? { kind: "device" as const, id: accounting.device }
         : accounting.kind === "local-transit"
           ? { kind: "connection" as const, id: accounting.connection }

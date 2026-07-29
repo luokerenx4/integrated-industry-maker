@@ -1,6 +1,6 @@
 # Objective-owned inventory accounting
 
-Status: explicit Resource-scoped WIP integration, physical location conservation, score semantics, immutable evidence, comparison, CLI, workbench, and Studio projection implemented.
+Status: explicit Resource-scoped WIP integration, resident/transit/in-process physical conservation, score semantics, immutable evidence, comparison, CLI, workbench, and Studio projection implemented.
 
 Related: [[docs/design/simulation-runtime]], [[docs/design/lot-tracking]], [[docs/design/industrial-boundaries]], [[docs/design/blueprint-comparison]], [[docs/design/operator-workbench]], [[docs/design/agent-cli-contract]], [[docs/PROJECT_FORMAT]], and [[docs/CLI]].
 
@@ -23,6 +23,7 @@ Memory-fab includes every released wafer-stage Resource plus known-good die and 
 At every deterministic measurement boundary, Core groups inventory by Resource across:
 
 - all resident Device buffers;
+- material physically loaded into active production and treatment jobs;
 - local loader, belt, and unloader transit;
 - station-network cargo in flight.
 
@@ -31,12 +32,15 @@ Each physical item appears in exactly one of those locations. Moving material th
 For every Resource in that Objective scope, Core simultaneously integrates one stable physical location identity:
 
 - `buffer:<device>:<buffer>:<resource>` for resident Device inventory;
+- `in-process:<device>:<process>:<resource>` for material loaded into an active production or treatment job;
 - `local-transit:<connection>:<loading|belt|unloading>:<resource>` for explicit sorter and line stages;
 - `station-transit:<network>:<route>:<resource>` for loaded station cargo.
 
-The Resource remains an explicit field on every location record; the id is a stable serialization and comparison key, not a parsing API or an item identity. Multiple fungible items at one physical location aggregate into that one location quantity. Core records locations only for Objective WIP Resources because excluded raw, support, scrap, and finished inventory cannot affect the WIP score and remains completely accounted by Resource.
+The Resource remains an explicit field on every location record; the id is a stable serialization and comparison key, not a parsing API or an item identity. Multiple fungible items at one physical location aggregate into that one location quantity. Once a job loads material, its source Buffer is no longer part of the physical identity; duplicate inputs of one Resource aggregate under the Device and Process that now hold them. Core records locations only for Objective WIP Resources because excluded raw, support, scrap, and finished inventory cannot affect the WIP score and remains completely accounted by Resource.
 
-The boundary observation is read-only and disposable. Core traverses each resident Buffer, local transit, and station cargo collection once, groups its exact current contents into one boundary-local Resource projection, and consumes that projection once for total, WIP, area, and peak integration. The same local-transit pass integrates belt occupancy, connection occupancy, sorter-stage activity, and typed blocking causes; the same carrier-mission pass integrates congestion and fleet busy area. Stable Device, Buffer, connection, network, fleet, and Objective-WIP membership is prepared once per simulation, while every quantity, phase, status, and cause is read live from `FactoryState`. There is no cached mutable inventory or metrics shadow ledger.
+An active material-processing job retains the exact compiled inputs it removed from buffers. Those quantities remain in total inventory and, when their Resource belongs to `Objective.wipResources`, in Objective WIP until the job completes or is cancelled. Completion atomically removes the input-state location and exposes the configured outputs; a paused or unpowered job keeps its material and remains present at the final measurement boundary. Extraction reserves, generator fuel, terminal delivery/discard, maintenance consumables, reusable tooling, and facility utilities retain their separate physical ledgers and do not become production in-process inventory.
+
+The boundary observation is read-only and disposable. Core traverses each resident Buffer and active material job, local transit, and station cargo collection once, groups its exact current contents into one boundary-local Resource projection, and consumes that projection once for total, WIP, area, and peak integration. The same local-transit pass integrates belt occupancy, connection occupancy, sorter-stage activity, and typed blocking causes; the same carrier-mission pass integrates congestion and fleet busy area. Stable Device, Buffer, connection, network, fleet, and Objective-WIP membership is prepared once per simulation, while every quantity, phase, status, and cause is read live from `FactoryState`. There is no cached mutable inventory or metrics shadow ledger.
 
 `FactoryMetrics.inventoryAccounting` contains:
 
@@ -50,17 +54,19 @@ The sum of location averages equals `averageWip`; the locations for one Resource
 
 `FactoryMetrics.averageWip` is the same scoped average retained as the direct score input. `scoreBreakdown.wip` is exactly `-averageWip × Objective.weights.wip`.
 
-This is inventory accounting, not lot-card control. CONWIP still counts released non-terminal tracked lot identities; it neither counts downstream fungible units nor reads the Objective WIP list. Process inputs are consumed from Buffer inventory at job start under the current Process contract, so active-job material is not a resident inventory location. A future in-process-material contract must change that authority explicitly rather than infer hidden inventory from job duration.
+This is inventory accounting, not lot-card control. CONWIP still counts released non-terminal tracked lot identities; it neither counts downstream fungible units nor reads the Objective WIP list. In-process inventory records exact inputs loaded at job start; it does not infer quantity from utilization, duration, nominal output, or a descriptive Process graph. This prevents a slower batch or paused job from appearing to improve WIP merely because its inputs left a Buffer.
 
 ## Shared evidence
 
 Immutable run `metrics.json` owns the complete machine-readable accounting. `report.md` prints the summary plus Resource and physical-location tables. Compare/Benchmark snapshots preserve the complete baseline/candidate tables and exact per-Resource and per-location deltas.
 
-`inm simulate` human output lists scored Resources and their leading physical locations; its bounded JSON summary retains the complete accounting object. `inm inspect` exposes the authored scope even without a run and, when a hash-compatible run exists, projects the same accounting plus a separate Objective tradeoff view through the V12 workbench. That view reconciles the complete score breakdown, identifies the dominant negative component, and converts each included Resource and location's exact average inventory through the immutable Objective WIP weight. Studio Overview links selectable Device and connection locations directly into the same immutable Factory replay; Factory renders the ranked location values without recomputation. Station-route locations remain exact typed evidence even when the current spatial selection contract has no network-route object focus.
+`inm simulate` human output lists scored Resources and their leading physical locations; its bounded JSON summary retains the complete accounting object. `inm inspect` exposes the authored scope even without a run and, when a hash-compatible run exists, projects the same accounting plus a separate Objective tradeoff view through the V12 workbench. That view reconciles the complete score breakdown, identifies the dominant negative component, and converts each included Resource and location's exact average inventory through the immutable Objective WIP weight. Studio Overview links selectable Buffer and in-process Device locations and local connections directly into the same immutable Factory replay; Factory renders the ranked location values without recomputation. Station-route locations remain exact typed evidence even when the current spatial selection contract has no network-route object focus.
 
 Total inventory remains visible so excluded raw, support, scrap, and finished stock can be diagnosed. It never silently contributes to the WIP score.
 
 The tradeoff projection is not fab-loss attribution. Necessary queue stock, batch companions, protected service inventory, and output awaiting the next physical cadence may all contribute to WIP. Ranking their accounting contribution tells a human or reasoning Agent where to observe; it does not declare the quantity avoidable or authorize an automatic buffer reduction.
+
+Memory-fab Run `093-simulate` is the first current `inm-sim/0.88.0` operating evidence under this contract. Relative to physically identical Run `092-simulate`, delivered output remains `88`, throughput remains `22/min`, and every production, delivery, quality, timing, and equipment event is unchanged. Conserving loaded production inputs raises average total inventory from `116.16841666666667` to `124.73002083333333`, average Objective WIP from `19.872825` to `27.834429166666666`, and changes the WIP score contribution from `-29.8092375` to `-41.75164375`. Exact newly visible back-end locations include `3.75` average packaged devices in `burn-in-1.screen-performance-mix`, `1.25` in `burn-in-1.screen-commercial-dram`, and `0.6` known-good die in `packaging-1.package-known-good-dram`.
 
 ## Source of truth
 
@@ -75,4 +81,4 @@ The tradeoff projection is not fab-loss attribution. Necessary queue stock, batc
 
 ## Verification
 
-Tests must prove strict Objective validation, resident/in-flight continuity, local loader/line/unloader and station-route accounting, exact equality between the included per-Resource and per-location average sums and `averageWip`, final-location conservation, exclusion of project support/raw/finished Resources, score-component reconciliation, comparison deltas, workbench parity, immutable report projection, and deterministic replay.
+Tests must prove strict Objective validation, resident/in-process/in-flight continuity, paused-job and final-boundary conservation, local loader/line/unloader and station-route accounting, exact equality between the included per-Resource and per-location average sums and `averageWip`, final-location conservation, exclusion of project support/raw/finished Resources, score-component reconciliation, comparison deltas, workbench parity, immutable report projection, and deterministic replay.

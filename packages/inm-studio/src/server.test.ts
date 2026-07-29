@@ -637,7 +637,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     const campaignRepairRunId = campaignResult.manifest.resultHash as string;
     expect(campaignResult.manifest).toMatchObject({
       budget: { maximum: 7, evaluated: 7 },
-      best: { iteration: 4, candidateScore: -53.33470651587303, verdict: "KEEP" },
+      best: { iteration: 4, candidateScore: -59.9160458015873, verdict: "KEEP" },
       frontier: {
         leader: "candidate-4",
         alternatives: ["candidate-7"],

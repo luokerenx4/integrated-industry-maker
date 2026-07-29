@@ -436,8 +436,8 @@ interface Metrics {
     }>;
     locations: Record<string, {
       resource: string;
-      kind: "buffer" | "local-transit" | "station-transit";
-      device?: string; buffer?: string; connection?: string; phase?: "loading" | "belt" | "unloading"; network?: string; route?: string;
+      kind: "buffer" | "in-process" | "local-transit" | "station-transit";
+      device?: string; buffer?: string; process?: string; connection?: string; phase?: "loading" | "belt" | "unloading"; network?: string; route?: string;
       averageInventory: number; peakInventory: number; finalInventory: number;
     }>;
   };
@@ -3020,8 +3020,14 @@ function App() {
                   .slice(0, 8)
                   .map((accounting) => (
                     <Metric
-                      key={`${accounting.kind}:${accounting.device ?? accounting.connection ?? accounting.network}:${accounting.buffer ?? accounting.phase ?? accounting.route}:${accounting.resource}`}
-                      label={`${accounting.device && accounting.buffer ? `${accounting.device}.${accounting.buffer}` : accounting.connection && accounting.phase ? `${accounting.connection}.${accounting.phase}` : `${accounting.network}.${accounting.route}`}`.toUpperCase()}
+                      key={`${accounting.kind}:${accounting.device ?? accounting.connection ?? accounting.network}:${accounting.buffer ?? accounting.process ?? accounting.phase ?? accounting.route}:${accounting.resource}`}
+                      label={`${accounting.device && accounting.buffer
+                        ? `${accounting.device}.${accounting.buffer}`
+                        : accounting.device && accounting.process
+                          ? `${accounting.device}.${accounting.process}`
+                          : accounting.connection && accounting.phase
+                            ? `${accounting.connection}.${accounting.phase}`
+                            : `${accounting.network}.${accounting.route}`}`.toUpperCase()}
                       value={`${accounting.averageInventory.toFixed(2)} avg · ${accounting.resource}`}
                     />
                   ))}

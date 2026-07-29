@@ -1060,6 +1060,8 @@ export interface ActiveDeviceJob {
   powerSatisfactionPpm: number;
   powerMilliWatts: number;
   produce: ResourceBufferQuantity[];
+  /** Material physically loaded into this production job until it completes or is cancelled. */
+  processInputs?: ResourceBufferQuantity[];
   extraction?: { node: string; count: number };
   generationMilliWatts?: number;
   fuel?: { resource: ResourceId; count: number; energyMilliJoules: number };
@@ -1353,6 +1355,12 @@ export type WipInventoryLocationIdentity =
     resource: ResourceId;
     device: DeviceInstanceId;
     buffer: BufferId;
+  }
+  | {
+    kind: "in-process";
+    resource: ResourceId;
+    device: DeviceInstanceId;
+    process: ProcessId;
   }
   | {
     kind: "local-transit";

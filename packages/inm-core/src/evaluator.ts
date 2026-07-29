@@ -11,6 +11,7 @@ import type {
 import { emptyTransportBlockTicks, totalTransportBlockTicks } from "./transport-blocking";
 import {
   bufferInventoryLocation,
+  inProcessInventoryLocation,
   localTransitInventoryLocation,
   stationTransitInventoryLocation,
   wipInventoryLocationId,
@@ -364,6 +365,12 @@ export function evaluateFactory(
       for (const [resource, count] of Object.entries(inventory)) {
         addFinalInventory(resource, count);
         if (wipResources.has(resource)) addFinalWipLocation(bufferInventoryLocation(resource, device, buffer), count);
+      }
+    }
+    for (const input of runtime.activeJob?.processInputs ?? []) {
+      addFinalInventory(input.resource, input.count);
+      if (wipResources.has(input.resource)) {
+        addFinalWipLocation(inProcessInventoryLocation(input.resource, device, runtime.activeJob!.operation), input.count);
       }
     }
   }

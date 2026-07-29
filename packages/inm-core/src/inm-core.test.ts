@@ -1595,6 +1595,14 @@ describe("blueprint compiler", () => {
         device: "burn-in-1",
         buffer: "package-input",
       }));
+    expect(portfolio.metrics.inventoryAccounting.locations["in-process:burn-in-1:screen-performance-mix:packaged-dram-device"])
+      .toEqual(expect.objectContaining({
+        kind: "in-process",
+        resource: "packaged-dram-device",
+        device: "burn-in-1",
+        process: "screen-performance-mix",
+        peakInventory: 8,
+      }));
     expect(new Set(Object.values(portfolio.metrics.inventoryAccounting.locations)
       .filter((location) => location.kind === "local-transit")
       .map((location) => location.phase))).toEqual(new Set(["loading", "belt", "unloading"]));
@@ -3716,13 +3724,40 @@ describe("deterministic discrete-event simulation", () => {
   });
 
   test("storage depletion pauses an active Device job without refunding its inputs", async () => {
-    const result = runUntil(compileFactoryProject(await accumulatorProjectSource()), undefined, { untilTick: 10_000 });
+    const source = await accumulatorProjectSource();
+    source.objective.wipResources = ["iron-ore"];
+    const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 10_000 });
     const smelter = result.state.devices["smelter-1"]!;
     expect(result.metrics.produced["iron-plate"]).toBe(1);
     expect(smelter.buffers.input).toEqual({});
     expect(smelter.status).toBe("unpowered");
-    expect(smelter.activeJob).toEqual(expect.objectContaining({ remainingTicks: 3_500, workedTicks: 500 }));
+    expect(smelter.activeJob).toEqual(expect.objectContaining({
+      remainingTicks: 3_500,
+      workedTicks: 500,
+      processInputs: [expect.objectContaining({ buffer: "input", resource: "iron-ore", count: 2 })],
+    }));
     expect(smelter.progressTicks).toBe(500);
+    expect(result.metrics.inventoryAccounting).toEqual(expect.objectContaining({
+      averageWip: 2.8,
+      averageTotalInventory: 3.4,
+    }));
+    expect(result.metrics.inventoryAccounting.resources["iron-ore"]).toEqual({
+      includedInWip: true,
+      averageInventory: 2.8,
+      peakInventory: 4,
+      finalInventory: 2,
+    });
+    expect(result.metrics.inventoryAccounting.locations["in-process:smelter-1:smelt-iron:iron-ore"]).toEqual({
+      kind: "in-process",
+      resource: "iron-ore",
+      device: "smelter-1",
+      process: "smelt-iron",
+      averageInventory: 2,
+      peakInventory: 2,
+      finalInventory: 2,
+    });
+    expect(Object.values(result.metrics.inventoryAccounting.locations)
+      .reduce((sum, location) => sum + location.finalInventory, 0)).toBe(2);
     expect(result.metrics.energyStorage["grid-forge-zone-accumulator-1"]).toEqual(expect.objectContaining({
       storedMilliJoules: 0, dischargedMilliJoules: 810_000,
     }));
@@ -4459,7 +4494,7 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(result.accepted).toBeTrue();
     expect(result.cases.map((item) => item.id)).toEqual(["incomplete-tail"]);
     expect(result.totalSimulationTicks).toBe(720_000);
-    expect(result.scoreDelta).toBeCloseTo(6.409068, 5);
+    expect(result.scoreDelta).toBeCloseTo(5.267401, 5);
     expect(result.cases[0]!.baselineMetrics.batchJobs).toBe(3);
     expect(result.cases[0]!.candidateMetrics).toEqual(expect.objectContaining({
       batchJobs: 3, averageLotsPerBatch: 3, batchFormationHolds: 4,
@@ -4496,10 +4531,10 @@ describe("coding-agent Blueprint benchmarks", () => {
       .toBeLessThan(benchmarkCase.baselineMetrics.deliveryNetValuePerMinute);
     expect(benchmarkCase.candidateMetrics.averageWip)
       .toBeGreaterThan(benchmarkCase.baselineMetrics.averageWip);
-    expect(result.scoreDelta).toBeCloseTo(-0.913917, 5);
+    expect(result.scoreDelta).toBeCloseTo(-0.697250, 5);
     expect(result.reasons).toEqual([
-      "aggregate score delta -0.913917 is below required 0.001000",
-      "case 'equipment-energy-window' regressed by 0.913917, above allowed 0.000000",
+      "aggregate score delta -0.697250 is below required 0.001000",
+      "case 'equipment-energy-window' regressed by 0.697250, above allowed 0.000000",
     ]);
   }, 15_000);
 
@@ -4591,13 +4626,13 @@ describe("coding-agent Blueprint benchmarks", () => {
     });
     expect(preview.result).toEqual(expect.objectContaining({
       verdict: "DISCARD",
-      scoreDelta: 120.27731481313492,
+      scoreDelta: 114.7876540988492,
     }));
     expect(preview.currentFactory).toEqual(expect.objectContaining({
       status: "evaluated",
       verdict: "IMPROVED",
-      scoreDelta: 2.5194093603571375,
-      minimumCaseScoreDelta: -5.806869633333328,
+      scoreDelta: 2.5176200746428528,
+      minimumCaseScoreDelta: -5.402707133333344,
     }));
     if (preview.currentFactory.status !== "evaluated") throw new Error("Expected an operational current factory");
     expect(preview.currentFactory.cases.map((item) => ({
@@ -4632,7 +4667,7 @@ describe("coding-agent Blueprint benchmarks", () => {
         expect.objectContaining({ caseId: "facility-interruption", metric: "onTimeLots", deficit: 2 }),
       ],
       caseRegressions: [
-        expect.objectContaining({ caseId: "lithography-interruption", scoreDelta: -5.806869633333328 }),
+        expect.objectContaining({ caseId: "lithography-interruption", scoreDelta: -5.402707133333344 }),
       ],
       benefitsToPreserve: expect.arrayContaining([expect.objectContaining({ component: "wip", scoreDelta: expect.any(Number) })]),
       costsToRemove: expect.arrayContaining([expect.objectContaining({ component: "onTimeDelivery", scoreDelta: expect.any(Number) })]),
