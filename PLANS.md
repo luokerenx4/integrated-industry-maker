@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/back-end-screening-batch-portfolio]] | Give the exhausted memory-fab WIP Program a fixed small-batch screening portfolio without weakening service. | 2026-07-29 |
 | [[plans/live-project-evidence-refresh]] | Keep a running Studio source-current and refresh newly completed project evidence without restart or port knowledge. | 2026-07-29 |
 | [[plans/in-process-wip-conservation]] | Keep active production material inside conserved, targetable Objective inventory evidence. | 2026-07-29 |
 | [[plans/objective-focused-design-programs]] | Continue the human/Agent Design loop from bounded fab losses into exact Objective components and physical exposure locations. | 2026-07-29 |

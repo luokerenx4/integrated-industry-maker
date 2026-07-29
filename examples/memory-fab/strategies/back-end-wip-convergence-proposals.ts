@@ -4,16 +4,42 @@ import type {
   ProjectProposalProvider,
 } from "./runtime-api";
 
-const packagingLocation = "buffer:packaging-1:die-input:known-good-dram-die";
+const burnInLocation = "buffer:burn-in-1:package-input:packaged-dram-device";
+const deviceId = "burn-in-1";
+const commercialBatch = "screen-commercial-dram";
+const commercialSmallBatch = "screen-commercial-dram-small-batch";
+const performanceBatch = "screen-performance-mix";
+const performanceSmallBatch = "screen-performance-mix-small-batch";
 
-interface ReleaseVariant {
-  maximumWip: number;
-  reopenAtWip: number;
+interface ScreeningVariant {
+  strategy: string;
+  commercialProcess: typeof commercialBatch | typeof commercialSmallBatch;
+  performanceProcess: typeof performanceBatch | typeof performanceSmallBatch;
+  hypothesis: (averageInventory: number) => string;
 }
 
-const variants: ReleaseVariant[] = [
-  { maximumWip: 5, reopenAtWip: 4 },
-  { maximumWip: 4, reopenAtWip: 3 },
+const variants: ScreeningVariant[] = [
+  {
+    strategy: "recipe:back-end-performance-small-batch",
+    commercialProcess: commercialBatch,
+    performanceProcess: performanceSmallBatch,
+    hypothesis: (averageInventory) =>
+      `The shared burn-in rack holds ${averageInventory.toFixed(3)} packaged devices on average while its eight-device reliability job accounts for the larger in-process exposure. Replacing only that job with an explicit four-device fixed Process may start high-value screening earlier while preserving the efficient eight-device commercial job.`,
+  },
+  {
+    strategy: "recipe:back-end-commercial-small-batch",
+    commercialProcess: commercialSmallBatch,
+    performanceProcess: performanceBatch,
+    hypothesis: (averageInventory) =>
+      `The shared burn-in rack holds ${averageInventory.toFixed(3)} packaged devices on average. Replacing only the commercial job with an explicit four-device fixed Process tests whether the shorter service quantum drains residual inventory without changing the high-value reliability batch.`,
+  },
+  {
+    strategy: "recipe:back-end-dual-small-batch",
+    commercialProcess: commercialSmallBatch,
+    performanceProcess: performanceSmallBatch,
+    hypothesis: (averageInventory) =>
+      `The shared burn-in rack holds ${averageInventory.toFixed(3)} packaged devices on average ahead of two eight-device operations. Selecting explicit four-device fixed Processes for both product families may reduce formation exposure and finish the terminal tail, at the cost of authored per-device batch overhead.`,
+  },
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -38,50 +64,63 @@ function observedAverageInventory(
     : null;
 }
 
-function releasePatch(
+function recipePatch(
   context: Readonly<ProjectProposalContext>,
-  variant: ReleaseVariant,
+  variant: ScreeningVariant,
 ): JsonPatchOperation[] | null {
-  const release = context.blueprint.policies.lotRelease;
-  if (!isRecord(release)
-    || release.kind !== "conwip"
-    || release.maximumWip !== 6
-    || release.reopenAtWip !== 5
-    || release.dispatch !== "earliest-due-date"
-    || Object.keys(release).sort().join(",") !== "dispatch,kind,maximumWip,reopenAtWip") return null;
-  return [
-    {
+  const deviceIndex = context.blueprint.devices.findIndex((device) => device.id === deviceId);
+  const device = context.blueprint.devices[deviceIndex];
+  if (!device
+    || device.asset !== "dram-burn-in-rack"
+    || !Array.isArray(device.recipes)
+    || device.recipes.length !== 2
+    || !isRecord(device.policy)
+    || device.policy.recipeDispatch !== "contract-value") return null;
+
+  const commercialIndex = device.recipes.findIndex((recipe) =>
+    recipe.process === commercialBatch || recipe.process === commercialSmallBatch);
+  const performanceIndex = device.recipes.findIndex((recipe) =>
+    recipe.process === performanceBatch || recipe.process === performanceSmallBatch);
+  if (commercialIndex < 0
+    || performanceIndex < 0
+    || commercialIndex === performanceIndex) return null;
+
+  const patch: JsonPatchOperation[] = [];
+  if (device.recipes[commercialIndex]!.process !== variant.commercialProcess) {
+    patch.push({
       op: "replace",
-      path: "/policies/lotRelease/maximumWip",
-      value: variant.maximumWip,
-    },
-    {
+      path: `/devices/${deviceIndex}/recipes/${commercialIndex}/process`,
+      value: variant.commercialProcess,
+    });
+  }
+  if (device.recipes[performanceIndex]!.process !== variant.performanceProcess) {
+    patch.push({
       op: "replace",
-      path: "/policies/lotRelease/reopenAtWip",
-      value: variant.reopenAtWip,
-    },
-  ];
+      path: `/devices/${deviceIndex}/recipes/${performanceIndex}/process`,
+      value: variant.performanceProcess,
+    });
+  }
+  return patch.length > 0 ? patch : null;
 }
 
 export default {
   apiVersion: 8,
   propose(context) {
     if (context.branch.role !== "leader") return null;
-    const currentPackagingWip = observedAverageInventory(context, packagingLocation);
-    if (currentPackagingWip === null || currentPackagingWip <= 0) return null;
+    const currentBurnInWip = observedAverageInventory(context, burnInLocation);
+    if (currentBurnInWip === null || currentBurnInWip <= 0) return null;
     const variant = variants.find((item) =>
-      !context.history.some((history) =>
-        history.strategy === `dispatch:back-end-wip-conwip-${item.maximumWip}-${item.reopenAtWip}`));
+      !context.history.some((history) => history.strategy === item.strategy));
     if (!variant) return null;
-    const patch = releasePatch(context, variant);
+    const patch = recipePatch(context, variant);
     if (!patch) return null;
     return {
-      strategy: `dispatch:back-end-wip-conwip-${variant.maximumWip}-${variant.reopenAtWip}`,
-      hypothesis: `The exact driver accumulates ${currentPackagingWip.toFixed(3)} known-good dies at packaging-1 before single-piece packaging feeds the eight-item burn-in batch. Tightening the authored release wave from CONWIP 6/5 to ${variant.maximumWip}/${variant.reopenAtWip} may reduce that physical exposure without changing equipment, process physics, product mix, or dispatch identity.`,
-      expectedEffect: `Reduce average inventory at ${packagingLocation}. Locked on-time service, interruption completion, delivery value, total WIP, and every current-best case remain authoritative and may reject the smaller release window.`,
+      strategy: variant.strategy,
+      hypothesis: variant.hypothesis(currentBurnInWip),
+      expectedEffect: `Reduce average inventory at ${burnInLocation} and the coupled packaging input while preserving locked on-time service, completion, quality, interruption behavior, and current-best case scores. The separately authored small-batch durations include fixed overhead and may reject the intervention.`,
       addressedObjectiveTarget: {
         component: "wip",
-        location: packagingLocation,
+        location: burnInLocation,
         metric: "averageInventory",
         direction: "decrease",
       },

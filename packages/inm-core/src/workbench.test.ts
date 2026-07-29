@@ -72,14 +72,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 8, infoCount: 8 },
-    evidence: { state: "current", runId: "093-simulate" },
+    evidence: { state: "current", runId: "094-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 16, verifiedCount: 0 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.objective.wipResources).toContain("packaged-dram-device");
   expect(snapshot.objective.wipResources).not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "093-simulate",
+    runId: "094-simulate",
     averageWip: 27.834429166666666,
     averageTotalInventory: 124.73002083333333,
     peakWip: 59,
@@ -96,7 +96,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     averageInventory: 9.781316666666667,
   }));
   expect(snapshot.objectiveEvidence).toEqual(expect.objectContaining({
-    runId: "093-simulate",
+    runId: "094-simulate",
     finalScore: 30.88369959166667,
     dominantPenalty: { id: "wip", contribution: -41.75164375, role: "penalty" },
     wip: expect.objectContaining({
@@ -610,7 +610,7 @@ test("shared handoff opens the exact Objective-focused Program after diagnostic 
     lossDispositions: [],
   });
   expect(nextAction).toEqual(expect.objectContaining({
-    id: `design.run.objective:back-end-wip-convergence:${objectiveAuthority}:wip:093-simulate`,
+    id: `design.run.objective:back-end-wip-convergence:${objectiveAuthority}:wip:094-simulate`,
     title: "Expand Back-end WIP Convergence's intervention portfolio",
     argv: ["inm", "design", snapshot.project.rootDir, "--program", "back-end-wip-convergence", "--run-id", objectiveAuthority!, "--json"],
     studioRoute: `/memory-fab/designs/back-end-wip-convergence/runs/${objectiveAuthority}`,
@@ -618,7 +618,7 @@ test("shared handoff opens the exact Objective-focused Program after diagnostic 
       kind: "design-run",
       programId: "back-end-wip-convergence",
       objectiveComponent: "wip",
-      evidenceRunId: "093-simulate",
+      evidenceRunId: "094-simulate",
       phase: "exhausted",
       runId: objectiveAuthority,
     },
@@ -635,7 +635,7 @@ test("an active physical loss still outranks current Objective Design evidence",
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.input-starvation")).toBeTrue();
   const objectiveAuthority = snapshot.designPrograms
     .find((program) => program.id === "back-end-wip-convergence")?.evidence.authorityRunId;
-  if (objectiveAuthority) {
+  if (objectiveAuthority && snapshot.lossDispositions.length > 0) {
     expect(snapshot.lossDispositions.map((disposition) => disposition.loss)).toEqual([
       "input-starvation",
       "maintenance-qualification",

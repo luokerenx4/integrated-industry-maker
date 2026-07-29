@@ -68,6 +68,8 @@ Reviewed run `059-simulate` removes all three batch-companion violations and low
 
 Runtime emits `device.batch-held` and `device.batch-released`; the release cause is either `preferred-ready` or `maximum-wait`. Metrics expose hold count/time and both release counts globally and per Device in CLI output, run reports, and the Studio Device inspector.
 
+The same fixed-Process rule applies to fungible back-end products even though their units do not carry tracked wafer-lot identity. Memory-fab Design Run `d9f46615a929e19893e8b4c2eb102242cf1c66c930e6ca156564021d7059f840` tests separately authored four-device commercial and performance-mix screening Processes against the commissioned eight-device work. The performance-only and dual-small-batch alternatives increase the exact burn-in input exposure from `9.781` to `15.557` and `16.182`; the commercial-only alternative lowers it to `0.973` but loses `74` points of delivery value because the smaller ready job changes shared-rack product service. All three are rejected. A smaller fixed batch is therefore an explicit scheduling and capacity intervention, not an automatic WIP improvement, and a driver-only inventory reduction cannot override the locked delivery portfolio.
+
 ## Current boundary
 
 The Process contract remains fixed-size: INM does not resize a physical recipe or pretend a partial furnace load has identical physics. Bounded formation switches between two separately qualified fixed Processes. There is still no carrier identity, chamber-slot model, incompatible-product grouping rule, or overlapping load/process/unload phase. Those should be added as explicit industrial state when a benchmark requires them, not inferred inside Device scripts.

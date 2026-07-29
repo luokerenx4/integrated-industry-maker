@@ -88,7 +88,7 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       proposal: {
         kind: "project-strategy",
         entry: "strategies/back-end-wip-convergence-proposals.ts",
-        decisionFamilies: ["dispatch"],
+        decisionFamilies: ["recipe"],
       },
       locked: true,
       budget: { maxCandidates: 3 },
@@ -836,7 +836,7 @@ test("objective-focused Design verifies exact in-process WIP replay before locke
   });
   const programPath = join(cleanProject, "design-programs", "back-end-wip-convergence.design.json");
   const providerPath = join(cleanProject, "strategies", "back-end-wip-convergence-proposals.ts");
-  const bufferLocation = "buffer:packaging-1:die-input:known-good-dram-die";
+  const bufferLocation = "buffer:burn-in-1:package-input:packaged-dram-device";
   const processLocation = "in-process:packaging-1:package-known-good-dram:known-good-dram-die";
   await writeFile(
     programPath,
@@ -850,9 +850,9 @@ test("objective-focused Design verifies exact in-process WIP replay before locke
     maxCandidates: 3,
   });
 
-  expect(result.manifest.stopReason).toBe("frontier-exhausted");
-  expect(result.manifest.budget).toEqual({ maximum: 3, evaluated: 2 });
-  expect(result.manifest.iterations).toHaveLength(2);
+  expect(result.manifest.stopReason).toBe("budget-exhausted");
+  expect(result.manifest.budget).toEqual({ maximum: 3, evaluated: 3 });
+  expect(result.manifest.iterations).toHaveLength(3);
   expect(result.manifest.iterations.map((iteration) => ({
     strategy: iteration.strategy,
     decision: iteration.decision,
@@ -861,9 +861,9 @@ test("objective-focused Design verifies exact in-process WIP replay before locke
     evidence: iteration.objectiveTargetEvidence,
   }))).toEqual([
     expect.objectContaining({
-      strategy: "dispatch:back-end-wip-conwip-5-4",
+      strategy: "recipe:back-end-performance-small-batch",
       decision: "REJECT",
-      basis: "benchmark-gate",
+      basis: "addressed-objective-not-improved",
       target: {
         component: "wip",
         location: processLocation,
@@ -873,9 +873,21 @@ test("objective-focused Design verifies exact in-process WIP replay before locke
       evidence: expect.objectContaining({ before: 0.6, after: 0.6, delta: 0, improved: false }),
     }),
     expect.objectContaining({
-      strategy: "dispatch:back-end-wip-conwip-4-3",
+      strategy: "recipe:back-end-commercial-small-batch",
       decision: "REJECT",
-      basis: "benchmark-gate",
+      basis: "addressed-objective-not-improved",
+      target: {
+        component: "wip",
+        location: processLocation,
+        metric: "averageInventory",
+        direction: "decrease",
+      },
+      evidence: expect.objectContaining({ before: 0.6, after: 0.6, delta: 0, improved: false }),
+    }),
+    expect.objectContaining({
+      strategy: "recipe:back-end-dual-small-batch",
+      decision: "REJECT",
+      basis: "addressed-objective-not-improved",
       target: {
         component: "wip",
         location: processLocation,
@@ -885,8 +897,5 @@ test("objective-focused Design verifies exact in-process WIP replay before locke
       evidence: expect.objectContaining({ before: 0.6, after: 0.6, delta: 0, improved: false }),
     }),
   ]);
-  expect(result.manifest.frontier.scheduler).toEqual({
-    searchOrder: [],
-    exhausted: ["seed"],
-  });
+  expect(result.manifest.frontier.scheduler.searchOrder).toEqual(["seed"]);
 }, 360_000);

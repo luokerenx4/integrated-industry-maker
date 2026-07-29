@@ -2,7 +2,7 @@
   "version": 1,
   "id": "back-end-wip-convergence",
   "name": "Back-end WIP Convergence",
-  "description": "Evaluate explicit release-wave interventions against the dominant packaging and burn-in Objective WIP exposure while preserving every locked delivery and interruption case.",
+  "description": "Evaluate explicit fixed small-batch burn-in Processes against the dominant packaging and burn-in Objective WIP exposure while preserving every locked delivery and interruption case.",
   "benchmark": "greenfield-dram-design",
   "seed": {
     "kind": "blueprint",
@@ -28,7 +28,7 @@
     "kind": "project-strategy",
     "entry": "strategies/back-end-wip-convergence-proposals.ts",
     "decisionFamilies": [
-      "dispatch"
+      "recipe"
     ]
   },
   "budget": {

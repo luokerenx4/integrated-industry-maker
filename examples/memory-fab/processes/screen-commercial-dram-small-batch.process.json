@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "id": "screen-commercial-dram-small-batch",
+  "name": "Screen a small commercial DRAM product batch",
+  "description": "Runs an explicit four-device commercial final-test batch with a fixed setup/load overhead; it is a separate qualified Process, not a partial execution of the eight-device recipe.",
+  "category": "final-test",
+  "tags": [
+    "dram",
+    "back-end",
+    "final-test",
+    "commercial-grade",
+    "small-batch"
+  ],
+  "setupGroup": "commercial-screen",
+  "durationTicks": 7000,
+  "inputs": [
+    {
+      "resource": "packaged-dram-device",
+      "count": 4
+    }
+  ],
+  "outputs": [
+    {
+      "resource": "commercial-dram-device",
+      "count": 4
+    }
+  ]
+}

@@ -90,7 +90,9 @@
   "production": {
     "processes": [
       "screen-commercial-dram",
-      "screen-performance-mix"
+      "screen-commercial-dram-small-batch",
+      "screen-performance-mix",
+      "screen-performance-mix-small-batch"
     ],
     "categories": [
       "final-test"
