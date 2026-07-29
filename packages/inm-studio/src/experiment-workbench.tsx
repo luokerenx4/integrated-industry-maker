@@ -227,7 +227,7 @@ export function ExperimentWorkbench({
           {activeOperation && <section className={`experiment-live-progress ${activeOperation.status}`} aria-live="polite" data-testid="experiment-progress">
             <div>
               <small>RECONNECTABLE OPERATION · {activeOperation.status.toUpperCase()}</small>
-              <strong>{progress ? `${progress.phase.startsWith("baseline") ? "BASELINE" : "CANDIDATE"} · ${progress.case.index}/${progress.case.total}` : activeOperation.status === "completed" ? "IMMUTABLE RESULT RETAINED" : "PREPARING LOCKED CONTRACT"}</strong>
+              <strong>{progress ? `${progress.phase.startsWith("baseline") ? "LOCKED BASELINE" : progress.phase.startsWith("current") ? "CURRENT FACTORY" : "PROPOSED FACTORY"} · ${progress.case.index}/${progress.case.total}` : activeOperation.status === "completed" ? "IMMUTABLE RESULT RETAINED" : "PREPARING LOCKED CONTRACT"}</strong>
               <code>OP {shortHash(activeOperation.id)} · {progress ? `${progress.case.name} · ${progress.case.id}` : selected.id}</code>
               <span>{progress ? progress.phase.endsWith("completed") ? `${progress.cached ? "REUSED" : "EVALUATED"}${progress.execution.mode === "isolated" ? " · ISOLATED WORKER" : progress.execution.mode === "parallel" ? ` · PARALLEL ×${progress.execution.concurrency}` : ""}${progress.timing.workerReused === undefined ? "" : progress.timing.workerReused ? " · WARM WORKER" : ` · COLD WORKER · ${(progress.timing.workerStartupMs ?? 0).toFixed(0)}ms STARTUP`} · ${((progress.timing.durationMs ?? 0) / 1000).toFixed(2)}s` : `RUNNING EXACT LOCKED CASE${progress.execution.mode === "isolated" ? " · ISOLATED WORKER" : progress.execution.mode === "parallel" ? ` · PARALLEL ×${progress.execution.concurrency}` : ""}` : activeOperation.error?.message ?? "LOADING PROJECT-LOCAL CASES"}</span>
             </div>
@@ -270,10 +270,10 @@ export function ExperimentWorkbench({
           </section>}
           {result && <div className="experiment-result" data-testid="experiment-result">
             <section className={`experiment-verdict ${result.verdict.toLowerCase()}`} aria-label={`Verdict ${result.verdict}`}>
-              <div><small>VERDICT</small><strong>{result.verdict}</strong></div>
-              <span><small>BASELINE</small><b>{result.baselineScore.toFixed(6)}</b></span><i>→</i>
-              <span><small>CANDIDATE</small><b>{result.candidateScore.toFixed(6)}</b></span>
-              <span className="experiment-delta"><small>SCORE DELTA</small><b>{signed(result.scoreDelta, 6)}</b></span>
+              <div><small>{candidatePreview ? "LOCKED COMPLIANCE" : "VERDICT"}</small><strong>{result.verdict}</strong></div>
+              <span><small>LOCKED BASELINE</small><b>{result.baselineScore.toFixed(6)}</b></span><i>→</i>
+              <span><small>PROPOSED FACTORY</small><b>{result.candidateScore.toFixed(6)}</b></span>
+              <span className="experiment-delta"><small>LOCKED DELTA</small><b>{signed(result.scoreDelta, 6)}</b></span>
             </section>
             {candidatePreview && <section className="candidate-review" aria-label="Candidate application">
               <div><small>REVIEWED HASHES</small><code>PROPOSAL {shortHash(candidatePreview.proposalHash)} · BLUEPRINT {shortHash(candidatePreview.currentCandidateHash)} → {shortHash(candidatePreview.proposedCandidateHash)}</code></div>
@@ -281,6 +281,48 @@ export function ExperimentWorkbench({
                 : decisionState === "stale" ? <strong className="candidate-applied stale" data-testid="candidate-stale">STALE · BLUEPRINT MOVED BEYOND THIS REVIEW</strong>
                   : !applyArmed ? <button data-testid="arm-candidate-apply" disabled={result.verdict !== "KEEP"} onClick={() => setApplyArmed(true)}>ARM BLUEPRINT WRITE</button>
                     : <button className="confirm" data-testid="confirm-candidate-apply" disabled={applying} onClick={() => void apply()}>{applying ? "RE-EVALUATING…" : "CONFIRM ATOMIC APPLY"}</button>}
+            </section>}
+            {candidatePreview && <section className="experiment-cases candidate-current-factory" aria-label="Current factory impact" data-testid="candidate-current-factory">
+              <div className="experiment-section-title"><span>CURRENT FACTORY IMPACT</span><b>{candidatePreview.currentFactory.status === "evaluated" ? `${candidatePreview.currentFactory.verdict} · ${signed(candidatePreview.currentFactory.scoreDelta, 6)}` : "NOT OPERATIONAL"}</b></div>
+              {candidatePreview.currentFactory.status === "not-operational" ? <section className="experiment-error">
+                <strong>NOT COMPARABLE</strong>
+                <span>The pinned current Blueprint is a commissioning shell, not an operating factory. Locked compliance remains valid.</span>
+                <code>{candidatePreview.currentFactory.reason}</code>
+              </section> : <>
+              <section className={`experiment-verdict ${candidatePreview.currentFactory.verdict.toLowerCase()}`}>
+                <div><small>INCREMENTAL EFFECT</small><strong>{candidatePreview.currentFactory.verdict}</strong></div>
+                <span><small>CURRENT FACTORY</small><b>{candidatePreview.currentFactory.currentScore.toFixed(6)}</b></span><i>→</i>
+                <span><small>PROPOSED FACTORY</small><b>{candidatePreview.currentFactory.proposedScore.toFixed(6)}</b></span>
+                <span className="experiment-delta"><small>CURRENT DELTA</small><b>{signed(candidatePreview.currentFactory.scoreDelta, 6)}</b></span>
+              </section>
+              <div className="experiment-case-head"><span>CASE</span><span>SCORE</span><span>DELTA</span><span>CAPACITY</span><span>WIP</span><span>ON TIME</span></div>
+              {candidatePreview.currentFactory.cases.map((item) => <article className="experiment-case-evidence" key={item.id}>
+                <div className="experiment-case-result" data-testid={`candidate-current-case-${item.id}`}>
+                  <strong>{item.name}<code>{item.id} · seed {item.seed} · ×{item.weight}</code></strong>
+                  <span>{item.currentScore.toFixed(3)} → {item.proposedScore.toFixed(3)}</span>
+                  <b className={item.scoreDelta >= 0 ? "positive" : "negative"}>{signed(item.scoreDelta)}</b>
+                  <span>{item.proposedCapacityReady ? "READY" : `${item.proposedCapacityGaps.length} GAPS`}</span>
+                  <span>{item.currentMetrics.averageWip.toFixed(2)} → {item.proposedMetrics.averageWip.toFixed(2)}</span>
+                  <span>{item.currentMetrics.onTimeLots} → {item.proposedMetrics.onTimeLots}</span>
+                </div>
+                <ScoreBreakdownDetails
+                  baseline={item.currentMetrics.scoreBreakdown}
+                  candidate={item.proposedMetrics.scoreBreakdown}
+                  delta={item.scoreBreakdownDelta}
+                  testId={`candidate-current-score-breakdown-${item.id}`}
+                />
+              </article>)}
+              {candidatePreview.currentFactory.outcomeGuardrails && <section className="experiment-outcomes" data-testid="candidate-current-outcomes">
+                <div className="experiment-section-title"><span>CURRENT → PROPOSED HARD OUTCOMES</span><b>EXACT SAME THRESHOLDS</b></div>
+                {candidatePreview.currentFactory.outcomeGuardrails.map((guardrail) => <article className={guardrail.proposedPassed ? "passed" : "failed"} key={guardrail.id}>
+                  <header><span><small>{guardrail.metric}</small><strong>{guardrail.label}</strong><code>{guardrail.id}</code></span><b>{guardrail.currentPassed ? "PASS" : "FAIL"} → {guardrail.proposedPassed ? "PASS" : "FAIL"}</b></header>
+                  <div>{guardrail.cases.map((item) => <span className={item.proposedPassed ? "passed" : "failed"} key={item.id}>
+                    <small>{item.id}</small><strong>{outcomeValue(guardrail.metric, item.currentValue)} → {outcomeValue(guardrail.metric, item.proposedValue)}</strong>
+                    <code>{guardrail.operator === "minimum" ? "≥" : "≤"} {outcomeValue(guardrail.metric, item.threshold)}</code><b>{item.proposedPassed ? "PASS" : "FAIL"}</b>
+                  </span>)}</div>
+                </article>)}
+              </section>}
+              </>}
             </section>}
             {result.reasons.length > 0 && <section className="experiment-reasons"><div className="experiment-section-title"><span>GATE DECISION</span><b>{result.reasons.length} REASONS</b></div>{result.reasons.map((reason) => <p key={reason}>{reason}</p>)}</section>}
             {result.outcomeGuardrails && <section className="experiment-outcomes" data-testid="outcome-guardrails">

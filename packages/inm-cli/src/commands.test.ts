@@ -145,7 +145,19 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
   expect(result.data).toEqual(expect.objectContaining({
     section: "summary",
     result: expect.objectContaining({
-      action: "preview", candidate: "commissioned-release-control", verdict: "KEEP", scoreDelta: expect.any(Number),
+      action: "preview", candidate: "commissioned-release-control", verdict: "KEEP", lockedBaselineScoreDelta: expect.any(Number),
+      currentFactory: expect.objectContaining({
+        reference: "current-factory",
+        currentBlueprintHash: expect.any(String),
+        proposedBlueprintHash: expect.any(String),
+        verdict: expect.stringMatching(/IMPROVED|REGRESSED|UNCHANGED/),
+        cases: expect.arrayContaining([expect.objectContaining({
+          currentWip: expect.any(Number),
+          proposedWip: expect.any(Number),
+          currentOnTimeLots: expect.any(Number),
+          proposedOnTimeLots: expect.any(Number),
+        })]),
+      }),
       outcomeGuardrails: expect.objectContaining({ total: 6, passed: 6, failed: 0, evidence: expect.any(Array) }),
     }),
     operation: expect.objectContaining({
@@ -155,6 +167,15 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
     }),
   }));
   expect(result.artifacts).toEqual([expect.objectContaining({ kind: "candidate-review", immutable: true })]);
+  expect(JSON.parse(await readFile(result.artifacts[0].path, "utf8"))).toEqual(expect.objectContaining({
+    version: 2,
+    currentFactory: expect.objectContaining({
+      reference: "current-factory",
+      currentBlueprintHash: expect.any(String),
+      proposedBlueprintHash: expect.any(String),
+      cases: expect.any(Array),
+    }),
+  }));
   expect(result.execution).toEqual(expect.objectContaining({
     kind: "candidate-preview",
     subject: { kind: "candidate-preview", benchmarkId: "greenfield-dram-design", candidateId: "commissioned-release-control" },

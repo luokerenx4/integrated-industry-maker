@@ -2,134 +2,17 @@
   "benchmark": "equipment-energy-research",
   "candidate": "stable-furnace-sleep",
   "currentCandidateHash": "f21ba0a1fc22c22e5f11aca877abfa482717427822cd950851aa3684ddc36864",
-  "proposalHash": "7a901798f75777ed93f195cec9e4e140ec68fed7d7ea1a61270fff993355f174",
-  "proposedCandidateHash": "d0c22af30cbcb0f8ae50a83265d7d7b1a5f23784ca488d06478501bc1d9cf01e",
-  "result": {
-    "accepted": false,
-    "baselineBlueprint": "equipment-energy-base",
-    "baselineBlueprintHash": "68dd0e51d822ebbbfe1f450eeefee512c4d30b4c6a30680cbeac9f17b4ad62bf",
-    "baselineScore": -260.34986388888825,
-    "benchmark": "equipment-energy-research",
-    "candidateBlueprint": "equipment-energy-sleep",
-    "candidateBlueprintHash": "d0c22af30cbcb0f8ae50a83265d7d7b1a5f23784ca488d06478501bc1d9cf01e",
-    "candidateScore": -261.95815555555595,
+  "currentFactory": {
     "cases": [
       {
-        "baselineCapacityReady": true,
-        "baselineMetrics": {
+        "currentCapacityGaps": [],
+        "currentCapacityReady": true,
+        "currentMetrics": {
+          "appliedDefectInstances": 0,
+          "authoredDefectInstances": 0,
           "averageBlockedBeltItems": 0,
           "averageLotsPerBatch": 0,
-          "averageWip": 104.20444444444445,
-          "batchFormationHolds": 0,
-          "batchFormationHoldTicks": 0,
-          "batchJobs": 0,
-          "batchLots": 0,
-          "batchPreferredReleases": 0,
-          "batchTimeoutReleases": 0,
-          "beltCellUtilization": 0.006086901121304791,
-          "bottleneckEntity": "burn-in-1",
-          "campaignMaximumHoldReleases": 0,
-          "campaignMinimumLotReleases": 0,
-          "capacityBlockedLots": 0,
-          "capacityBlockedTicks": 0,
-          "chargedMilliJoules": 0,
-          "completedLots": 12,
-          "contractFulfillment": 1.0266666666666666,
-          "controlBlockedLots": 0,
-          "controlBlockedTicks": 0,
-          "curtailedMilliJoules": 887833825,
-          "deliveryNetValuePerMinute": 40.333333333333336,
-          "deliveryOverflow": 5,
-          "dischargedMilliJoules": 0,
-          "electricityDemandChargeMicroCurrency": 104970,
-          "electricityEnergyChargeMicroCurrency": 163984.72777777657,
-          "electricityTotalCostMicroCurrency": 268954.72777777654,
-          "energyConsumedMilliJoules": 408166175,
-          "firstPassYield": 1,
-          "goodYield": 1,
-          "infeasibleReason": null,
-          "lotOutputJobs": 12,
-          "lotOutputLostUnits": 0,
-          "lotOutputRatio": 1,
-          "maximumQueueTimeOverrunTicks": 0,
-          "maximumReleaseDelayTicks": 0,
-          "meanActualReleaseIntervalTicks": 19090.909090909092,
-          "meanBatchQueueWaitTicksPerLot": 0,
-          "meanCycleTimeTicks": 97400,
-          "meanQueueTimeTicks": 38000,
-          "meanReleaseDelayTicks": 0,
-          "meanTardinessTicks": 0,
-          "objectiveAttainment": 1,
-          "occupiedArea": 276,
-          "onTimeLots": 12,
-          "p95CycleTimeTicks": 134400,
-          "peakActiveLots": 6,
-          "pendingReleaseLots": 0,
-          "qualityEscapes": 0,
-          "queueTimeViolatedLots": 0,
-          "queueTimeViolations": 0,
-          "releasedLots": 12,
-          "reworkCycles": 0,
-          "scheduledLots": 12,
-          "score": -260.34986388888825,
-          "scrappedLots": 0,
-          "serviceLevelOpenings": 0,
-          "storedMilliJoules": 0,
-          "throughputPerMinute": 12.833333333333334,
-          "totalAssetLimitMaintenance": 7,
-          "totalBuildCost": 217050,
-          "totalCalendarTriggeredMaintenance": 5,
-          "totalCampaignHolds": 0,
-          "totalCampaignHoldTicks": 0,
-          "totalChangeovers": 4,
-          "totalDriftDefects": 0,
-          "totalDriftedJobs": 0,
-          "totalDriftedLots": 0,
-          "totalEquipmentSleepingTicks": 0,
-          "totalEquipmentSleeps": 0,
-          "totalEquipmentWakeTicks": 0,
-          "totalEquipmentWakeups": 0,
-          "totalMaintenanceCancelled": 0,
-          "totalMaintenanceCompleted": 7,
-          "totalMaintenanceCrewWaitTicks": 0,
-          "totalMaintenanceInputWaitTicks": 0,
-          "totalMaintenanceQualificationCrewTicks": 24000,
-          "totalMaintenanceServiceCrewTicks": 74000,
-          "totalMaintenanceTicks": 74000,
-          "totalOpportunisticMaintenance": 0,
-          "totalPlannedBoundaryMaintenance": 0,
-          "totalQualificationCancelled": 0,
-          "totalQualificationCompleted": 7,
-          "totalQualificationTicks": 24000,
-          "totalSetupTicks": 18000,
-          "totalToolingAllocations": 24,
-          "totalToolingCancelled": 0,
-          "totalToolingCompleted": 24,
-          "totalToolingInputBlocks": 0,
-          "totalToolingInputWaitTicks": 0,
-          "totalToolingOccupiedTicks": 144000,
-          "totalToolingUnitTicks": 144000,
-          "totalUsageTriggeredMaintenance": 2,
-          "totalUtilityAllocations": 60,
-          "totalUtilityCancelled": 0,
-          "totalUtilityCompleted": 60,
-          "totalUtilityInputBlocks": 0,
-          "totalUtilityInputWaitTicks": 0,
-          "totalUtilityOccupiedTicks": 348000,
-          "totalUtilityProviderInterruptions": 0,
-          "totalUtilityUnitTicks": 900000,
-          "transportCongestion": 0.006086901121304708,
-          "transportEnergyConsumedMilliJoules": 6462675,
-          "unpoweredTicks": 0,
-          "unservedMilliJoules": 0
-        },
-        "baselineScore": -260.34986388888825,
-        "candidateCapacityGaps": [],
-        "candidateCapacityReady": true,
-        "candidateMetrics": {
-          "averageBlockedBeltItems": 0,
-          "averageLotsPerBatch": 0,
-          "averageWip": 105.40180555555555,
+          "averageWip": 14.006944444444445,
           "batchFormationHolds": 0,
           "batchFormationHoldTicks": 0,
           "batchJobs": 0,
@@ -138,6 +21,9 @@
           "batchTimeoutReleases": 0,
           "beltCellUtilization": 0.005402650356778798,
           "bottleneckEntity": "burn-in-1",
+          "cadenceControl": {
+            "devices": {}
+          },
           "campaignMaximumHoldReleases": 0,
           "campaignMinimumLotReleases": 0,
           "capacityBlockedLots": 0,
@@ -147,17 +33,514 @@
           "contractFulfillment": 0.84,
           "controlBlockedLots": 0,
           "controlBlockedTicks": 0,
-          "curtailedMilliJoules": 894369325,
+          "curtailedMilliJoules": 894929325,
           "deliveryNetValuePerMinute": 39.333333333333336,
           "deliveryOverflow": 3,
           "dischargedMilliJoules": 0,
           "electricityDemandChargeMicroCurrency": 104970,
-          "electricityEnergyChargeMicroCurrency": 160475.8944444452,
-          "electricityTotalCostMicroCurrency": 265445.8944444452,
-          "energyConsumedMilliJoules": 401630675,
+          "electricityEnergyChargeMicroCurrency": 160102.561111112,
+          "electricityTotalCostMicroCurrency": 265072.561111112,
+          "energyConsumedMilliJoules": 401070675,
           "firstPassYield": 1,
           "goodYield": 1,
           "infeasibleReason": null,
+          "inventoryAccounting": {
+            "averageExcludedInventory": 91.39486111111111,
+            "averageTotalInventory": 105.40180555555555,
+            "averageWip": 14.006944444444445,
+            "locations": {
+              "buffer:burn-in-1:package-input:packaged-dram-device": {
+                "averageInventory": 8.441666666666666,
+                "buffer": "package-input",
+                "device": "burn-in-1",
+                "finalInventory": 23,
+                "kind": "buffer",
+                "peakInventory": 32,
+                "resource": "packaged-dram-device"
+              },
+              "buffer:deposition-1:etch-input:etched-cell-l1-lot": {
+                "averageInventory": 0.125,
+                "buffer": "etch-input",
+                "device": "deposition-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 2,
+                "resource": "etched-cell-l1-lot"
+              },
+              "buffer:etch-1:pattern-input:patterned-cell-l1-lot": {
+                "averageInventory": 0.13333333333333333,
+                "buffer": "pattern-input",
+                "device": "etch-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 2,
+                "resource": "patterned-cell-l1-lot"
+              },
+              "buffer:etch-2:pattern-input:patterned-cell-l2-lot": {
+                "averageInventory": 0.15,
+                "buffer": "pattern-input",
+                "device": "etch-2",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 2,
+                "resource": "patterned-cell-l2-lot"
+              },
+              "buffer:furnace-1:batch-input:dielectric-stack-lot": {
+                "averageInventory": 0.027777777777777776,
+                "buffer": "batch-input",
+                "device": "furnace-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 1,
+                "resource": "dielectric-stack-lot"
+              },
+              "buffer:inspection-1:wafer-input:dram-wafer-lot": {
+                "averageInventory": 0.4388888888888889,
+                "buffer": "wafer-input",
+                "device": "inspection-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 3,
+                "resource": "dram-wafer-lot"
+              },
+              "buffer:lithography-1:release-input:blank-dram-wafer-lot": {
+                "averageInventory": 0.21666666666666667,
+                "buffer": "release-input",
+                "device": "lithography-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 3,
+                "resource": "blank-dram-wafer-lot"
+              },
+              "buffer:lithography-2:reentrant-input:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.24166666666666667,
+                "buffer": "reentrant-input",
+                "device": "lithography-2",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 3,
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "buffer:packaging-1:die-input:known-good-dram-die": {
+                "averageInventory": 3.3144444444444443,
+                "buffer": "die-input",
+                "device": "packaging-1",
+                "finalInventory": 8,
+                "kind": "buffer",
+                "peakInventory": 17,
+                "resource": "known-good-dram-die"
+              },
+              "buffer:probe-1:die-output:known-good-dram-die": {
+                "averageInventory": 0.23333333333333334,
+                "buffer": "die-output",
+                "device": "probe-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 7,
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:batch-furnace-to-lithography:belt:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.03666666666666667,
+                "connection": "batch-furnace-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "local-transit:batch-furnace-to-lithography:loading:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "batch-furnace-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "local-transit:batch-furnace-to-lithography:unloading:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "batch-furnace-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "local-transit:deposition-to-batch-furnace:belt:dielectric-stack-lot": {
+                "averageInventory": 0.013333333333333334,
+                "connection": "deposition-to-batch-furnace",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "dielectric-stack-lot"
+              },
+              "local-transit:deposition-to-batch-furnace:loading:dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "deposition-to-batch-furnace",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "dielectric-stack-lot"
+              },
+              "local-transit:deposition-to-batch-furnace:unloading:dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "deposition-to-batch-furnace",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "dielectric-stack-lot"
+              },
+              "local-transit:etch-to-deposition:belt:etched-cell-l1-lot": {
+                "averageInventory": 0.016666666666666666,
+                "connection": "etch-to-deposition",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "etched-cell-l1-lot"
+              },
+              "local-transit:etch-to-deposition:loading:etched-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-deposition",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "etched-cell-l1-lot"
+              },
+              "local-transit:etch-to-deposition:unloading:etched-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-deposition",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "etched-cell-l1-lot"
+              },
+              "local-transit:etch-to-inspection:belt:dram-wafer-lot": {
+                "averageInventory": 0.013333333333333334,
+                "connection": "etch-to-inspection",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "dram-wafer-lot"
+              },
+              "local-transit:etch-to-inspection:loading:dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-inspection",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "dram-wafer-lot"
+              },
+              "local-transit:etch-to-inspection:unloading:dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-inspection",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "dram-wafer-lot"
+              },
+              "local-transit:inspection-to-probe:belt:qualified-dram-wafer-lot": {
+                "averageInventory": 0.006666666666666667,
+                "connection": "inspection-to-probe",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "qualified-dram-wafer-lot"
+              },
+              "local-transit:inspection-to-probe:loading:qualified-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "inspection-to-probe",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "qualified-dram-wafer-lot"
+              },
+              "local-transit:inspection-to-probe:unloading:qualified-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "inspection-to-probe",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "qualified-dram-wafer-lot"
+              },
+              "local-transit:lithography-to-etch-lithography-2:belt:patterned-cell-l2-lot": {
+                "averageInventory": 0.023333333333333334,
+                "connection": "lithography-to-etch-lithography-2",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "patterned-cell-l2-lot"
+              },
+              "local-transit:lithography-to-etch-lithography-2:loading:patterned-cell-l2-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch-lithography-2",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "patterned-cell-l2-lot"
+              },
+              "local-transit:lithography-to-etch-lithography-2:unloading:patterned-cell-l2-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch-lithography-2",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "patterned-cell-l2-lot"
+              },
+              "local-transit:lithography-to-etch:belt:patterned-cell-l1-lot": {
+                "averageInventory": 0.02,
+                "connection": "lithography-to-etch",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "patterned-cell-l1-lot"
+              },
+              "local-transit:lithography-to-etch:loading:patterned-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "patterned-cell-l1-lot"
+              },
+              "local-transit:lithography-to-etch:unloading:patterned-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "patterned-cell-l1-lot"
+              },
+              "local-transit:packaging-to-burn-in:belt:packaged-dram-device": {
+                "averageInventory": 0.09666666666666666,
+                "connection": "packaging-to-burn-in",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "packaged-dram-device"
+              },
+              "local-transit:packaging-to-burn-in:loading:packaged-dram-device": {
+                "averageInventory": 0.06041666666666667,
+                "connection": "packaging-to-burn-in",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "packaged-dram-device"
+              },
+              "local-transit:packaging-to-burn-in:unloading:packaged-dram-device": {
+                "averageInventory": 0.06041666666666667,
+                "connection": "packaging-to-burn-in",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "packaged-dram-device"
+              },
+              "local-transit:probe-to-packaging:belt:known-good-dram-die": {
+                "averageInventory": 0.05333333333333334,
+                "connection": "probe-to-packaging",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:probe-to-packaging:loading:known-good-dram-die": {
+                "averageInventory": 0.06666666666666667,
+                "connection": "probe-to-packaging",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:probe-to-packaging:unloading:known-good-dram-die": {
+                "averageInventory": 0.06666666666666667,
+                "connection": "probe-to-packaging",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:release-to-lithography:belt:blank-dram-wafer-lot": {
+                "averageInventory": 0.016666666666666666,
+                "connection": "release-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "blank-dram-wafer-lot"
+              },
+              "local-transit:release-to-lithography:loading:blank-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "release-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "blank-dram-wafer-lot"
+              },
+              "local-transit:release-to-lithography:unloading:blank-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "release-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "blank-dram-wafer-lot"
+              }
+            },
+            "peakTotalInventory": 129,
+            "peakWip": 32,
+            "resources": {
+              "annealed-dielectric-stack-lot": {
+                "averageInventory": 0.295,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 3
+              },
+              "automotive-dram-device": {
+                "averageInventory": 0.03125,
+                "finalInventory": 0,
+                "includedInWip": false,
+                "peakInventory": 2
+              },
+              "blank-dram-wafer-lot": {
+                "averageInventory": 0.25,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 3
+              },
+              "chamber-clean-kit": {
+                "averageInventory": 14.434722222222222,
+                "finalInventory": 12,
+                "includedInWip": false,
+                "peakInventory": 16
+              },
+              "commercial-dram-device": {
+                "averageInventory": 0.23166666666666666,
+                "finalInventory": 1,
+                "includedInWip": false,
+                "peakInventory": 8
+              },
+              "dielectric-stack-lot": {
+                "averageInventory": 0.057777777777777775,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 1
+              },
+              "dram-package-substrate": {
+                "averageInventory": 30.24111111111111,
+                "finalInventory": 8,
+                "includedInWip": false,
+                "peakInventory": 48
+              },
+              "dram-wafer-lot": {
+                "averageInventory": 0.4688888888888889,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 4
+              },
+              "etched-cell-l1-lot": {
+                "averageInventory": 0.15833333333333333,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 2
+              },
+              "known-good-dram-die": {
+                "averageInventory": 3.7344444444444442,
+                "finalInventory": 8,
+                "includedInWip": true,
+                "peakInventory": 19
+              },
+              "metrology-calibration-kit": {
+                "averageInventory": 14.905833333333334,
+                "finalInventory": 13,
+                "includedInWip": false,
+                "peakInventory": 16
+              },
+              "metrology-reference-wafer": {
+                "averageInventory": 14.955833333333333,
+                "finalInventory": 13,
+                "includedInWip": false,
+                "peakInventory": 16
+              },
+              "packaged-dram-device": {
+                "averageInventory": 8.659166666666666,
+                "finalInventory": 23,
+                "includedInWip": true,
+                "peakInventory": 32
+              },
+              "patterned-cell-l1-lot": {
+                "averageInventory": 0.17,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 2
+              },
+              "patterned-cell-l2-lot": {
+                "averageInventory": 0.19,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 2
+              },
+              "performance-dram-device": {
+                "averageInventory": 0.07083333333333333,
+                "finalInventory": 0,
+                "includedInWip": false,
+                "peakInventory": 4
+              },
+              "qualified-dram-wafer-lot": {
+                "averageInventory": 0.023333333333333334,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 1
+              },
+              "reticle-mask-set-l1": {
+                "averageInventory": 1,
+                "finalInventory": 1,
+                "includedInWip": false,
+                "peakInventory": 1
+              },
+              "reticle-mask-set-l2": {
+                "averageInventory": 1,
+                "finalInventory": 1,
+                "includedInWip": false,
+                "peakInventory": 1
+              },
+              "rework-required-dram-wafer-lot": {
+                "averageInventory": 0,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 0
+              },
+              "tool-qualification-wafer": {
+                "averageInventory": 14.52361111111111,
+                "finalInventory": 12,
+                "includedInWip": false,
+                "peakInventory": 16
+              }
+            }
+          },
           "lotOutputJobs": 12,
           "lotOutputLostUnits": 0,
           "lotOutputRatio": 1,
@@ -175,15 +558,668 @@
           "p95CycleTimeTicks": 138400,
           "peakActiveLots": 6,
           "pendingReleaseLots": 0,
+          "preventedDefectInstances": 0,
           "qualityEscapes": 0,
           "queueTimeViolatedLots": 0,
           "queueTimeViolations": 0,
           "releasedLots": 12,
           "reworkCycles": 0,
           "scheduledLots": 12,
-          "score": -261.95815555555595,
+          "score": -124.67919722222267,
+          "scoreBreakdown": {
+            "blocked": 0,
+            "buildCost": -10.852500000000001,
+            "changeovers": -2.5,
+            "constraintPenalty": 0,
+            "cycleTime": -3.3133333333333335,
+            "deliveryValue": 39.333333333333336,
+            "electricityCost": -132.536280555556,
+            "energy": 0,
+            "occupiedArea": -13.8,
+            "onTimeDelivery": 20,
+            "qualityEscapes": 0,
+            "rework": 0,
+            "tardiness": 0,
+            "throughput": 0,
+            "wip": -21.010416666666668
+          },
           "scrappedLots": 0,
           "serviceLevelOpenings": 0,
+          "serviceProtectedReleases": 0,
+          "storedMilliJoules": 0,
+          "throughputPerMinute": 10.5,
+          "totalAssetLimitMaintenance": 7,
+          "totalBuildCost": 217050,
+          "totalCalendarTriggeredMaintenance": 5,
+          "totalCampaignHolds": 0,
+          "totalCampaignHoldTicks": 0,
+          "totalChangeovers": 5,
+          "totalDriftDefects": 0,
+          "totalDriftedJobs": 0,
+          "totalDriftedLots": 0,
+          "totalEquipmentSleepingTicks": 196000,
+          "totalEquipmentSleeps": 2,
+          "totalEquipmentWakeTicks": 4000,
+          "totalEquipmentWakeups": 1,
+          "totalMaintenanceCancelled": 0,
+          "totalMaintenanceCompleted": 7,
+          "totalMaintenanceCrewWaitTicks": 0,
+          "totalMaintenanceInputWaitTicks": 0,
+          "totalMaintenanceQualificationCrewTicks": 24000,
+          "totalMaintenanceServiceCrewTicks": 74000,
+          "totalMaintenanceTicks": 74000,
+          "totalOpportunisticMaintenance": 0,
+          "totalPlannedBoundaryMaintenance": 0,
+          "totalQualificationCancelled": 0,
+          "totalQualificationCompleted": 7,
+          "totalQualificationTicks": 24000,
+          "totalSetupTicks": 21000,
+          "totalToolingAllocations": 24,
+          "totalToolingCancelled": 0,
+          "totalToolingCompleted": 24,
+          "totalToolingInputBlocks": 0,
+          "totalToolingInputWaitTicks": 0,
+          "totalToolingOccupiedTicks": 144000,
+          "totalToolingUnitTicks": 144000,
+          "totalUsageTriggeredMaintenance": 2,
+          "totalUtilityAllocations": 60,
+          "totalUtilityCancelled": 0,
+          "totalUtilityCompleted": 60,
+          "totalUtilityInputBlocks": 0,
+          "totalUtilityInputWaitTicks": 0,
+          "totalUtilityOccupiedTicks": 348000,
+          "totalUtilityProviderInterruptions": 0,
+          "totalUtilityUnitTicks": 900000,
+          "transportCongestion": 0.005402650356778706,
+          "transportEnergyConsumedMilliJoules": 6449175,
+          "unpoweredTicks": 0,
+          "unservedMilliJoules": 0
+        },
+        "currentScore": -124.67919722222267,
+        "durationTicks": 360000,
+        "id": "equipment-energy-window",
+        "name": "Two release waves across a furnace standby window",
+        "proposedCapacityGaps": [],
+        "proposedCapacityReady": true,
+        "proposedMetrics": {
+          "appliedDefectInstances": 0,
+          "authoredDefectInstances": 0,
+          "averageBlockedBeltItems": 0,
+          "averageLotsPerBatch": 0,
+          "averageWip": 14.006944444444445,
+          "batchFormationHolds": 0,
+          "batchFormationHoldTicks": 0,
+          "batchJobs": 0,
+          "batchLots": 0,
+          "batchPreferredReleases": 0,
+          "batchTimeoutReleases": 0,
+          "beltCellUtilization": 0.005402650356778798,
+          "bottleneckEntity": "burn-in-1",
+          "cadenceControl": {
+            "devices": {}
+          },
+          "campaignMaximumHoldReleases": 0,
+          "campaignMinimumLotReleases": 0,
+          "capacityBlockedLots": 0,
+          "capacityBlockedTicks": 0,
+          "chargedMilliJoules": 0,
+          "completedLots": 12,
+          "contractFulfillment": 0.84,
+          "controlBlockedLots": 0,
+          "controlBlockedTicks": 0,
+          "curtailedMilliJoules": 894659325,
+          "deliveryNetValuePerMinute": 39.333333333333336,
+          "deliveryOverflow": 3,
+          "dischargedMilliJoules": 0,
+          "electricityDemandChargeMicroCurrency": 104970,
+          "electricityEnergyChargeMicroCurrency": 160282.56111111204,
+          "electricityTotalCostMicroCurrency": 265252.561111112,
+          "energyConsumedMilliJoules": 401340675,
+          "firstPassYield": 1,
+          "goodYield": 1,
+          "infeasibleReason": null,
+          "inventoryAccounting": {
+            "averageExcludedInventory": 91.39486111111111,
+            "averageTotalInventory": 105.40180555555555,
+            "averageWip": 14.006944444444445,
+            "locations": {
+              "buffer:burn-in-1:package-input:packaged-dram-device": {
+                "averageInventory": 8.441666666666666,
+                "buffer": "package-input",
+                "device": "burn-in-1",
+                "finalInventory": 23,
+                "kind": "buffer",
+                "peakInventory": 32,
+                "resource": "packaged-dram-device"
+              },
+              "buffer:deposition-1:etch-input:etched-cell-l1-lot": {
+                "averageInventory": 0.125,
+                "buffer": "etch-input",
+                "device": "deposition-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 2,
+                "resource": "etched-cell-l1-lot"
+              },
+              "buffer:etch-1:pattern-input:patterned-cell-l1-lot": {
+                "averageInventory": 0.13333333333333333,
+                "buffer": "pattern-input",
+                "device": "etch-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 2,
+                "resource": "patterned-cell-l1-lot"
+              },
+              "buffer:etch-2:pattern-input:patterned-cell-l2-lot": {
+                "averageInventory": 0.15,
+                "buffer": "pattern-input",
+                "device": "etch-2",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 2,
+                "resource": "patterned-cell-l2-lot"
+              },
+              "buffer:furnace-1:batch-input:dielectric-stack-lot": {
+                "averageInventory": 0.027777777777777776,
+                "buffer": "batch-input",
+                "device": "furnace-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 1,
+                "resource": "dielectric-stack-lot"
+              },
+              "buffer:inspection-1:wafer-input:dram-wafer-lot": {
+                "averageInventory": 0.4388888888888889,
+                "buffer": "wafer-input",
+                "device": "inspection-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 3,
+                "resource": "dram-wafer-lot"
+              },
+              "buffer:lithography-1:release-input:blank-dram-wafer-lot": {
+                "averageInventory": 0.21666666666666667,
+                "buffer": "release-input",
+                "device": "lithography-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 3,
+                "resource": "blank-dram-wafer-lot"
+              },
+              "buffer:lithography-2:reentrant-input:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.24166666666666667,
+                "buffer": "reentrant-input",
+                "device": "lithography-2",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 3,
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "buffer:packaging-1:die-input:known-good-dram-die": {
+                "averageInventory": 3.3144444444444443,
+                "buffer": "die-input",
+                "device": "packaging-1",
+                "finalInventory": 8,
+                "kind": "buffer",
+                "peakInventory": 17,
+                "resource": "known-good-dram-die"
+              },
+              "buffer:probe-1:die-output:known-good-dram-die": {
+                "averageInventory": 0.23333333333333334,
+                "buffer": "die-output",
+                "device": "probe-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 7,
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:batch-furnace-to-lithography:belt:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.03666666666666667,
+                "connection": "batch-furnace-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "local-transit:batch-furnace-to-lithography:loading:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "batch-furnace-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "local-transit:batch-furnace-to-lithography:unloading:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "batch-furnace-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "local-transit:deposition-to-batch-furnace:belt:dielectric-stack-lot": {
+                "averageInventory": 0.013333333333333334,
+                "connection": "deposition-to-batch-furnace",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "dielectric-stack-lot"
+              },
+              "local-transit:deposition-to-batch-furnace:loading:dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "deposition-to-batch-furnace",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "dielectric-stack-lot"
+              },
+              "local-transit:deposition-to-batch-furnace:unloading:dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "deposition-to-batch-furnace",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "dielectric-stack-lot"
+              },
+              "local-transit:etch-to-deposition:belt:etched-cell-l1-lot": {
+                "averageInventory": 0.016666666666666666,
+                "connection": "etch-to-deposition",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "etched-cell-l1-lot"
+              },
+              "local-transit:etch-to-deposition:loading:etched-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-deposition",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "etched-cell-l1-lot"
+              },
+              "local-transit:etch-to-deposition:unloading:etched-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-deposition",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "etched-cell-l1-lot"
+              },
+              "local-transit:etch-to-inspection:belt:dram-wafer-lot": {
+                "averageInventory": 0.013333333333333334,
+                "connection": "etch-to-inspection",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "dram-wafer-lot"
+              },
+              "local-transit:etch-to-inspection:loading:dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-inspection",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "dram-wafer-lot"
+              },
+              "local-transit:etch-to-inspection:unloading:dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-inspection",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "dram-wafer-lot"
+              },
+              "local-transit:inspection-to-probe:belt:qualified-dram-wafer-lot": {
+                "averageInventory": 0.006666666666666667,
+                "connection": "inspection-to-probe",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "qualified-dram-wafer-lot"
+              },
+              "local-transit:inspection-to-probe:loading:qualified-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "inspection-to-probe",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "qualified-dram-wafer-lot"
+              },
+              "local-transit:inspection-to-probe:unloading:qualified-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "inspection-to-probe",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "qualified-dram-wafer-lot"
+              },
+              "local-transit:lithography-to-etch-lithography-2:belt:patterned-cell-l2-lot": {
+                "averageInventory": 0.023333333333333334,
+                "connection": "lithography-to-etch-lithography-2",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "patterned-cell-l2-lot"
+              },
+              "local-transit:lithography-to-etch-lithography-2:loading:patterned-cell-l2-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch-lithography-2",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "patterned-cell-l2-lot"
+              },
+              "local-transit:lithography-to-etch-lithography-2:unloading:patterned-cell-l2-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch-lithography-2",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "patterned-cell-l2-lot"
+              },
+              "local-transit:lithography-to-etch:belt:patterned-cell-l1-lot": {
+                "averageInventory": 0.02,
+                "connection": "lithography-to-etch",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "patterned-cell-l1-lot"
+              },
+              "local-transit:lithography-to-etch:loading:patterned-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "patterned-cell-l1-lot"
+              },
+              "local-transit:lithography-to-etch:unloading:patterned-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "patterned-cell-l1-lot"
+              },
+              "local-transit:packaging-to-burn-in:belt:packaged-dram-device": {
+                "averageInventory": 0.09666666666666666,
+                "connection": "packaging-to-burn-in",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "packaged-dram-device"
+              },
+              "local-transit:packaging-to-burn-in:loading:packaged-dram-device": {
+                "averageInventory": 0.06041666666666667,
+                "connection": "packaging-to-burn-in",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "packaged-dram-device"
+              },
+              "local-transit:packaging-to-burn-in:unloading:packaged-dram-device": {
+                "averageInventory": 0.06041666666666667,
+                "connection": "packaging-to-burn-in",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "packaged-dram-device"
+              },
+              "local-transit:probe-to-packaging:belt:known-good-dram-die": {
+                "averageInventory": 0.05333333333333334,
+                "connection": "probe-to-packaging",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:probe-to-packaging:loading:known-good-dram-die": {
+                "averageInventory": 0.06666666666666667,
+                "connection": "probe-to-packaging",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:probe-to-packaging:unloading:known-good-dram-die": {
+                "averageInventory": 0.06666666666666667,
+                "connection": "probe-to-packaging",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:release-to-lithography:belt:blank-dram-wafer-lot": {
+                "averageInventory": 0.016666666666666666,
+                "connection": "release-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "blank-dram-wafer-lot"
+              },
+              "local-transit:release-to-lithography:loading:blank-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "release-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "blank-dram-wafer-lot"
+              },
+              "local-transit:release-to-lithography:unloading:blank-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "release-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "blank-dram-wafer-lot"
+              }
+            },
+            "peakTotalInventory": 129,
+            "peakWip": 32,
+            "resources": {
+              "annealed-dielectric-stack-lot": {
+                "averageInventory": 0.295,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 3
+              },
+              "automotive-dram-device": {
+                "averageInventory": 0.03125,
+                "finalInventory": 0,
+                "includedInWip": false,
+                "peakInventory": 2
+              },
+              "blank-dram-wafer-lot": {
+                "averageInventory": 0.25,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 3
+              },
+              "chamber-clean-kit": {
+                "averageInventory": 14.434722222222222,
+                "finalInventory": 12,
+                "includedInWip": false,
+                "peakInventory": 16
+              },
+              "commercial-dram-device": {
+                "averageInventory": 0.23166666666666666,
+                "finalInventory": 1,
+                "includedInWip": false,
+                "peakInventory": 8
+              },
+              "dielectric-stack-lot": {
+                "averageInventory": 0.057777777777777775,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 1
+              },
+              "dram-package-substrate": {
+                "averageInventory": 30.24111111111111,
+                "finalInventory": 8,
+                "includedInWip": false,
+                "peakInventory": 48
+              },
+              "dram-wafer-lot": {
+                "averageInventory": 0.4688888888888889,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 4
+              },
+              "etched-cell-l1-lot": {
+                "averageInventory": 0.15833333333333333,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 2
+              },
+              "known-good-dram-die": {
+                "averageInventory": 3.7344444444444442,
+                "finalInventory": 8,
+                "includedInWip": true,
+                "peakInventory": 19
+              },
+              "metrology-calibration-kit": {
+                "averageInventory": 14.905833333333334,
+                "finalInventory": 13,
+                "includedInWip": false,
+                "peakInventory": 16
+              },
+              "metrology-reference-wafer": {
+                "averageInventory": 14.955833333333333,
+                "finalInventory": 13,
+                "includedInWip": false,
+                "peakInventory": 16
+              },
+              "packaged-dram-device": {
+                "averageInventory": 8.659166666666666,
+                "finalInventory": 23,
+                "includedInWip": true,
+                "peakInventory": 32
+              },
+              "patterned-cell-l1-lot": {
+                "averageInventory": 0.17,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 2
+              },
+              "patterned-cell-l2-lot": {
+                "averageInventory": 0.19,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 2
+              },
+              "performance-dram-device": {
+                "averageInventory": 0.07083333333333333,
+                "finalInventory": 0,
+                "includedInWip": false,
+                "peakInventory": 4
+              },
+              "qualified-dram-wafer-lot": {
+                "averageInventory": 0.023333333333333334,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 1
+              },
+              "reticle-mask-set-l1": {
+                "averageInventory": 1,
+                "finalInventory": 1,
+                "includedInWip": false,
+                "peakInventory": 1
+              },
+              "reticle-mask-set-l2": {
+                "averageInventory": 1,
+                "finalInventory": 1,
+                "includedInWip": false,
+                "peakInventory": 1
+              },
+              "rework-required-dram-wafer-lot": {
+                "averageInventory": 0,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 0
+              },
+              "tool-qualification-wafer": {
+                "averageInventory": 14.52361111111111,
+                "finalInventory": 12,
+                "includedInWip": false,
+                "peakInventory": 16
+              }
+            }
+          },
+          "lotOutputJobs": 12,
+          "lotOutputLostUnits": 0,
+          "lotOutputRatio": 1,
+          "maximumQueueTimeOverrunTicks": 0,
+          "maximumReleaseDelayTicks": 0,
+          "meanActualReleaseIntervalTicks": 19090.909090909092,
+          "meanBatchQueueWaitTicksPerLot": 0,
+          "meanCycleTimeTicks": 99400,
+          "meanQueueTimeTicks": 40000,
+          "meanReleaseDelayTicks": 0,
+          "meanTardinessTicks": 0,
+          "objectiveAttainment": 1,
+          "occupiedArea": 276,
+          "onTimeLots": 12,
+          "p95CycleTimeTicks": 138400,
+          "peakActiveLots": 6,
+          "pendingReleaseLots": 0,
+          "preventedDefectInstances": 0,
+          "qualityEscapes": 0,
+          "queueTimeViolatedLots": 0,
+          "queueTimeViolations": 0,
+          "releasedLots": 12,
+          "reworkCycles": 0,
+          "scheduledLots": 12,
+          "score": -124.76919722222267,
+          "scoreBreakdown": {
+            "blocked": 0,
+            "buildCost": -10.852500000000001,
+            "changeovers": -2.5,
+            "constraintPenalty": 0,
+            "cycleTime": -3.3133333333333335,
+            "deliveryValue": 39.333333333333336,
+            "electricityCost": -132.626280555556,
+            "energy": 0,
+            "occupiedArea": -13.8,
+            "onTimeDelivery": 20,
+            "qualityEscapes": 0,
+            "rework": 0,
+            "tardiness": 0,
+            "throughput": 0,
+            "wip": -21.010416666666668
+          },
+          "scrappedLots": 0,
+          "serviceLevelOpenings": 0,
+          "serviceProtectedReleases": 0,
           "storedMilliJoules": 0,
           "throughputPerMinute": 10.5,
           "totalAssetLimitMaintenance": 7,
@@ -233,11 +1269,1325 @@
           "unpoweredTicks": 0,
           "unservedMilliJoules": 0
         },
-        "candidateScore": -261.95815555555595,
+        "proposedScore": -124.76919722222267,
+        "scoreBreakdownDelta": {
+          "blocked": 0,
+          "buildCost": 0,
+          "changeovers": 0,
+          "constraintPenalty": 0,
+          "cycleTime": 0,
+          "deliveryValue": 0,
+          "electricityCost": -0.09000000000000341,
+          "energy": 0,
+          "occupiedArea": 0,
+          "onTimeDelivery": 0,
+          "qualityEscapes": 0,
+          "rework": 0,
+          "tardiness": 0,
+          "throughput": 0,
+          "wip": 0
+        },
+        "scoreDelta": -0.09000000000000341,
+        "seed": 42,
+        "weight": 1
+      }
+    ],
+    "currentBlueprintHash": "f21ba0a1fc22c22e5f11aca877abfa482717427822cd950851aa3684ddc36864",
+    "currentScore": -124.67919722222267,
+    "minimumCaseScoreDelta": -0.09000000000000341,
+    "proposedBlueprintHash": "d0c22af30cbcb0f8ae50a83265d7d7b1a5f23784ca488d06478501bc1d9cf01e",
+    "proposedScore": -124.76919722222267,
+    "reference": "current-factory",
+    "scoreDelta": -0.09000000000000341,
+    "status": "evaluated",
+    "verdict": "REGRESSED"
+  },
+  "proposalHash": "7a901798f75777ed93f195cec9e4e140ec68fed7d7ea1a61270fff993355f174",
+  "proposedCandidateHash": "d0c22af30cbcb0f8ae50a83265d7d7b1a5f23784ca488d06478501bc1d9cf01e",
+  "result": {
+    "accepted": false,
+    "baselineBlueprint": "equipment-energy-base",
+    "baselineBlueprintHash": "68dd0e51d822ebbbfe1f450eeefee512c4d30b4c6a30680cbeac9f17b4ad62bf",
+    "baselineScore": -123.7652805555551,
+    "benchmark": "equipment-energy-research",
+    "candidateBlueprint": "equipment-energy-sleep",
+    "candidateBlueprintHash": "d0c22af30cbcb0f8ae50a83265d7d7b1a5f23784ca488d06478501bc1d9cf01e",
+    "candidateScore": -124.76919722222267,
+    "cases": [
+      {
+        "baselineCapacityReady": true,
+        "baselineMetrics": {
+          "appliedDefectInstances": 0,
+          "authoredDefectInstances": 0,
+          "averageBlockedBeltItems": 0,
+          "averageLotsPerBatch": 0,
+          "averageWip": 13.284722222222221,
+          "batchFormationHolds": 0,
+          "batchFormationHoldTicks": 0,
+          "batchJobs": 0,
+          "batchLots": 0,
+          "batchPreferredReleases": 0,
+          "batchTimeoutReleases": 0,
+          "beltCellUtilization": 0.006086901121304791,
+          "bottleneckEntity": "burn-in-1",
+          "cadenceControl": {
+            "devices": {}
+          },
+          "campaignMaximumHoldReleases": 0,
+          "campaignMinimumLotReleases": 0,
+          "capacityBlockedLots": 0,
+          "capacityBlockedTicks": 0,
+          "chargedMilliJoules": 0,
+          "completedLots": 12,
+          "contractFulfillment": 1.0266666666666666,
+          "controlBlockedLots": 0,
+          "controlBlockedTicks": 0,
+          "curtailedMilliJoules": 888448825,
+          "deliveryNetValuePerMinute": 40.333333333333336,
+          "deliveryOverflow": 5,
+          "dischargedMilliJoules": 0,
+          "electricityDemandChargeMicroCurrency": 104970,
+          "electricityEnergyChargeMicroCurrency": 163574.7277777769,
+          "electricityTotalCostMicroCurrency": 268544.7277777769,
+          "energyConsumedMilliJoules": 407551175,
+          "firstPassYield": 1,
+          "goodYield": 1,
+          "infeasibleReason": null,
+          "inventoryAccounting": {
+            "averageExcludedInventory": 90.98638888888888,
+            "averageTotalInventory": 104.27111111111111,
+            "averageWip": 13.284722222222221,
+            "locations": {
+              "buffer:burn-in-1:package-input:packaged-dram-device": {
+                "averageInventory": 7.709722222222222,
+                "buffer": "package-input",
+                "device": "burn-in-1",
+                "finalInventory": 10,
+                "kind": "buffer",
+                "peakInventory": 32,
+                "resource": "packaged-dram-device"
+              },
+              "buffer:deposition-1:etch-input:etched-cell-l1-lot": {
+                "averageInventory": 0.125,
+                "buffer": "etch-input",
+                "device": "deposition-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 2,
+                "resource": "etched-cell-l1-lot"
+              },
+              "buffer:etch-1:pattern-input:patterned-cell-l1-lot": {
+                "averageInventory": 0.13333333333333333,
+                "buffer": "pattern-input",
+                "device": "etch-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 2,
+                "resource": "patterned-cell-l1-lot"
+              },
+              "buffer:etch-2:pattern-input:patterned-cell-l2-lot": {
+                "averageInventory": 0.15,
+                "buffer": "pattern-input",
+                "device": "etch-2",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 2,
+                "resource": "patterned-cell-l2-lot"
+              },
+              "buffer:inspection-1:wafer-input:dram-wafer-lot": {
+                "averageInventory": 0.4388888888888889,
+                "buffer": "wafer-input",
+                "device": "inspection-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 3,
+                "resource": "dram-wafer-lot"
+              },
+              "buffer:lithography-1:release-input:blank-dram-wafer-lot": {
+                "averageInventory": 0.21666666666666667,
+                "buffer": "release-input",
+                "device": "lithography-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 3,
+                "resource": "blank-dram-wafer-lot"
+              },
+              "buffer:lithography-2:reentrant-input:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.20277777777777778,
+                "buffer": "reentrant-input",
+                "device": "lithography-2",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 2,
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "buffer:packaging-1:die-input:known-good-dram-die": {
+                "averageInventory": 3.3833333333333333,
+                "buffer": "die-input",
+                "device": "packaging-1",
+                "finalInventory": 5,
+                "kind": "buffer",
+                "peakInventory": 17,
+                "resource": "known-good-dram-die"
+              },
+              "buffer:probe-1:die-output:known-good-dram-die": {
+                "averageInventory": 0.23333333333333334,
+                "buffer": "die-output",
+                "device": "probe-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 7,
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:batch-furnace-to-lithography:belt:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.03666666666666667,
+                "connection": "batch-furnace-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "local-transit:batch-furnace-to-lithography:loading:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "batch-furnace-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "local-transit:batch-furnace-to-lithography:unloading:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "batch-furnace-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "local-transit:deposition-to-batch-furnace:belt:dielectric-stack-lot": {
+                "averageInventory": 0.013333333333333334,
+                "connection": "deposition-to-batch-furnace",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "dielectric-stack-lot"
+              },
+              "local-transit:deposition-to-batch-furnace:loading:dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "deposition-to-batch-furnace",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "dielectric-stack-lot"
+              },
+              "local-transit:deposition-to-batch-furnace:unloading:dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "deposition-to-batch-furnace",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "dielectric-stack-lot"
+              },
+              "local-transit:etch-to-deposition:belt:etched-cell-l1-lot": {
+                "averageInventory": 0.016666666666666666,
+                "connection": "etch-to-deposition",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "etched-cell-l1-lot"
+              },
+              "local-transit:etch-to-deposition:loading:etched-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-deposition",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "etched-cell-l1-lot"
+              },
+              "local-transit:etch-to-deposition:unloading:etched-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-deposition",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "etched-cell-l1-lot"
+              },
+              "local-transit:etch-to-inspection:belt:dram-wafer-lot": {
+                "averageInventory": 0.013333333333333334,
+                "connection": "etch-to-inspection",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "dram-wafer-lot"
+              },
+              "local-transit:etch-to-inspection:loading:dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-inspection",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "dram-wafer-lot"
+              },
+              "local-transit:etch-to-inspection:unloading:dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-inspection",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "dram-wafer-lot"
+              },
+              "local-transit:inspection-to-probe:belt:qualified-dram-wafer-lot": {
+                "averageInventory": 0.006666666666666667,
+                "connection": "inspection-to-probe",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "qualified-dram-wafer-lot"
+              },
+              "local-transit:inspection-to-probe:loading:qualified-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "inspection-to-probe",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "qualified-dram-wafer-lot"
+              },
+              "local-transit:inspection-to-probe:unloading:qualified-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "inspection-to-probe",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "qualified-dram-wafer-lot"
+              },
+              "local-transit:lithography-to-etch-lithography-2:belt:patterned-cell-l2-lot": {
+                "averageInventory": 0.023333333333333334,
+                "connection": "lithography-to-etch-lithography-2",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "patterned-cell-l2-lot"
+              },
+              "local-transit:lithography-to-etch-lithography-2:loading:patterned-cell-l2-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch-lithography-2",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "patterned-cell-l2-lot"
+              },
+              "local-transit:lithography-to-etch-lithography-2:unloading:patterned-cell-l2-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch-lithography-2",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "patterned-cell-l2-lot"
+              },
+              "local-transit:lithography-to-etch:belt:patterned-cell-l1-lot": {
+                "averageInventory": 0.02,
+                "connection": "lithography-to-etch",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "patterned-cell-l1-lot"
+              },
+              "local-transit:lithography-to-etch:loading:patterned-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "patterned-cell-l1-lot"
+              },
+              "local-transit:lithography-to-etch:unloading:patterned-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "patterned-cell-l1-lot"
+              },
+              "local-transit:packaging-to-burn-in:belt:packaged-dram-device": {
+                "averageInventory": 0.1,
+                "connection": "packaging-to-burn-in",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "packaged-dram-device"
+              },
+              "local-transit:packaging-to-burn-in:loading:packaged-dram-device": {
+                "averageInventory": 0.0625,
+                "connection": "packaging-to-burn-in",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "packaged-dram-device"
+              },
+              "local-transit:packaging-to-burn-in:unloading:packaged-dram-device": {
+                "averageInventory": 0.0625,
+                "connection": "packaging-to-burn-in",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "packaged-dram-device"
+              },
+              "local-transit:probe-to-packaging:belt:known-good-dram-die": {
+                "averageInventory": 0.05333333333333334,
+                "connection": "probe-to-packaging",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:probe-to-packaging:loading:known-good-dram-die": {
+                "averageInventory": 0.06666666666666667,
+                "connection": "probe-to-packaging",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:probe-to-packaging:unloading:known-good-dram-die": {
+                "averageInventory": 0.06666666666666667,
+                "connection": "probe-to-packaging",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:release-to-lithography:belt:blank-dram-wafer-lot": {
+                "averageInventory": 0.016666666666666666,
+                "connection": "release-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "blank-dram-wafer-lot"
+              },
+              "local-transit:release-to-lithography:loading:blank-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "release-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "blank-dram-wafer-lot"
+              },
+              "local-transit:release-to-lithography:unloading:blank-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "release-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "blank-dram-wafer-lot"
+              }
+            },
+            "peakTotalInventory": 129,
+            "peakWip": 32,
+            "resources": {
+              "annealed-dielectric-stack-lot": {
+                "averageInventory": 0.2561111111111111,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 3
+              },
+              "automotive-dram-device": {
+                "averageInventory": 0.025,
+                "finalInventory": 0,
+                "includedInWip": false,
+                "peakInventory": 2
+              },
+              "blank-dram-wafer-lot": {
+                "averageInventory": 0.25,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 3
+              },
+              "chamber-clean-kit": {
+                "averageInventory": 14.4125,
+                "finalInventory": 12,
+                "includedInWip": false,
+                "peakInventory": 16
+              },
+              "commercial-dram-device": {
+                "averageInventory": 0.39694444444444443,
+                "finalInventory": 3,
+                "includedInWip": false,
+                "peakInventory": 8
+              },
+              "dielectric-stack-lot": {
+                "averageInventory": 0.03,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 1
+              },
+              "dram-package-substrate": {
+                "averageInventory": 29.776666666666667,
+                "finalInventory": 5,
+                "includedInWip": false,
+                "peakInventory": 48
+              },
+              "dram-wafer-lot": {
+                "averageInventory": 0.4688888888888889,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 4
+              },
+              "etched-cell-l1-lot": {
+                "averageInventory": 0.15833333333333333,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 2
+              },
+              "known-good-dram-die": {
+                "averageInventory": 3.8033333333333332,
+                "finalInventory": 5,
+                "includedInWip": true,
+                "peakInventory": 19
+              },
+              "metrology-calibration-kit": {
+                "averageInventory": 14.883611111111112,
+                "finalInventory": 13,
+                "includedInWip": false,
+                "peakInventory": 16
+              },
+              "metrology-reference-wafer": {
+                "averageInventory": 14.93361111111111,
+                "finalInventory": 13,
+                "includedInWip": false,
+                "peakInventory": 16
+              },
+              "packaged-dram-device": {
+                "averageInventory": 7.934722222222222,
+                "finalInventory": 10,
+                "includedInWip": true,
+                "peakInventory": 32
+              },
+              "patterned-cell-l1-lot": {
+                "averageInventory": 0.17,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 2
+              },
+              "patterned-cell-l2-lot": {
+                "averageInventory": 0.19,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 2
+              },
+              "performance-dram-device": {
+                "averageInventory": 0.056666666666666664,
+                "finalInventory": 0,
+                "includedInWip": false,
+                "peakInventory": 4
+              },
+              "qualified-dram-wafer-lot": {
+                "averageInventory": 0.023333333333333334,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 1
+              },
+              "reticle-mask-set-l1": {
+                "averageInventory": 1,
+                "finalInventory": 1,
+                "includedInWip": false,
+                "peakInventory": 1
+              },
+              "reticle-mask-set-l2": {
+                "averageInventory": 1,
+                "finalInventory": 1,
+                "includedInWip": false,
+                "peakInventory": 1
+              },
+              "rework-required-dram-wafer-lot": {
+                "averageInventory": 0,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 0
+              },
+              "tool-qualification-wafer": {
+                "averageInventory": 14.501388888888888,
+                "finalInventory": 12,
+                "includedInWip": false,
+                "peakInventory": 16
+              }
+            }
+          },
+          "lotOutputJobs": 12,
+          "lotOutputLostUnits": 0,
+          "lotOutputRatio": 1,
+          "maximumQueueTimeOverrunTicks": 0,
+          "maximumReleaseDelayTicks": 0,
+          "meanActualReleaseIntervalTicks": 19090.909090909092,
+          "meanBatchQueueWaitTicksPerLot": 0,
+          "meanCycleTimeTicks": 97400,
+          "meanQueueTimeTicks": 38000,
+          "meanReleaseDelayTicks": 0,
+          "meanTardinessTicks": 0,
+          "objectiveAttainment": 1,
+          "occupiedArea": 276,
+          "onTimeLots": 12,
+          "p95CycleTimeTicks": 134400,
+          "peakActiveLots": 6,
+          "pendingReleaseLots": 0,
+          "preventedDefectInstances": 0,
+          "qualityEscapes": 0,
+          "queueTimeViolatedLots": 0,
+          "queueTimeViolations": 0,
+          "releasedLots": 12,
+          "reworkCycles": 0,
+          "scheduledLots": 12,
+          "score": -123.7652805555551,
+          "scoreBreakdown": {
+            "blocked": 0,
+            "buildCost": -10.852500000000001,
+            "changeovers": -2,
+            "constraintPenalty": 0,
+            "cycleTime": -3.2466666666666666,
+            "deliveryValue": 40.333333333333336,
+            "electricityCost": -134.27236388888844,
+            "energy": 0,
+            "occupiedArea": -13.8,
+            "onTimeDelivery": 20,
+            "qualityEscapes": 0,
+            "rework": 0,
+            "tardiness": 0,
+            "throughput": 0,
+            "wip": -19.927083333333332
+          },
+          "scrappedLots": 0,
+          "serviceLevelOpenings": 0,
+          "serviceProtectedReleases": 0,
+          "storedMilliJoules": 0,
+          "throughputPerMinute": 12.833333333333334,
+          "totalAssetLimitMaintenance": 7,
+          "totalBuildCost": 217050,
+          "totalCalendarTriggeredMaintenance": 5,
+          "totalCampaignHolds": 0,
+          "totalCampaignHoldTicks": 0,
+          "totalChangeovers": 4,
+          "totalDriftDefects": 0,
+          "totalDriftedJobs": 0,
+          "totalDriftedLots": 0,
+          "totalEquipmentSleepingTicks": 0,
+          "totalEquipmentSleeps": 0,
+          "totalEquipmentWakeTicks": 0,
+          "totalEquipmentWakeups": 0,
+          "totalMaintenanceCancelled": 0,
+          "totalMaintenanceCompleted": 7,
+          "totalMaintenanceCrewWaitTicks": 0,
+          "totalMaintenanceInputWaitTicks": 0,
+          "totalMaintenanceQualificationCrewTicks": 24000,
+          "totalMaintenanceServiceCrewTicks": 74000,
+          "totalMaintenanceTicks": 74000,
+          "totalOpportunisticMaintenance": 0,
+          "totalPlannedBoundaryMaintenance": 0,
+          "totalQualificationCancelled": 0,
+          "totalQualificationCompleted": 7,
+          "totalQualificationTicks": 24000,
+          "totalSetupTicks": 18000,
+          "totalToolingAllocations": 24,
+          "totalToolingCancelled": 0,
+          "totalToolingCompleted": 24,
+          "totalToolingInputBlocks": 0,
+          "totalToolingInputWaitTicks": 0,
+          "totalToolingOccupiedTicks": 144000,
+          "totalToolingUnitTicks": 144000,
+          "totalUsageTriggeredMaintenance": 2,
+          "totalUtilityAllocations": 60,
+          "totalUtilityCancelled": 0,
+          "totalUtilityCompleted": 60,
+          "totalUtilityInputBlocks": 0,
+          "totalUtilityInputWaitTicks": 0,
+          "totalUtilityOccupiedTicks": 348000,
+          "totalUtilityProviderInterruptions": 0,
+          "totalUtilityUnitTicks": 900000,
+          "transportCongestion": 0.006086901121304708,
+          "transportEnergyConsumedMilliJoules": 6462675,
+          "unpoweredTicks": 0,
+          "unservedMilliJoules": 0
+        },
+        "baselineScore": -123.7652805555551,
+        "candidateCapacityGaps": [],
+        "candidateCapacityReady": true,
+        "candidateMetrics": {
+          "appliedDefectInstances": 0,
+          "authoredDefectInstances": 0,
+          "averageBlockedBeltItems": 0,
+          "averageLotsPerBatch": 0,
+          "averageWip": 14.006944444444445,
+          "batchFormationHolds": 0,
+          "batchFormationHoldTicks": 0,
+          "batchJobs": 0,
+          "batchLots": 0,
+          "batchPreferredReleases": 0,
+          "batchTimeoutReleases": 0,
+          "beltCellUtilization": 0.005402650356778798,
+          "bottleneckEntity": "burn-in-1",
+          "cadenceControl": {
+            "devices": {}
+          },
+          "campaignMaximumHoldReleases": 0,
+          "campaignMinimumLotReleases": 0,
+          "capacityBlockedLots": 0,
+          "capacityBlockedTicks": 0,
+          "chargedMilliJoules": 0,
+          "completedLots": 12,
+          "contractFulfillment": 0.84,
+          "controlBlockedLots": 0,
+          "controlBlockedTicks": 0,
+          "curtailedMilliJoules": 894659325,
+          "deliveryNetValuePerMinute": 39.333333333333336,
+          "deliveryOverflow": 3,
+          "dischargedMilliJoules": 0,
+          "electricityDemandChargeMicroCurrency": 104970,
+          "electricityEnergyChargeMicroCurrency": 160282.56111111204,
+          "electricityTotalCostMicroCurrency": 265252.561111112,
+          "energyConsumedMilliJoules": 401340675,
+          "firstPassYield": 1,
+          "goodYield": 1,
+          "infeasibleReason": null,
+          "inventoryAccounting": {
+            "averageExcludedInventory": 91.39486111111111,
+            "averageTotalInventory": 105.40180555555555,
+            "averageWip": 14.006944444444445,
+            "locations": {
+              "buffer:burn-in-1:package-input:packaged-dram-device": {
+                "averageInventory": 8.441666666666666,
+                "buffer": "package-input",
+                "device": "burn-in-1",
+                "finalInventory": 23,
+                "kind": "buffer",
+                "peakInventory": 32,
+                "resource": "packaged-dram-device"
+              },
+              "buffer:deposition-1:etch-input:etched-cell-l1-lot": {
+                "averageInventory": 0.125,
+                "buffer": "etch-input",
+                "device": "deposition-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 2,
+                "resource": "etched-cell-l1-lot"
+              },
+              "buffer:etch-1:pattern-input:patterned-cell-l1-lot": {
+                "averageInventory": 0.13333333333333333,
+                "buffer": "pattern-input",
+                "device": "etch-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 2,
+                "resource": "patterned-cell-l1-lot"
+              },
+              "buffer:etch-2:pattern-input:patterned-cell-l2-lot": {
+                "averageInventory": 0.15,
+                "buffer": "pattern-input",
+                "device": "etch-2",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 2,
+                "resource": "patterned-cell-l2-lot"
+              },
+              "buffer:furnace-1:batch-input:dielectric-stack-lot": {
+                "averageInventory": 0.027777777777777776,
+                "buffer": "batch-input",
+                "device": "furnace-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 1,
+                "resource": "dielectric-stack-lot"
+              },
+              "buffer:inspection-1:wafer-input:dram-wafer-lot": {
+                "averageInventory": 0.4388888888888889,
+                "buffer": "wafer-input",
+                "device": "inspection-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 3,
+                "resource": "dram-wafer-lot"
+              },
+              "buffer:lithography-1:release-input:blank-dram-wafer-lot": {
+                "averageInventory": 0.21666666666666667,
+                "buffer": "release-input",
+                "device": "lithography-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 3,
+                "resource": "blank-dram-wafer-lot"
+              },
+              "buffer:lithography-2:reentrant-input:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.24166666666666667,
+                "buffer": "reentrant-input",
+                "device": "lithography-2",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 3,
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "buffer:packaging-1:die-input:known-good-dram-die": {
+                "averageInventory": 3.3144444444444443,
+                "buffer": "die-input",
+                "device": "packaging-1",
+                "finalInventory": 8,
+                "kind": "buffer",
+                "peakInventory": 17,
+                "resource": "known-good-dram-die"
+              },
+              "buffer:probe-1:die-output:known-good-dram-die": {
+                "averageInventory": 0.23333333333333334,
+                "buffer": "die-output",
+                "device": "probe-1",
+                "finalInventory": 0,
+                "kind": "buffer",
+                "peakInventory": 7,
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:batch-furnace-to-lithography:belt:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.03666666666666667,
+                "connection": "batch-furnace-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "local-transit:batch-furnace-to-lithography:loading:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "batch-furnace-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "local-transit:batch-furnace-to-lithography:unloading:annealed-dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "batch-furnace-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "annealed-dielectric-stack-lot"
+              },
+              "local-transit:deposition-to-batch-furnace:belt:dielectric-stack-lot": {
+                "averageInventory": 0.013333333333333334,
+                "connection": "deposition-to-batch-furnace",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "dielectric-stack-lot"
+              },
+              "local-transit:deposition-to-batch-furnace:loading:dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "deposition-to-batch-furnace",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "dielectric-stack-lot"
+              },
+              "local-transit:deposition-to-batch-furnace:unloading:dielectric-stack-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "deposition-to-batch-furnace",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "dielectric-stack-lot"
+              },
+              "local-transit:etch-to-deposition:belt:etched-cell-l1-lot": {
+                "averageInventory": 0.016666666666666666,
+                "connection": "etch-to-deposition",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "etched-cell-l1-lot"
+              },
+              "local-transit:etch-to-deposition:loading:etched-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-deposition",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "etched-cell-l1-lot"
+              },
+              "local-transit:etch-to-deposition:unloading:etched-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-deposition",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "etched-cell-l1-lot"
+              },
+              "local-transit:etch-to-inspection:belt:dram-wafer-lot": {
+                "averageInventory": 0.013333333333333334,
+                "connection": "etch-to-inspection",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "dram-wafer-lot"
+              },
+              "local-transit:etch-to-inspection:loading:dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-inspection",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "dram-wafer-lot"
+              },
+              "local-transit:etch-to-inspection:unloading:dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "etch-to-inspection",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "dram-wafer-lot"
+              },
+              "local-transit:inspection-to-probe:belt:qualified-dram-wafer-lot": {
+                "averageInventory": 0.006666666666666667,
+                "connection": "inspection-to-probe",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "qualified-dram-wafer-lot"
+              },
+              "local-transit:inspection-to-probe:loading:qualified-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "inspection-to-probe",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "qualified-dram-wafer-lot"
+              },
+              "local-transit:inspection-to-probe:unloading:qualified-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "inspection-to-probe",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "qualified-dram-wafer-lot"
+              },
+              "local-transit:lithography-to-etch-lithography-2:belt:patterned-cell-l2-lot": {
+                "averageInventory": 0.023333333333333334,
+                "connection": "lithography-to-etch-lithography-2",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "patterned-cell-l2-lot"
+              },
+              "local-transit:lithography-to-etch-lithography-2:loading:patterned-cell-l2-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch-lithography-2",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "patterned-cell-l2-lot"
+              },
+              "local-transit:lithography-to-etch-lithography-2:unloading:patterned-cell-l2-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch-lithography-2",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "patterned-cell-l2-lot"
+              },
+              "local-transit:lithography-to-etch:belt:patterned-cell-l1-lot": {
+                "averageInventory": 0.02,
+                "connection": "lithography-to-etch",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "patterned-cell-l1-lot"
+              },
+              "local-transit:lithography-to-etch:loading:patterned-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "patterned-cell-l1-lot"
+              },
+              "local-transit:lithography-to-etch:unloading:patterned-cell-l1-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "lithography-to-etch",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "patterned-cell-l1-lot"
+              },
+              "local-transit:packaging-to-burn-in:belt:packaged-dram-device": {
+                "averageInventory": 0.09666666666666666,
+                "connection": "packaging-to-burn-in",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "packaged-dram-device"
+              },
+              "local-transit:packaging-to-burn-in:loading:packaged-dram-device": {
+                "averageInventory": 0.06041666666666667,
+                "connection": "packaging-to-burn-in",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "packaged-dram-device"
+              },
+              "local-transit:packaging-to-burn-in:unloading:packaged-dram-device": {
+                "averageInventory": 0.06041666666666667,
+                "connection": "packaging-to-burn-in",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "packaged-dram-device"
+              },
+              "local-transit:probe-to-packaging:belt:known-good-dram-die": {
+                "averageInventory": 0.05333333333333334,
+                "connection": "probe-to-packaging",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:probe-to-packaging:loading:known-good-dram-die": {
+                "averageInventory": 0.06666666666666667,
+                "connection": "probe-to-packaging",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:probe-to-packaging:unloading:known-good-dram-die": {
+                "averageInventory": 0.06666666666666667,
+                "connection": "probe-to-packaging",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "known-good-dram-die"
+              },
+              "local-transit:release-to-lithography:belt:blank-dram-wafer-lot": {
+                "averageInventory": 0.016666666666666666,
+                "connection": "release-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "belt",
+                "resource": "blank-dram-wafer-lot"
+              },
+              "local-transit:release-to-lithography:loading:blank-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "release-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "loading",
+                "resource": "blank-dram-wafer-lot"
+              },
+              "local-transit:release-to-lithography:unloading:blank-dram-wafer-lot": {
+                "averageInventory": 0.008333333333333333,
+                "connection": "release-to-lithography",
+                "finalInventory": 0,
+                "kind": "local-transit",
+                "peakInventory": 1,
+                "phase": "unloading",
+                "resource": "blank-dram-wafer-lot"
+              }
+            },
+            "peakTotalInventory": 129,
+            "peakWip": 32,
+            "resources": {
+              "annealed-dielectric-stack-lot": {
+                "averageInventory": 0.295,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 3
+              },
+              "automotive-dram-device": {
+                "averageInventory": 0.03125,
+                "finalInventory": 0,
+                "includedInWip": false,
+                "peakInventory": 2
+              },
+              "blank-dram-wafer-lot": {
+                "averageInventory": 0.25,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 3
+              },
+              "chamber-clean-kit": {
+                "averageInventory": 14.434722222222222,
+                "finalInventory": 12,
+                "includedInWip": false,
+                "peakInventory": 16
+              },
+              "commercial-dram-device": {
+                "averageInventory": 0.23166666666666666,
+                "finalInventory": 1,
+                "includedInWip": false,
+                "peakInventory": 8
+              },
+              "dielectric-stack-lot": {
+                "averageInventory": 0.057777777777777775,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 1
+              },
+              "dram-package-substrate": {
+                "averageInventory": 30.24111111111111,
+                "finalInventory": 8,
+                "includedInWip": false,
+                "peakInventory": 48
+              },
+              "dram-wafer-lot": {
+                "averageInventory": 0.4688888888888889,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 4
+              },
+              "etched-cell-l1-lot": {
+                "averageInventory": 0.15833333333333333,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 2
+              },
+              "known-good-dram-die": {
+                "averageInventory": 3.7344444444444442,
+                "finalInventory": 8,
+                "includedInWip": true,
+                "peakInventory": 19
+              },
+              "metrology-calibration-kit": {
+                "averageInventory": 14.905833333333334,
+                "finalInventory": 13,
+                "includedInWip": false,
+                "peakInventory": 16
+              },
+              "metrology-reference-wafer": {
+                "averageInventory": 14.955833333333333,
+                "finalInventory": 13,
+                "includedInWip": false,
+                "peakInventory": 16
+              },
+              "packaged-dram-device": {
+                "averageInventory": 8.659166666666666,
+                "finalInventory": 23,
+                "includedInWip": true,
+                "peakInventory": 32
+              },
+              "patterned-cell-l1-lot": {
+                "averageInventory": 0.17,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 2
+              },
+              "patterned-cell-l2-lot": {
+                "averageInventory": 0.19,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 2
+              },
+              "performance-dram-device": {
+                "averageInventory": 0.07083333333333333,
+                "finalInventory": 0,
+                "includedInWip": false,
+                "peakInventory": 4
+              },
+              "qualified-dram-wafer-lot": {
+                "averageInventory": 0.023333333333333334,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 1
+              },
+              "reticle-mask-set-l1": {
+                "averageInventory": 1,
+                "finalInventory": 1,
+                "includedInWip": false,
+                "peakInventory": 1
+              },
+              "reticle-mask-set-l2": {
+                "averageInventory": 1,
+                "finalInventory": 1,
+                "includedInWip": false,
+                "peakInventory": 1
+              },
+              "rework-required-dram-wafer-lot": {
+                "averageInventory": 0,
+                "finalInventory": 0,
+                "includedInWip": true,
+                "peakInventory": 0
+              },
+              "tool-qualification-wafer": {
+                "averageInventory": 14.52361111111111,
+                "finalInventory": 12,
+                "includedInWip": false,
+                "peakInventory": 16
+              }
+            }
+          },
+          "lotOutputJobs": 12,
+          "lotOutputLostUnits": 0,
+          "lotOutputRatio": 1,
+          "maximumQueueTimeOverrunTicks": 0,
+          "maximumReleaseDelayTicks": 0,
+          "meanActualReleaseIntervalTicks": 19090.909090909092,
+          "meanBatchQueueWaitTicksPerLot": 0,
+          "meanCycleTimeTicks": 99400,
+          "meanQueueTimeTicks": 40000,
+          "meanReleaseDelayTicks": 0,
+          "meanTardinessTicks": 0,
+          "objectiveAttainment": 1,
+          "occupiedArea": 276,
+          "onTimeLots": 12,
+          "p95CycleTimeTicks": 138400,
+          "peakActiveLots": 6,
+          "pendingReleaseLots": 0,
+          "preventedDefectInstances": 0,
+          "qualityEscapes": 0,
+          "queueTimeViolatedLots": 0,
+          "queueTimeViolations": 0,
+          "releasedLots": 12,
+          "reworkCycles": 0,
+          "scheduledLots": 12,
+          "score": -124.76919722222267,
+          "scoreBreakdown": {
+            "blocked": 0,
+            "buildCost": -10.852500000000001,
+            "changeovers": -2.5,
+            "constraintPenalty": 0,
+            "cycleTime": -3.3133333333333335,
+            "deliveryValue": 39.333333333333336,
+            "electricityCost": -132.626280555556,
+            "energy": 0,
+            "occupiedArea": -13.8,
+            "onTimeDelivery": 20,
+            "qualityEscapes": 0,
+            "rework": 0,
+            "tardiness": 0,
+            "throughput": 0,
+            "wip": -21.010416666666668
+          },
+          "scrappedLots": 0,
+          "serviceLevelOpenings": 0,
+          "serviceProtectedReleases": 0,
+          "storedMilliJoules": 0,
+          "throughputPerMinute": 10.5,
+          "totalAssetLimitMaintenance": 7,
+          "totalBuildCost": 217050,
+          "totalCalendarTriggeredMaintenance": 5,
+          "totalCampaignHolds": 0,
+          "totalCampaignHoldTicks": 0,
+          "totalChangeovers": 5,
+          "totalDriftDefects": 0,
+          "totalDriftedJobs": 0,
+          "totalDriftedLots": 0,
+          "totalEquipmentSleepingTicks": 186000,
+          "totalEquipmentSleeps": 2,
+          "totalEquipmentWakeTicks": 4000,
+          "totalEquipmentWakeups": 1,
+          "totalMaintenanceCancelled": 0,
+          "totalMaintenanceCompleted": 7,
+          "totalMaintenanceCrewWaitTicks": 0,
+          "totalMaintenanceInputWaitTicks": 0,
+          "totalMaintenanceQualificationCrewTicks": 24000,
+          "totalMaintenanceServiceCrewTicks": 74000,
+          "totalMaintenanceTicks": 74000,
+          "totalOpportunisticMaintenance": 0,
+          "totalPlannedBoundaryMaintenance": 0,
+          "totalQualificationCancelled": 0,
+          "totalQualificationCompleted": 7,
+          "totalQualificationTicks": 24000,
+          "totalSetupTicks": 21000,
+          "totalToolingAllocations": 24,
+          "totalToolingCancelled": 0,
+          "totalToolingCompleted": 24,
+          "totalToolingInputBlocks": 0,
+          "totalToolingInputWaitTicks": 0,
+          "totalToolingOccupiedTicks": 144000,
+          "totalToolingUnitTicks": 144000,
+          "totalUsageTriggeredMaintenance": 2,
+          "totalUtilityAllocations": 60,
+          "totalUtilityCancelled": 0,
+          "totalUtilityCompleted": 60,
+          "totalUtilityInputBlocks": 0,
+          "totalUtilityInputWaitTicks": 0,
+          "totalUtilityOccupiedTicks": 348000,
+          "totalUtilityProviderInterruptions": 0,
+          "totalUtilityUnitTicks": 900000,
+          "transportCongestion": 0.005402650356778706,
+          "transportEnergyConsumedMilliJoules": 6449175,
+          "unpoweredTicks": 0,
+          "unservedMilliJoules": 0
+        },
+        "candidateScore": -124.76919722222267,
         "durationTicks": 360000,
         "id": "equipment-energy-window",
         "name": "Two release waves across a furnace standby window",
-        "scoreDelta": -1.6082916666676965,
+        "scoreBreakdownDelta": {
+          "blocked": 0,
+          "buildCost": 0,
+          "changeovers": -0.5,
+          "constraintPenalty": 0,
+          "cycleTime": -0.06666666666666687,
+          "deliveryValue": -1,
+          "electricityCost": 1.6460833333324274,
+          "energy": 0,
+          "occupiedArea": 0,
+          "onTimeDelivery": 0,
+          "qualityEscapes": 0,
+          "rework": 0,
+          "tardiness": 0,
+          "throughput": 0,
+          "wip": -1.0833333333333357
+        },
+        "scoreDelta": -1.0039166666675783,
         "seed": 42,
         "weight": 1
       }
@@ -313,7 +2663,7 @@
         "kind": "metadata"
       }
     ],
-    "minimumCaseScoreDelta": -1.6082916666676965,
+    "minimumCaseScoreDelta": -1.0039166666675783,
     "name": "DRAM Furnace Standby Energy Research",
     "patch": [
       {
@@ -330,17 +2680,17 @@
       }
     ],
     "reasons": [
-      "aggregate score delta -1.608292 is below required 0.001000",
-      "case 'equipment-energy-window' regressed by 1.608292, above allowed 0.000000"
+      "aggregate score delta -1.003917 is below required 0.001000",
+      "case 'equipment-energy-window' regressed by 1.003917, above allowed 0.000000"
     ],
-    "scoreDelta": -1.6082916666676965,
+    "scoreDelta": -1.0039166666675783,
     "totalSimulationTicks": 720000,
     "verdict": "DISCARD",
-    "worstCaseBaselineScore": -260.34986388888825,
-    "worstCaseCandidateScore": -261.95815555555595
+    "worstCaseBaselineScore": -123.7652805555551,
+    "worstCaseCandidateScore": -124.76919722222267
   },
-  "resultHash": "3f1bcf32b0350bf9ac59aec28f84fed6c4a928e226df9a9c8bc15e2008289d43",
-  "scoreDelta": -1.6082916666676965,
+  "resultHash": "fb745b6e57d48c3c3b0258395ed7ca1c0c215c655370726ea15409756c4659f0",
+  "scoreDelta": -1.0039166666675783,
   "verdict": "DISCARD",
-  "version": 1
+  "version": 2
 }

@@ -12,7 +12,7 @@ const id = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/);
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
 
 const candidateReviewReceiptSchema = z.object({
-  version: z.literal(1),
+  version: z.literal(2),
   candidate: id,
   benchmark: id,
   proposalHash: hash,
@@ -20,6 +20,29 @@ const candidateReviewReceiptSchema = z.object({
   proposedCandidateHash: hash,
   verdict: z.enum(["KEEP", "DISCARD", "UNCHANGED"]),
   scoreDelta: z.number(),
+  currentFactory: z.discriminatedUnion("status", [
+    z.object({
+      reference: z.literal("current-factory"),
+      status: z.literal("evaluated"),
+      currentBlueprintHash: hash,
+      proposedBlueprintHash: hash,
+      currentScore: z.number(),
+      proposedScore: z.number(),
+      scoreDelta: z.number(),
+      minimumCaseScoreDelta: z.number(),
+      verdict: z.enum(["IMPROVED", "REGRESSED", "UNCHANGED"]),
+      cases: z.array(z.unknown()).min(1),
+      outcomeGuardrails: z.array(z.unknown()).optional(),
+    }).passthrough(),
+    z.object({
+      reference: z.literal("current-factory"),
+      status: z.literal("not-operational"),
+      currentBlueprintHash: hash,
+      proposedBlueprintHash: hash,
+      verdict: z.literal("NOT_COMPARABLE"),
+      reason: z.string().min(1),
+    }).strict(),
+  ]),
   resultHash: hash,
   result: z.object({
     benchmark: id,
@@ -59,7 +82,10 @@ function parseReceipt(value: unknown, candidateId: string, proposalHash: string)
     `Review receipt identity does not match Candidate '${candidateId}' and proposal '${proposalHash}'`,
   );
   if (receipt.result.benchmark !== receipt.benchmark || receipt.result.verdict !== receipt.verdict
-    || receipt.result.scoreDelta !== receipt.scoreDelta || hashValue(receipt.result) !== receipt.resultHash) throw new CandidateChangeSetError(
+    || receipt.result.scoreDelta !== receipt.scoreDelta
+    || receipt.currentFactory.currentBlueprintHash !== receipt.currentCandidateHash
+    || receipt.currentFactory.proposedBlueprintHash !== receipt.proposedCandidateHash
+    || hashValue({ result: receipt.result, currentFactory: receipt.currentFactory }) !== receipt.resultHash) throw new CandidateChangeSetError(
     "candidate.review-receipt-mismatch",
     `Review receipt evidence does not match its recorded Candidate decision`,
   );
@@ -69,7 +95,9 @@ function parseReceipt(value: unknown, candidateId: string, proposalHash: string)
 export async function loadCandidateReviewReceipt(projectDir: string, candidateId: string, proposalHash: string): Promise<CandidateReviewReceipt | null> {
   const path = reviewPath(projectDir, candidateId, proposalHash);
   if (!await pathExists(path)) return null;
-  return parseReceipt(await readJson(path), candidateId, proposalHash);
+  const value = await readJson(path);
+  if (!value || typeof value !== "object" || (value as { version?: unknown }).version !== 2) return null;
+  return parseReceipt(value, candidateId, proposalHash);
 }
 
 export async function recordCandidateReview(
@@ -77,7 +105,7 @@ export async function recordCandidateReview(
   preview: CandidateChangeSetPreview,
 ): Promise<{ receipt: CandidateReviewReceipt; path: string; created: boolean }> {
   const receipt = candidateReviewReceiptSchema.parse({
-    version: 1,
+    version: 2,
     candidate: preview.candidate.id,
     benchmark: preview.candidate.benchmark,
     proposalHash: preview.proposalHash,
@@ -85,7 +113,8 @@ export async function recordCandidateReview(
     proposedCandidateHash: preview.proposedCandidateHash,
     verdict: preview.result.verdict,
     scoreDelta: preview.result.scoreDelta,
-    resultHash: hashValue(preview.result),
+    currentFactory: preview.currentFactory,
+    resultHash: hashValue({ result: preview.result, currentFactory: preview.currentFactory }),
     result: preview.result,
   });
   const path = reviewPath(projectDir, preview.candidate.id, preview.proposalHash);
@@ -121,6 +150,7 @@ export async function inspectCandidateDecision(projectDir: string, candidateId: 
     proposalHash: receipt.proposalHash,
     currentCandidateHash: receipt.currentCandidateHash,
     proposedCandidateHash: receipt.proposedCandidateHash,
+    currentFactory: receipt.currentFactory as CandidateChangeSetPreview["currentFactory"],
     result: receipt.result as unknown as CandidateChangeSetPreview["result"],
   };
   if (currentCandidateHash === receipt.proposedCandidateHash && receipt.verdict === "KEEP") return {

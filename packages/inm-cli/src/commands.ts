@@ -6,7 +6,7 @@ import {
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
   TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals,
-  type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FabLossContributorMechanism, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
+  type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type CandidateCurrentFactoryComparison, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FabLossContributorMechanism, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
@@ -200,7 +200,9 @@ function writeBenchmarkProgress(
     process.stderr.write(`${stableStringify(cliProgress(command, execution.snapshot(), progress))}\n`);
     return;
   }
-  const stage = progress.phase.startsWith("baseline") ? "BASELINE" : "CANDIDATE";
+  const stage = progress.phase.startsWith("baseline") ? "LOCKED BASELINE"
+    : progress.phase.startsWith("current") ? "CURRENT FACTORY"
+      : "PROPOSED FACTORY";
   const done = progress.phase.endsWith("completed");
   const timing = progress.timing.durationMs === undefined ? "" : ` · ${(progress.timing.durationMs / 1000).toFixed(2)}s`;
   const reuse = progress.cached === undefined ? "" : ` · ${progress.cached ? "reused" : "evaluated"}`;
@@ -318,6 +320,63 @@ function outcomeGuardrailSummary(result: BlueprintBenchmarkResult) {
       })),
     })),
   };
+}
+
+function currentFactorySummary(comparison: CandidateCurrentFactoryComparison) {
+  if (comparison.status === "not-operational") return comparison;
+  return {
+    reference: comparison.reference,
+    status: comparison.status,
+    currentBlueprintHash: comparison.currentBlueprintHash,
+    proposedBlueprintHash: comparison.proposedBlueprintHash,
+    currentScore: comparison.currentScore,
+    proposedScore: comparison.proposedScore,
+    scoreDelta: comparison.scoreDelta,
+    minimumCaseScoreDelta: comparison.minimumCaseScoreDelta,
+    verdict: comparison.verdict,
+    cases: comparison.cases.map((item) => ({
+      id: item.id,
+      currentScore: item.currentScore,
+      proposedScore: item.proposedScore,
+      scoreDelta: item.scoreDelta,
+      currentCapacityReady: item.currentCapacityReady,
+      proposedCapacityReady: item.proposedCapacityReady,
+      currentWip: item.currentMetrics.averageWip,
+      proposedWip: item.proposedMetrics.averageWip,
+      currentOnTimeLots: item.currentMetrics.onTimeLots,
+      proposedOnTimeLots: item.proposedMetrics.onTimeLots,
+      leadingScoreDrivers: leadingScoreDrivers(item.scoreBreakdownDelta),
+    })),
+    outcomeGuardrails: comparison.outcomeGuardrails?.map((guardrail) => ({
+      id: guardrail.id,
+      metric: guardrail.metric,
+      currentPassed: guardrail.currentPassed,
+      proposedPassed: guardrail.proposedPassed,
+      cases: guardrail.cases.map((item) => ({
+        id: item.id,
+        currentValue: item.currentValue,
+        proposedValue: item.proposedValue,
+        threshold: item.threshold,
+        currentPassed: item.currentPassed,
+        proposedPassed: item.proposedPassed,
+      })),
+    })),
+  };
+}
+
+function currentFactoryOutcomeLines(comparison: CandidateCurrentFactoryComparison): string[] {
+  if (comparison.status === "not-operational") {
+    return [`Current factory: NOT OPERATIONAL · incremental comparison unavailable`, `  ${comparison.reason}`];
+  }
+  if (!comparison.outcomeGuardrails?.length) return [];
+  return [
+    `Current-factory hard outcomes: ${comparison.outcomeGuardrails.filter((item) => item.proposedPassed).length}/${comparison.outcomeGuardrails.length} proposed gates passed`,
+    ...comparison.outcomeGuardrails.flatMap((guardrail) => [
+      `  ${guardrail.currentPassed ? "PASS" : "FAIL"} → ${guardrail.proposedPassed ? "PASS" : "FAIL"} ${guardrail.label} · ${guardrail.id}`,
+      ...guardrail.cases.map((item) =>
+        `    ${item.id.padEnd(24)} ${item.currentValue} → ${item.proposedValue}  ${guardrail.operator === "minimum" ? "≥" : "≤"} ${item.threshold}  ${item.proposedPassed ? "PASS" : "FAIL"}`),
+    ]),
+  ];
 }
 
 function outcomeGuardrailLines(result: BlueprintBenchmarkResult): string[] {
@@ -1273,9 +1332,9 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     const executionState = execution.complete([...previewOperation.artifacts, ...operation.artifacts]);
     const applied = operation.data;
     if (options.json) { const data = sectionResult("candidate", options, {
-      summary: () => ({ action: "apply", candidate: applied.candidate.id, benchmark: applied.candidate.benchmark, proposalHash: applied.proposalHash, currentCandidateHash: applied.currentCandidateHash, proposedCandidateHash: applied.proposedCandidateHash, verdict: applied.result.verdict, scoreDelta: applied.result.scoreDelta, outcomeGuardrails: outcomeGuardrailSummary(applied.result), applied: true, blueprintPath: applied.blueprintPath }),
+      summary: () => ({ action: "apply", candidate: applied.candidate.id, benchmark: applied.candidate.benchmark, proposalHash: applied.proposalHash, currentCandidateHash: applied.currentCandidateHash, proposedCandidateHash: applied.proposedCandidateHash, verdict: applied.result.verdict, lockedBaselineScoreDelta: applied.result.scoreDelta, currentFactory: currentFactorySummary(applied.currentFactory), outcomeGuardrails: outcomeGuardrailSummary(applied.result), applied: true, blueprintPath: applied.blueprintPath }),
       proposal: () => ({ action: "apply", candidate: applied.candidate, proposalHash: applied.proposalHash, currentCandidateHash: applied.currentCandidateHash, proposedCandidateHash: applied.proposedCandidateHash, blueprintPath: applied.blueprintPath }),
-      evaluation: () => applied.result,
+      evaluation: () => ({ lockedCompliance: applied.result, currentFactory: applied.currentFactory }),
       all: () => ({ action: "apply", ...applied }),
     }); writeSuccess("candidate", { ...data, operation: operationMetadata(operation) }, {
       context: operationProjectContext(operation.context), diagnostics: applied.result.reasons,
@@ -1287,7 +1346,11 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     }); return; }
     write([
       `Applied candidate '${applied.candidate.id}' to ${applied.blueprintPath}`,
-      `Reviewed ${applied.currentCandidateHash.slice(0, 12)} → ${applied.proposedCandidateHash.slice(0, 12)} · ${applied.result.verdict} · Δ ${signed(applied.result.scoreDelta, 6)}`,
+      `Locked compliance: ${applied.result.verdict} · baseline Δ ${signed(applied.result.scoreDelta, 6)}`,
+      ...(applied.currentFactory.status === "evaluated"
+        ? [`Current factory: ${applied.currentFactory.verdict} · ${applied.currentFactory.currentScore.toFixed(6)} → ${applied.currentFactory.proposedScore.toFixed(6)} · Δ ${signed(applied.currentFactory.scoreDelta, 6)}`]
+        : []),
+      ...currentFactoryOutcomeLines(applied.currentFactory),
       ...outcomeGuardrailLines(applied.result),
       "The proposal is now stale by design and cannot be applied twice.", "",
     ].join("\n"), false);
@@ -1295,9 +1358,9 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
   }
   const executionState = execution.complete(previewOperation.artifacts);
   if (options.json) { const data = sectionResult("candidate", options, {
-    summary: () => ({ action: "preview", candidate: preview.candidate.id, benchmark: preview.candidate.benchmark, hypothesis: preview.candidate.hypothesis, proposalHash: preview.proposalHash, currentCandidateHash: preview.currentCandidateHash, proposedCandidateHash: preview.proposedCandidateHash, verdict: preview.result.verdict, scoreDelta: preview.result.scoreDelta, reasons: preview.result.reasons, outcomeGuardrails: outcomeGuardrailSummary(preview.result), patchOperations: preview.candidate.patch.length, semanticChanges: preview.result.changes.length }),
+    summary: () => ({ action: "preview", candidate: preview.candidate.id, benchmark: preview.candidate.benchmark, hypothesis: preview.candidate.hypothesis, proposalHash: preview.proposalHash, currentCandidateHash: preview.currentCandidateHash, proposedCandidateHash: preview.proposedCandidateHash, verdict: preview.result.verdict, lockedBaselineScoreDelta: preview.result.scoreDelta, currentFactory: currentFactorySummary(preview.currentFactory), reasons: preview.result.reasons, outcomeGuardrails: outcomeGuardrailSummary(preview.result), patchOperations: preview.candidate.patch.length, semanticChanges: preview.result.changes.length }),
     proposal: () => ({ action: "preview", candidate: preview.candidate, proposalHash: preview.proposalHash, currentCandidateHash: preview.currentCandidateHash, proposedCandidateHash: preview.proposedCandidateHash }),
-    evaluation: () => preview.result,
+    evaluation: () => ({ lockedCompliance: preview.result, currentFactory: preview.currentFactory }),
     all: () => ({ action: "preview", ...preview }),
   }); writeSuccess("candidate", { ...data, operation: operationMetadata(previewOperation) }, {
     context: operationProjectContext(previewOperation.context), diagnostics: preview.result.reasons,
@@ -1313,8 +1376,14 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     `${preview.candidate.benchmark} · ${preview.currentCandidateHash.slice(0, 12)} → ${preview.proposedCandidateHash.slice(0, 12)}`,
     `Hypothesis: ${preview.candidate.hypothesis}`,
     `Patch: ${preview.candidate.patch.length} authored ops · ${preview.result.changes.length} semantic changes`,
-    `Score: ${preview.result.baselineScore.toFixed(6)} → ${preview.result.candidateScore.toFixed(6)} · Δ ${signed(preview.result.scoreDelta, 6)}`,
-    `Verdict: ${preview.result.verdict}`,
+    `Locked compliance: ${preview.result.baselineScore.toFixed(6)} → ${preview.result.candidateScore.toFixed(6)} · Δ ${signed(preview.result.scoreDelta, 6)} · ${preview.result.verdict}`,
+    ...(preview.currentFactory.status === "evaluated"
+      ? [
+          `Current factory: ${preview.currentFactory.currentScore.toFixed(6)} → ${preview.currentFactory.proposedScore.toFixed(6)} · Δ ${signed(preview.currentFactory.scoreDelta, 6)} · ${preview.currentFactory.verdict}`,
+          ...preview.currentFactory.cases.map((item) => `  ${item.id.padEnd(24)} ${item.currentScore.toFixed(3).padStart(10)} → ${item.proposedScore.toFixed(3).padStart(10)}  Δ ${signed(item.scoreDelta)}  ${item.proposedCapacityReady ? "READY" : `${item.proposedCapacityGaps.length} GAPS`}`),
+        ]
+      : []),
+    ...currentFactoryOutcomeLines(preview.currentFactory),
     ...outcomeGuardrailLines(preview.result),
     ...preview.result.reasons.map((reason) => `Gate: ${reason}`),
     "",

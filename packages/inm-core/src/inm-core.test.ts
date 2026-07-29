@@ -4553,6 +4553,23 @@ describe("coding-agent Blueprint benchmarks", () => {
     const preview = await previewCandidateChangeSet(dir, "protect-critical-line");
     expect(preview.result.verdict).toBe("KEEP");
     expect(preview.result.patch).toHaveLength(4);
+    expect(preview.currentFactory).toEqual(expect.objectContaining({
+      reference: "current-factory",
+      status: "evaluated",
+      currentBlueprintHash: baseCandidateHash,
+      proposedBlueprintHash: preview.proposedCandidateHash,
+      verdict: "IMPROVED",
+      scoreDelta: expect.any(Number),
+      cases: [expect.objectContaining({
+        id: "constrained-grid",
+        currentMetrics: expect.objectContaining({ scoreBreakdown: expect.any(Object) }),
+        proposedMetrics: expect.objectContaining({ scoreBreakdown: expect.any(Object) }),
+        scoreBreakdownDelta: expect.any(Object),
+      })],
+    }));
+    if (preview.currentFactory.status !== "evaluated") throw new Error("Expected an operational current factory");
+    expect(Object.values(preview.currentFactory.cases[0]!.scoreBreakdownDelta).reduce((sum, value) => sum + value, 0))
+      .toBeCloseTo(preview.currentFactory.cases[0]!.scoreDelta, 8);
     expect(await readFile(blueprintPath, "utf8")).toBe(beforePreview);
 
     const applied = await applyCandidateChangeSet(dir, "protect-critical-line", preview);
@@ -4565,6 +4582,42 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(await directorySnapshot(dir, new Set(["blueprints/power-priority-candidate.blueprint.json"]))).toEqual(beforeFixedProject);
     expect(preview.proposedCandidateHash).not.toBe(baseCandidateHash);
     await expect(previewCandidateChangeSet(dir, "protect-critical-line")).rejects.toMatchObject({ code: "candidate.stale-base" });
+  });
+
+  test("separates memory-fab locked compliance from the current-factory WIP tradeoff", async () => {
+    const preview = await previewCandidateChangeSet(memoryFab, "back-end-wip-conwip-5-4", {
+      caseExecution: "parallel",
+    });
+    expect(preview.result).toEqual(expect.objectContaining({
+      verdict: "DISCARD",
+      scoreDelta: 120.27731481313492,
+    }));
+    expect(preview.currentFactory).toEqual(expect.objectContaining({
+      status: "evaluated",
+      verdict: "IMPROVED",
+      scoreDelta: 2.5194093603571375,
+      minimumCaseScoreDelta: -5.806869633333328,
+    }));
+    if (preview.currentFactory.status !== "evaluated") throw new Error("Expected an operational current factory");
+    expect(preview.currentFactory.cases.map((item) => ({
+      id: item.id,
+      currentOnTime: item.currentMetrics.onTimeLots,
+      proposedOnTime: item.proposedMetrics.onTimeLots,
+      wipDelta: item.proposedMetrics.averageWip - item.currentMetrics.averageWip,
+    }))).toEqual([
+      { id: "steady-production", currentOnTime: 12, proposedOnTime: 11, wipDelta: expect.any(Number) },
+      { id: "mixed-quality", currentOnTime: 12, proposedOnTime: 11, wipDelta: expect.any(Number) },
+      { id: "quality-excursion", currentOnTime: 12, proposedOnTime: 10, wipDelta: expect.any(Number) },
+      { id: "lithography-interruption", currentOnTime: 9, proposedOnTime: 6, wipDelta: expect.any(Number) },
+      { id: "facility-interruption", currentOnTime: 9, proposedOnTime: 7, wipDelta: expect.any(Number) },
+    ]);
+    expect(preview.currentFactory.cases.every((item) =>
+      item.proposedMetrics.averageWip < item.currentMetrics.averageWip)).toBeTrue();
+    expect(preview.currentFactory.outcomeGuardrails?.find((item) =>
+      item.id === "preserve-on-time-service")).toEqual(expect.objectContaining({
+        currentPassed: true,
+        proposedPassed: false,
+      }));
   });
 
   test("rejects changed, non-KEEP, invalid-root, and uncompilable candidate proposals with stable codes", async () => {

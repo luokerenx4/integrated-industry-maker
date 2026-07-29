@@ -237,7 +237,9 @@ export interface BlueprintBenchmarkSummary {
 export interface BlueprintBenchmarkProgress {
   version: 3;
   sequence: number;
-  phase: "baseline-case-started" | "baseline-case-completed" | "candidate-case-started" | "candidate-case-completed";
+  phase: "baseline-case-started" | "baseline-case-completed"
+    | "current-case-started" | "current-case-completed"
+    | "candidate-case-started" | "candidate-case-completed";
   benchmark: string;
   case: { id: string; name: string; index: number; total: number };
   work: { completed: number; total: number };

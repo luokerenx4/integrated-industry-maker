@@ -2,12 +2,21 @@ import { readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import {
-  evaluateBlueprintBenchmark,
+  evaluatePreparedBlueprintBenchmark,
   loadBlueprintBenchmark,
+  prepareBlueprintBenchmark,
+  blueprintOutcomeMetricLabel,
   type BlueprintBenchmarkProgressHandler,
   type BlueprintBenchmarkResult,
+  type BlueprintOutcomeMetric,
+  type BlueprintOutcomeOperator,
 } from "./benchmark";
-import type { BenchmarkCaseExecutionRequest } from "./benchmark-case-execution";
+import {
+  createBenchmarkCaseExecutor,
+  resolveBenchmarkCaseExecution,
+  type BenchmarkCaseExecutionRequest,
+} from "./benchmark-case-execution";
+import { subtractScoreBreakdown, type BlueprintMetricSnapshot } from "./blueprint-comparison";
 import { compileFactoryProject } from "./compiler";
 import { applyResearchPatch, validateResearchPatch } from "./research";
 import { blueprintSchema } from "./schema";
@@ -51,8 +60,74 @@ export interface CandidateChangeSetPreview {
   proposalHash: string;
   currentCandidateHash: string;
   proposedCandidateHash: string;
+  currentFactory: CandidateCurrentFactoryComparison;
   result: BlueprintBenchmarkResult;
 }
+
+export interface CandidateCurrentFactoryCaseComparison {
+  id: string;
+  name: string;
+  weight: number;
+  seed: number;
+  durationTicks: number;
+  currentScore: number;
+  proposedScore: number;
+  scoreDelta: number;
+  scoreBreakdownDelta: BlueprintMetricSnapshot["scoreBreakdown"];
+  currentMetrics: BlueprintMetricSnapshot;
+  proposedMetrics: BlueprintMetricSnapshot;
+  currentCapacityReady: boolean;
+  proposedCapacityReady: boolean;
+  currentCapacityGaps: string[];
+  proposedCapacityGaps: string[];
+}
+
+export interface CandidateCurrentFactoryOutcomeCaseComparison {
+  id: string;
+  name: string;
+  currentValue: number;
+  proposedValue: number;
+  threshold: number;
+  currentPassed: boolean;
+  proposedPassed: boolean;
+}
+
+export interface CandidateCurrentFactoryOutcomeComparison {
+  id: string;
+  metric: BlueprintOutcomeMetric;
+  label: string;
+  operator: BlueprintOutcomeOperator;
+  currentPassed: boolean;
+  proposedPassed: boolean;
+  cases: CandidateCurrentFactoryOutcomeCaseComparison[];
+}
+
+export interface CandidateEvaluatedCurrentFactoryComparison {
+  reference: "current-factory";
+  status: "evaluated";
+  currentBlueprintHash: string;
+  proposedBlueprintHash: string;
+  currentScore: number;
+  proposedScore: number;
+  scoreDelta: number;
+  minimumCaseScoreDelta: number;
+  verdict: "IMPROVED" | "REGRESSED" | "UNCHANGED";
+  cases: CandidateCurrentFactoryCaseComparison[];
+  outcomeGuardrails?: CandidateCurrentFactoryOutcomeComparison[];
+}
+
+export interface CandidateUnavailableCurrentFactoryComparison {
+  reference: "current-factory";
+  status: "not-operational";
+  currentBlueprintHash: string;
+  proposedBlueprintHash: string;
+  verdict: "NOT_COMPARABLE";
+  reason: string;
+}
+
+export type CandidateCurrentFactoryComparison =
+  | CandidateEvaluatedCurrentFactoryComparison
+  | CandidateUnavailableCurrentFactoryComparison;
 
 export interface AppliedCandidateChangeSet extends CandidateChangeSetPreview {
   applied: true;
@@ -114,6 +189,123 @@ export interface CandidateEvaluationOptions {
   caseExecution?: BenchmarkCaseExecutionRequest;
 }
 
+function remapCandidateProgress(
+  handler: BlueprintBenchmarkProgressHandler | undefined,
+  phase: "baseline" | "current" | "candidate",
+  caseCount: number,
+  includeCurrent: boolean,
+): BlueprintBenchmarkProgressHandler | undefined {
+  if (!handler) return undefined;
+  const waveCount = includeCurrent ? 3 : 2;
+  return (progress) => {
+    if (phase === "baseline") {
+      handler({ ...progress, work: { ...progress.work, total: caseCount * waveCount } });
+      return;
+    }
+    const isCompleted = progress.phase.endsWith("completed");
+    const additionalCases = phase === "candidate" && includeCurrent ? caseCount : 0;
+    handler({
+      ...progress,
+      sequence: progress.sequence + additionalCases * 2,
+      phase: `${phase}-case-${isCompleted ? "completed" : "started"}`,
+      work: {
+        completed: progress.work.completed + additionalCases,
+        total: caseCount * waveCount,
+      },
+    });
+  };
+}
+
+function outcomePasses(operator: BlueprintOutcomeOperator, value: number, threshold: number): boolean {
+  return operator === "minimum" ? value >= threshold - 1e-9 : value <= threshold + 1e-9;
+}
+
+function currentFactoryOutcomeComparison(
+  current: BlueprintBenchmarkResult,
+  proposed: BlueprintBenchmarkResult,
+): CandidateCurrentFactoryOutcomeComparison[] | undefined {
+  if (!proposed.outcomeGuardrails) return undefined;
+  const currentCases = new Map(current.cases.map((item) => [item.id, item]));
+  return proposed.outcomeGuardrails.map((guardrail) => {
+    const cases = guardrail.cases.map((item) => {
+      const currentCase = currentCases.get(item.id);
+      if (!currentCase) throw new Error(`Current-factory evaluation omitted Benchmark case '${item.id}'`);
+      const currentValue = currentCase.candidateMetrics[guardrail.metric];
+      return {
+        id: item.id,
+        name: item.name,
+        currentValue,
+        proposedValue: item.candidateValue,
+        threshold: item.threshold,
+        currentPassed: outcomePasses(guardrail.operator, currentValue, item.threshold),
+        proposedPassed: item.candidatePassed,
+      };
+    });
+    return {
+      id: guardrail.id,
+      metric: guardrail.metric,
+      label: blueprintOutcomeMetricLabel(guardrail.metric),
+      operator: guardrail.operator,
+      currentPassed: cases.every((item) => item.currentPassed),
+      proposedPassed: cases.every((item) => item.proposedPassed),
+      cases,
+    };
+  });
+}
+
+function compareWithCurrentFactory(
+  current: BlueprintBenchmarkResult,
+  proposed: BlueprintBenchmarkResult,
+): CandidateCurrentFactoryComparison {
+  const currentCases = new Map(current.cases.map((item) => [item.id, item]));
+  const cases = proposed.cases.map((item): CandidateCurrentFactoryCaseComparison => {
+    const currentCase = currentCases.get(item.id);
+    if (!currentCase) throw new Error(`Current-factory evaluation omitted Benchmark case '${item.id}'`);
+    const scoreDelta = item.candidateScore - currentCase.candidateScore;
+    const scoreBreakdownDelta = subtractScoreBreakdown(
+      currentCase.candidateMetrics.scoreBreakdown,
+      item.candidateMetrics.scoreBreakdown,
+    );
+    const componentDelta = Object.values(scoreBreakdownDelta).reduce((sum, value) => sum + value, 0);
+    if (Math.abs(componentDelta - scoreDelta) > 1e-8) throw new Error(
+      `Current-factory score components for case '${item.id}' total ${componentDelta}, not ${scoreDelta}`,
+    );
+    return {
+      id: item.id,
+      name: item.name,
+      weight: item.weight,
+      seed: item.seed,
+      durationTicks: item.durationTicks,
+      currentScore: currentCase.candidateScore,
+      proposedScore: item.candidateScore,
+      scoreDelta,
+      scoreBreakdownDelta,
+      currentMetrics: currentCase.candidateMetrics,
+      proposedMetrics: item.candidateMetrics,
+      currentCapacityReady: currentCase.candidateCapacityReady,
+      proposedCapacityReady: item.candidateCapacityReady,
+      currentCapacityGaps: currentCase.candidateCapacityGaps,
+      proposedCapacityGaps: item.candidateCapacityGaps,
+    };
+  });
+  const scoreDelta = proposed.candidateScore - current.candidateScore;
+  return {
+    reference: "current-factory",
+    status: "evaluated",
+    currentBlueprintHash: current.candidateBlueprintHash,
+    proposedBlueprintHash: proposed.candidateBlueprintHash,
+    currentScore: current.candidateScore,
+    proposedScore: proposed.candidateScore,
+    scoreDelta,
+    minimumCaseScoreDelta: Math.min(...cases.map((item) => item.scoreDelta)),
+    verdict: Math.abs(scoreDelta) <= 1e-9 ? "UNCHANGED" : scoreDelta > 0 ? "IMPROVED" : "REGRESSED",
+    cases,
+    ...(proposed.outcomeGuardrails
+      ? { outcomeGuardrails: currentFactoryOutcomeComparison(current, proposed) }
+      : {}),
+  };
+}
+
 export async function prepareCandidateChangeSet(
   projectDir: string,
   candidateId: string,
@@ -153,17 +345,59 @@ export async function prepareCandidateChangeSet(
   const proposedCandidateHash = hashValue(proposedBlueprint);
   let operationProject: CompiledFactoryProject;
   let result: BlueprintBenchmarkResult;
+  let currentFactory: CandidateCurrentFactoryComparison;
   try {
     // A generative Candidate may start from a schema-valid commissioning site
     // whose Scenario references only become valid after this exact patch.
     operationProject = compileFactoryProject({ ...loaded, blueprint: proposedBlueprint });
-    result = await evaluateBlueprintBenchmark(projectDir, candidate.benchmark, {
-      candidateBlueprint: proposedBlueprint,
-      evaluationId: `candidate:${candidate.id}`,
-      onProgress: options.onProgress,
-      signal: options.signal,
-      caseExecution: options.caseExecution,
-    });
+    let currentFactoryUnavailableReason: string | undefined;
+    try {
+      compileFactoryProject(loaded);
+    } catch (error) {
+      currentFactoryUnavailableReason = error instanceof Error ? error.message : String(error);
+    }
+    const includeCurrent = currentFactoryUnavailableReason === undefined;
+    const execution = resolveBenchmarkCaseExecution(benchmark.cases.length, options.caseExecution);
+    const caseExecutor = execution.mode === "sequential" ? undefined : createBenchmarkCaseExecutor(execution);
+    try {
+      const prepared = await prepareBlueprintBenchmark(projectDir, candidate.benchmark, {
+        onProgress: remapCandidateProgress(options.onProgress, "baseline", benchmark.cases.length, includeCurrent),
+        evaluationId: `candidate:${candidate.id}`,
+        signal: options.signal,
+        caseExecution: options.caseExecution,
+        caseExecutor,
+      });
+      const currentResult = includeCurrent
+        ? await evaluatePreparedBlueprintBenchmark(prepared, {
+            candidateBlueprint: loaded.blueprint,
+            evaluationId: `candidate:${candidate.id}:current`,
+            onProgress: remapCandidateProgress(options.onProgress, "current", benchmark.cases.length, true),
+            signal: options.signal,
+            caseExecution: options.caseExecution,
+            caseExecutor,
+          })
+        : undefined;
+      result = await evaluatePreparedBlueprintBenchmark(prepared, {
+        candidateBlueprint: proposedBlueprint,
+        evaluationId: `candidate:${candidate.id}`,
+        onProgress: remapCandidateProgress(options.onProgress, "candidate", benchmark.cases.length, includeCurrent),
+        signal: options.signal,
+        caseExecution: options.caseExecution,
+        caseExecutor,
+      });
+      currentFactory = currentResult
+        ? compareWithCurrentFactory(currentResult, result)
+        : {
+            reference: "current-factory",
+            status: "not-operational",
+            currentBlueprintHash: currentCandidateHash,
+            proposedBlueprintHash: proposedCandidateHash,
+            verdict: "NOT_COMPARABLE",
+            reason: currentFactoryUnavailableReason!,
+          };
+    } finally {
+      caseExecutor?.dispose();
+    }
   }
   catch (error) {
     if (options.signal?.aborted) throw error;
@@ -174,6 +408,7 @@ export async function prepareCandidateChangeSet(
     proposalHash: hashValue(candidate),
     currentCandidateHash,
     proposedCandidateHash,
+    currentFactory,
     proposedBlueprint,
     operationProject,
     result,

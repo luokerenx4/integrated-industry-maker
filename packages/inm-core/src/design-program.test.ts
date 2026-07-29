@@ -762,7 +762,16 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
 
   const previewOperation = await previewCandidateOperation(copy, candidate.id);
   const preview = previewOperation.data;
-  expect(preview).toMatchObject({ proposedCandidateHash: first.manifest.best.blueprintHash, result: { verdict: "KEEP" } });
+  expect(preview).toMatchObject({
+    proposedCandidateHash: first.manifest.best.blueprintHash,
+    currentFactory: {
+      status: "not-operational",
+      verdict: "NOT_COMPARABLE",
+      currentBlueprintHash: first.manifest.promotionBase.hash,
+      proposedBlueprintHash: first.manifest.best.blueprintHash,
+    },
+    result: { verdict: "KEEP" },
+  });
   expect(previewOperation).toMatchObject({
     effect: "creates-artifact",
     context: { selection: { blueprint: "generated-dram-fab" }, hashes: { blueprintHash: first.manifest.best.blueprintHash } },

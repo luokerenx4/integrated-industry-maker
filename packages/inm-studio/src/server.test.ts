@@ -399,7 +399,19 @@ test("opening a project without runs does not write a Studio baseline", async ()
     const streamedPreviewOperation = await completedStudioOperation<{
       command: "candidate"; action: "preview"; result: { verdict: string };
     }>(port, "ironworks", streamedPreviewResponse);
-    expect(streamedPreviewOperation.progressLog).toHaveLength(4);
+    expect(streamedPreviewOperation.progressLog).toHaveLength(6);
+    expect(streamedPreviewOperation.progressLog.map((item) => item.phase)).toEqual([
+      "baseline-case-started",
+      "baseline-case-completed",
+      "current-case-started",
+      "current-case-completed",
+      "candidate-case-started",
+      "candidate-case-completed",
+    ]);
+    expect(streamedPreviewOperation.progressLog.at(-1)).toEqual(expect.objectContaining({
+      sequence: 6,
+      work: { completed: 3, total: 3 },
+    }));
     expect(streamedPreviewOperation.progressLog.every((item) =>
       "execution" in item && item.execution.mode === "isolated" && item.execution.concurrency === 1)).toBeTrue();
     expect(streamedPreviewOperation.result).toEqual(expect.objectContaining({
@@ -408,10 +420,17 @@ test("opening a project without runs does not write a Studio baseline", async ()
     expect(await readFile(candidateBlueprintPath, "utf8")).toBe(beforePreview);
     const previewResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/preview`, { method: "POST" });
     const preview = (await completedStudioOperation<{
-      currentCandidateHash: string; proposedCandidateHash: string; result: { verdict: string };
+      currentCandidateHash: string; proposedCandidateHash: string;
+      currentFactory: { verdict: string; currentBlueprintHash: string; proposedBlueprintHash: string };
+      result: { verdict: string };
       operation: { operation: string; effect: string; artifacts: Array<{ kind: string }> };
     }>(port, "ironworks", previewResponse)).result!;
     expect(preview.result.verdict).toBe("KEEP");
+    expect(preview.currentFactory).toEqual(expect.objectContaining({
+      verdict: "IMPROVED",
+      currentBlueprintHash: preview.currentCandidateHash,
+      proposedBlueprintHash: preview.proposedCandidateHash,
+    }));
     expect(preview.operation.operation).toBe("candidate.preview");
     expect(preview.operation.effect).toBe("creates-artifact");
     expect(preview.operation.artifacts).toEqual([expect.objectContaining({ kind: "candidate-review" })]);
