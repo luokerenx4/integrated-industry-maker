@@ -150,7 +150,7 @@ export function ExperimentWorkbench({
       if (pollAbort.current === abort) pollAbort.current = null;
     });
     return () => abort.abort();
-  }, [projectId, selectedCandidateId, selectedId]);
+  }, [projectId, refreshRevision, selectedCandidateId, selectedId]);
   useEffect(() => () => pollAbort.current?.abort(), []);
 
   const run = async () => {

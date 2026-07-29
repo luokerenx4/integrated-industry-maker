@@ -322,7 +322,7 @@ export function DesignWorkbench({
       if (pollAbort.current === abort) pollAbort.current = null;
     });
     return () => abort.abort();
-  }, [projectId, selectedProgramId]);
+  }, [projectId, refreshRevision, selectedProgramId]);
   useEffect(() => () => pollAbort.current?.abort(), []);
 
   const run = async () => {

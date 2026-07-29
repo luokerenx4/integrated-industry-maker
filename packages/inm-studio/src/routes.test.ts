@@ -57,9 +57,10 @@ test("route-backed surfaces return only to a path owned by the same project", ()
   expect(overlayReturnPath("memory-fab", null)).toBeNull();
 });
 
-test("direct Experiment routes use the lightweight project surface", () => {
+test("direct Experiment and Design routes use lightweight project surfaces", () => {
   expect(requiresFullProjectData("experiments")).toBeFalse();
-  for (const view of ["overview", "factory", "runs", "designs", "catalog", "analysis"] as const) {
+  expect(requiresFullProjectData("designs")).toBeFalse();
+  for (const view of ["overview", "factory", "runs", "catalog", "analysis"] as const) {
     expect(requiresFullProjectData(view)).toBeTrue();
   }
 });

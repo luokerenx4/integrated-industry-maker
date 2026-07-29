@@ -711,8 +711,8 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
 
     const listResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs`);
     expect(listResponse.status).toBe(200);
-    expect(await listResponse.json()).toEqual({
-      programs: [
+    const designCatalog = await listResponse.json() as { programs: unknown[] };
+    expect(designCatalog.programs).toEqual([
         expect.objectContaining({ id: "back-end-die-handoff", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["transport-blocking"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 }, budget: { maxCandidates: 1 } }),
         expect.objectContaining({ id: "back-end-wip-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "objective", component: "wip", locations: ["buffer:burn-in-1:package-input:packaged-dram-device", "buffer:packaging-1:die-input:known-good-dram-die"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 }, budget: { maxCandidates: 3 } }),
         expect.objectContaining({ id: "burn-in-changeover-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["setup-campaign"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 }, budget: { maxCandidates: 1 } }),
@@ -725,16 +725,8 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
         expect.objectContaining({ id: "lithography-maintenance-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["maintenance-qualification"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 }, budget: { maxCandidates: 2 } }),
         expect.objectContaining({ id: "release-admission-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["release-admission"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 }, budget: { maxCandidates: 2 } }),
         expect.objectContaining({ id: "shipping-power-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["power-interruption"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 }, budget: { maxCandidates: 2 } }),
-      ],
-      runs: [],
-      invalidRuns: [{
-        id: invalidRunId,
-        path: invalidRunPath,
-        program: "greenfield-dram-fab",
-        code: "design.invalid-run",
-        message: `Design run '${invalidRunId}' manifest identity or completion state is invalid`,
-      }],
-    });
+    ]);
+    expect(Object.keys(designCatalog)).toEqual(["programs"]);
     const programResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/integrated-dram-fab`);
     expect(programResponse.status).toBe(200);
     expect(await programResponse.json()).toEqual(expect.objectContaining({

@@ -37,11 +37,18 @@ function data(stdout: string) {
     command: string;
     data: {
       state: string;
-      health: { pid: number; managerPid: number | null; inputDir: string; url: string; service: string; sourceHash: string };
+      health: { pid: number; managerPid: number | null; inputDir: string; url: string; service: string; sourceHash: string; managerSourceHash: string };
       logPath: string;
       port: number;
       portSelection: "explicit" | "managed" | "default" | "fallback";
-      source: { state: string; expectedHash: string; runningHash: string | null };
+      source: {
+        state: string;
+        expectedHash: string;
+        runningHash: string | null;
+        managerRunningHash: string | null;
+        serverState: string;
+        managerState: string;
+      };
     };
   };
 }
@@ -221,6 +228,7 @@ test("managed Studio adopts changed runtime source on the same port without a li
     const first = data(started.stdout).data.health;
     expect(first).toEqual(expect.objectContaining({
       sourceHash: firstHash,
+      managerSourceHash: firstHash,
       managerPid: expect.any(Number),
     }));
 
@@ -240,18 +248,53 @@ test("managed Studio adopts changed runtime source on the same port without a li
     }
     expect(replacement).toEqual(expect.objectContaining({
       sourceHash: secondHash,
+      managerSourceHash: firstHash,
       managerPid: first.managerPid,
     }));
     expect(replacement!.pid).not.toBe(first.pid);
+    const logPath = data(started.stdout).data.logPath as string;
+    const lifecycleEvents = (await readFile(logPath, "utf8")).trim().split("\n")
+      .map((line) => JSON.parse(line) as { component: string; event: string; generation?: number; reason?: string })
+      .filter((entry) => entry.component === "studio-supervisor");
+    expect(lifecycleEvents).toEqual(expect.arrayContaining([
+      expect.objectContaining({ event: "supervisor-started", generation: 0 }),
+      expect.objectContaining({ event: "server-started", generation: 1, reason: "initial-start" }),
+      expect.objectContaining({ event: "source-adoption-started", generation: 1 }),
+      expect.objectContaining({ event: "server-started", generation: 2, reason: "source-adoption" }),
+    ]));
 
-    const status = await runCli([
+    const staleStatus = await runCli([
       "studio", "status", project, "--port", String(port), "--json",
     ], environment);
-    expect(status.exitCode).toBe(0);
-    expect(data(status.stdout).data).toEqual(expect.objectContaining({
+    expect(staleStatus.exitCode).toBe(0);
+    expect(data(staleStatus.stdout).data).toEqual(expect.objectContaining({
       state: "running",
       port,
-      source: { state: "current", expectedHash: secondHash, runningHash: secondHash },
+      source: {
+        state: "stale",
+        expectedHash: secondHash,
+        runningHash: secondHash,
+        managerRunningHash: firstHash,
+        serverState: "current",
+        managerState: "stale",
+      },
+    }));
+
+    const fullyAdopted = await runCli([
+      "studio", "start", project, "--port", String(port), "--no-open", "--json",
+    ], environment);
+    expect(fullyAdopted.exitCode).toBe(0);
+    expect(data(fullyAdopted.stdout).data).toEqual(expect.objectContaining({
+      state: "running",
+      port,
+      source: {
+        state: "current",
+        expectedHash: secondHash,
+        runningHash: secondHash,
+        managerRunningHash: secondHash,
+        serverState: "current",
+        managerState: "current",
+      },
     }));
   } finally {
     await runCli(["studio", "stop", project, "--port", String(port), "--json"], environment);
@@ -482,6 +525,9 @@ test("Studio start safely replaces a verified same-project process built from st
       state: "current",
       expectedHash: firstHash,
       runningHash: firstHash,
+      managerRunningHash: firstHash,
+      serverState: "current",
+      managerState: "current",
     });
 
     const stale = await runCli([
@@ -491,7 +537,14 @@ test("Studio start safely replaces a verified same-project process built from st
     expect(data(stale.stdout).data).toEqual(expect.objectContaining({
       state: "running",
       health: expect.objectContaining({ pid: firstPid, sourceHash: firstHash }),
-      source: { state: "stale", expectedHash: secondHash, runningHash: firstHash },
+      source: {
+        state: "stale",
+        expectedHash: secondHash,
+        runningHash: firstHash,
+        managerRunningHash: firstHash,
+        serverState: "stale",
+        managerState: "stale",
+      },
     }));
 
     const replaced = await runCli(["studio", "start", ...args], { INM_STUDIO_SOURCE_HASH_OVERRIDE: secondHash });
@@ -499,7 +552,14 @@ test("Studio start safely replaces a verified same-project process built from st
     expect(data(replaced.stdout).data).toEqual(expect.objectContaining({
       state: "running",
       health: expect.objectContaining({ sourceHash: secondHash }),
-      source: { state: "current", expectedHash: secondHash, runningHash: secondHash },
+      source: {
+        state: "current",
+        expectedHash: secondHash,
+        runningHash: secondHash,
+        managerRunningHash: secondHash,
+        serverState: "current",
+        managerState: "current",
+      },
     }));
     expect(data(replaced.stdout).data.health.pid).not.toBe(firstPid);
   } finally {

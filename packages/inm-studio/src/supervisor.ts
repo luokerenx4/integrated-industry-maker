@@ -38,36 +38,61 @@ const serverArgs = [
 ];
 
 let sourceHash = await studioSourceHash();
+const managerSourceHash = sourceHash;
 let child: ReturnType<typeof Bun.spawn>;
 let restarting = false;
 let stopping = false;
 let reconcileTimer: ReturnType<typeof setTimeout> | null = null;
 let reconcilePending = false;
+let generation = 0;
 const watchAbort = new AbortController();
+
+function logLifecycle(event: string, fields: Record<string, unknown> = {}): void {
+  process.stdout.write(`${JSON.stringify({
+    timestamp: new Date().toISOString(),
+    component: "studio-supervisor",
+    event,
+    managerPid: process.pid,
+    port,
+    inputDir,
+    project: values.project ?? null,
+    sourceHash,
+    managerSourceHash,
+    generation,
+    ...fields,
+  })}\n`);
+}
 
 function failSupervisor(error: unknown): void {
   if (stopping) return;
   stopping = true;
   if (reconcileTimer) clearTimeout(reconcileTimer);
   watchAbort.abort();
-  process.stderr.write(`INM Studio supervisor failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
+  logLifecycle("supervisor-failed", {
+    error: error instanceof Error ? error.stack ?? error.message : String(error),
+    childPid: child.pid,
+  });
   child.kill("SIGTERM");
   void child.exited.finally(() => process.exit(1));
 }
 
-function spawnServer() {
+function spawnServer(reason: "initial-start" | "source-adoption") {
+  generation += 1;
   const next = Bun.spawn([process.execPath, serverEntry, ...serverArgs], {
     cwd: resolve(import.meta.dir, "../../.."),
     env: {
       ...process.env,
       INM_STUDIO_MANAGER_PID: String(process.pid),
+      INM_STUDIO_MANAGER_SOURCE_HASH: managerSourceHash,
     },
     stdin: "ignore",
     stdout: "inherit",
     stderr: "inherit",
   });
+  logLifecycle("server-started", { childPid: next.pid, reason });
   void next.exited.then((exitCode) => {
     if (next !== child || restarting || stopping) return;
+    logLifecycle("server-exited", { childPid: next.pid, exitCode, reason: "unexpected-exit" });
     stopping = true;
     watchAbort.abort();
     process.exit(exitCode);
@@ -77,7 +102,7 @@ function spawnServer() {
 
 async function updateManagedState(nextSourceHash: string): Promise<void> {
   const value = await readJson(statePath) as Record<string, unknown>;
-  if (value.version !== 3
+  if (value.version !== 4
     || value.inputDir !== inputDir
     || value.port !== port
     || (value.pid !== null && value.pid !== process.pid)) {
@@ -87,6 +112,7 @@ async function updateManagedState(nextSourceHash: string): Promise<void> {
     ...value,
     pid: process.pid,
     sourceHash: nextSourceHash,
+    managerSourceHash,
     startedAt: new Date().toISOString(),
   });
 }
@@ -94,12 +120,17 @@ async function updateManagedState(nextSourceHash: string): Promise<void> {
 async function restartServer(nextSourceHash: string): Promise<void> {
   restarting = true;
   const previous = child;
+  logLifecycle("source-adoption-started", {
+    childPid: previous.pid,
+    previousSourceHash: sourceHash,
+    nextSourceHash,
+  });
   previous.kill("SIGTERM");
   await previous.exited;
   if (stopping) return;
   await updateManagedState(nextSourceHash);
   sourceHash = nextSourceHash;
-  child = spawnServer();
+  child = spawnServer("source-adoption");
   restarting = false;
   if (reconcilePending) {
     reconcilePending = false;
@@ -151,6 +182,7 @@ async function shutdown(): Promise<void> {
   stopping = true;
   if (reconcileTimer) clearTimeout(reconcileTimer);
   watchAbort.abort();
+  logLifecycle("supervisor-stopping", { childPid: child.pid, reason: "requested-stop" });
   child.kill("SIGTERM");
   await child.exited;
 }
@@ -158,5 +190,6 @@ async function shutdown(): Promise<void> {
 process.once("SIGTERM", () => { void shutdown().then(() => process.exit(0)); });
 process.once("SIGINT", () => { void shutdown().then(() => process.exit(0)); });
 
-child = spawnServer();
+logLifecycle("supervisor-started");
+child = spawnServer("initial-start");
 for (const path of studioSourceWatchPaths()) void watchSource(path).catch(failSupervisor);

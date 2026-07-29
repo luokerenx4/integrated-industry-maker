@@ -62,6 +62,8 @@ Today `compileFactoryProject` hashes every loaded Resource, Process, Route, and 
 
 - 2026-07-29 — Plan created from the catalog-staleness fallout observed while completing [[plans/back-end-screening-batch-portfolio]].
 - 2026-07-29 — Initial audit located the shared authority boundary in `compileFactoryProject`, `ProjectHashes`, Benchmark locks/cache, Design briefs, operation contexts, and Workbench compatibility.
+- 2026-07-29 — Paused at the user's direction while [[plans/frictionless-industrial-design-cycle]] removes daily lifecycle and experiment-feedback friction. No implementation had started, so the audited boundary remains the exact continuation point.
+- 2026-07-29 — Reactivated after the operating-loop plan completed; continue from the existing Core authority audit and compatibility tests.
 
 ## Completion
 

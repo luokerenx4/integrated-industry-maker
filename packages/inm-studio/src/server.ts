@@ -15,7 +15,6 @@ import {
   continueDesignRun,
   ENGINE_VERSION,
   evaluateBenchmarkOperation,
-  indexDesignRuns,
   inspectCandidateDecision,
   inspectDesignProgramEvidence,
   listBlueprintBenchmarks,
@@ -66,11 +65,18 @@ if (positionals.length !== 1) {
 
 const inputDir = resolve(positionals[0]!);
 const port = Number(values.port);
+const sourceHash = await studioSourceHash();
 const managerPid = process.env.INM_STUDIO_MANAGER_PID === undefined
   ? null
   : Number(process.env.INM_STUDIO_MANAGER_PID);
 if (managerPid !== null && (!Number.isSafeInteger(managerPid) || managerPid <= 0)) {
   throw new Error("INM_STUDIO_MANAGER_PID must be a positive integer");
+}
+const managerSourceHash = managerPid === null
+  ? sourceHash
+  : process.env.INM_STUDIO_MANAGER_SOURCE_HASH;
+if (managerSourceHash === undefined || !/^[0-9a-f]{64}$/.test(managerSourceHash)) {
+  throw new Error("INM_STUDIO_MANAGER_SOURCE_HASH must be a lowercase SHA-256 value for managed Studio");
 }
 const configuredIdleExitMs = process.env.INM_STUDIO_IDLE_EXIT_MS === undefined
   ? null
@@ -84,7 +90,6 @@ function renewIdleExitLease(): void {
   if (idleExitTimer) clearTimeout(idleExitTimer);
   idleExitTimer = setTimeout(() => process.exit(0), configuredIdleExitMs);
 }
-const sourceHash = await studioSourceHash();
 const workspaceMode = await pathExists(join(inputDir, "inm-workspace.json"));
 const cacheDir = join(inputDir, ".inm", "cache", "studio");
 await mkdir(cacheDir, { recursive: true });
@@ -521,13 +526,14 @@ const server = Bun.serve({
         const rootUrl = `http://127.0.0.1:${port}`;
         return Response.json({
           service: "inm-studio",
-          protocolVersion: 3,
+          protocolVersion: 4,
           engineVersion: ENGINE_VERSION,
           pid: process.pid,
           managerPid,
           inputDir,
           project: values.project ?? null,
           sourceHash,
+          managerSourceHash,
           startedAt,
           url: values.project ? `${rootUrl}/${encodeURIComponent(values.project)}` : rootUrl,
         });
@@ -618,7 +624,7 @@ const server = Bun.serve({
       if (designsMatch) {
         if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
         const projectDir = await projectDirectory(decoded(designsMatch[1]!));
-        return Response.json({ programs: await listDesignPrograms(projectDir), ...await indexDesignRuns(projectDir) });
+        return Response.json({ programs: await listDesignPrograms(projectDir) });
       }
 
       const designProgramMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/designs\/([^/]+)$/);
@@ -907,5 +913,21 @@ if (workspaceMode) {
 if (values.project) await projectDirectory(values.project);
 const rootUrl = `http://127.0.0.1:${server.port}`;
 const openUrl = values.project ? `${rootUrl}/${encodeURIComponent(values.project)}` : rootUrl;
-process.stdout.write(`INM Studio: ${openUrl}\n${workspaceMode ? `Workspace: ${inputDir}` : `Project: ${inputDir}`}\nProject selector: ${rootUrl}/\nPress Ctrl+C to stop.\n`);
+if (managerPid === null) {
+  process.stdout.write(`INM Studio: ${openUrl}\n${workspaceMode ? `Workspace: ${inputDir}` : `Project: ${inputDir}`}\nProject selector: ${rootUrl}/\nPress Ctrl+C to stop.\n`);
+} else {
+  process.stdout.write(`${JSON.stringify({
+    timestamp: new Date().toISOString(),
+    component: "studio-server",
+    event: "server-ready",
+    pid: process.pid,
+    managerPid,
+    port: server.port,
+    inputDir,
+    project: values.project ?? null,
+    sourceHash,
+    managerSourceHash,
+    url: openUrl,
+  })}\n`);
+}
 if (!values["no-open"]) Bun.spawn(["open", openUrl], { stdout: "ignore", stderr: "ignore" });

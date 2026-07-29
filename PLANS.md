@@ -28,6 +28,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/frictionless-industrial-design-cycle]] | Make the ordinary start, run, inspect, edit, and repeat cycle trustworthy without process or port archaeology. | 2026-07-29 |
 | [[plans/back-end-screening-batch-portfolio]] | Give the exhausted memory-fab WIP Program a fixed small-batch screening portfolio without weakening service. | 2026-07-29 |
 | [[plans/live-project-evidence-refresh]] | Keep a running Studio source-current and refresh newly completed project evidence without restart or port knowledge. | 2026-07-29 |
 | [[plans/in-process-wip-conservation]] | Keep active production material inside conserved, targetable Objective inventory evidence. | 2026-07-29 |

@@ -4,7 +4,7 @@ export type AssetKind = "devices" | "resources" | "processes" | "routes";
 export type StudioView = "overview" | "factory" | "runs" | "designs" | "catalog" | "analysis" | "experiments";
 
 export function requiresFullProjectData(view: StudioView): boolean {
-  return view !== "experiments";
+  return view !== "experiments" && view !== "designs";
 }
 
 export interface StudioRoute {

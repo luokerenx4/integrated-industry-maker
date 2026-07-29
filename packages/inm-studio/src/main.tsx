@@ -2378,6 +2378,7 @@ function App() {
   const [index, setIndex] = useState<ProjectIndex | null>(null);
   const [data, setData] = useState<StudioData | null>(null);
   const [experimentCatalog, setExperimentCatalog] = useState<{ projectId: string; experiments: BlueprintBenchmarkSummary[] } | null>(null);
+  const [designCatalog, setDesignCatalog] = useState<{ projectId: string; programs: DesignProgramSummary[] } | null>(null);
   const [routeSurfaceError, setRouteSurfaceError] = useState<string | null>(null);
   const [projectRefreshRevision, setProjectRefreshRevision] = useState(0);
   const [overview, setOverview] = useState<ProjectWorkbenchSnapshot | null>(null);
@@ -2416,6 +2417,21 @@ function App() {
         `/api/projects/${encodeURIComponent(projectId)}/experiments`,
       ));
       if (sequence === routeSurfaceRequestSequence.current) setExperimentCatalog({ projectId, experiments: next.experiments });
+    } catch (nextError) {
+      if (sequence === routeSurfaceRequestSequence.current) {
+        setRouteSurfaceError(nextError instanceof Error ? nextError.message : String(nextError));
+      }
+    }
+  }, []);
+
+  const loadDesignCatalog = useCallback(async (projectId: string) => {
+    const sequence = ++routeSurfaceRequestSequence.current;
+    setRouteSurfaceError(null);
+    try {
+      const next = await responseJson<{ programs: DesignProgramSummary[] }>(await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/designs`,
+      ));
+      if (sequence === routeSurfaceRequestSequence.current) setDesignCatalog({ projectId, programs: next.programs });
     } catch (nextError) {
       if (sequence === routeSurfaceRequestSequence.current) {
         setRouteSurfaceError(nextError instanceof Error ? nextError.message : String(nextError));
@@ -2620,6 +2636,9 @@ function App() {
     if (routeProject && routeView === "experiments") void loadExperimentCatalog(routeProject);
   }, [routeProject, routeView, loadExperimentCatalog]);
   useEffect(() => {
+    if (routeProject && routeView === "designs") void loadDesignCatalog(routeProject);
+  }, [routeProject, routeView, loadDesignCatalog]);
+  useEffect(() => {
     if (routeView !== "factory" || !data || !run || factoryRunId() === run) return;
     window.history.replaceState(window.history.state, "", factoryObjectPath(data.projectId, selection, run));
   }, [data, routeView, run, selection]);
@@ -2643,6 +2662,7 @@ function App() {
         if (!projectRef.current || message.projectId !== projectRef.current) return;
         setProjectRefreshRevision((revision) => revision + 1);
         if (viewRef.current === "experiments") void loadExperimentCatalog(projectRef.current);
+        else if (viewRef.current === "designs") void loadDesignCatalog(projectRef.current);
         else void loadProject(
           projectRef.current,
           viewRef.current === "factory" ? factoryRunId() : runRef.current,
@@ -2658,11 +2678,12 @@ function App() {
       if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
       source?.close();
     };
-  }, [loadExperimentCatalog, loadIndex, loadProject]);
+  }, [loadDesignCatalog, loadExperimentCatalog, loadIndex, loadProject]);
   useEffect(() => {
     const experiments = experimentCatalog?.projectId === routeProject ? experimentCatalog.experiments : data?.experiments;
     const experiment = routeExperiment && experiments?.find((item) => item.id === routeExperiment);
-    const design = routeDesignProgram && data?.designPrograms.find((item) => item.id === routeDesignProgram);
+    const programs = designCatalog?.projectId === routeProject ? designCatalog.programs : data?.designPrograms;
+    const design = routeDesignProgram && programs?.find((item) => item.id === routeDesignProgram);
     const projectName = data?.name ?? index?.projects.find((item) => item.id === routeProject)?.name;
     const viewLabel = routeView === "overview" ? "" : `${routeView[0]!.toUpperCase()}${routeView.slice(1)} · `;
     document.title = experiment && projectName
@@ -2670,7 +2691,7 @@ function App() {
       : design && projectName
         ? `${routeDesignRun ? `${routeDesignRun.slice(0, 8)} · ` : ""}${design.name} · ${projectName} · INM Studio`
         : projectName ? `${viewLabel}${projectName} · INM Studio` : index ? `${index.name} · INM Studio` : "INM Studio";
-  }, [data, experimentCatalog, index, routeCandidate, routeDesignProgram, routeDesignRun, routeExperiment, routeProject, routeView]);
+  }, [data, designCatalog, experimentCatalog, index, routeCandidate, routeDesignProgram, routeDesignRun, routeExperiment, routeProject, routeView]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -2718,6 +2739,20 @@ function App() {
         projectId={routeProject} experiments={experiments} selectedId={routeExperiment || null} selectedCandidateId={routeCandidate}
         refreshRevision={projectRefreshRevision}
         onSelect={(experimentId) => navigateExperiment(experimentId)} onSelectCandidate={navigateCandidate} onDesignSource={navigateDesignSource} onClose={closeRouteSurface}
+      />
+    </main>;
+  }
+  if (routeView === "designs") {
+    const programs = designCatalog?.projectId === routeProject
+      ? designCatalog.programs
+      : data?.projectId === routeProject ? data.designPrograms : null;
+    if (!programs && !routeSurfaceError) return <ProjectLoading projectId={routeProject} onBack={() => navigateProject(null)} />;
+    if (!programs || routeSurfaceError) return <div className="route-state error-state"><div className="route-mark">!</div><span>DESIGNS UNAVAILABLE</span><strong>{routeSurfaceError ?? routeProject}</strong><button onClick={() => navigateProject(null)}>← PROJECTS</button></div>;
+    return <main className="project-shell design-route-shell">
+      <DesignWorkbench
+        projectId={routeProject} programs={programs} selectedProgramId={routeDesignProgram || null} selectedRunId={routeDesignRun}
+        refreshRevision={projectRefreshRevision}
+        onSelectProgram={navigateDesignProgram} onSelectRun={navigateDesignRun} onCandidate={navigateCandidateDirect} onClose={closeRouteSurface}
       />
     </main>;
   }
@@ -2777,11 +2812,6 @@ function App() {
       <div className="workbench-content">{routeView === "runs" ? <RunsOverview snapshot={overview} onOpenFactory={openRun} /> : overviewContent}</div>
       {routeView === "catalog" && <AssetBrowser data={data} initialKind={routeAssetKind ?? "devices"} initialId={routeAssetId} onNavigate={navigateCatalog} onClose={closeRouteSurface} />}
       {routeView === "analysis" && <AnalysisBrowser data={data} focusDiagnostic={focusedDiagnostic} onClose={closeRouteSurface} />}
-      {routeView === "designs" && <DesignWorkbench
-        projectId={data.projectId} programs={data.designPrograms} selectedProgramId={routeDesignProgram || null} selectedRunId={routeDesignRun}
-        refreshRevision={projectRefreshRevision}
-        onSelectProgram={navigateDesignProgram} onSelectRun={navigateDesignRun} onCandidate={navigateCandidateDirect} onClose={closeRouteSurface}
-      />}
       {operationStatus && !operationResult && <div className="modal-backdrop"><section className={`operation-progress ${operationError ? "failed" : ""}`} role="dialog" aria-modal="true" aria-label={`Operation progress: ${operationStatus.id}`}><span className="eyebrow">SHARED CORE OPERATION</span><h2>{operationError ? "OPERATION FAILED" : "OPERATION RUNNING"}</h2><strong>{operationStatus.id}</strong>{operationError ? <><p>{operationError}</p><button onClick={() => { setOperationStatus(null); setOperationError(null); }}>CLOSE</button></> : <><div className="loading-bar"><i /></div><code>{operationStatus.cli}</code></>}</section></div>}
       {operationStatus && operationResult && <OperationResultDialog result={operationResult} cli={operationStatus.cli} onClose={() => { setOperationStatus(null); setOperationResult(null); setOperationError(null); }} />}
     </main>;
