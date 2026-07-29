@@ -324,6 +324,40 @@ export function ExperimentWorkbench({
               </section>}
               </>}
             </section>}
+            {candidatePreview?.revisionBrief && <section className="candidate-revision" aria-label="Candidate revision handoff" data-testid="candidate-revision-brief">
+              <div className="experiment-section-title">
+                <span>REVISION HANDOFF</span>
+                <b>HUMAN / AGENT DECISION</b>
+              </div>
+              <header>
+                <strong>REVISE OR RETIRE</strong>
+                <span>Preserve proven benefits, remove measured regressions, then author a new immutable Candidate hypothesis.</span>
+              </header>
+              {candidatePreview.revisionBrief.guardrailRegressions.length > 0 && <div className="candidate-revision-list">
+                <small>BLOCKING CURRENT-FACTORY OUTCOMES</small>
+                {candidatePreview.revisionBrief.guardrailRegressions.map((item) => <article key={`${item.guardrailId}:${item.caseId}`}>
+                  <strong>{item.caseName}<code>{item.caseId}</code></strong>
+                  <span>{item.label}</span>
+                  <b>{outcomeValue(item.metric, item.currentValue)} → {outcomeValue(item.metric, item.proposedValue)}</b>
+                  <code>{item.operator === "minimum" ? "≥" : "≤"} {outcomeValue(item.metric, item.threshold)}</code>
+                </article>)}
+              </div>}
+              {candidatePreview.revisionBrief.caseRegressions.length > 0 && <div className="candidate-revision-cases">
+                <small>REGRESSING CASES</small>
+                {candidatePreview.revisionBrief.caseRegressions.map((item) => <span key={item.caseId}>
+                  <code>{item.caseId}</code><b>{signed(item.scoreDelta, 6)}</b>
+                </span>)}
+              </div>}
+              <div className="candidate-revision-tradeoffs">
+                <span><small>PRESERVE</small>{candidatePreview.revisionBrief.benefitsToPreserve.map((item) => <code key={item.component}>{item.component} {signed(item.scoreDelta, 6)}</code>)}</span>
+                <span><small>REMOVE</small>{candidatePreview.revisionBrief.costsToRemove.map((item) => <code key={item.component}>{item.component} {signed(item.scoreDelta, 6)}</code>)}</span>
+              </div>
+              <div className="candidate-revision-patch">
+                <small>AUTHORED PATCH SURFACE</small>
+                {candidatePreview.revisionBrief.patchPaths.map((path) => <code key={path}>{path}</code>)}
+              </div>
+              <a href={`/${encodeURIComponent(projectId)}/factory`}>OBSERVE CURRENT FACTORY</a>
+            </section>}
             {result.reasons.length > 0 && <section className="experiment-reasons"><div className="experiment-section-title"><span>GATE DECISION</span><b>{result.reasons.length} REASONS</b></div>{result.reasons.map((reason) => <p key={reason}>{reason}</p>)}</section>}
             {result.outcomeGuardrails && <section className="experiment-outcomes" data-testid="outcome-guardrails">
               <div className="experiment-section-title"><span>HARD INDUSTRIAL OUTCOMES</span><b>{result.outcomeGuardrails.filter((guardrail) => guardrail.passed).length}/{result.outcomeGuardrails.length} PASSED</b></div>

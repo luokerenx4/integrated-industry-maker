@@ -1,6 +1,6 @@
 # Shared experiment workbench
 
-Status: V1 shared evaluation, V2 project-local change-set application, V3 persistent decision loop, V4 immutable Design continuation, V5 commissioned Design provenance, V6 Objective score causality, and V7 control activation causality implemented.
+Status: V1 shared evaluation, V2 project-local change-set application, V3 persistent decision loop, V4 immutable Design continuation, V5 commissioned Design provenance, V6 Objective score causality, V7 control activation causality, and V8 rejected-Candidate revision handoff implemented.
 
 Related: [[docs/design/coding-agent-optimization]], [[docs/design/observation-led-design]], [[docs/design/blueprint-comparison]], [[docs/design/operation-workbench]], [[docs/design/studio-debugger]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
@@ -84,7 +84,15 @@ proposed
 
 `candidate-reviews/<candidate>/<proposal-hash>.review.json` V2 records the exact proposal/base/proposed hashes, locked verdict and score delta, complete Benchmark result, complete `currentFactory` comparison, and one hash over both evidence records. Review is idempotent for identical evaluator output and rejects a conflicting receipt. Pre-V2 receipts are not upgraded or projected as decisions; a new explicit review replaces the superseded pre-release evidence. Apply requires the current `reviewed-keep` state and explicit confirmation, re-evaluates every guard and both references, writes the Blueprint atomically, then proves that the file hash equals the reviewed proposed hash. Core exposes this phase through the shared workbench; CLI and Studio load the same recorded review after a process or page reload.
 
+Recorded evidence is reopened without evaluation. CLI default Candidate mode and Studio's review GET reconstruct the exact decision and deterministic revision guidance from the receipt; explicit CLI `--review` and Studio `RE-RUN RECORDED REVIEW` own expensive evaluation. Apply consumes the recorded hashes and performs one fresh guard evaluation rather than first running another redundant preview.
+
 The proposal does not own worlds, assets, scenarios, objectives, locks, evaluator weights, or Git. It may edit only Blueprint-owned `/devices`, `/connections`, `/logisticsNetworks`, and `/policies`; revision lineage is written by Core. Studio never accepts an arbitrary server path.
+
+## V8 — rejected-Candidate revision handoff
+
+A `DISCARD` or `UNCHANGED` result may contain the most useful industrial evidence in the loop. Core derives a `CandidateRevisionBrief` without adding authority to the receipt: locked blocking reasons, exact current-pass-to-proposed-fail outcome rows, negative current-to-proposed cases, weighted positive and negative Objective-component deltas, and the unique authored patch paths. The disposition is explicitly `revise-or-retire`; a human or reasoning Agent owns the next hypothesis.
+
+CLI summary/`revision` output and Studio render the same typed object. The memory-fab WIP proposal therefore says to preserve its `+5.021648` weighted WIP contribution while removing `-2.857143` on-time-delivery loss, names the three service failures and lithography interruption regression, and returns to the current Factory view. Core does not generate a replacement CONWIP value or force the rejected Candidate into the global Workbench queue.
 
 ## V4 — immutable Design continuation
 
@@ -142,6 +150,7 @@ Immutable Design Run V3 requires the field in the seed and every successful Cand
 - [x] Exact-factory commissioned optimization, value-aware burn-in Candidate, five-case review receipt, and verified apply.
 - [x] Shared Objective-component causality across Core, CLI, Studio, and project-local Design providers.
 - [x] Exact current-factory incremental evidence beside immutable locked-baseline compliance for every Candidate review.
+- [x] Cheap recorded-review inspection and shared rejected-Candidate revision handoff.
 
 ### V2 acceptance
 

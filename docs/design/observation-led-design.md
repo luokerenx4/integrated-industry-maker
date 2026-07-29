@@ -81,6 +81,8 @@ Before extending or invoking a Design Program for substantive factory changes, a
 
 Candidate review and apply remain separate guarded steps. No observation, proposal provider, score improvement, or visual impression may bypass exact patch review, Benchmark gates, hash checks, or explicit apply.
 
+Rejected Candidate evidence returns to this loop instead of ending at a verdict. Its deterministic revision brief names measured benefits, costs, gate regressions, and patch paths but leaves `revise-or-retire` to the human or Agent. The next executable action reopens the exact current Factory observation; no failed proposal can silently generate or apply its own replacement.
+
 ## Verification
 
 The contract is complete only when tests and real use prove:

@@ -4552,6 +4552,7 @@ describe("coding-agent Blueprint benchmarks", () => {
     const beforeFixedProject = await directorySnapshot(dir, new Set(["blueprints/power-priority-candidate.blueprint.json"]));
     const preview = await previewCandidateChangeSet(dir, "protect-critical-line");
     expect(preview.result.verdict).toBe("KEEP");
+    expect(preview.revisionBrief).toBeNull();
     expect(preview.result.patch).toHaveLength(4);
     expect(preview.currentFactory).toEqual(expect.objectContaining({
       reference: "current-factory",
@@ -4618,6 +4619,25 @@ describe("coding-agent Blueprint benchmarks", () => {
         currentPassed: true,
         proposedPassed: false,
       }));
+    expect(preview.revisionBrief).toEqual(expect.objectContaining({
+      disposition: "revise-or-retire",
+      decisionOwner: "human-or-agent",
+      candidateId: "back-end-wip-conwip-5-4",
+      benchmarkId: "greenfield-dram-design",
+      lockedVerdict: "DISCARD",
+      currentFactoryStatus: "evaluated",
+      guardrailRegressions: [
+        expect.objectContaining({ caseId: "steady-production", metric: "onTimeLots", deficit: 1 }),
+        expect.objectContaining({ caseId: "lithography-interruption", metric: "onTimeLots", deficit: 1 }),
+        expect.objectContaining({ caseId: "facility-interruption", metric: "onTimeLots", deficit: 2 }),
+      ],
+      caseRegressions: [
+        expect.objectContaining({ caseId: "lithography-interruption", scoreDelta: -5.806869633333328 }),
+      ],
+      benefitsToPreserve: expect.arrayContaining([expect.objectContaining({ component: "wip", scoreDelta: expect.any(Number) })]),
+      costsToRemove: expect.arrayContaining([expect.objectContaining({ component: "onTimeDelivery", scoreDelta: expect.any(Number) })]),
+      patchPaths: ["/policies/lotRelease/maximumWip", "/policies/lotRelease/reopenAtWip"],
+    }));
   });
 
   test("rejects changed, non-KEEP, invalid-root, and uncompilable candidate proposals with stable codes", async () => {

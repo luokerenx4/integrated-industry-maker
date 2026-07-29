@@ -89,6 +89,53 @@ test("Studio defaults to current compatible evidence instead of the newest unrel
   }
 }, 30_000);
 
+test("Studio reopens the recorded memory-fab revision handoff without evaluation", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-studio-revision-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm"),
+  });
+  const port = 47_500 + process.pid % 500;
+  const child = Bun.spawn([
+    process.execPath, join(repository, "packages/inm-studio/src/server.ts"), projectDir,
+    "--port", String(port), "--no-open",
+  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
+  try {
+    const reader = child.stdout.getReader();
+    let output = "";
+    while (!output.includes("INM Studio:")) {
+      const chunk = await reader.read();
+      if (chunk.done) throw new Error(`Studio stopped before startup: ${output}`);
+      output += new TextDecoder().decode(chunk.value);
+    }
+    reader.releaseLock();
+    const response = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/experiments/greenfield-dram-design/candidates/back-end-wip-conwip-5-4/review`,
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(expect.objectContaining({
+      state: "reviewed-discard",
+      review: expect.objectContaining({
+        revisionBrief: expect.objectContaining({
+          disposition: "revise-or-retire",
+          decisionOwner: "human-or-agent",
+          guardrailRegressions: [
+            expect.objectContaining({ caseId: "steady-production", metric: "onTimeLots" }),
+            expect.objectContaining({ caseId: "lithography-interruption", metric: "onTimeLots" }),
+            expect.objectContaining({ caseId: "facility-interruption", metric: "onTimeLots" }),
+          ],
+          caseRegressions: [expect.objectContaining({ caseId: "lithography-interruption" })],
+          patchPaths: ["/policies/lotRelease/maximumWip", "/policies/lotRelease/reopenAtWip"],
+        }),
+      }),
+    }));
+  } finally {
+    child.kill();
+    await child.exited;
+  }
+});
+
 test("Studio projects authored adaptive cadence control and measured mode use from one run", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-studio-cadence-"));
   const projectDir = join(root, "memory-fab");

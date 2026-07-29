@@ -2,11 +2,11 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, DesignRunError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, classifyDesignProgramEvidence, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, describeWipInventoryLocation, designProgramEvidenceIdentity, evaluateBenchmarkOperation, indexDesignRuns, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, recommendedDesignProgramEvidenceAction, runDesignProgram, simulateProjectOperation, validateProjectOperation,
+  CandidateChangeSetError, DesignRunError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, classifyDesignProgramEvidence, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, describeWipInventoryLocation, designProgramEvidenceIdentity, evaluateBenchmarkOperation, indexDesignRuns, inspectCandidateDecision, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadBlueprintBenchmark, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, recommendedDesignProgramEvidenceAction, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
   TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals,
-  type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type CandidateCurrentFactoryComparison, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FabLossContributorMechanism, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
+  type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type CandidateChangeSetPreview, type CandidateCurrentFactoryComparison, type CandidateRevisionBrief, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FabLossContributorMechanism, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
@@ -377,6 +377,73 @@ function currentFactoryOutcomeLines(comparison: CandidateCurrentFactoryCompariso
         `    ${item.id.padEnd(24)} ${item.currentValue} → ${item.proposedValue}  ${guardrail.operator === "minimum" ? "≥" : "≤"} ${item.threshold}  ${item.proposedPassed ? "PASS" : "FAIL"}`),
     ]),
   ];
+}
+
+function revisionBriefLines(brief: CandidateRevisionBrief | null): string[] {
+  if (!brief) return [];
+  return [
+    "",
+    "Revision handoff · HUMAN / AGENT DECISION",
+    `Disposition: ${brief.disposition.toUpperCase()}`,
+    ...brief.guardrailRegressions.map((item) =>
+      `  BLOCK ${item.caseId} · ${item.label} ${item.currentValue} → ${item.proposedValue} · ${item.operator === "minimum" ? "≥" : "≤"} ${item.threshold} · deficit ${item.deficit}`),
+    ...brief.caseRegressions.map((item) =>
+      `  REGRESS ${item.caseId} · score Δ ${signed(item.scoreDelta, 6)}`),
+    ...(brief.benefitsToPreserve.length
+      ? [`  PRESERVE ${brief.benefitsToPreserve.map((item) => `${scoreComponentLabel(item.component)} ${signed(item.scoreDelta, 6)}`).join(" · ")}`]
+      : []),
+    ...(brief.costsToRemove.length
+      ? [`  REMOVE ${brief.costsToRemove.map((item) => `${scoreComponentLabel(item.component)} ${signed(item.scoreDelta, 6)}`).join(" · ")}`]
+      : []),
+    `  PATCH ${brief.patchPaths.join(" · ")}`,
+    "Next: observe the exact current factory, then author a new immutable Candidate hypothesis.",
+  ];
+}
+
+function candidateSummary(action: "inspect" | "preview" | "apply", preview: CandidateChangeSetPreview) {
+  return {
+    action,
+    candidate: preview.candidate.id,
+    benchmark: preview.candidate.benchmark,
+    hypothesis: preview.candidate.hypothesis,
+    proposalHash: preview.proposalHash,
+    currentCandidateHash: preview.currentCandidateHash,
+    proposedCandidateHash: preview.proposedCandidateHash,
+    verdict: preview.result.verdict,
+    lockedBaselineScoreDelta: preview.result.scoreDelta,
+    currentFactory: currentFactorySummary(preview.currentFactory),
+    revisionBrief: preview.revisionBrief,
+    reasons: preview.result.reasons,
+    outcomeGuardrails: outcomeGuardrailSummary(preview.result),
+    patchOperations: preview.candidate.patch.length,
+    semanticChanges: preview.result.changes.length,
+  };
+}
+
+async function candidateDecisionNextActions(
+  projectDir: string,
+  preview: CandidateChangeSetPreview,
+): Promise<CliNextAction[]> {
+  if (preview.result.verdict === "KEEP") return [nextAction(
+    "candidate.apply",
+    "Re-evaluate and apply this exact Candidate under all hash guards.",
+    ["inm", "candidate", resolve(projectDir), "--candidate", preview.candidate.id, "--apply", "--json"],
+    "mutates-project",
+  )];
+  const benchmark = await loadBlueprintBenchmark(projectDir, preview.candidate.benchmark);
+  const current = await loadFactoryProject(projectDir, { blueprint: benchmark.candidateBlueprint });
+  return [nextAction(
+    "candidate.observe-current",
+    "Observe the exact current factory before authoring a revised immutable Candidate.",
+    [
+      "inm", "observe", resolve(projectDir),
+      "--world", current.selection.world,
+      "--blueprint", current.selection.blueprint,
+      "--scenario", current.selection.scenario,
+      "--objective", current.selection.objective,
+      "--json",
+    ],
+  )];
 }
 
 function outcomeGuardrailLines(result: BlueprintBenchmarkResult): string[] {
@@ -1297,14 +1364,73 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
   ].join("\n"), false);
 }
 
-export async function candidateCommand(projectDir: string, candidateId: string, options: { json: boolean; apply: boolean; progress?: string; section?: string; signal?: AbortSignal }): Promise<void> {
+export async function candidateCommand(projectDir: string, candidateId: string, options: { json: boolean; review: boolean; apply: boolean; progress?: string; section?: string; signal?: AbortSignal }): Promise<void> {
   requireJsonSection("candidate", options);
-  const progressMode = evaluationProgressMode("candidate", options);
   const [candidate, projectContext] = await Promise.all([
     loadCandidateChangeSet(projectDir, candidateId),
     projectDirectoryContext(projectDir),
   ]);
   if (projectContext.scope !== "project") throw new Error("Candidate execution requires a project context");
+  if (!options.review && !options.apply) {
+    const decision = await inspectCandidateDecision(projectDir, candidateId);
+    const preview = decision.preview;
+    if (options.json) {
+      const data = sectionResult("candidate", options, {
+        summary: () => preview
+          ? { ...candidateSummary("inspect", preview), decisionState: decision.state }
+          : {
+              action: "inspect",
+              candidate: candidate.id,
+              benchmark: candidate.benchmark,
+              hypothesis: candidate.hypothesis,
+              proposalHash: decision.proposalHash,
+              currentCandidateHash: decision.currentCandidateHash,
+              decisionState: decision.state,
+              review: null,
+            },
+        proposal: () => ({ action: "inspect", candidate, proposalHash: decision.proposalHash, currentCandidateHash: decision.currentCandidateHash }),
+        revision: () => preview?.revisionBrief ?? null,
+        evaluation: () => preview ? { lockedCompliance: preview.result, currentFactory: preview.currentFactory } : null,
+        all: () => ({ action: "inspect", decisionState: decision.state, decision }),
+      });
+      writeSuccess("candidate", data, {
+        context: projectContext,
+        diagnostics: preview?.result.reasons ?? [],
+        nextActions: preview
+          ? await candidateDecisionNextActions(projectDir, preview)
+          : [nextAction(
+              "candidate.review",
+              "Evaluate and record this exact proposed Candidate.",
+              ["inm", "candidate", resolve(projectDir), "--candidate", candidate.id, "--review", "--json"],
+              "creates-artifact",
+            )],
+      });
+      return;
+    }
+    if (!preview) {
+      write([
+        `${candidate.name} · ${decision.state.toUpperCase()}`,
+        `No recorded review for proposal ${decision.proposalHash.slice(0, 12)}.`,
+        `Review explicitly: inm candidate <path> --candidate ${candidate.id} --review`,
+        "",
+      ].join("\n"), false);
+      return;
+    }
+    write([
+      `${preview.candidate.name} · recorded candidate review`,
+      `${decision.state.toUpperCase()} · ${preview.result.verdict} · proposal ${preview.proposalHash.slice(0, 12)}`,
+      `Locked compliance Δ ${signed(preview.result.scoreDelta, 6)}`,
+      ...(preview.currentFactory.status === "evaluated"
+        ? [`Current factory Δ ${signed(preview.currentFactory.scoreDelta, 6)} · ${preview.currentFactory.verdict}`]
+        : [`Current factory ${preview.currentFactory.verdict}`]),
+      ...revisionBriefLines(preview.revisionBrief),
+      "",
+      `Re-evaluate explicitly: inm candidate <path> --candidate ${candidate.id} --review`,
+      "",
+    ].join("\n"), false);
+    return;
+  }
+  const progressMode = evaluationProgressMode("candidate", options);
   const execution = new CliOperationExecution(projectContext.project.id, {
     kind: options.apply ? "candidate-apply" : "candidate-preview",
     benchmarkId: candidate.benchmark,
@@ -1315,35 +1441,40 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     onProgress: (event: BlueprintBenchmarkProgress) => writeBenchmarkProgress("candidate", event, progressMode, execution),
     signal: options.signal,
   };
-  let previewOperation: Awaited<ReturnType<typeof previewCandidateOperation>>;
-  try {
-    previewOperation = await previewCandidateOperation(projectDir, candidateId, progress);
-  } catch (error) {
-    throw execution.fail(error, options.signal);
-  }
-  const preview = previewOperation.data;
   if (options.apply) {
+    const decision = await inspectCandidateDecision(projectDir, candidateId);
+    if (!decision.proposedCandidateHash) throw execution.fail(new CandidateChangeSetError(
+      "candidate.review-required",
+      `Candidate '${candidateId}' requires one recorded KEEP review before apply`,
+    ), options.signal);
     let operation: Awaited<ReturnType<typeof applyCandidateOperation>>;
     try {
-      operation = await applyCandidateOperation(projectDir, candidateId, preview, progress);
+      operation = await applyCandidateOperation(projectDir, candidateId, {
+        proposalHash: decision.proposalHash,
+        currentCandidateHash: decision.currentCandidateHash,
+        proposedCandidateHash: decision.proposedCandidateHash,
+      }, progress);
     } catch (error) {
       throw execution.fail(error, options.signal);
     }
-    const executionState = execution.complete([...previewOperation.artifacts, ...operation.artifacts]);
+    const executionState = execution.complete(operation.artifacts);
     const applied = operation.data;
-    if (options.json) { const data = sectionResult("candidate", options, {
-      summary: () => ({ action: "apply", candidate: applied.candidate.id, benchmark: applied.candidate.benchmark, proposalHash: applied.proposalHash, currentCandidateHash: applied.currentCandidateHash, proposedCandidateHash: applied.proposedCandidateHash, verdict: applied.result.verdict, lockedBaselineScoreDelta: applied.result.scoreDelta, currentFactory: currentFactorySummary(applied.currentFactory), outcomeGuardrails: outcomeGuardrailSummary(applied.result), applied: true, blueprintPath: applied.blueprintPath }),
-      proposal: () => ({ action: "apply", candidate: applied.candidate, proposalHash: applied.proposalHash, currentCandidateHash: applied.currentCandidateHash, proposedCandidateHash: applied.proposedCandidateHash, blueprintPath: applied.blueprintPath }),
-      evaluation: () => ({ lockedCompliance: applied.result, currentFactory: applied.currentFactory }),
-      all: () => ({ action: "apply", ...applied }),
-    }); writeSuccess("candidate", { ...data, operation: operationMetadata(operation) }, {
-      context: operationProjectContext(operation.context), diagnostics: applied.result.reasons,
-      artifacts: [
-        ...previewOperation.artifacts.map((artifact) => ({ kind: "candidate-review" as const, id: artifact.id, path: artifact.path, immutable: artifact.immutable })),
-        ...operation.artifacts.map((artifact) => ({ kind: "blueprint" as const, id: artifact.id, path: artifact.path, immutable: artifact.immutable })),
-      ],
-      execution: executionState,
-    }); return; }
+    if (options.json) {
+      const data = sectionResult("candidate", options, {
+        summary: () => ({ ...candidateSummary("apply", applied), applied: true, blueprintPath: applied.blueprintPath }),
+        proposal: () => ({ action: "apply", candidate: applied.candidate, proposalHash: applied.proposalHash, currentCandidateHash: applied.currentCandidateHash, proposedCandidateHash: applied.proposedCandidateHash, blueprintPath: applied.blueprintPath }),
+        revision: () => applied.revisionBrief,
+        evaluation: () => ({ lockedCompliance: applied.result, currentFactory: applied.currentFactory }),
+        all: () => ({ action: "apply", ...applied }),
+      });
+      writeSuccess("candidate", { ...data, operation: operationMetadata(operation) }, {
+        context: operationProjectContext(operation.context),
+        diagnostics: applied.result.reasons,
+        artifacts: operation.artifacts.map((artifact) => ({ kind: "blueprint" as const, id: artifact.id, path: artifact.path, immutable: artifact.immutable })),
+        execution: executionState,
+      });
+      return;
+    }
     write([
       `Applied candidate '${applied.candidate.id}' to ${applied.blueprintPath}`,
       `Locked compliance: ${applied.result.verdict} · baseline Δ ${signed(applied.result.scoreDelta, 6)}`,
@@ -1356,19 +1487,24 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     ].join("\n"), false);
     return;
   }
+  let previewOperation: Awaited<ReturnType<typeof previewCandidateOperation>>;
+  try {
+    previewOperation = await previewCandidateOperation(projectDir, candidateId, progress);
+  } catch (error) {
+    throw execution.fail(error, options.signal);
+  }
+  const preview = previewOperation.data;
   const executionState = execution.complete(previewOperation.artifacts);
   if (options.json) { const data = sectionResult("candidate", options, {
-    summary: () => ({ action: "preview", candidate: preview.candidate.id, benchmark: preview.candidate.benchmark, hypothesis: preview.candidate.hypothesis, proposalHash: preview.proposalHash, currentCandidateHash: preview.currentCandidateHash, proposedCandidateHash: preview.proposedCandidateHash, verdict: preview.result.verdict, lockedBaselineScoreDelta: preview.result.scoreDelta, currentFactory: currentFactorySummary(preview.currentFactory), reasons: preview.result.reasons, outcomeGuardrails: outcomeGuardrailSummary(preview.result), patchOperations: preview.candidate.patch.length, semanticChanges: preview.result.changes.length }),
+    summary: () => candidateSummary("preview", preview),
     proposal: () => ({ action: "preview", candidate: preview.candidate, proposalHash: preview.proposalHash, currentCandidateHash: preview.currentCandidateHash, proposedCandidateHash: preview.proposedCandidateHash }),
+    revision: () => preview.revisionBrief,
     evaluation: () => ({ lockedCompliance: preview.result, currentFactory: preview.currentFactory }),
     all: () => ({ action: "preview", ...preview }),
   }); writeSuccess("candidate", { ...data, operation: operationMetadata(previewOperation) }, {
     context: operationProjectContext(previewOperation.context), diagnostics: preview.result.reasons,
     artifacts: previewOperation.artifacts.map((artifact) => ({ kind: "candidate-review" as const, id: artifact.id, path: artifact.path, immutable: artifact.immutable })),
-    nextActions: preview.result.verdict === "KEEP" ? [nextAction(
-      "candidate.apply", "Re-evaluate and apply this exact Candidate under all hash guards.",
-      ["inm", "candidate", resolve(projectDir), "--candidate", preview.candidate.id, "--apply", "--json"], "mutates-project",
-    )] : [],
+    nextActions: await candidateDecisionNextActions(projectDir, preview),
     execution: executionState,
   }); return; }
   write([
@@ -1386,6 +1522,7 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     ...currentFactoryOutcomeLines(preview.currentFactory),
     ...outcomeGuardrailLines(preview.result),
     ...preview.result.reasons.map((reason) => `Gate: ${reason}`),
+    ...revisionBriefLines(preview.revisionBrief),
     "",
     `Apply only this reviewed result: inm candidate <path> --candidate ${preview.candidate.id} --apply`, "",
   ].join("\n"), false);

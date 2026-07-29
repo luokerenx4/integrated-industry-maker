@@ -128,10 +128,24 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
   expect(JSON.parse(inspection.stdout).data.result).toEqual(expect.arrayContaining([
     expect.objectContaining({ id: "commissioned-release-control", benchmark: "greenfield-dram-design" }),
   ]));
+  const proposed = await runCli(["candidate", projectDir, "--candidate", "commissioned-release-control", "--json"]);
+  expect({ exitCode: proposed.exitCode, stderr: proposed.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(proposed.stdout)).toEqual(expect.objectContaining({
+    data: expect.objectContaining({
+      result: expect.objectContaining({ action: "inspect", decisionState: "proposed", review: null }),
+    }),
+    artifacts: [],
+    execution: null,
+    nextActions: [expect.objectContaining({
+      id: "candidate.review",
+      effect: "creates-artifact",
+      argv: expect.arrayContaining(["--review"]),
+    })],
+  }));
   const runCandidate = async (apply = false) => {
     const child = Bun.spawn([
       process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), "candidate", projectDir,
-      "--candidate", "commissioned-release-control", ...(apply ? ["--apply"] : []), "--json",
+      "--candidate", "commissioned-release-control", ...(apply ? ["--apply"] : ["--review"]), "--json",
     ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
     const [stdout, stderr, exitCode] = await Promise.all([
       new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited,
@@ -183,6 +197,16 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
     progressEvents: expect.any(Number),
     artifacts: [expect.objectContaining({ kind: "candidate-review", immutable: true })],
   }));
+  const recorded = await runCli(["candidate", projectDir, "--candidate", "commissioned-release-control", "--json"]);
+  expect({ exitCode: recorded.exitCode, stderr: recorded.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(recorded.stdout)).toEqual(expect.objectContaining({
+    data: expect.objectContaining({
+      result: expect.objectContaining({ action: "inspect", decisionState: "reviewed-keep", verdict: "KEEP" }),
+    }),
+    artifacts: [],
+    execution: null,
+    nextActions: [expect.objectContaining({ id: "candidate.apply" })],
+  }));
   expect(result.nextActions).toEqual([expect.objectContaining({ id: "candidate.apply", effect: "mutates-project" })]);
   expect(await readFile(blueprintPath, "utf8")).toBe(before);
   const reviewedAction = await runCli(["inspect", projectDir, "--section", "next-action", "--json"]);
@@ -197,10 +221,7 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
     execution: expect.objectContaining({
       kind: "candidate-apply",
       status: "completed",
-      artifacts: expect.arrayContaining([
-        expect.objectContaining({ kind: "candidate-review" }),
-        expect.objectContaining({ kind: "blueprint", immutable: false }),
-      ]),
+      artifacts: [expect.objectContaining({ kind: "blueprint", immutable: false })],
     }),
     data: expect.objectContaining({
       section: "summary", result: expect.objectContaining({
@@ -230,7 +251,7 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
   expect({ exitCode: replay.exitCode, stdout: replay.stdout }).toEqual({ exitCode: 1, stdout: "" });
   expect(JSON.parse(replay.stderr)).toEqual(expect.objectContaining({
     schemaVersion: 2, ok: false, command: "candidate",
-    error: expect.objectContaining({ code: "candidate.stale-base", retryable: false, hashes: expect.objectContaining({ expectedBaseHash: expect.any(String), currentCandidateHash: expect.any(String) }) }),
+    error: expect.objectContaining({ code: "candidate.review-required", retryable: false }),
   }));
 }, 90_000);
 
@@ -355,6 +376,49 @@ test("public CLI cancellation retains one operation identity and exits without a
   }));
   expect(new Set(progress.map((event) => event.execution.id))).toEqual(new Set([failure.execution.id]));
 }, 20_000);
+
+test("recorded rejected Candidate reopens cheaply with an exact revision handoff", async () => {
+  const projectDir = join(repository, "examples/memory-fab");
+  const result = await runCli([
+    "candidate", projectDir,
+    "--candidate", "back-end-wip-conwip-5-4",
+    "--section", "revision",
+    "--json",
+  ]);
+  expect({ exitCode: result.exitCode, stderr: result.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  const envelope = JSON.parse(result.stdout);
+  expect(envelope.execution).toBeNull();
+  expect(envelope.artifacts).toEqual([]);
+  expect(envelope.data.result).toEqual(expect.objectContaining({
+    disposition: "revise-or-retire",
+    decisionOwner: "human-or-agent",
+    candidateId: "back-end-wip-conwip-5-4",
+    currentFactoryStatus: "evaluated",
+    guardrailRegressions: [
+      expect.objectContaining({ caseId: "steady-production", metric: "onTimeLots", currentValue: 12, proposedValue: 11, threshold: 12, deficit: 1 }),
+      expect.objectContaining({ caseId: "lithography-interruption", metric: "onTimeLots", currentValue: 9, proposedValue: 6, threshold: 7, deficit: 1 }),
+      expect.objectContaining({ caseId: "facility-interruption", metric: "onTimeLots", currentValue: 9, proposedValue: 7, threshold: 9, deficit: 2 }),
+    ],
+    caseRegressions: [
+      expect.objectContaining({ caseId: "lithography-interruption", scoreDelta: -5.806869633333328 }),
+    ],
+    benefitsToPreserve: expect.arrayContaining([expect.objectContaining({ component: "wip", scoreDelta: expect.any(Number) })]),
+    costsToRemove: expect.arrayContaining([expect.objectContaining({ component: "onTimeDelivery", scoreDelta: expect.any(Number) })]),
+    patchPaths: ["/policies/lotRelease/maximumWip", "/policies/lotRelease/reopenAtWip"],
+  }));
+  expect(envelope.nextActions).toEqual([expect.objectContaining({
+    id: "candidate.observe-current",
+    effect: "read-only",
+    argv: [
+      "inm", "observe", projectDir,
+      "--world", "cleanroom",
+      "--blueprint", "generated-dram-fab",
+      "--scenario", "production-window",
+      "--objective", "dram-output",
+      "--json",
+    ],
+  })]);
+});
 
 test("public inspect JSON and next action are the shared Core workbench snapshot", async () => {
   const projectDir = join(repository, "examples/ironworks");
@@ -870,7 +934,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
     effect: "creates-artifact",
   })]);
 
-  const reviewed = await runCli(["candidate", projectDir, "--candidate", commissionedCandidate, "--json"]);
+  const reviewed = await runCli(["candidate", projectDir, "--candidate", commissionedCandidate, "--review", "--json"]);
   expect({ exitCode: reviewed.exitCode, stderr: reviewed.stderr }).toEqual({ exitCode: 0, stderr: "" });
   const reviewedEnvelope = JSON.parse(reviewed.stdout);
   expect(reviewedEnvelope.data).toEqual(expect.objectContaining({

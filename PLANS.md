@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/candidate-revision-handoff]] | Reopen recorded Candidate decisions cheaply and hand rejected proposals back to exact human/Agent industrial design. | 2026-07-29 |
 | [[plans/current-factory-candidate-evidence]] | Separate locked-Benchmark compliance from every Candidate's incremental effect on the exact current factory. | 2026-07-29 |
 | [[plans/one-command-experiment-session]] | Enter a source-current, portless, optionally running reconnectable Experiment session with one human/Agent command. | 2026-07-29 |
 | [[plans/current-design-evidence-continuity]] | Keep exact current Design authority and next actions continuous across Workbench, CLI, Studio, and the memory-fab inspection frontier. | 2026-07-29 |

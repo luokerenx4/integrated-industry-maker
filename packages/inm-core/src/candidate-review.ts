@@ -3,6 +3,7 @@ import { z } from "zod";
 import { loadBlueprintBenchmark } from "./benchmark";
 import {
   CandidateChangeSetError,
+  deriveCandidateRevisionBrief,
   loadCandidateChangeSet,
   type CandidateChangeSetPreview,
 } from "./candidate-change-set";
@@ -152,7 +153,9 @@ export async function inspectCandidateDecision(projectDir: string, candidateId: 
     proposedCandidateHash: receipt.proposedCandidateHash,
     currentFactory: receipt.currentFactory as CandidateChangeSetPreview["currentFactory"],
     result: receipt.result as unknown as CandidateChangeSetPreview["result"],
+    revisionBrief: null,
   };
+  preview.revisionBrief = deriveCandidateRevisionBrief(preview.candidate, preview.result, preview.currentFactory);
   if (currentCandidateHash === receipt.proposedCandidateHash && receipt.verdict === "KEEP") return {
     state: "verified",
     proposalHash,

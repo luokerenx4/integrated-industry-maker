@@ -125,13 +125,14 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
     outputSections: ["summary", "cases", "changes", "all"],
   },
   {
-    id: "candidate", usage: "inm candidate <path> --candidate ID [--apply] [--progress MODE] [--json]", description: "Preview or guardedly apply a Candidate Change Set.",
+    id: "candidate", usage: "inm candidate <path> --candidate ID [--review | --apply] [--progress MODE] [--json]", description: "Inspect, explicitly review, or guardedly apply a Candidate Change Set.",
     effect: "mode-dependent", supportsJson: true, arguments: [path, project,
       { name: "candidate", form: "option", value: "string", required: true, description: "Candidate Change Set id." },
+      { name: "review", form: "option", value: "boolean", required: false, description: "Explicitly evaluate and record this exact proposal.", default: false },
       { name: "apply", form: "option", value: "boolean", required: false, description: "Re-evaluate and apply an exact reviewed KEEP proposal.", default: false },
       { name: "progress", form: "option", value: "string", required: false, description: "Evaluation progress on stderr: off, human, or one machine-readable NDJSON envelope per Core event." },
-      sectionArgument(["summary", "proposal", "evaluation", "all"]), json],
-    outputSections: ["summary", "proposal", "evaluation", "all"],
+      sectionArgument(["summary", "proposal", "revision", "evaluation", "all"]), json],
+    outputSections: ["summary", "proposal", "revision", "evaluation", "all"],
   },
   {
     id: "design", usage: "inm design <path> [--program ID] [--run | --run-id HASH [--continue | --promote ID]] [--max-candidates N] [--progress MODE] [--json]", description: "Discover, inspect, execute, continue, reopen, or promote a bounded project-local Design Program.",

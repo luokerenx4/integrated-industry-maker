@@ -163,11 +163,12 @@ async function main(signal: AbortSignal): Promise<void> {
   }
   if (subcommand === "candidate") {
     const { values, positionals } = parseArgs({ args, options: {
-      ...projectOption, candidate: { type: "string" }, apply: { type: "boolean", default: false }, progress: { type: "string" }, json: common.json, ...section,
+      ...projectOption, candidate: { type: "string" }, review: { type: "boolean", default: false }, apply: { type: "boolean", default: false }, progress: { type: "string" }, json: common.json, ...section,
     }, allowPositionals: true });
-    if (!values.candidate) throw new Error("Usage: inm candidate <project-or-workspace-dir> --candidate ID [--apply] [--json]");
-    const projectDir = await selectedProject(positionals, "inm candidate <project-or-workspace-dir> --candidate ID [--apply]", values.project);
-    return candidateCommand(projectDir, values.candidate, { json: values.json, apply: values.apply, progress: values.progress, section: values.section, signal });
+    if (!values.candidate) throw new Error("Usage: inm candidate <project-or-workspace-dir> --candidate ID [--review | --apply] [--json]");
+    if (values.review && values.apply) throw new Error("Candidate --review and --apply are mutually exclusive");
+    const projectDir = await selectedProject(positionals, "inm candidate <project-or-workspace-dir> --candidate ID [--review | --apply]", values.project);
+    return candidateCommand(projectDir, values.candidate, { json: values.json, review: values.review, apply: values.apply, progress: values.progress, section: values.section, signal });
   }
   if (subcommand === "design") {
     const { values, positionals } = parseArgs({ args, options: {

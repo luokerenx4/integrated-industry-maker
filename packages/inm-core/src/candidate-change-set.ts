@@ -21,7 +21,12 @@ import { compileFactoryProject } from "./compiler";
 import { applyResearchPatch, validateResearchPatch } from "./research";
 import { blueprintSchema } from "./schema";
 import { loadFactoryProject } from "./loader";
-import type { Blueprint, CompiledFactoryProject } from "./types";
+import {
+  SCORE_BREAKDOWN_COMPONENTS,
+  type Blueprint,
+  type CompiledFactoryProject,
+  type ScoreBreakdownComponent,
+} from "./types";
 import { atomicWriteJson, hashValue, pathExists, readJson } from "./utils";
 
 const id = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase kebab-case");
@@ -61,6 +66,7 @@ export interface CandidateChangeSetPreview {
   currentCandidateHash: string;
   proposedCandidateHash: string;
   currentFactory: CandidateCurrentFactoryComparison;
+  revisionBrief: CandidateRevisionBrief | null;
   result: BlueprintBenchmarkResult;
 }
 
@@ -128,6 +134,45 @@ export interface CandidateUnavailableCurrentFactoryComparison {
 export type CandidateCurrentFactoryComparison =
   | CandidateEvaluatedCurrentFactoryComparison
   | CandidateUnavailableCurrentFactoryComparison;
+
+export interface CandidateRevisionGuardrailRegression {
+  guardrailId: string;
+  metric: BlueprintOutcomeMetric;
+  label: string;
+  operator: BlueprintOutcomeOperator;
+  caseId: string;
+  caseName: string;
+  currentValue: number;
+  proposedValue: number;
+  threshold: number;
+  deficit: number;
+}
+
+export interface CandidateRevisionCaseRegression {
+  caseId: string;
+  caseName: string;
+  scoreDelta: number;
+}
+
+export interface CandidateRevisionScoreTradeoff {
+  component: ScoreBreakdownComponent;
+  scoreDelta: number;
+}
+
+export interface CandidateRevisionBrief {
+  disposition: "revise-or-retire";
+  decisionOwner: "human-or-agent";
+  candidateId: string;
+  benchmarkId: string;
+  lockedVerdict: "DISCARD" | "UNCHANGED";
+  currentFactoryStatus: CandidateCurrentFactoryComparison["status"];
+  blockingReasons: string[];
+  guardrailRegressions: CandidateRevisionGuardrailRegression[];
+  caseRegressions: CandidateRevisionCaseRegression[];
+  benefitsToPreserve: CandidateRevisionScoreTradeoff[];
+  costsToRemove: CandidateRevisionScoreTradeoff[];
+  patchPaths: string[];
+}
 
 export interface AppliedCandidateChangeSet extends CandidateChangeSetPreview {
   applied: true;
@@ -306,6 +351,67 @@ function compareWithCurrentFactory(
   };
 }
 
+export function deriveCandidateRevisionBrief(
+  candidate: CandidateChangeSet,
+  result: BlueprintBenchmarkResult,
+  currentFactory: CandidateCurrentFactoryComparison,
+): CandidateRevisionBrief | null {
+  if (result.verdict === "KEEP") return null;
+  const guardrailRegressions = currentFactory.status === "evaluated"
+    ? (currentFactory.outcomeGuardrails ?? []).flatMap((guardrail) =>
+        guardrail.cases
+          .filter((item) => item.currentPassed && !item.proposedPassed)
+          .map((item): CandidateRevisionGuardrailRegression => ({
+            guardrailId: guardrail.id,
+            metric: guardrail.metric,
+            label: guardrail.label,
+            operator: guardrail.operator,
+            caseId: item.id,
+            caseName: item.name,
+            currentValue: item.currentValue,
+            proposedValue: item.proposedValue,
+            threshold: item.threshold,
+            deficit: guardrail.operator === "minimum"
+              ? item.threshold - item.proposedValue
+              : item.proposedValue - item.threshold,
+          })))
+    : [];
+  const caseRegressions = currentFactory.status === "evaluated"
+    ? currentFactory.cases
+        .filter((item) => item.scoreDelta < -1e-9)
+        .map((item) => ({ caseId: item.id, caseName: item.name, scoreDelta: item.scoreDelta }))
+    : [];
+  const scoreTradeoffs = currentFactory.status === "evaluated"
+    ? (() => {
+        const totalWeight = currentFactory.cases.reduce((sum, item) => sum + item.weight, 0);
+        return SCORE_BREAKDOWN_COMPONENTS.map((component): CandidateRevisionScoreTradeoff => ({
+          component,
+          scoreDelta: currentFactory.cases.reduce(
+            (sum, item) => sum + item.scoreBreakdownDelta[component] * item.weight,
+            0,
+          ) / totalWeight,
+        }));
+      })()
+    : [];
+  const byMagnitude = (left: CandidateRevisionScoreTradeoff, right: CandidateRevisionScoreTradeoff) =>
+    Math.abs(right.scoreDelta) - Math.abs(left.scoreDelta)
+    || SCORE_BREAKDOWN_COMPONENTS.indexOf(left.component) - SCORE_BREAKDOWN_COMPONENTS.indexOf(right.component);
+  return {
+    disposition: "revise-or-retire",
+    decisionOwner: "human-or-agent",
+    candidateId: candidate.id,
+    benchmarkId: candidate.benchmark,
+    lockedVerdict: result.verdict,
+    currentFactoryStatus: currentFactory.status,
+    blockingReasons: [...result.reasons],
+    guardrailRegressions,
+    caseRegressions,
+    benefitsToPreserve: scoreTradeoffs.filter((item) => item.scoreDelta > 1e-9).sort(byMagnitude),
+    costsToRemove: scoreTradeoffs.filter((item) => item.scoreDelta < -1e-9).sort(byMagnitude),
+    patchPaths: [...new Set(candidate.patch.map((operation) => operation.path))],
+  };
+}
+
 export async function prepareCandidateChangeSet(
   projectDir: string,
   candidateId: string,
@@ -409,6 +515,7 @@ export async function prepareCandidateChangeSet(
     currentCandidateHash,
     proposedCandidateHash,
     currentFactory,
+    revisionBrief: deriveCandidateRevisionBrief(candidate, result, currentFactory),
     proposedBlueprint,
     operationProject,
     result,
