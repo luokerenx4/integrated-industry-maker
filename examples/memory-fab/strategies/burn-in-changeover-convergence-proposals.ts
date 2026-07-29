@@ -61,7 +61,7 @@ function observesExactBurnInTransition(
 }
 
 export default {
-  apiVersion: 7,
+  apiVersion: 8,
   propose(context) {
     if (!observesExactBurnInTransition(context)
       || context.history.some((item) => item.strategy === strategy)) return null;

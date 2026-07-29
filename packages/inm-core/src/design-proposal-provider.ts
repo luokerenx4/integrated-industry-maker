@@ -5,12 +5,19 @@ import { pathToFileURL } from "node:url";
 import type { ProductionCapacityPlan } from "./capacity-plan";
 import type { ProductionAnalysis } from "./production-analysis";
 import type { FabLossProfile } from "./fab-loss-analysis";
-import type { BranchResearchInput, ResearchBranchContext, ResearchHistoryEntry, ResearchPromotionBoundary, ResearchProposal } from "./research";
-import type { Blueprint, FactoryMetrics } from "./types";
+import type {
+  BranchResearchInput,
+  ResearchBranchContext,
+  ResearchHistoryEntry,
+  ResearchObjectiveTarget,
+  ResearchPromotionBoundary,
+  ResearchProposal,
+} from "./research";
+import { SCORE_BREAKDOWN_COMPONENTS, type Blueprint, type FactoryMetrics } from "./types";
 import { stableStringify } from "./utils";
 
 export interface ProjectProposalContext {
-  apiVersion: 7;
+  apiVersion: 8;
   iteration: number;
   branch: ResearchBranchContext;
   promotionBoundary: ResearchPromotionBoundary;
@@ -23,7 +30,7 @@ export interface ProjectProposalContext {
 }
 
 export interface ProjectProposalProvider {
-  apiVersion: 7;
+  apiVersion: 8;
   propose(context: Readonly<ProjectProposalContext>): ResearchProposal | null;
 }
 
@@ -51,6 +58,22 @@ function proposalOf(value: unknown, entry: string): ResearchProposal | null {
   const lossTarget = isRecord(value) && isRecord(value.addressedLossTarget)
     ? value.addressedLossTarget
     : null;
+  const objectiveTarget = isRecord(value) && isRecord(value.addressedObjectiveTarget)
+    ? value.addressedObjectiveTarget
+    : null;
+  const validObjectiveTarget = objectiveTarget !== null
+    && typeof objectiveTarget.component === "string"
+    && SCORE_BREAKDOWN_COMPONENTS.includes(objectiveTarget.component as typeof SCORE_BREAKDOWN_COMPONENTS[number])
+    && (
+      objectiveTarget.metric === "contribution"
+        ? objectiveTarget.direction === "increase" && objectiveTarget.location === undefined
+        : objectiveTarget.metric === "averageInventory"
+          ? objectiveTarget.component === "wip"
+          && typeof objectiveTarget.location === "string"
+          && objectiveTarget.location.length > 0
+          && objectiveTarget.direction === "decrease"
+          : false
+    );
   if (!isRecord(value) || typeof value.hypothesis !== "string" || !value.hypothesis
     || typeof value.strategy !== "string" || !value.strategy || !Array.isArray(value.patch)
     || (value.expectedEffect !== undefined && typeof value.expectedEffect !== "string")
@@ -63,8 +86,9 @@ function proposalOf(value: unknown, entry: string): ResearchProposal | null {
       || !lossTarget.metric
       || lossTarget.direction !== "decrease"
     ))
+    || (value.addressedObjectiveTarget !== undefined && !validObjectiveTarget)
     || (value.addressedCase !== undefined && typeof value.addressedCase !== "string")) {
-    throw new Error(`Project proposal provider '${entry}' must return null or { strategy, hypothesis, expectedEffect?, addressedLoss?, addressedLossTarget?, addressedCase?, patch[] }`);
+    throw new Error(`Project proposal provider '${entry}' must return null or { strategy, hypothesis, expectedEffect?, addressedLoss?, addressedLossTarget?, addressedObjectiveTarget?, addressedCase?, patch[] }`);
   }
   return {
     strategy: value.strategy,
@@ -78,6 +102,9 @@ function proposalOf(value: unknown, entry: string): ResearchProposal | null {
         metric: lossTarget.metric as string,
         direction: "decrease" as const,
       },
+    }),
+    ...(objectiveTarget === null ? {} : {
+      addressedObjectiveTarget: structuredClone(objectiveTarget) as ResearchObjectiveTarget,
     }),
     ...(value.addressedCase === undefined ? {} : { addressedCase: value.addressedCase }),
   };
@@ -103,8 +130,8 @@ export class ProjectStrategyResearchAgent {
       throw new Error(`Cannot load project proposal provider '${this.entry}': ${error instanceof Error ? error.message : String(error)}`);
     }
     const provider = module.default;
-    if (!isRecord(provider) || provider.apiVersion !== 7 || typeof provider.propose !== "function") {
-      throw new Error(`Project proposal provider '${this.entry}' default export must define apiVersion: 7 and synchronous propose(context)`);
+    if (!isRecord(provider) || provider.apiVersion !== 8 || typeof provider.propose !== "function") {
+      throw new Error(`Project proposal provider '${this.entry}' default export must define apiVersion: 8 and synchronous propose(context)`);
     }
     return provider as unknown as ProjectProposalProvider;
   }
@@ -112,7 +139,7 @@ export class ProjectStrategyResearchAgent {
   async propose(input: BranchResearchInput): Promise<ResearchProposal> {
     const provider = await this.provider;
     const context = (): Readonly<ProjectProposalContext> => freezeDeep({
-      apiVersion: 7,
+      apiVersion: 8,
       iteration: input.iteration,
       branch: structuredClone(input.branch),
       promotionBoundary: structuredClone(input.promotionBoundary),
@@ -140,8 +167,11 @@ export class ProjectStrategyResearchAgent {
     if (first.addressedCase && !blockingCases.includes(first.addressedCase)) throw new Error(
       `Project proposal provider '${this.entry}' addressed non-blocking case '${first.addressedCase}'; expected one of: ${blockingCases.join(", ") || "none"}`,
     );
-    if (observedLosses.length && !first.addressedLoss && !first.addressedCase) throw new Error(
-      `Project proposal provider '${this.entry}' must name addressedLoss from the measured loss chain: ${observedLosses.join(", ")}`,
+    if (observedLosses.length && !first.addressedLoss && !first.addressedObjectiveTarget && !first.addressedCase) throw new Error(
+      `Project proposal provider '${this.entry}' must name addressedLoss from the measured loss chain or an exact addressedObjectiveTarget: ${observedLosses.join(", ")}`,
+    );
+    if (first.addressedObjectiveTarget && (first.addressedLoss || first.addressedLossTarget || first.addressedCase)) throw new Error(
+      `Project proposal provider '${this.entry}' must not combine addressedObjectiveTarget with a loss or case target`,
     );
     if (first.addressedLoss && !observedLosses.includes(first.addressedLoss)) throw new Error(
       `Project proposal provider '${this.entry}' addressed unobserved loss '${first.addressedLoss}'; expected one of: ${observedLosses.join(", ") || "none"}`,
@@ -156,6 +186,20 @@ export class ProjectStrategyResearchAgent {
       if (!contributor || typeof value !== "number" || !Number.isFinite(value)) throw new Error(
         `Project proposal provider '${this.entry}' targeted missing evidence '${first.addressedLossTarget.contributor}.${first.addressedLossTarget.metric}' in ${first.addressedLoss}`,
       );
+    }
+    if (first.addressedObjectiveTarget) {
+      const target = first.addressedObjectiveTarget;
+      if (target.metric === "contribution") {
+        const value = input.metrics.scoreBreakdown[target.component];
+        if (!Number.isFinite(value)) throw new Error(
+          `Project proposal provider '${this.entry}' targeted missing Objective contribution '${target.component}'`,
+        );
+      } else {
+        const location = input.metrics.inventoryAccounting.locations[target.location];
+        if (!location || !Number.isFinite(location.averageInventory)) throw new Error(
+          `Project proposal provider '${this.entry}' targeted missing WIP location '${target.location}'`,
+        );
+      }
     }
     return first;
   }

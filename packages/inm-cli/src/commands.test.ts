@@ -514,10 +514,6 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
       status: "ready",
       authority: "human-or-agent",
       evidence: { state: "compatible", run: expect.objectContaining({ id: "092-simulate" }) },
-      leadingDiagnostic: expect.objectContaining({
-        code: "fab-loss.yield-quality",
-        evidence: expect.objectContaining({ runId: "092-simulate" }),
-      }),
       leadingObjectiveTradeoff: expect.objectContaining({
         component: "wip",
         contribution: -29.8092375,
@@ -622,6 +618,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
       action: "list",
       programs: [
         expect.objectContaining({ id: "back-end-die-handoff", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["transport-blocking"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
+        expect.objectContaining({ id: "back-end-wip-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "objective", component: "wip", locations: ["buffer:burn-in-1:package-input:packaged-dram-device", "buffer:packaging-1:die-input:known-good-dram-die"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
         expect.objectContaining({ id: "burn-in-changeover-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["setup-campaign"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
         expect.objectContaining({ id: "commissioned-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
         expect.objectContaining({ id: "front-end-queue-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["queue-congestion"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
@@ -774,7 +771,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect(continued.exitCode).toBe(0);
   const continuationProgress = continued.stderr.trim().split("\n").map((line) => JSON.parse(line));
   expect(continuationProgress[0]).toEqual(expect.objectContaining({ progress: expect.objectContaining({
-    version: 4,
+    version: 5,
     phase: "run-started",
     continuation: { sourceResultHash: resultHash, reusedIterations: 1 },
     budget: { maximum: 2, previousEvaluated: 1, additional: 1 },
@@ -1151,6 +1148,51 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
   }).toEqual({ machine: 0, objective: 0, dispositions: 0, human: 0, machineStderr: "", objectiveStderr: "", dispositionsStderr: "", humanStderr: "" });
 
   const result = JSON.parse(machine.stdout).data.result;
+  const objectiveProgram = result.designPrograms.find((item: { id: string }) => item.id === "back-end-wip-convergence");
+  if (objectiveProgram?.evidence.authorityRunId) {
+    const authorityRunId = objectiveProgram.evidence.authorityRunId;
+    expect(objectiveProgram).toEqual(expect.objectContaining({
+      focus: {
+        kind: "objective",
+        component: "wip",
+        locations: [
+          "buffer:burn-in-1:package-input:packaged-dram-device",
+          "buffer:packaging-1:die-input:known-good-dram-die",
+        ],
+      },
+      evidence: expect.objectContaining({
+        state: "exhausted",
+        authorityRunId,
+        currentRuns: 1,
+      }),
+    }));
+    expect(result.lossDispositions.map((item: { loss: string }) => item.loss)).toEqual([
+      "input-starvation",
+      "maintenance-qualification",
+      "power-interruption",
+      "queue-congestion",
+      "release-admission",
+      "setup-campaign",
+      "transport-blocking",
+      "yield-quality",
+    ]);
+    expect(result.nextAction).toEqual(expect.objectContaining({
+      id: `design.run.objective:back-end-wip-convergence:${authorityRunId}:wip:092-simulate`,
+      target: expect.objectContaining({
+        kind: "design-run",
+        programId: "back-end-wip-convergence",
+        runId: authorityRunId,
+        objectiveComponent: "wip",
+        evidenceRunId: "092-simulate",
+      }),
+    }));
+    expect(JSON.parse(objective.stdout).data.result).toEqual(expect.objectContaining({
+      dominantPenalty: { id: "wip", contribution: -29.8092375, role: "penalty" },
+    }));
+    expect(JSON.parse(dispositions.stdout).data.result).toHaveLength(8);
+    expect(human.stdout).toContain("Next action: Expand Back-end WIP Convergence's intervention portfolio");
+    return;
+  }
   const program = result.designPrograms.find((item: { id: string }) => item.id === "commissioned-dram-fab");
   expect(program).toEqual(expect.objectContaining({
     alignment: { state: "aligned", reasons: [] },

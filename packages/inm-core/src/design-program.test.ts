@@ -71,6 +71,29 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       budget: { maxCandidates: 1 },
     }),
     expect.objectContaining({
+      id: "back-end-wip-convergence",
+      benchmark: "greenfield-dram-design",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: {
+        kind: "objective",
+        component: "wip",
+        locations: [
+          "buffer:burn-in-1:package-input:packaged-dram-device",
+          "buffer:packaging-1:die-input:known-good-dram-die",
+        ],
+      },
+      driverCase: "mixed-quality",
+      currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
+      frontier: { maximumAlternativeBranches: 0 },
+      proposal: {
+        kind: "project-strategy",
+        entry: "strategies/back-end-wip-convergence-proposals.ts",
+        decisionFamilies: ["dispatch"],
+      },
+      locked: true,
+      budget: { maxCandidates: 3 },
+    }),
+    expect.objectContaining({
       id: "burn-in-changeover-convergence",
       benchmark: "greenfield-dram-design",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
@@ -286,9 +309,10 @@ test("inspection supply Design closes one exact causal frontier without changing
   });
 
   expect(result.artifact).toEqual(expect.objectContaining({
-    id: "159ea491ae7862c7a028f8bd4cfe10849d1a4dc6209ac211816f35ffb576f2d8",
+    id: expect.any(String),
     created: true,
   }));
+  expect(result.artifact.id).toHaveLength(64);
   expect(result.manifest).toMatchObject({
     stopReason: "frontier-exhausted",
     budget: { maximum: 7, evaluated: 6 },
@@ -323,7 +347,7 @@ test("inspection supply Design closes one exact causal frontier without changing
   expect(completedCaseProgress.filter((event) => event.evaluation.kind === "candidate")
     .every((event) => event.timing.workerReused === true && event.timing.workerStartupMs === 0)).toBeTrue();
   expect(progress.at(-1)).toEqual(expect.objectContaining({
-    version: 4,
+    version: 5,
     phase: "run-completed",
     work: { completedCases: 40, plannedCases: 40 },
   }));
@@ -348,6 +372,12 @@ test("Design Program validation rejects unknown fields and the removed legacy se
   program.focus = { kind: "losses", losses: ["not-a-loss"] };
   await writeFile(path, `${JSON.stringify(program, null, 2)}\n`);
   await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("focus/losses/0");
+  program.focus = { kind: "objective", component: "wip", locations: ["buffer:a", "buffer:a"] };
+  await writeFile(path, `${JSON.stringify(program, null, 2)}\n`);
+  await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("duplicates Objective location 'buffer:a'");
+  program.focus = { kind: "objective", component: "energy", locations: ["buffer:a"] };
+  await writeFile(path, `${JSON.stringify(program, null, 2)}\n`);
+  await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("valid only for the wip Objective component");
   delete program.focus;
   program.seedBlueprint = "experiment";
   delete program.seed;
@@ -545,7 +575,7 @@ test("Design stops only after every retained frontier node is search-exhausted",
   const copy = join(root, "memory-fab");
   await cp(projectDir, copy, { recursive: true, filter: (source) => !source.split("/").includes("design-runs") });
   await writeFile(join(copy, "strategies", "integrated-dram-proposals.ts"), `export default {
-  apiVersion: 7,
+  apiVersion: 8,
   propose() { return null; },
 };
 `);
@@ -794,4 +824,57 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   expect(await readFile(tunedPath, "utf8")).toBe(tunedBefore);
   await expect(promoteDesignRun(copy, "greenfield-dram-fab", first.manifest.resultHash, "stale-generated-design"))
     .rejects.toMatchObject({ code: "design.promotion-base-stale" });
+}, 360_000);
+
+test("objective-focused Design verifies exact physical WIP improvement before locked Benchmark judgment", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-design-objective-wip-"));
+  temporaryDirectories.push(root);
+  const cleanProject = join(root, "memory-fab");
+  await cp(projectDir, cleanProject, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes("design-runs") && !source.split("/").includes(".inm"),
+  });
+  const result = await runDesignProgram(cleanProject, "back-end-wip-convergence", {
+    maxCandidates: 3,
+  });
+
+  expect(result.manifest.stopReason).toBe("frontier-exhausted");
+  expect(result.manifest.budget).toEqual({ maximum: 3, evaluated: 2 });
+  expect(result.manifest.iterations).toHaveLength(2);
+  expect(result.manifest.iterations.map((iteration) => ({
+    strategy: iteration.strategy,
+    decision: iteration.decision,
+    basis: iteration.decisionEvidence?.basis,
+    target: iteration.addressedObjectiveTarget,
+    evidence: iteration.objectiveTargetEvidence,
+  }))).toEqual([
+    expect.objectContaining({
+      strategy: "dispatch:back-end-wip-conwip-5-4",
+      decision: "REJECT",
+      basis: "benchmark-gate",
+      target: {
+        component: "wip",
+        location: "buffer:packaging-1:die-input:known-good-dram-die",
+        metric: "averageInventory",
+        direction: "decrease",
+      },
+      evidence: expect.objectContaining({ before: 7.965816666666667, after: 3.764483333333333, improved: true }),
+    }),
+    expect.objectContaining({
+      strategy: "dispatch:back-end-wip-conwip-4-3",
+      decision: "REJECT",
+      basis: "benchmark-gate",
+      target: {
+        component: "wip",
+        location: "buffer:packaging-1:die-input:known-good-dram-die",
+        metric: "averageInventory",
+        direction: "decrease",
+      },
+      evidence: expect.objectContaining({ before: 7.965816666666667, after: 2.5047, improved: true }),
+    }),
+  ]);
+  expect(result.manifest.frontier.scheduler).toEqual({
+    searchOrder: [],
+    exhausted: ["seed"],
+  });
 }, 360_000);

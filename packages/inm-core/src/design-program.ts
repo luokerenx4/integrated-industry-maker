@@ -8,7 +8,7 @@ import { loadFactoryProject, type LoadedFactoryProject } from "./loader";
 import { analyzeProduction } from "./production-analysis";
 import { synthesizeProjectBlueprint, type ProjectBlueprintSynthesis } from "./project-synthesis";
 import { manifestSchema } from "./schema";
-import type { Blueprint } from "./types";
+import { SCORE_BREAKDOWN_COMPONENTS, type Blueprint } from "./types";
 import type { FabLossBucketId } from "./fab-loss-analysis";
 import { hashValue, readJson } from "./utils";
 
@@ -73,7 +73,24 @@ const designProgramLossesSchema = z.array(fabLossBucketIdSchema).min(1).superRef
 export const designProgramFocusSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("broad") }).strict(),
   z.object({ kind: z.literal("losses"), losses: designProgramLossesSchema }).strict(),
-]);
+  z.object({
+    kind: z.literal("objective"),
+    component: z.enum(SCORE_BREAKDOWN_COMPONENTS),
+    locations: z.array(z.string().min(1)).min(1).superRefine((locations, context) => {
+      const seen = new Set<string>();
+      for (const [index, location] of locations.entries()) {
+        if (seen.has(location)) context.addIssue({ code: "custom", path: [index], message: `duplicates Objective location '${location}'` });
+        seen.add(location);
+      }
+    }).optional(),
+  }).strict(),
+]).superRefine((focus, context) => {
+  if (focus.kind === "objective" && focus.locations && focus.component !== "wip") context.addIssue({
+      code: "custom",
+      path: ["locations"],
+      message: "exact inventory locations are valid only for the wip Objective component",
+  });
+});
 
 export const designSeedSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("blueprint"), blueprint: id }).strict(),

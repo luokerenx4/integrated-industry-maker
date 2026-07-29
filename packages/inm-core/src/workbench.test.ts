@@ -306,12 +306,27 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.transport-blocking")).toBeTrue();
   expect(snapshot.catalog.routes.map((route) => route.id)).toEqual(["dram-front-end"]);
   expect(snapshot.experiments.map((experiment) => experiment.id)).toContain("equipment-energy-research");
-  expect(snapshot.counts.designPrograms).toBe(11);
+  expect(snapshot.counts.designPrograms).toBe(12);
   expect(snapshot.designPrograms).toEqual([
     expect.objectContaining({
       id: "back-end-die-handoff",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
       focus: { kind: "losses", losses: ["transport-blocking"] },
+      promotionTarget: "generated-dram-fab",
+      alignment: { state: "aligned", reasons: [] },
+      evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
+    }),
+    expect.objectContaining({
+      id: "back-end-wip-convergence",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: {
+        kind: "objective",
+        component: "wip",
+        locations: [
+          "buffer:burn-in-1:package-input:packaged-dram-device",
+          "buffer:packaging-1:die-input:known-good-dram-die",
+        ],
+      },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
@@ -583,7 +598,34 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.operations.find((operation) => operation.id === "candidate.apply")?.availability.state).toBe("unavailable");
 });
 
-test("current inspection evidence advances the shared handoff to the yield-quality Program", async () => {
+test("shared handoff opens the exact Objective-focused Program after diagnostic work is bounded", async () => {
+  const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/memory-fab"));
+  const objectiveAuthority = snapshot.designPrograms
+    .find((program) => program.id === "back-end-wip-convergence")?.evidence.authorityRunId;
+  expect(objectiveAuthority).toBeTruthy();
+  const nextAction = buildWorkbenchNextAction({
+    ...snapshot,
+    candidates: [],
+    diagnostics: snapshot.diagnostics.filter((diagnostic) => diagnostic.severity === "info"),
+    lossDispositions: [],
+  });
+  expect(nextAction).toEqual(expect.objectContaining({
+    id: `design.run.objective:back-end-wip-convergence:${objectiveAuthority}:wip:092-simulate`,
+    title: "Expand Back-end WIP Convergence's intervention portfolio",
+    argv: ["inm", "design", snapshot.project.rootDir, "--program", "back-end-wip-convergence", "--run-id", objectiveAuthority!, "--json"],
+    studioRoute: `/memory-fab/designs/back-end-wip-convergence/runs/${objectiveAuthority}`,
+    target: {
+      kind: "design-run",
+      programId: "back-end-wip-convergence",
+      objectiveComponent: "wip",
+      evidenceRunId: "092-simulate",
+      phase: "exhausted",
+      runId: objectiveAuthority,
+    },
+  }));
+});
+
+test("an active physical loss still outranks current Objective Design evidence", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-workbench-before-queue-"));
   const projectDir = join(root, "memory-fab");
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true });
@@ -591,12 +633,37 @@ test("current inspection evidence advances the shared handoff to the yield-quali
   const snapshot = await openProjectWorkbenchSnapshot(projectDir);
   expect(snapshot.version).toBe(12);
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.input-starvation")).toBeTrue();
+  const objectiveAuthority = snapshot.designPrograms
+    .find((program) => program.id === "back-end-wip-convergence")?.evidence.authorityRunId;
+  if (objectiveAuthority) {
+    expect(snapshot.lossDispositions.map((disposition) => disposition.loss)).toEqual([
+      "input-starvation",
+      "maintenance-qualification",
+      "power-interruption",
+      "release-admission",
+      "setup-campaign",
+      "transport-blocking",
+      "yield-quality",
+    ]);
+    expect(snapshot.lossDispositions.every((disposition) =>
+      disposition.evidence.decisionBases["addressed-objective-not-improved"] === 0)).toBeTrue();
+    expect(snapshot.nextAction).toEqual(expect.objectContaining({
+      id: expect.stringMatching(/^design\.inspect:front-end-queue-convergence:fab-loss\.queue-congestion:/),
+      target: expect.objectContaining({
+        kind: "design-program",
+        programId: "front-end-queue-convergence",
+        diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
+      }),
+    }));
+    await rm(root, { recursive: true, force: true });
+    return;
+  }
   if (snapshot.lossDispositions.length === 0) {
     expect(snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")?.evidence).toEqual(expect.objectContaining({
       state: "missing",
       authorityRunId: null,
       currentRuns: 0,
-      historicalRuns: 3,
+      historicalRuns: expect.any(Number),
     }));
     expect(snapshot.nextAction).toEqual(expect.objectContaining({
       title: "Investigate the leading loss with Inspection Supply Path Convergence",

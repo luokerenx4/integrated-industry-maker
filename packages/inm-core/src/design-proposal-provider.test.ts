@@ -1357,7 +1357,7 @@ test("project proposal providers cannot ignore or fabricate Core-owned loss evid
   await mkdir(resolve(providerRoot, "strategies"));
   const proposal = `{ strategy: "dispatch:test", hypothesis: "test", patch: [{ op: "add", path: "/policies/lotRelease", value: {} }] }`;
   await writeFile(resolve(providerRoot, "strategies/causal-transport.ts"), `export default {
-    apiVersion: 7,
+    apiVersion: 8,
     propose(context) {
       const contributor = context.fabLoss?.buckets.find((bucket) => bucket.id === "transport-blocking")?.contributors[0];
       if (context.fabLoss?.version !== 8 || !contributor?.mechanism.startsWith("transport-")
@@ -1367,11 +1367,11 @@ test("project proposal providers cannot ignore or fabricate Core-owned loss evid
       return { ...${proposal}, addressedLoss: "transport-blocking" };
     },
   };\n`);
-  await writeFile(resolve(providerRoot, "strategies/missing.ts"), `export default { apiVersion: 7, propose() { return ${proposal}; } };\n`);
-  await writeFile(resolve(providerRoot, "strategies/fabricated.ts"), `export default { apiVersion: 7, propose() { return { ...${proposal}, addressedLoss: "release-admission" }; } };\n`);
-  await writeFile(resolve(providerRoot, "strategies/fabricated-case.ts"), `export default { apiVersion: 7, propose() { return { ...${proposal}, addressedCase: "quality-excursion" }; } };\n`);
-  await writeFile(resolve(providerRoot, "strategies/target-without-loss.ts"), `export default { apiVersion: 7, propose() { return { ...${proposal}, addressedLossTarget: { contributor: "missing", metric: "starvationTicks", direction: "decrease" } }; } };\n`);
-  await writeFile(resolve(providerRoot, "strategies/fabricated-target.ts"), `export default { apiVersion: 7, propose(context) { return { ...${proposal}, addressedLoss: context.fabLoss.chain[0], addressedLossTarget: { contributor: "missing", metric: "starvationTicks", direction: "decrease" } }; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/missing.ts"), `export default { apiVersion: 8, propose() { return ${proposal}; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/fabricated.ts"), `export default { apiVersion: 8, propose() { return { ...${proposal}, addressedLoss: "release-admission" }; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/fabricated-case.ts"), `export default { apiVersion: 8, propose() { return { ...${proposal}, addressedCase: "quality-excursion" }; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/target-without-loss.ts"), `export default { apiVersion: 8, propose() { return { ...${proposal}, addressedLossTarget: { contributor: "missing", metric: "starvationTicks", direction: "decrease" } }; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/fabricated-target.ts"), `export default { apiVersion: 8, propose(context) { return { ...${proposal}, addressedLoss: context.fabLoss.chain[0], addressedLossTarget: { contributor: "missing", metric: "starvationTicks", direction: "decrease" } }; } };\n`);
   await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/causal-transport.ts").propose(unmatched))
     .resolves.toMatchObject({ addressedLoss: "transport-blocking" });
   await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/missing.ts").propose(input)).rejects.toThrow("must name addressedLoss");

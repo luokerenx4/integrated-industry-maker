@@ -7,7 +7,7 @@ import { openProjectWorkbenchSnapshot, type ProjectWorkbenchSnapshot } from "./w
 
 const repository = resolve(import.meta.dir, "../../..");
 
-test("observation brief keeps the Objective WIP tradeoff visible beside the current leading loss", async () => {
+test("observation brief keeps the Objective WIP tradeoff visible after current losses are bounded", async () => {
   const projectDir = join(repository, "examples/memory-fab");
   const brief = await openFactoryObservationBrief(projectDir);
   expect(brief.version).toBe(2);
@@ -26,13 +26,7 @@ test("observation brief keeps the Objective WIP tradeoff visible beside the curr
     resultHash: expect.any(String),
     decision: "BASELINE",
   }));
-  expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
-    code: "fab-loss.yield-quality",
-    subjects: expect.arrayContaining([
-      { kind: "device", id: "etch-l2" },
-      { kind: "route", id: "dram-front-end" },
-    ]),
-  }));
+  expect(brief.leadingDiagnostic).toBeNull();
   expect(brief.leadingObjectiveTradeoff).toEqual({
     component: "wip",
     contribution: -29.8092375,
@@ -51,7 +45,7 @@ test("observation brief keeps the Objective WIP tradeoff visible beside the curr
     studioRoute: "/memory-fab/factory?run=092-simulate",
     required: true,
   }));
-  expect(brief.views).toHaveLength(6);
+  expect(brief.views).toHaveLength(3);
   expect(brief.views).toEqual(expect.arrayContaining([
     expect.objectContaining({
       kind: "factory-focus",
@@ -63,7 +57,7 @@ test("observation brief keeps the Objective WIP tradeoff visible beside the curr
     }),
   ]));
   expect(brief.handoff.requiredStatements).toHaveLength(4);
-  expect(brief.handoff.nextStep).toContain("Choose one explicit diagnostic or Objective-tradeoff hypothesis");
+  expect(brief.handoff.nextStep).toContain("Use the Objective tradeoff and Resource-qualified views");
   expect(await openFactoryObservationBrief(projectDir, {}, "092-simulate")).toEqual(brief);
   expect(openFactoryObservationBrief(projectDir, {}, "missing-run")).rejects.toThrow("Unknown immutable run 'missing-run'");
 });
@@ -72,10 +66,13 @@ async function observationBriefForDiagnostic(code: string) {
   const projectDir = join(repository, "examples/memory-fab");
   const snapshot = structuredClone(await openProjectWorkbenchSnapshot(projectDir));
   const diagnostic = snapshot.diagnostics.find((item) => item.code === code);
-  if (!diagnostic || !("diagnosticId" in snapshot.nextAction.target)) {
+  if (!diagnostic) {
     throw new Error(`Missing observation fixture diagnostic '${code}'`);
   }
-  snapshot.nextAction.target.diagnosticId = diagnostic.id;
+  snapshot.nextAction = {
+    ...snapshot.nextAction,
+    target: { kind: "diagnostic", diagnosticId: diagnostic.id },
+  };
   snapshot.lossDispositions = snapshot.lossDispositions.filter((item) => item.diagnosticId !== diagnostic.id);
   return buildFactoryObservationBrief(snapshot as ProjectWorkbenchSnapshot, "092-simulate");
 }

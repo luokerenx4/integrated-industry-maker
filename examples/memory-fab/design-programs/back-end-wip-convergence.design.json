@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "id": "back-end-wip-convergence",
+  "name": "Back-end WIP Convergence",
+  "description": "Evaluate explicit release-wave interventions against the dominant packaging and burn-in Objective WIP exposure while preserving every locked delivery and interruption case.",
+  "benchmark": "greenfield-dram-design",
+  "seed": {
+    "kind": "blueprint",
+    "blueprint": "generated-dram-fab"
+  },
+  "focus": {
+    "kind": "objective",
+    "component": "wip",
+    "locations": [
+      "buffer:burn-in-1:package-input:packaged-dram-device",
+      "buffer:packaging-1:die-input:known-good-dram-die"
+    ]
+  },
+  "driverCase": "mixed-quality",
+  "currentBestGuardrail": {
+    "kind": "uniform",
+    "maximumCaseScoreRegression": 0
+  },
+  "frontier": {
+    "maximumAlternativeBranches": 0
+  },
+  "proposal": {
+    "kind": "project-strategy",
+    "entry": "strategies/back-end-wip-convergence-proposals.ts",
+    "decisionFamilies": [
+      "dispatch"
+    ]
+  },
+  "budget": {
+    "maxCandidates": 3
+  }
+}

@@ -1,7 +1,13 @@
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import type { Blueprint, CompiledFactoryProject, FactoryMetrics, ScoreBreakdown } from "./types";
+import type {
+  Blueprint,
+  CompiledFactoryProject,
+  FactoryMetrics,
+  ScoreBreakdown,
+  ScoreBreakdownComponent,
+} from "./types";
 import type { JsonPatchOperation, RunSummary } from "./artifacts";
 import { writeRunArtifact } from "./artifacts";
 import { compileFactoryProject } from "./compiler";
@@ -63,6 +69,7 @@ export interface ResearchHistoryEntry {
   strategy: string;
   hypothesis: string;
   addressedLoss?: FabLossBucketId;
+  addressedObjectiveTarget?: ResearchObjectiveTarget;
   addressedCase?: string;
   decision: "KEEP" | "BRANCH" | "REVERT";
   score: number;
@@ -73,6 +80,18 @@ export interface ResearchLossTarget {
   metric: string;
   direction: "decrease";
 }
+export type ResearchObjectiveTarget =
+  | {
+    component: ScoreBreakdownComponent;
+    metric: "contribution";
+    direction: "increase";
+  }
+  | {
+    component: "wip";
+    location: string;
+    metric: "averageInventory";
+    direction: "decrease";
+  };
 export interface ResearchProposal {
   hypothesis: string;
   patch: JsonPatchOperation[];
@@ -80,6 +99,7 @@ export interface ResearchProposal {
   strategy?: string;
   addressedLoss?: FabLossBucketId;
   addressedLossTarget?: ResearchLossTarget;
+  addressedObjectiveTarget?: ResearchObjectiveTarget;
   addressedCase?: string;
 }
 export interface BlueprintResearchAgent { propose(input: ResearchInput): Promise<ResearchProposal> }

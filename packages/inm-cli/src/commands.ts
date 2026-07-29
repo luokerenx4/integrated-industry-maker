@@ -124,6 +124,8 @@ function designDecisionDetail(evidence: NonNullable<DesignRunIteration["decision
         ? "fails current-best case guardrail"
         : evidence.basis === "addressed-loss-not-improved"
           ? "does not improve addressed loss"
+          : evidence.basis === "addressed-objective-not-improved"
+            ? "does not improve addressed Objective target"
           : "does not improve current best";
   const gate = evidence.gateReasons?.[0] ? ` · ${evidence.gateReasons[0]}` : "";
   if (evidence.basis === "current-best-case-guardrail" && violation) return `${basis} · ${violation.id} ${signed(violation.scoreDelta, 6)} · allowed regression ${violation.maximumScoreRegression!.toFixed(6)} · drivers ${leadingScoreDrivers(violation.scoreBreakdownDelta)}`;
@@ -171,8 +173,12 @@ function writeDesignProgress(progress: DesignRunProgress, mode: ProgressMode, ex
   else if (progress.phase === "driver-replay-started") line = `REPLAY  ${work}  ${progress.nodeId} · recovering ${progress.case.id} causal trace`;
   else if (progress.phase === "driver-replay-completed") line = `REPLAY  ${work}  ${progress.nodeId} · recovered ${progress.case.id} causal trace · ${progress.durationMs.toFixed(0)} ms`;
   else if (progress.phase === "proposal-started") line = `DIAGNOSE ${work}  iteration ${progress.iteration} · ${progress.branch.role} ${progress.branch.nodeId} · ${designPromotionBoundaryDetail(progress.promotionBoundary)} · ${progress.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss"}`;
-  else if (progress.phase === "proposal-completed") line = `PROPOSE ${work}  ${progress.branch.nodeId} → ${progress.strategy}${progress.addressedCase ? ` · repairs ${progress.addressedCase}` : progress.addressedLoss ? ` · addresses ${progress.addressedLoss}` : ""}`;
+  else if (progress.phase === "proposal-completed") line = `PROPOSE ${work}  ${progress.branch.nodeId} → ${progress.strategy}${progress.addressedCase ? ` · repairs ${progress.addressedCase}` : progress.addressedLoss ? ` · addresses ${progress.addressedLoss}` : progress.addressedObjectiveTarget ? ` · addresses Objective ${progress.addressedObjectiveTarget.component}` : ""}`;
   else if (progress.phase === "loss-target-completed") line = `CAUSE   ${work}  ${progress.lossTargetEvidence.target.contributor}.${progress.lossTargetEvidence.target.metric} ${progress.lossTargetEvidence.before} → ${progress.lossTargetEvidence.after} · Δ ${signed(progress.lossTargetEvidence.delta, 3)} · ${progress.lossTargetEvidence.improved ? "improved" : "not improved"}`;
+  else if (progress.phase === "objective-target-completed") {
+    const target = progress.objectiveTargetEvidence.target;
+    line = `CAUSE   ${work}  Objective ${target.component}.${target.metric}${target.metric === "averageInventory" ? ` @ ${target.location}` : ""} ${progress.objectiveTargetEvidence.before} → ${progress.objectiveTargetEvidence.after} · Δ ${signed(progress.objectiveTargetEvidence.delta, 3)} · ${progress.objectiveTargetEvidence.improved ? "improved" : "not improved"}`;
+  }
   else if (progress.phase === "node-exhausted") line = `EXHAUST ${work}  ${progress.exhaustion.node.role} ${progress.exhaustion.node.nodeId} · proposal portfolio exhausted · next ${progress.exhaustion.nextNodeId ?? "none"}`;
   else if (progress.phase === "candidate-completed") line = `DECIDE  ${work}  iteration ${progress.iteration} ${progress.decision} · ${progress.frontierEvidence.parent.nodeId} → ${progress.frontierEvidence.outcome}${progress.addressedCase ? ` · repaired ${progress.addressedCase}` : ""}${!progress.decisionEvidence ? ` · ${progress.error}` : ` · score ${progress.decisionEvidence.aggregate.candidateScore.toFixed(6)} · leader Δ ${signed(progress.decisionEvidence.aggregate.scoreDelta, 6)} · ${designDecisionDetail(progress.decisionEvidence)}`}`;
   else if (progress.phase === "run-completed") line = `RESULT  ${work}  ${progress.resultHash.slice(0, 12)} · best iteration ${progress.best.iteration}`;
@@ -221,11 +227,20 @@ function designExhaustionLine(exhaustion: DesignSearchExhaustionEvidence): strin
 function designIterationLines(iteration: DesignRunIteration): string[] {
   const lossChain = iteration.driverEvidence.fabLoss?.chain.join(" → ") ?? "no tracked fab loss";
   const lineage = `${iteration.frontierEvidence.parent.nodeId} → ${iteration.frontierEvidence.candidateNodeId ?? "invalid"} · ${iteration.frontierEvidence.outcome}`;
-  const target = iteration.addressedCase ? `repairs ${iteration.addressedCase}` : iteration.addressedLoss ? `addresses ${iteration.addressedLoss}` : "no explicit target";
+  const target = iteration.addressedCase
+    ? `repairs ${iteration.addressedCase}`
+    : iteration.addressedLoss
+      ? `addresses ${iteration.addressedLoss}`
+      : iteration.addressedObjectiveTarget
+        ? `addresses Objective ${iteration.addressedObjectiveTarget.component}`
+        : "no explicit target";
   return [
     `  ${String(iteration.iteration).padStart(3, "0")} ${iteration.decision.padEnd(6)} ${iteration.strategy} · ${lineage} · before ${designPromotionBoundaryDetail(iteration.promotionBoundary)} · ${!iteration.decisionEvidence ? iteration.error : `leader ${signed(iteration.decisionEvidence.aggregate.scoreDelta, 6)} · parent ${signed(iteration.frontierEvidence.parentScoreDelta ?? 0, 6)} · ${designDecisionDetail(iteration.decisionEvidence)}`} · ${target} · observed ${lossChain}`,
     ...(iteration.lossTargetEvidence ? [
       `      causal target: ${iteration.lossTargetEvidence.target.contributor}.${iteration.lossTargetEvidence.target.metric} ${iteration.lossTargetEvidence.before} → ${iteration.lossTargetEvidence.after} · Δ ${signed(iteration.lossTargetEvidence.delta, 3)} · ${iteration.lossTargetEvidence.improved ? "improved" : "not improved"}`,
+    ] : []),
+    ...(iteration.objectiveTargetEvidence ? [
+      `      Objective target: ${iteration.objectiveTargetEvidence.target.component}.${iteration.objectiveTargetEvidence.target.metric}${iteration.objectiveTargetEvidence.target.metric === "averageInventory" ? ` @ ${iteration.objectiveTargetEvidence.target.location}` : ""} ${iteration.objectiveTargetEvidence.before} → ${iteration.objectiveTargetEvidence.after} · Δ ${signed(iteration.objectiveTargetEvidence.delta, 3)} · ${iteration.objectiveTargetEvidence.improved ? "improved" : "not improved"}`,
     ] : []),
     ...(iteration.evaluation?.cases.flatMap((item) => {
       const lines = cadenceControlComparisonLines(
@@ -1794,7 +1809,11 @@ export async function designCommand(projectDir: string, programId: string | unde
       `Seed: ${seedLabel} · ${brief.seed.synthesis?.method ?? "authored"} · ${brief.seed.blueprintHash.slice(0, 12)}`,
       `Will update: ${brief.promotionBase.blueprint}@${brief.promotionBase.hash.slice(0, 12)} · driver ${brief.driver.case.id}`,
       `Provider: ${brief.program.proposal.kind}${brief.program.proposal.kind === "project-strategy" ? ` · ${brief.program.proposal.entry}` : ""}`,
-      `Focus: ${brief.program.focus.kind === "broad" ? "broad industrial search" : brief.program.focus.losses.join(" + ")}`,
+      `Focus: ${brief.program.focus.kind === "broad"
+        ? "broad industrial search"
+        : brief.program.focus.kind === "losses"
+          ? brief.program.focus.losses.join(" + ")
+          : `Objective ${brief.program.focus.component}${brief.program.focus.locations?.length ? ` @ ${brief.program.focus.locations.join(" + ")}` : ""}`}`,
       `Hard industrial outcomes: ${brief.benchmark.acceptance.outcomeGuardrails?.length ?? 0} absolute guardrails`,
       `Current-best guardrail: ${brief.program.currentBestGuardrail.kind}${brief.program.currentBestGuardrail.kind === "uniform" ? ` · max ${brief.program.currentBestGuardrail.maximumCaseScoreRegression.toFixed(6)} regression/case` : brief.program.currentBestGuardrail.kind === "case-specific" ? ` · ${Object.keys(brief.program.currentBestGuardrail.maximumCaseScoreRegression).length} case budgets` : ""}`,
       `Frontier: 1 leader + up to ${brief.program.frontier.maximumAlternativeBranches} alternative branch${brief.program.frontier.maximumAlternativeBranches === 1 ? "" : "es"}`,

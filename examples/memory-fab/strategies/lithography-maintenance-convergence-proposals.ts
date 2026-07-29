@@ -50,7 +50,7 @@ function observesCurrentLithographyMaintenance(context: Readonly<ProjectProposal
 }
 
 export default {
-  apiVersion: 7,
+  apiVersion: 8,
   propose(context) {
     if (!observesCurrentLithographyMaintenance(context)
       || context.history.some((item) => item.strategy === strategy)) return null;

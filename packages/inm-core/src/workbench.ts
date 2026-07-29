@@ -104,7 +104,9 @@ export type WorkbenchNextActionTarget =
   | { kind: "diagnostic"; diagnosticId: string }
   | { kind: "candidate"; benchmarkId: string; candidateId: string; phase: CandidateDecisionState }
   | { kind: "design-program"; programId: string; diagnosticId: string }
+  | { kind: "design-program"; programId: string; objectiveComponent: ScoreBreakdownComponent; runId: string }
   | { kind: "design-run"; programId: string; runId: string; phase: "promotable" | "continuable" | "exhausted"; diagnosticId: string }
+  | { kind: "design-run"; programId: string; runId: string; phase: "promotable" | "continuable" | "exhausted"; objectiveComponent: ScoreBreakdownComponent; evidenceRunId: string }
   | { kind: "objective-component"; component: ScoreBreakdownComponent; runId: string }
   | { kind: "operation"; operationId: "analyze" | "simulate" }
   | { kind: "run"; runId: string };
@@ -428,6 +430,7 @@ const emptyDecisionBases = (): WorkbenchLossDisposition["evidence"]["decisionBas
   "no-current-best-improvement": 0,
   "current-best-case-guardrail": 0,
   "addressed-loss-not-improved": 0,
+  "addressed-objective-not-improved": 0,
 });
 
 export function deriveWorkbenchLossDisposition(
@@ -814,6 +817,69 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
   if (objectivePenalty) {
     const runId = context.objectiveEvidence!.runId;
     const wip = objectivePenalty.id === "wip" ? context.objectiveEvidence!.wip : null;
+    const currentWipLocations = new Set(wip?.locations.map((location) => location.id) ?? []);
+    const objectiveProgram = context.designPrograms
+      .filter((program) =>
+        program.alignment.state === "aligned"
+        && program.focus.kind === "objective"
+        && program.focus.component === objectivePenalty.id
+        && (!program.focus.locations || program.focus.locations.every((location) => currentWipLocations.has(location))))
+      .sort((left, right) => {
+        const priority = (program: ProjectWorkbenchSnapshot["designPrograms"][number]): number =>
+          program.evidence.state === "promotable" ? 0
+            : program.evidence.state === "continuable" ? 1
+              : program.evidence.state === "exhausted" ? 2
+                : program.evidence.state === "missing" ? 3
+                  : 4;
+        return priority(left) - priority(right) || left.id.localeCompare(right.id);
+      })[0];
+    const objectiveAuthority = objectiveProgram?.evidence.authorityRunId
+      ? objectiveProgram.evidence.runs.find((item) => item.id === objectiveProgram.evidence.authorityRunId)
+      : null;
+    if (objectiveProgram && objectiveAuthority) {
+      const phase = objectiveAuthority.outcome;
+      const title = phase === "promotable"
+        ? `Review the current Objective Design leader from ${objectiveProgram.name}`
+        : phase === "continuable"
+          ? `Continue the current ${objectiveProgram.name} frontier`
+          : `Expand ${objectiveProgram.name}'s intervention portfolio`;
+      const next = phase === "promotable"
+        ? `Current Design Run ${objectiveAuthority.id} has a guarded leader with ${objectiveAuthority.best.promotionPatchOperations} promotion operations. Review its exact Objective target evidence before creating a Candidate.`
+        : phase === "continuable"
+          ? `Current Design Run ${objectiveAuthority.id} stopped at its ${objectiveAuthority.budget.evaluated}/${objectiveAuthority.budget.maximum} Candidate budget with searchable frontier evidence.`
+          : `Current Design Run ${objectiveAuthority.id} exhausted its explicit Objective intervention portfolio and retained ${objectiveAuthority.best.promotionPatchOperations ? "a changed leader" : "the unchanged seed"}.`;
+      return {
+        id: `design.run.objective:${objectiveProgram.id}:${objectiveAuthority.id}:${objectivePenalty.id}:${runId}`,
+        tone: phase === "promotable" ? "review" : "attention",
+        title,
+        reason: `${objectivePenalty.id} contributes ${objectivePenalty.contribution.toFixed(3)} to Run ${runId}. ${next}`,
+        actionLabel: phase === "promotable" ? "REVIEW DESIGN LEADER" : phase === "continuable" ? "REVIEW CONTINUATION" : "REVIEW OBJECTIVE DESIGN",
+        effect: "read-only",
+        requiresConfirmation: false,
+        argv: ["inm", "design", context.project.rootDir, "--program", objectiveProgram.id, "--run-id", objectiveAuthority.id, "--json"],
+        studioRoute: `${projectRoute}/designs/${encodeURIComponent(objectiveProgram.id)}/runs/${objectiveAuthority.id}`,
+        target: {
+          kind: "design-run",
+          programId: objectiveProgram.id,
+          runId: objectiveAuthority.id,
+          phase,
+          objectiveComponent: objectivePenalty.id,
+          evidenceRunId: runId,
+        },
+      };
+    }
+    if (objectiveProgram) return {
+      id: `design.objective:${objectiveProgram.id}:${objectivePenalty.id}:${runId}`,
+      tone: "attention",
+      title: `Investigate ${objectivePenalty.id} with ${objectiveProgram.name}`,
+      reason: `${objectivePenalty.id} contributes ${objectivePenalty.contribution.toFixed(3)} to Run ${runId}. Open the exact Objective-focused Program before choosing whether to create locked evidence.`,
+      actionLabel: "OPEN OBJECTIVE DESIGN",
+      effect: "read-only",
+      requiresConfirmation: false,
+      argv: ["inm", "design", context.project.rootDir, "--program", objectiveProgram.id, "--json"],
+      studioRoute: `${projectRoute}/designs/${encodeURIComponent(objectiveProgram.id)}`,
+      target: { kind: "design-program", programId: objectiveProgram.id, objectiveComponent: objectivePenalty.id, runId },
+    };
     const leadingResources = wip?.resources.slice(0, 2) ?? [];
     return {
       id: `objective-component:${objectivePenalty.id}:${runId}`,

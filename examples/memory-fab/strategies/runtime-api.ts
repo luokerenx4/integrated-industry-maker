@@ -159,7 +159,7 @@ export interface FabLossContributor {
 }
 
 export interface ProjectProposalContext {
-  apiVersion: 7;
+  apiVersion: 8;
   iteration: number;
   branch: {
     nodeId: string;
@@ -193,7 +193,17 @@ export interface ProjectProposalContext {
   fabLoss: FabLossProfile | null;
   production: Record<string, unknown>;
   capacityPlan: Record<string, unknown>;
-  history: Array<{ iteration: number; strategy: string; hypothesis: string; addressedLoss?: FabLossBucketId; addressedCase?: string; decision: "KEEP" | "BRANCH" | "REVERT"; score: number; scoreDelta: number }>;
+  history: Array<{
+    iteration: number;
+    strategy: string;
+    hypothesis: string;
+    addressedLoss?: FabLossBucketId;
+    addressedObjectiveTarget?: ResearchObjectiveTarget;
+    addressedCase?: string;
+    decision: "KEEP" | "BRANCH" | "REVERT";
+    score: number;
+    scoreDelta: number;
+  }>;
 }
 
 type ScoreBreakdown = Record<
@@ -214,21 +224,35 @@ type ScoreBreakdown = Record<
   | "constraintPenalty",
   number
 >;
+type ScoreBreakdownComponent = keyof ScoreBreakdown;
 
 export interface ResearchLossTarget {
   contributor: string;
   metric: string;
   direction: "decrease";
 }
+export type ResearchObjectiveTarget =
+  | {
+    component: ScoreBreakdownComponent;
+    metric: "contribution";
+    direction: "increase";
+  }
+  | {
+    component: "wip";
+    location: string;
+    metric: "averageInventory";
+    direction: "decrease";
+  };
 
 export interface ProjectProposalProvider {
-  apiVersion: 7;
+  apiVersion: 8;
   propose(context: Readonly<ProjectProposalContext>): {
     strategy: string;
     hypothesis: string;
     expectedEffect?: string;
     addressedLoss?: FabLossBucketId;
     addressedLossTarget?: ResearchLossTarget;
+    addressedObjectiveTarget?: ResearchObjectiveTarget;
     addressedCase?: string;
     patch: JsonPatchOperation[];
   } | null;

@@ -567,6 +567,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(await listResponse.json()).toEqual({
       programs: [
         expect.objectContaining({ id: "back-end-die-handoff", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["transport-blocking"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 }, budget: { maxCandidates: 1 } }),
+        expect.objectContaining({ id: "back-end-wip-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "objective", component: "wip", locations: ["buffer:burn-in-1:package-input:packaged-dram-device", "buffer:packaging-1:die-input:known-good-dram-die"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 }, budget: { maxCandidates: 3 } }),
         expect.objectContaining({ id: "burn-in-changeover-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["setup-campaign"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 }, budget: { maxCandidates: 1 } }),
         expect.objectContaining({ id: "commissioned-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, budget: { maxCandidates: 7 } }),
         expect.objectContaining({ id: "front-end-queue-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["queue-congestion"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 }, budget: { maxCandidates: 5 } }),
@@ -682,7 +683,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     const continuationOperation = await completedStudioOperation<any>(port, "memory-fab", continuationResponse);
     const continuationProgress = continuationOperation.progressLog as any[];
     expect(continuationProgress[0]).toEqual(expect.objectContaining({
-      version: 4,
+      version: 5,
       phase: "run-started",
       continuation: { sourceResultHash: campaignRepairRunId, reusedIterations: 7 },
       budget: { maximum: 8, previousEvaluated: 7, additional: 1 },

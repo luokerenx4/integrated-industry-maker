@@ -46,7 +46,7 @@ function observesCurrentParticleExcursion(context: Readonly<ProjectProposalConte
 }
 
 export default {
-  apiVersion: 7,
+  apiVersion: 8,
   propose(context) {
     if (!observesCurrentParticleExcursion(context)
       || context.history.some((item) => item.strategy === strategy)) return null;
