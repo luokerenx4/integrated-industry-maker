@@ -9,7 +9,7 @@ import type { OperationExecutionSnapshot, OperationExecutionStartResponse } from
 import { CliCommandError, cliSuccess, manifestProjectContext } from "./contract";
 
 const STUDIO_PROTOCOL = "inm-studio";
-const STUDIO_PROTOCOL_VERSION = 4;
+const STUDIO_PROTOCOL_VERSION = 5;
 const configuredDefaultPort = Number(process.env.INM_STUDIO_DEFAULT_PORT ?? 4176);
 const DEFAULT_STUDIO_PORT = Number.isSafeInteger(configuredDefaultPort) && configuredDefaultPort > 0 && configuredDefaultPort <= 65_535
   ? configuredDefaultPort
@@ -51,12 +51,29 @@ export interface StudioHealth {
   project: string | null;
   sourceHash: string;
   managerSourceHash: string;
+  supervisor: StudioSupervisorStatus;
   startedAt: string;
   url: string;
 }
 
+export type StudioSupervisorPhase = "starting" | "current" | "adopting" | "degraded" | "stopping";
+
+export interface StudioSupervisorStatus {
+  phase: StudioSupervisorPhase;
+  attemptedSourceHash: string;
+  childPid: number | null;
+  generation: number;
+  heartbeatAt: string;
+  retry: "none" | "source-change" | "explicit";
+  failure: null | {
+    at: string;
+    phase: "preflight" | "startup";
+    message: string;
+  };
+}
+
 interface StudioState {
-  version: 4;
+  version: 5;
   backend: "launchd" | "detached";
   inputDir: string;
   project: string | null;
@@ -67,12 +84,13 @@ interface StudioState {
   pid: number | null;
   sourceHash: string;
   managerSourceHash: string;
+  supervisor: StudioSupervisorStatus;
   startedAt: string;
 }
 
 export interface StudioLifecycleResult {
   action: StudioLifecycleAction;
-  state: "running" | "reused" | "stopped" | "not-running";
+  state: "running" | "reused" | "degraded" | "recovering" | "stopped" | "not-running";
   health: StudioHealth | null;
   inputDir: string;
   project: string | null;
@@ -81,8 +99,9 @@ export interface StudioLifecycleResult {
   url: string;
   pid: number | null;
   logPath: string;
+  supervisor: StudioSupervisorStatus | null;
   source: {
-    state: "current" | "stale" | "not-running";
+    state: "current" | "stale" | "degraded" | "recovering" | "not-running";
     expectedHash: string;
     runningHash: string | null;
     managerRunningHash: string | null;
@@ -161,11 +180,30 @@ ${args.map((argument) => `    <string>${xml(argument)}</string>`).join("\n")}
 `;
 }
 
+function isSupervisorStatus(value: unknown): value is StudioSupervisorStatus {
+  if (typeof value !== "object" || value === null) return false;
+  const status = value as Partial<StudioSupervisorStatus>;
+  if (!["starting", "current", "adopting", "degraded", "stopping"].includes(status.phase ?? "")
+    || !/^[0-9a-f]{64}$/.test(status.attemptedSourceHash ?? "")
+    || (status.childPid !== null && (!Number.isSafeInteger(status.childPid) || status.childPid! <= 0))
+    || !Number.isSafeInteger(status.generation) || status.generation! < 0
+    || typeof status.heartbeatAt !== "string" || !Number.isFinite(Date.parse(status.heartbeatAt))
+    || !["none", "source-change", "explicit"].includes(status.retry ?? "")) return false;
+  if (status.failure === null) return true;
+  return typeof status.failure === "object"
+    && status.failure !== null
+    && typeof status.failure.at === "string"
+    && Number.isFinite(Date.parse(status.failure.at))
+    && ["preflight", "startup"].includes(status.failure.phase)
+    && typeof status.failure.message === "string"
+    && status.failure.message.length > 0;
+}
+
 async function readState(inputDir: string, port: number): Promise<StudioState | null> {
   try {
     const state = JSON.parse(await readFile(statePath(inputDir, port), "utf8")) as Partial<StudioState>;
     const expectedRuntimeDirectory = runtimeDirectory(inputDir, port);
-    if (state.version !== 4 || state.inputDir !== inputDir || state.port !== port
+    if (state.version !== 5 || state.inputDir !== inputDir || state.port !== port
       || (state.backend !== "launchd" && state.backend !== "detached")
       || state.label !== serviceLabel(inputDir, port)
       || state.logPath !== join(expectedRuntimeDirectory, "studio.log")
@@ -174,7 +212,8 @@ async function readState(inputDir: string, port: number): Promise<StudioState | 
       || (state.pid !== null && (!Number.isSafeInteger(state.pid) || state.pid! <= 0))
       || typeof state.startedAt !== "string"
       || !/^[0-9a-f]{64}$/.test(state.sourceHash ?? "")
-      || !/^[0-9a-f]{64}$/.test(state.managerSourceHash ?? "")) return null;
+      || !/^[0-9a-f]{64}$/.test(state.managerSourceHash ?? "")
+      || !isSupervisorStatus(state.supervisor)) return null;
     return state as StudioState;
   } catch {
     return null;
@@ -229,7 +268,8 @@ async function probeHealth(port: number): Promise<{ kind: "free" } | { kind: "st
       || (value.managerPid !== null && (typeof value.managerPid !== "number" || !Number.isSafeInteger(value.managerPid) || value.managerPid <= 0))
       || typeof value.startedAt !== "string" || typeof value.url !== "string"
       || !/^[0-9a-f]{64}$/.test(value.sourceHash ?? "")
-      || !/^[0-9a-f]{64}$/.test(value.managerSourceHash ?? "")) return { kind: "foreign" };
+      || !/^[0-9a-f]{64}$/.test(value.managerSourceHash ?? "")
+      || !isSupervisorStatus(value.supervisor)) return { kind: "foreign" };
     return { kind: "studio", health: value as StudioHealth };
   } catch (error) {
     const code = error instanceof Error && "cause" in error
@@ -308,9 +348,18 @@ async function resolveLifecyclePort(
     });
   }
 
-  if (targetInstances.length > 1) throw new CliCommandError(
+  const managerOnlyInstances = states.filter((state) => {
+    const observed = probes.get(state.port);
+    return observed?.kind === "free"
+      && managerStateIsLive(state);
+  });
+  const targetCount = targetInstances.length + managerOnlyInstances.length;
+  if (targetCount > 1) throw new CliCommandError(
     "studio.multiple-target-instances",
-    `Multiple Studio instances serve this target on ports ${targetInstances.map((instance) => instance.port).sort((left, right) => left - right).join(", ")}. Stop them with explicit --port before using portless lifecycle commands.`,
+    `Multiple Studio managers own this target on ports ${[
+      ...targetInstances.map((instance) => instance.port),
+      ...managerOnlyInstances.map((state) => state.port),
+    ].sort((left, right) => left - right).join(", ")}. Stop them with explicit --port before using portless lifecycle commands.`,
   );
   if (targetInstances.length === 1) {
     const instance = targetInstances[0]!;
@@ -320,6 +369,11 @@ async function resolveLifecyclePort(
       targetFound: true,
     };
   }
+  if (managerOnlyInstances.length === 1) return {
+    port: managerOnlyInstances[0]!.port,
+    portSelection: "managed",
+    targetFound: true,
+  };
 
   if (action === "status" || action === "stop") return {
     port: states[0]?.port ?? DEFAULT_STUDIO_PORT,
@@ -350,7 +404,18 @@ async function resolveLifecyclePort(
   );
 }
 
-async function waitForHealth(inputDir: string, project: string | null, port: number, sourceHash: string): Promise<StudioHealth> {
+interface ManagedStudioOutcome {
+  health: StudioHealth | null;
+  state: StudioState;
+}
+
+async function waitForManagedOutcome(
+  inputDir: string,
+  project: string | null,
+  port: number,
+  sourceHash: string,
+  previousFailureAt: string | null = null,
+): Promise<ManagedStudioOutcome> {
   const deadline = Date.now() + START_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const probe = await probeHealth(port);
@@ -359,19 +424,31 @@ async function waitForHealth(inputDir: string, project: string | null, port: num
         "studio.port-owned-by-other-project",
         `Port ${port} started an INM Studio for '${probe.health.inputDir}'${probe.health.project ? ` project '${probe.health.project}'` : ""}, not the requested target.`,
       );
-      if (probe.health.sourceHash !== sourceHash || probe.health.managerSourceHash !== sourceHash) throw new CliCommandError(
-        "studio.source-mismatch",
-        `Studio on port ${port} started with server ${probe.health.sourceHash.slice(0, 12)} and manager ${probe.health.managerSourceHash.slice(0, 12)}, expected ${sourceHash.slice(0, 12)}.`,
+      const state = await readState(inputDir, port);
+      if (!state) throw new CliCommandError(
+        "studio.manager-transition-unverified",
+        `Studio on port ${port} became healthy without valid managed lifecycle state.`,
       );
-      return probe.health;
+      if (state.supervisor.phase === "degraded"
+        && state.supervisor.failure
+        && state.supervisor.failure.at !== previousFailureAt) return { health: probe.health, state };
+      if (probe.health.sourceHash === sourceHash
+        && state.supervisor.phase === "current") return { health: probe.health, state };
     }
     if (probe.kind === "foreign") throw new CliCommandError(
       "studio.port-owned-by-unknown-service",
       `Port ${port} is occupied by a service that does not identify as this INM Studio.`,
     );
+    const state = await readState(inputDir, port);
+    if (state && managerStateIsLive(state)
+      && state.supervisor.phase === "degraded"
+      && state.supervisor.failure
+      && state.supervisor.failure.at !== previousFailureAt) {
+      return { health: null, state };
+    }
     await Bun.sleep(100);
   }
-  throw new CliCommandError("studio.start-timeout", `Studio did not become healthy on port ${port} within ${START_TIMEOUT_MS / 1000}s.`);
+  throw new CliCommandError("studio.start-timeout", `Studio did not become healthy or report a bounded startup failure on port ${port} within ${START_TIMEOUT_MS / 1000}s.`);
 }
 
 function processIsAlive(pid: number): boolean {
@@ -383,27 +460,68 @@ function processIsAlive(pid: number): boolean {
   }
 }
 
+function managerStateIsLive(state: StudioState): boolean {
+  if (state.pid === null || state.supervisor.phase === "stopping" || !processIsAlive(state.pid)) return false;
+  const heartbeat = Date.parse(state.supervisor.heartbeatAt);
+  return Number.isFinite(heartbeat) && Date.now() - heartbeat >= 0 && Date.now() - heartbeat <= 5_000;
+}
+
+async function retryManagedSupervisor(
+  inputDir: string,
+  project: string | null,
+  port: number,
+  state: StudioState,
+  sourceHash: string,
+): Promise<ManagedStudioOutcome> {
+  if (!managerStateIsLive(state) || state.pid === null) throw new CliCommandError(
+    "studio.manager-not-running",
+    `Studio supervisor for port ${port} is not running.`,
+  );
+  const previousFailureAt = state.supervisor.failure?.at ?? null;
+  try {
+    process.kill(state.pid, "SIGUSR1");
+  } catch (error) {
+    throw new CliCommandError(
+      "studio.manager-retry-failed",
+      `Could not request a Studio source retry from supervisor ${state.pid}: ${error instanceof Error ? error.message : String(error)}`,
+      { retryable: true },
+    );
+  }
+  return waitForManagedOutcome(inputDir, project, port, sourceHash, previousFailureAt);
+}
+
 async function runProcess(command: string, args: string[]): Promise<{ exitCode: number; stderr: string }> {
   const child = Bun.spawn([command, ...args], { stdout: "ignore", stderr: "pipe" });
   const [exitCode, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
   return { exitCode, stderr: stderr.trim() };
 }
 
+async function waitForProcessExit(pid: number): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if (!processIsAlive(pid)) return;
+    await Bun.sleep(50);
+  }
+  throw new CliCommandError("studio.stop-timeout", `Studio supervisor ${pid} did not exit within 5s.`);
+}
+
 async function unload(state: StudioState, health: StudioHealth | null): Promise<void> {
-  if (state.backend === "launchd") {
+  const ownsManager = health ? stateVerifiesHealth(state, health) : managerStateIsLive(state);
+  if (ownsManager && state.backend === "launchd") {
     const domain = `gui/${process.getuid?.()}`;
     const unloaded = await runProcess("launchctl", ["bootout", `${domain}/${state.label}`]);
-    if (unloaded.exitCode !== 0 && health) throw new CliCommandError(
+    if (unloaded.exitCode !== 0) throw new CliCommandError(
       "studio.manager-failed",
       `Could not stop Studio through launchd: ${unloaded.stderr || `exit ${unloaded.exitCode}`}`,
     );
-  } else if (state.pid !== null && (!health || stateVerifiesHealth(state, health))) {
+  } else if (ownsManager && state.pid !== null) {
     try {
       process.kill(state.pid, "SIGTERM");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
     }
   }
+  if (ownsManager && state.pid !== null) await waitForProcessExit(state.pid);
   await rm(statePath(state.inputDir, state.port), { force: true });
 }
 
@@ -427,12 +545,22 @@ async function startManaged(inputDir: string, options: ResolvedStudioLifecycleOp
       `Port ${options.port} already serves '${existing.health.inputDir}'${existing.health.project ? ` project '${existing.health.project}'` : ""}.`,
     );
     if (existing.health.sourceHash === sourceHash && existing.health.managerSourceHash === sourceHash) {
-      return result("start", "reused", inputDir, options, existing.health, sourceHash, logPath);
+      return result("start", "reused", inputDir, options, existing.health, sourceHash, logPath, localState);
     }
     if (!localState || !stateVerifiesHealth(localState, existing.health)) throw new CliCommandError(
       "studio.stale-unmanaged-instance",
       `Port ${options.port} serves stale server/manager source ${existing.health.sourceHash.slice(0, 12)}/${existing.health.managerSourceHash.slice(0, 12)}, but matching managed ownership could not be verified. Stop its owning foreground process explicitly.`,
     );
+    if (localState.supervisor.phase === "degraded") {
+      const outcome = await retryManagedSupervisor(
+        inputDir,
+        options.project ?? null,
+        options.port,
+        localState,
+        sourceHash,
+      );
+      return result("start", "reused", inputDir, options, outcome.health, sourceHash, logPath, outcome.state);
+    }
     await unload(localState, existing.health);
     await waitForFreePort(options.port);
   }
@@ -441,15 +569,11 @@ async function startManaged(inputDir: string, options: ResolvedStudioLifecycleOp
     `Port ${options.port} is occupied by an unknown service. Choose another port or stop that service explicitly.`,
   );
   if (existing.kind === "free" && localState?.pid !== null && localState?.pid !== undefined
-    && processIsAlive(localState.pid)) {
-    const health = await waitForHealth(inputDir, options.project ?? null, options.port, sourceHash);
-    if (!stateVerifiesHealth(await readState(inputDir, options.port) ?? localState, health)) {
-      throw new CliCommandError(
-        "studio.manager-transition-unverified",
-        `Studio manager ${localState.pid} recovered port ${options.port}, but its live identity no longer matches managed state.`,
-      );
-    }
-    return result("start", "reused", inputDir, options, health, sourceHash, logPath);
+    && managerStateIsLive(localState)) {
+    const outcome = localState.supervisor.phase === "degraded"
+      ? await retryManagedSupervisor(inputDir, options.project ?? null, options.port, localState, sourceHash)
+      : await waitForManagedOutcome(inputDir, options.project ?? null, options.port, sourceHash);
+    return result("start", "reused", inputDir, options, outcome.health, sourceHash, logPath, outcome.state);
   }
 
   const runtimeDir = runtimeDirectory(inputDir, options.port);
@@ -457,7 +581,7 @@ async function startManaged(inputDir: string, options: ResolvedStudioLifecycleOp
   await rotateStudioLog(logPath);
   const useLaunchd = platform() === "darwin" && process.env.INM_STUDIO_BACKEND !== "detached";
   const state: StudioState = {
-    version: 4,
+    version: 5,
     backend: useLaunchd ? "launchd" : "detached",
     inputDir,
     project: options.project ?? null,
@@ -468,6 +592,15 @@ async function startManaged(inputDir: string, options: ResolvedStudioLifecycleOp
     pid: null,
     sourceHash,
     managerSourceHash: sourceHash,
+    supervisor: {
+      phase: "starting",
+      attemptedSourceHash: sourceHash,
+      childPid: null,
+      generation: 0,
+      heartbeatAt: new Date().toISOString(),
+      retry: "none",
+      failure: null,
+    },
     startedAt: new Date().toISOString(),
   };
   await writeState(state);
@@ -504,17 +637,14 @@ async function startManaged(inputDir: string, options: ResolvedStudioLifecycleOp
         closeSync(logFd);
       }
     }
-    const health = await waitForHealth(inputDir, options.project ?? null, options.port, sourceHash);
-    if (health.managerPid === null) throw new CliCommandError(
+    const outcome = await waitForManagedOutcome(inputDir, options.project ?? null, options.port, sourceHash);
+    if (outcome.health && outcome.health.managerPid === null) throw new CliCommandError(
       "studio.manager-missing",
       `Managed Studio on port ${options.port} did not report its supervisor identity.`,
     );
-    state.pid = health.managerPid;
-    state.startedAt = health.startedAt;
-    await writeState(state);
-    return result("start", "running", inputDir, options, health, sourceHash, logPath);
+    return result("start", "running", inputDir, options, outcome.health, sourceHash, logPath, outcome.state);
   } catch (error) {
-    await unload(state, null).catch(() => undefined);
+    await unload(await readState(inputDir, options.port) ?? state, null).catch(() => undefined);
     throw error;
   }
 }
@@ -527,10 +657,30 @@ function result(
   health: StudioHealth | null,
   expectedSourceHash: string,
   logPath = join(runtimeDirectory(inputDir, options.port), "studio.log"),
+  managedState: StudioState | null = null,
 ): StudioLifecycleResult {
+  const supervisor = health?.supervisor ?? managedState?.supervisor ?? null;
+  const lifecycleState = supervisor?.phase === "degraded"
+    ? "degraded"
+    : supervisor && (supervisor.phase === "starting" || supervisor.phase === "adopting")
+      ? "recovering"
+      : state;
+  const runningHash = health?.sourceHash
+    ?? (supervisor?.childPid ? managedState?.sourceHash ?? null : null);
+  const managerRunningHash = health?.managerSourceHash
+    ?? (managedState && managerStateIsLive(managedState)
+      ? managedState.managerSourceHash
+      : null);
+  const sourceState = supervisor?.phase === "degraded"
+    ? "degraded"
+    : supervisor && (supervisor.phase === "starting" || supervisor.phase === "adopting")
+      ? "recovering"
+      : health
+        ? (health.sourceHash === expectedSourceHash && health.managerSourceHash === expectedSourceHash ? "current" : "stale")
+        : "not-running";
   return {
     action,
-    state,
+    state: lifecycleState,
     health,
     inputDir,
     project: options.project ?? null,
@@ -539,15 +689,14 @@ function result(
     url: health?.url ?? `http://127.0.0.1:${options.port}${options.project ? `/${encodeURIComponent(options.project)}` : ""}`,
     pid: health?.pid ?? null,
     logPath,
+    supervisor,
     source: {
-      state: health
-        ? (health.sourceHash === expectedSourceHash && health.managerSourceHash === expectedSourceHash ? "current" : "stale")
-        : "not-running",
+      state: sourceState,
       expectedHash: expectedSourceHash,
-      runningHash: health?.sourceHash ?? null,
-      managerRunningHash: health?.managerSourceHash ?? null,
-      serverState: health ? (health.sourceHash === expectedSourceHash ? "current" : "stale") : "not-running",
-      managerState: health ? (health.managerSourceHash === expectedSourceHash ? "current" : "stale") : "not-running",
+      runningHash,
+      managerRunningHash,
+      serverState: runningHash ? (runningHash === expectedSourceHash ? "current" : "stale") : "not-running",
+      managerState: managerRunningHash ? (managerRunningHash === expectedSourceHash ? "current" : "stale") : "not-running",
     },
   };
 }
@@ -565,9 +714,18 @@ async function currentStatus(inputDir: string, options: ResolvedStudioLifecycleO
       "studio.port-owned-by-other-project",
       `Port ${options.port} serves '${probe.health.inputDir}'${probe.health.project ? ` project '${probe.health.project}'` : ""}, not this target.`,
     );
-    return result("status", "running", inputDir, options, probe.health, sourceHash, localState?.logPath);
+    return result("status", "running", inputDir, options, probe.health, sourceHash, localState?.logPath, localState);
   }
-  return result("status", "not-running", inputDir, options, null, sourceHash, localState?.logPath);
+  return result(
+    "status",
+    "not-running",
+    inputDir,
+    options,
+    null,
+    sourceHash,
+    localState?.logPath,
+    localState && managerStateIsLive(localState) ? localState : null,
+  );
 }
 
 async function stopManaged(inputDir: string, options: ResolvedStudioLifecycleOptions): Promise<StudioLifecycleResult> {
@@ -639,6 +797,14 @@ export async function experimentSessionCommand(
     port: selectedPort.port,
     portSelection: selectedPort.portSelection,
   });
+  if (lifecycle.state === "degraded" || lifecycle.state === "recovering") {
+    const failure = lifecycle.supervisor?.failure;
+    throw new CliCommandError(
+      "session.studio-degraded",
+      `Studio session is ${lifecycle.state} while adopting ${lifecycle.supervisor?.attemptedSourceHash.slice(0, 12) ?? "unknown source"}${failure ? `: ${failure.phase} · ${failure.message}` : "."}`,
+      { retryable: true, context },
+    );
+  }
   const baseUrl = `http://127.0.0.1:${lifecycle.port}`;
   const projectId = encodeURIComponent(manifest.id);
   const catalog = await responseJson<{
@@ -720,6 +886,10 @@ function emit(lifecycle: StudioLifecycleResult, context: ReturnType<typeof manif
     ? "INM Studio already running"
     : lifecycle.state === "running"
       ? "INM Studio running"
+      : lifecycle.state === "degraded"
+        ? "INM Studio degraded"
+        : lifecycle.state === "recovering"
+          ? "INM Studio recovering"
       : lifecycle.state === "stopped"
         ? "INM Studio stopped"
         : "INM Studio is not running";
@@ -729,6 +899,12 @@ function emit(lifecycle: StudioLifecycleResult, context: ReturnType<typeof manif
     `Port: ${lifecycle.port} · ${lifecycle.portSelection.toUpperCase()}`,
     `PID: ${lifecycle.pid ?? "—"}`,
     `Source: ${lifecycle.source.state.toUpperCase()} · server ${lifecycle.source.serverState.toUpperCase()} ${lifecycle.source.runningHash?.slice(0, 12) ?? "—"} · manager ${lifecycle.source.managerState.toUpperCase()} ${lifecycle.source.managerRunningHash?.slice(0, 12) ?? "—"} · expected ${lifecycle.source.expectedHash.slice(0, 12)}`,
+    ...(lifecycle.supervisor ? [
+      `Supervisor: ${lifecycle.supervisor.phase.toUpperCase()} · generation ${lifecycle.supervisor.generation} · attempted ${lifecycle.supervisor.attemptedSourceHash.slice(0, 12)} · retry ${lifecycle.supervisor.retry.toUpperCase()}`,
+      ...(lifecycle.supervisor.failure
+        ? [`Failure: ${lifecycle.supervisor.failure.phase.toUpperCase()} · ${lifecycle.supervisor.failure.message}`]
+        : []),
+    ] : []),
     `Project root: ${lifecycle.inputDir}`,
     `Log: ${lifecycle.logPath}`,
     "",
@@ -789,6 +965,6 @@ export async function studioLifecycleCommand(
   if (action === "restart" && port.targetFound) await stopManaged(inputDir, resolvedOptions);
   const started = await startManaged(inputDir, resolvedOptions);
   const lifecycle = action === "restart" ? { ...started, action } : started;
-  if (!options.noOpen) openBrowser(lifecycle.url);
+  if (!options.noOpen && lifecycle.state !== "degraded" && lifecycle.state !== "recovering") openBrowser(lifecycle.url);
   emit(lifecycle, context, Boolean(options.json));
 }

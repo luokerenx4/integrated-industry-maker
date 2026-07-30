@@ -1,4 +1,5 @@
-import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { cp, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
@@ -37,10 +38,36 @@ function data(stdout: string) {
     command: string;
     data: {
       state: string;
-      health: { pid: number; managerPid: number | null; inputDir: string; url: string; service: string; sourceHash: string; managerSourceHash: string };
+      health: {
+        pid: number;
+        managerPid: number | null;
+        inputDir: string;
+        url: string;
+        service: string;
+        sourceHash: string;
+        managerSourceHash: string;
+        supervisor: {
+          phase: string;
+          attemptedSourceHash: string;
+          childPid: number | null;
+          generation: number;
+          heartbeatAt: string;
+          retry: string;
+          failure: null | { at: string; phase: string; message: string };
+        };
+      };
       logPath: string;
       port: number;
       portSelection: "explicit" | "managed" | "default" | "fallback";
+      supervisor: {
+        phase: string;
+        attemptedSourceHash: string;
+        childPid: number | null;
+        generation: number;
+        heartbeatAt: string;
+        retry: string;
+        failure: null | { at: string; phase: string; message: string };
+      } | null;
       source: {
         state: string;
         expectedHash: string;
@@ -301,6 +328,227 @@ test("managed Studio adopts changed runtime source on the same port without a li
   }
 }, 30_000);
 
+test("failed source adoption keeps the supervisor and last healthy server alive until a valid edit recovers", async () => {
+  const project = await temporaryProject("source-adoption-recovery");
+  const port = 52_450 + process.pid % 150;
+  const identityFile = join(project, "studio-source.sha256");
+  const firstHash = "1".repeat(64);
+  const failedHash = "2".repeat(64);
+  const recoveredHash = "3".repeat(64);
+  const environment = {
+    INM_STUDIO_SOURCE_HASH_FILE: identityFile,
+    INM_STUDIO_TEST_PREFLIGHT_FAILURE_HASH: failedHash,
+  };
+  await writeFile(identityFile, `${firstHash}\n`);
+
+  try {
+    const started = await runCli([
+      "studio", "start", project, "--port", String(port), "--no-open", "--json",
+    ], environment);
+    expect(started.exitCode).toBe(0);
+    const first = data(started.stdout).data.health;
+    expect(first).toEqual(expect.objectContaining({
+      sourceHash: firstHash,
+      managerSourceHash: firstHash,
+      supervisor: expect.objectContaining({ phase: "current" }),
+    }));
+
+    await writeFile(identityFile, `${failedHash}\n`);
+    let degraded: typeof first | null = null;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      await Bun.sleep(50);
+      const health = await fetch(`http://127.0.0.1:${port}/api/health`).then((response) => response.json()) as typeof first;
+      if (health.supervisor.phase === "degraded") {
+        degraded = health;
+        break;
+      }
+    }
+    expect(degraded).toEqual(expect.objectContaining({
+      pid: first.pid,
+      managerPid: first.managerPid,
+      sourceHash: firstHash,
+      managerSourceHash: firstHash,
+      supervisor: expect.objectContaining({
+        phase: "degraded",
+        attemptedSourceHash: failedHash,
+        childPid: first.pid,
+        retry: "source-change",
+        failure: expect.objectContaining({
+          phase: "preflight",
+          message: expect.stringContaining("Injected Studio source preflight failure"),
+        }),
+      }),
+    }));
+
+    const degradedStatus = await runCli([
+      "studio", "status", project, "--port", String(port), "--json",
+    ], environment);
+    expect(degradedStatus.exitCode).toBe(0);
+    expect(data(degradedStatus.stdout).data).toEqual(expect.objectContaining({
+      state: "degraded",
+      health: expect.objectContaining({ pid: first.pid, managerPid: first.managerPid }),
+      supervisor: expect.objectContaining({
+        phase: "degraded",
+        attemptedSourceHash: failedHash,
+        retry: "source-change",
+      }),
+      source: {
+        state: "degraded",
+        expectedHash: failedHash,
+        runningHash: firstHash,
+        managerRunningHash: firstHash,
+        serverState: "stale",
+        managerState: "stale",
+      },
+    }));
+
+    const logPath = data(started.stdout).data.logPath as string;
+    await Bun.sleep(300);
+    const failedBeforeExplicitRetry = (await readFile(logPath, "utf8")).trim().split("\n")
+      .map((line) => JSON.parse(line) as { component: string; event: string })
+      .filter((entry) => entry.component === "studio-supervisor" && entry.event === "source-adoption-failed");
+    expect(failedBeforeExplicitRetry).toHaveLength(1);
+
+    const session = await runCli([
+      "session", project,
+      "--experiment", "main",
+      "--port", String(port),
+      "--no-open",
+      "--json",
+    ], environment);
+    expect(session.exitCode).toBe(1);
+    expect(JSON.parse(session.stderr)).toEqual(expect.objectContaining({
+      ok: false,
+      command: "session",
+      error: expect.objectContaining({
+        code: "session.studio-degraded",
+        retryable: true,
+        message: expect.stringContaining("preflight"),
+      }),
+    }));
+    expect(await fetch(`http://127.0.0.1:${port}/api/health`).then((response) => response.status)).toBe(200);
+
+    await writeFile(identityFile, `${recoveredHash}\n`);
+    let recovered: typeof first | null = null;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      await Bun.sleep(50);
+      try {
+        const health = await fetch(`http://127.0.0.1:${port}/api/health`).then((response) => response.json()) as typeof first;
+        if (health.sourceHash === recoveredHash && health.supervisor.phase === "current") {
+          recovered = health;
+          break;
+        }
+      } catch {
+        // The preflight passed and the supervisor is performing one bounded child handoff.
+      }
+    }
+    expect(recovered).toEqual(expect.objectContaining({
+      sourceHash: recoveredHash,
+      managerSourceHash: firstHash,
+      managerPid: first.managerPid,
+      supervisor: expect.objectContaining({
+        phase: "current",
+        attemptedSourceHash: recoveredHash,
+        retry: "none",
+        failure: null,
+      }),
+    }));
+    expect(recovered!.pid).not.toBe(first.pid);
+
+    const lifecycleEvents = (await readFile(logPath, "utf8")).trim().split("\n")
+      .map((line) => JSON.parse(line) as { component: string; event: string; failurePhase?: string })
+      .filter((entry) => entry.component === "studio-supervisor");
+    expect(lifecycleEvents).toEqual(expect.arrayContaining([
+      expect.objectContaining({ event: "source-adoption-failed", failurePhase: "preflight" }),
+      expect.objectContaining({ event: "source-retry-requested" }),
+      expect.objectContaining({ event: "source-adoption-ready" }),
+    ]));
+  } finally {
+    await runCli(["studio", "stop", project, "--port", String(port), "--json"], environment);
+  }
+}, 30_000);
+
+test("rapid source edits serialize adoption and skip a superseded handoff", async () => {
+  const project = await temporaryProject("serialized-source-adoption");
+  const port = 52_610 + process.pid % 90;
+  const identityFile = join(project, "studio-source.sha256");
+  const firstHash = "4".repeat(64);
+  const supersededHash = "5".repeat(64);
+  const finalHash = "6".repeat(64);
+  const environment = {
+    INM_STUDIO_SOURCE_HASH_FILE: identityFile,
+    INM_STUDIO_TEST_PREFLIGHT_DELAY_HASH: supersededHash,
+    INM_STUDIO_TEST_PREFLIGHT_DELAY_MS: "300",
+  };
+  await writeFile(identityFile, `${firstHash}\n`);
+
+  try {
+    const started = await runCli([
+      "studio", "start", project, "--port", String(port), "--no-open", "--json",
+    ], environment);
+    expect(started.exitCode).toBe(0);
+    const first = data(started.stdout).data.health;
+
+    await writeFile(identityFile, `${supersededHash}\n`);
+    let adopting = false;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      await Bun.sleep(25);
+      const health = await fetch(`http://127.0.0.1:${port}/api/health`).then((response) => response.json()) as typeof first;
+      if (health.supervisor.phase === "adopting"
+        && health.supervisor.attemptedSourceHash === supersededHash) {
+        adopting = true;
+        break;
+      }
+    }
+    expect(adopting).toBe(true);
+    await writeFile(identityFile, `${finalHash}\n`);
+
+    let recovered: typeof first | null = null;
+    for (let attempt = 0; attempt < 150; attempt += 1) {
+      await Bun.sleep(25);
+      try {
+        const health = await fetch(`http://127.0.0.1:${port}/api/health`).then((response) => response.json()) as typeof first;
+        if (health.sourceHash === finalHash && health.supervisor.phase === "current") {
+          recovered = health;
+          break;
+        }
+      } catch {
+        // One bounded handoff occurs only after the final hash passes preflight.
+      }
+    }
+    expect(recovered).toEqual(expect.objectContaining({
+      managerPid: first.managerPid,
+      sourceHash: finalHash,
+      supervisor: expect.objectContaining({
+        phase: "current",
+        generation: 2,
+      }),
+    }));
+    expect(recovered!.pid).not.toBe(first.pid);
+
+    const lifecycleEvents = (await readFile(data(started.stdout).data.logPath, "utf8")).trim().split("\n")
+      .map((line) => JSON.parse(line) as {
+        component: string;
+        event: string;
+        reason?: string;
+        attemptedSourceHash?: string;
+        preparedSourceHash?: string;
+        latestSourceHash?: string;
+      })
+      .filter((entry) => entry.component === "studio-supervisor");
+    expect(lifecycleEvents).toContainEqual(expect.objectContaining({
+      event: "source-adoption-superseded",
+      preparedSourceHash: supersededHash,
+      latestSourceHash: finalHash,
+    }));
+    expect(lifecycleEvents.filter((entry) => entry.event === "server-started" && entry.reason === "source-adoption")).toEqual([
+      expect.objectContaining({ attemptedSourceHash: finalHash }),
+    ]);
+  } finally {
+    await runCli(["studio", "stop", project, "--port", String(port), "--json"], environment);
+  }
+}, 30_000);
+
 test("an abandoned detached test Studio exits when its idle lease expires", async () => {
   const project = await temporaryProject("leased");
   const port = 52_500 + process.pid % 400;
@@ -483,6 +731,68 @@ test("Studio stop refuses managed state whose ownership fields no longer verify 
   } finally {
     if (originalState !== undefined) await writeFile(stateFile, originalState);
     await runCli(["studio", "stop", project, "--port", String(port), "--json"]);
+  }
+}, 30_000);
+
+test("stale manager heartbeat cannot claim or terminate an unrelated reused PID", async () => {
+  const project = await temporaryProject("stale-manager-heartbeat");
+  const port = 58_720 + process.pid % 80;
+  const runtimeDir = join(project, ".inm", "studio", String(port));
+  const stateFile = join(runtimeDir, "state.json");
+  const sourceHash = "d".repeat(64);
+  const unrelated = Bun.spawn([process.execPath, "-e", "setInterval(() => {}, 1_000)"], {
+    stdin: "ignore",
+    stdout: "ignore",
+    stderr: "ignore",
+  });
+  const staleAt = new Date(Date.now() - 60_000).toISOString();
+
+  try {
+    await mkdir(runtimeDir, { recursive: true });
+    await writeFile(stateFile, `${JSON.stringify({
+      version: 5,
+      backend: "detached",
+      inputDir: project,
+      project: null,
+      port,
+      label: `com.inm.studio.${createHash("sha256").update(`${project}\0${port}`).digest("hex").slice(0, 16)}.${port}`,
+      logPath: join(runtimeDir, "studio.log"),
+      plistPath: null,
+      pid: unrelated.pid,
+      sourceHash,
+      managerSourceHash: sourceHash,
+      supervisor: {
+        phase: "degraded",
+        attemptedSourceHash: sourceHash,
+        childPid: null,
+        generation: 0,
+        heartbeatAt: staleAt,
+        retry: "source-change",
+        failure: {
+          at: staleAt,
+          phase: "startup",
+          message: "abandoned manager state",
+        },
+      },
+      startedAt: staleAt,
+    }, null, 2)}\n`);
+
+    const status = await runCli(["studio", "status", project, "--json"]);
+    expect(status.exitCode).toBe(0);
+    expect(data(status.stdout).data).toEqual(expect.objectContaining({
+      state: "not-running",
+      port,
+      portSelection: "managed",
+      supervisor: null,
+    }));
+
+    const stopped = await runCli(["studio", "stop", project, "--port", String(port), "--json"]);
+    expect(stopped.exitCode).toBe(0);
+    expect(data(stopped.stdout).data.state).toBe("stopped");
+    expect(() => process.kill(unrelated.pid, 0)).not.toThrow();
+  } finally {
+    unrelated.kill("SIGTERM");
+    await unrelated.exited;
   }
 }, 30_000);
 

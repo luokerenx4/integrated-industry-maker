@@ -85,6 +85,86 @@ const managerSourceHash = managerPid === null
 if (managerSourceHash === undefined || !/^[0-9a-f]{64}$/.test(managerSourceHash)) {
   throw new Error("INM_STUDIO_MANAGER_SOURCE_HASH must be a lowercase SHA-256 value for managed Studio");
 }
+const managedStatePath = managerPid === null
+  ? null
+  : process.env.INM_STUDIO_STATE_PATH;
+if (managerPid !== null && (!managedStatePath || !managedStatePath.startsWith("/"))) {
+  throw new Error("INM_STUDIO_STATE_PATH must be an absolute managed lifecycle state path");
+}
+type StudioSupervisorStatus = {
+  phase: "starting" | "current" | "adopting" | "degraded" | "stopping";
+  attemptedSourceHash: string;
+  childPid: number | null;
+  generation: number;
+  heartbeatAt: string;
+  retry: "none" | "source-change" | "explicit";
+  failure: null | {
+    at: string;
+    phase: "preflight" | "startup";
+    message: string;
+  };
+};
+const directSupervisorStatus: StudioSupervisorStatus = {
+  phase: "current",
+  attemptedSourceHash: sourceHash,
+  childPid: process.pid,
+  generation: 1,
+  heartbeatAt: new Date().toISOString(),
+  retry: "none",
+  failure: null,
+};
+async function currentSupervisorStatus(): Promise<StudioSupervisorStatus> {
+  if (managerPid === null || managedStatePath === null || managedStatePath === undefined) return directSupervisorStatus;
+  const currentStatePath = managedStatePath;
+  try {
+    const state = await readJson(currentStatePath) as {
+      version?: unknown;
+      inputDir?: unknown;
+      port?: unknown;
+      pid?: unknown;
+      managerSourceHash?: unknown;
+      supervisor?: unknown;
+    };
+    const status = state.supervisor as Partial<StudioSupervisorStatus> | undefined;
+    if (state.version === 5
+      && state.inputDir === inputDir
+      && state.port === port
+      && state.pid === managerPid
+      && state.managerSourceHash === managerSourceHash
+      && status
+      && ["starting", "current", "adopting", "degraded", "stopping"].includes(status.phase ?? "")
+      && /^[0-9a-f]{64}$/.test(status.attemptedSourceHash ?? "")
+      && (status.childPid === null || (Number.isSafeInteger(status.childPid) && status.childPid! > 0))
+      && Number.isSafeInteger(status.generation)
+      && status.generation! >= 0
+      && typeof status.heartbeatAt === "string"
+      && Number.isFinite(Date.parse(status.heartbeatAt))
+      && ["none", "source-change", "explicit"].includes(status.retry ?? "")
+      && (status.failure === null || (
+        typeof status.failure === "object"
+        && typeof status.failure.at === "string"
+        && Number.isFinite(Date.parse(status.failure.at))
+        && ["preflight", "startup"].includes(status.failure.phase)
+        && typeof status.failure.message === "string"
+        && status.failure.message.length > 0
+      ))) return status as StudioSupervisorStatus;
+  } catch {
+    // The stable fallback keeps health machine-readable while state is replaced atomically.
+  }
+  return {
+    phase: "degraded",
+    attemptedSourceHash: sourceHash,
+    childPid: process.pid,
+    generation: 0,
+    heartbeatAt: new Date().toISOString(),
+    retry: "source-change",
+    failure: {
+      at: new Date().toISOString(),
+      phase: "startup",
+      message: "Managed supervisor state is temporarily unavailable or invalid.",
+    },
+  };
+}
 const configuredIdleExitMs = process.env.INM_STUDIO_IDLE_EXIT_MS === undefined
   ? null
   : Number(process.env.INM_STUDIO_IDLE_EXIT_MS);
@@ -539,7 +619,7 @@ const server = Bun.serve({
         const rootUrl = `http://127.0.0.1:${port}`;
         return Response.json({
           service: "inm-studio",
-          protocolVersion: 4,
+          protocolVersion: 5,
           engineVersion: ENGINE_VERSION,
           pid: process.pid,
           managerPid,
@@ -547,6 +627,7 @@ const server = Bun.serve({
           project: values.project ?? null,
           sourceHash,
           managerSourceHash,
+          supervisor: await currentSupervisorStatus(),
           startedAt,
           url: values.project ? `${rootUrl}/${encodeURIComponent(values.project)}` : rootUrl,
         });

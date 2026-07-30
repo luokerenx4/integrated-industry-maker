@@ -1,6 +1,6 @@
 # Evidence-backed metrology standby investigation
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-30`
 - Related design: [[docs/design/industrial-investigations]], [[docs/design/equipment-energy-states]], [[docs/design/coding-agent-optimization]], [[docs/design/observation-led-design]], and [[docs/design/agent-cli-contract]].
 
@@ -45,7 +45,7 @@ The current operations stack is not the blocker: measured `studio status` comple
 - [x] The metrology Candidate changes only `inspection-1` asset/policy, runs all five locked cases plus current-factory comparison, and receives a strict reproducible review receipt.
 - [x] The Investigation ends with the exact review evidence and an explicit `discard` decision; the Blueprint remains unchanged.
 - [x] Targeted Core/CLI/Studio tests, project validation, real memory-fab evidence inspection, and the full repository checkpoint pass.
-- [ ] The introduced Candidate-review evidence receives exact Studio visual verification.
+- [x] The introduced Candidate-review evidence receives exact Studio visual verification.
 
 ## Work
 
@@ -55,7 +55,7 @@ The current operations stack is not the blocker: measured `studio status` comple
 - [x] Evaluate the locked Candidate, make the human/Agent disposition from its exact evidence, and append both evidence and decision to the Investigation.
 - [x] Do not apply the `DISCARD` Candidate; preserve the incumbent Blueprint and exact negative evidence.
 - [x] Update lasting contracts, complete the full nonvisual verification, and prepare a coherent checkpoint.
-- [ ] Complete exact Studio visual verification; do not substitute API or route tests for pixels.
+- [x] Complete exact Studio visual verification; do not substitute API or route tests for pixels.
 
 ## Findings and decisions
 
@@ -75,7 +75,7 @@ The current operations stack is not the blocker: measured `studio status` comple
 - Candidate review: proposal `0a666ec26a4a6e2d6955b6eaa9a5ffb76625fb4e67f26b32e55e6a4e9082869e`, result `816f065fd250ddfe40fba4b65b0821be458cf97223309b3564240912651bf7f0`, verdict `DISCARD`, proposed Blueprint `270521ff24a6a0625431e27a5f564ca2e1b2b81a6208fe2644cf979acdc0e150`.
 - Investigation inspection shows all four accumulated anchors current and entry `0003-metrology-standby-rejected` at hash `a6d165f99d4f6c11d5daa03149cd4aa61834d2b9746507570558ab7f1242d82d`.
 - Core, CLI, and Studio type checks passed. Targeted regression: 33 tests / 1,406 assertions. Final full checkpoint: 318 tests / 3,485 assertions plus eight Ironworks fixtures.
-- Exact new Studio visual verification remains pending because the controlled browser rejected its own Chromium error-page transition back to `localhost`; API and route tests are not being misreported as visual evidence.
+- Exact Studio visual verification passed on the live `/<project>/investigations/<id>` route. The current DISCARD Candidate card, evidence navigation, immutable decision entry, introduced-anchor label, and append form all render legibly without clipping or overlap.
 
 ## Progress log
 
@@ -83,6 +83,7 @@ The current operations stack is not the blocker: measured `studio status` comple
 - 2026-07-30 — Implemented append-only Candidate-review evidence across Core, CLI, Studio, and schemas; added strict current/historical/missing/invalid coverage.
 - 2026-07-30 — Authored and reviewed the self-contained low-power metrology option, recorded the negative five-case/current-factory result, and appended the exact DISCARD decision without mutating the Blueprint.
 - 2026-07-30 — Passed fast checks, strict project validation, real four-anchor Investigation inspection, 33 targeted tests, 318 full repository tests, and all eight Ironworks fixtures. Exact visual verification remains the sole active-plan acceptance item.
+- 2026-07-30 — Completed live Studio visual verification through the controlled browser. The fourth Candidate-review card, `0003` DISCARD decision, introduced evidence label, and append controls are all visible and coherent; the plan is complete.
 
 ## Completion
 

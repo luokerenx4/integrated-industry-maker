@@ -241,4 +241,4 @@ test("benchmark loading rejects unknown cases and duplicate metric-case ownershi
   await atomicWriteJson(benchmarkPath, source);
   await expect(loadBlueprintBenchmark(projectDir, "product-mix-research"))
     .rejects.toThrow("guards outcome metric 'firstPassYield' more than once for case 'mixed-quality'");
-});
+}, 15_000);

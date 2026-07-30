@@ -217,8 +217,8 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
     id: `studio.${action}`,
     usage: `inm studio ${action} <path> [--project ID] [--port N]${action === "start" || action === "restart" || action === "serve" ? " [--no-open]" : ""}${action === "serve" ? "" : " [--json]"}`,
     description: ({
-      start: "Start or idempotently reuse a managed local Studio server.",
-      status: "Discover and inspect the exact managed Studio project, URL, PID, and log.",
+      start: "Start, retry, or idempotently reuse a managed local Studio server.",
+      status: "Discover and inspect the exact managed Studio project, URL, PIDs, source-adoption state, and log.",
       restart: "Discover and restart the verified managed Studio from current source.",
       stop: "Discover and stop only the verified managed Studio for this target.",
       serve: "Run Studio directly in the foreground for debugging and tests.",

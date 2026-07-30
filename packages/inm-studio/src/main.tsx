@@ -15,6 +15,19 @@ import { InvestigationWorkbench } from "./investigation-workbench";
 import { parseStudioWatchMessage } from "./watch-protocol";
 
 type Status = "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
+type StudioSupervisorStatus = {
+  phase: "starting" | "current" | "adopting" | "degraded" | "stopping";
+  attemptedSourceHash: string;
+  childPid: number | null;
+  generation: number;
+  heartbeatAt: string;
+  retry: "none" | "source-change" | "explicit";
+  failure: null | {
+    at: string;
+    phase: "preflight" | "startup";
+    message: string;
+  };
+};
 
 interface ResourceVisual {
   shape?: string;
@@ -3651,4 +3664,47 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+function SupervisorNotice() {
+  const [status, setStatus] = useState<StudioSupervisorStatus | null>(null);
+  useEffect(() => {
+    let disposed = false;
+    let timer: number | undefined;
+    const refresh = async () => {
+      try {
+        const response = await fetch("/api/health", {
+          headers: { accept: "application/json" },
+          cache: "no-store",
+        });
+        const health = await response.json() as { supervisor?: StudioSupervisorStatus };
+        if (!disposed) setStatus(health.supervisor ?? null);
+      } catch {
+        if (!disposed) setStatus(null);
+      } finally {
+        if (!disposed) timer = window.setTimeout(refresh, 1_000);
+      }
+    };
+    void refresh();
+    return () => {
+      disposed = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, []);
+  if (!status || status.phase === "current" || status.phase === "stopping") return null;
+  const degraded = status.phase === "degraded";
+  return <aside className={`source-adoption-notice ${degraded ? "degraded" : "recovering"}`} role="status" aria-live="polite">
+    <span>{degraded ? "SOURCE ADOPTION PAUSED" : "SOURCE RECOVERY"}</span>
+    <strong>{degraded
+      ? status.childPid
+        ? "Serving the last healthy Studio while the new source is invalid."
+        : "Supervisor is alive; Studio will return after a valid source edit."
+      : "Validating and adopting the changed Studio source…"}</strong>
+    <code>attempted {status.attemptedSourceHash.slice(0, 12)} · generation {status.generation} · retry {status.retry}</code>
+    {status.failure && <small>{status.failure.phase.toUpperCase()} · {status.failure.message}</small>}
+  </aside>;
+}
+
+function StudioRoot() {
+  return <><SupervisorNotice /><App /></>;
+}
+
+createRoot(document.getElementById("root")!).render(<StudioRoot />);

@@ -67,6 +67,12 @@ main { height: 100vh; display: grid; grid-template-rows: 72px minmax(0, 1fr) 68p
 main.project-shell { grid-template-rows: 72px minmax(0, 1fr); }
 main.syncing::after { content: ""; position: fixed; z-index: 20; left: 0; top: 71px; width: 100%; height: 1px; background: linear-gradient(90deg, transparent, var(--mint), transparent); animation: sync 1.1s linear infinite; }
 @keyframes sync { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.source-adoption-notice { position: fixed; z-index: 120; top: 10px; right: 12px; width: min(430px, calc(100vw - 24px)); display: grid; gap: 4px; padding: 10px 13px; color: #cfddd8; border: 1px solid #9f7b2f; border-left: 4px solid #e8b94d; border-radius: 6px; background: #17150df2; box-shadow: 0 12px 32px #0008; backdrop-filter: blur(14px); }
+.source-adoption-notice span { color: #f0c75d; font: 8px var(--mono); letter-spacing: .16em; }
+.source-adoption-notice strong { font-size: 11px; line-height: 1.35; }
+.source-adoption-notice code, .source-adoption-notice small { overflow: hidden; color: #8fa299; font: 8px var(--mono); line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.source-adoption-notice.recovering { border-color: #2c7567; border-left-color: var(--mint); background: #0b1c19f2; }
+.source-adoption-notice.recovering span { color: var(--mint); }
 .project-header { display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--line); background: #071014e8; backdrop-filter: blur(16px); z-index: 3; }
 .header-project { min-width: 0; display: flex; align-items: center; gap: 12px; }
 .back-button { width: 34px; height: 40px; display: grid; place-items: center; flex: 0 0 auto; padding: 0; color: #afc5cc; border: 1px solid #1c3942; border-radius: 6px; background: #0c1a1f; font: 17px var(--mono); text-decoration: none; }
