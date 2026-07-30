@@ -256,14 +256,19 @@ The command receives `ResearchInput` JSON on stdin—including the target-rate c
 }
 ```
 
-### `inm session <project-or-workspace-dir> --experiment ID [--run] [--project ID] [--port N] [--no-open]`
+### `inm session <project-or-workspace-dir> [--experiment ID [--run]] [--project ID] [--port N] [--no-open]`
 
-Enters one exact project-local Experiment session without composing lifecycle, port discovery, and navigation commands manually. The command ensures a managed source-current Studio, safely replacing only a verified stale instance, resolves the authored Experiment, and opens its lightweight project-qualified route. Omit `--port` for the ordinary managed/default/fallback discovery policy. If source adoption is degraded, `session` requests one immediate supervised retry and returns stable `session.studio-degraded` evidence instead of waiting on or opening a refused port.
+Enters the exact current project work without composing lifecycle, port discovery, Workbench inspection, and navigation commands manually. The command ensures a managed source-current Studio, safely replacing only a verified stale instance, reads that Studio's authoritative `ProjectWorkbenchSnapshot`, and opens its exact shared `nextAction.studioRoute`. Omit `--port` for the ordinary managed/default/fallback discovery policy. If source adoption is degraded, `session` requests one immediate supervised retry and returns stable `session.studio-degraded` evidence instead of waiting on or opening a refused port.
 
-`--run` starts the locked evaluation through Studio's reconnectable operation registry and returns immediately; it does not wait for the Benchmark result. Human output prints the exact operation id and polling URL. JSON output returns the same lifecycle/source record, Experiment identity, route, URL, start/reuse state, complete initial operation snapshot, polling URL, and an exact next action. `--no-open` is intended for Agents or terminal-only use. Standalone `inm benchmark` remains the browser-free synchronous evaluator and shares the same Core contract without pretending its local process is reconnectable.
+Default human and JSON output return one strict `project-next-action` target with the same id, reason, argv, effect, confirmation boundary, typed target, route, and URL used by Studio. Session entry only navigates; it never executes the recommended action implicitly.
+
+Supplying `--experiment ID` instead selects one authored Experiment and its lightweight project-qualified route. In that explicit mode only, `--run` starts the locked evaluation through Studio's reconnectable operation registry and returns immediately; it does not wait for the Benchmark result. Human output prints the exact operation id and polling URL. JSON uses the same result union with an `experiment` target plus the lifecycle/source record, route, URL, start/reuse state, complete initial operation snapshot, polling URL, and an exact next action. `--run` without `--experiment` is a usage error rejected before lifecycle mutation. `--no-open` is intended for Agents or terminal-only use. Standalone `inm benchmark` remains the browser-free synchronous evaluator and shares the same Core contract without pretending its local process is reconnectable.
 
 ```bash
-# Human: repair/reuse Studio, open the workbench, and start the run.
+# Human: repair/reuse Studio and enter the shared current project action.
+bun run inm session examples/memory-fab
+
+# Human: explicitly open one Experiment and start its reconnectable run.
 bun run inm session examples/memory-fab \
   --experiment equipment-energy-research \
   --run

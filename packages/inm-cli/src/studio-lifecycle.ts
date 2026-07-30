@@ -4,7 +4,15 @@ import { chmod, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/
 import { platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
-import { manifestSchema, readJson, resolveProjectDirectory, stableStringify, studioSourceHash } from "@inm/core";
+import {
+  manifestSchema,
+  readJson,
+  resolveProjectDirectory,
+  stableStringify,
+  studioSourceHash,
+  type ProjectWorkbenchSnapshot,
+  type WorkbenchNextAction,
+} from "@inm/core";
 import type { OperationExecutionSnapshot, OperationExecutionStartResponse } from "@inm/core/operation-execution";
 import { CliCommandError, cliSuccess, manifestProjectContext } from "./contract";
 
@@ -29,8 +37,8 @@ export interface StudioLifecycleOptions {
   json?: boolean;
 }
 
-export interface ExperimentSessionOptions extends StudioLifecycleOptions {
-  experiment: string;
+export interface ProjectSessionOptions extends StudioLifecycleOptions {
+  experiment?: string;
   run?: boolean;
 }
 
@@ -110,14 +118,24 @@ export interface StudioLifecycleResult {
   };
 }
 
-export interface ExperimentSessionResult {
-  lifecycle: StudioLifecycleResult;
-  experiment: {
-    id: string;
-    name: string;
-    locked: boolean;
-    cases: number;
+export type ProjectSessionTarget =
+  | {
+    kind: "project-next-action";
+    nextAction: WorkbenchNextAction;
+  }
+  | {
+    kind: "experiment";
+    experiment: {
+      id: string;
+      name: string;
+      locked: boolean;
+      cases: number;
+    };
   };
+
+export interface ProjectSessionResult {
+  lifecycle: StudioLifecycleResult;
+  target: ProjectSessionTarget;
   route: string;
   url: string;
   operation: null | {
@@ -780,12 +798,15 @@ async function responseJson<T>(url: string, init?: RequestInit): Promise<T> {
   return value;
 }
 
-export async function experimentSessionCommand(
+export async function projectSessionCommand(
   input: string,
-  options: ExperimentSessionOptions,
+  options: ProjectSessionOptions,
 ): Promise<void> {
   if (options.port !== undefined && (!Number.isInteger(options.port) || options.port < 1 || options.port > 65_535)) {
     throw new Error("Usage: --port must be an integer from 1 to 65535");
+  }
+  if (options.run && !options.experiment) {
+    throw new Error("Usage: --run requires --experiment ID");
   }
   const inputDir = resolve(input);
   const projectDir = await resolveProjectDirectory(inputDir, options.project);
@@ -807,31 +828,45 @@ export async function experimentSessionCommand(
   }
   const baseUrl = `http://127.0.0.1:${lifecycle.port}`;
   const projectId = encodeURIComponent(manifest.id);
-  const catalog = await responseJson<{
-    experiments: Array<{ id: string; name: string; locked: boolean; cases: unknown[] }>;
-  }>(`${baseUrl}/api/projects/${projectId}/experiments`);
-  const selected = catalog.experiments.find((experiment) => experiment.id === options.experiment);
-  if (!selected) throw new CliCommandError(
-    "session.unknown-experiment",
-    `Unknown Experiment '${options.experiment}' in project '${manifest.id}'. Available: ${catalog.experiments.map((experiment) => experiment.id).join(", ") || "none"}.`,
-    { context },
-  );
-  const route = `/${projectId}/experiments/${encodeURIComponent(selected.id)}`;
+  let target: ProjectSessionTarget;
+  let route: string;
+  if (options.experiment) {
+    const catalog = await responseJson<{
+      experiments: Array<{ id: string; name: string; locked: boolean; cases: unknown[] }>;
+    }>(`${baseUrl}/api/projects/${projectId}/experiments`);
+    const selected = catalog.experiments.find((experiment) => experiment.id === options.experiment);
+    if (!selected) throw new CliCommandError(
+      "session.unknown-experiment",
+      `Unknown Experiment '${options.experiment}' in project '${manifest.id}'. Available: ${catalog.experiments.map((experiment) => experiment.id).join(", ") || "none"}.`,
+      { context },
+    );
+    target = {
+      kind: "experiment",
+      experiment: {
+        id: selected.id,
+        name: selected.name,
+        locked: selected.locked,
+        cases: selected.cases.length,
+      },
+    };
+    route = `/${projectId}/experiments/${encodeURIComponent(selected.id)}`;
+  } else {
+    const snapshot = await responseJson<ProjectWorkbenchSnapshot>(
+      `${baseUrl}/api/projects/${projectId}/overview`,
+    );
+    target = { kind: "project-next-action", nextAction: snapshot.nextAction };
+    route = snapshot.nextAction.studioRoute;
+  }
   const url = `${baseUrl}${route}`;
   const started = options.run
     ? await responseJson<OperationExecutionStartResponse>(
-      `${baseUrl}/api/projects/${projectId}/experiments/${encodeURIComponent(selected.id)}/run`,
+      `${baseUrl}/api/projects/${projectId}/experiments/${encodeURIComponent(options.experiment!)}/run`,
       { method: "POST" },
     )
     : null;
-  const result: ExperimentSessionResult = {
+  const result: ProjectSessionResult = {
     lifecycle,
-    experiment: {
-      id: selected.id,
-      name: selected.name,
-      locked: selected.locked,
-      cases: selected.cases.length,
-    },
+    target,
     route,
     url,
     operation: started ? {
@@ -842,36 +877,63 @@ export async function experimentSessionCommand(
   };
   if (!options.noOpen) openBrowser(url);
   if (options.json) {
-    process.stdout.write(`${stableStringify(cliSuccess("session", result, {
-      context,
-      nextActions: options.run ? [{
+    const nextActions = target.kind === "project-next-action"
+      ? [{
+        id: target.nextAction.id,
+        title: target.nextAction.title,
+        reason: target.nextAction.reason,
+        actionLabel: target.nextAction.actionLabel,
+        argv: target.nextAction.argv,
+        effect: target.nextAction.effect,
+        requiresConfirmation: target.nextAction.requiresConfirmation,
+        studioRoute: target.nextAction.studioRoute,
+        target: target.nextAction.target,
+      }]
+      : options.run ? [{
         id: "open-experiment-session",
         description: "Open or reconnect to the exact Studio Experiment session.",
-        argv: ["inm", "session", inputDir, ...(options.project ? ["--project", options.project] : []), "--experiment", selected.id],
-        effect: "read-only",
+        argv: ["inm", "session", inputDir, ...(options.project ? ["--project", options.project] : []), "--experiment", target.experiment.id],
+        effect: "read-only" as const,
         requiresConfirmation: false,
         studioRoute: route,
       }] : [{
         id: "run-experiment-session",
         description: "Start the locked Experiment as a reconnectable Studio operation.",
-        argv: ["inm", "session", inputDir, ...(options.project ? ["--project", options.project] : []), "--experiment", selected.id, "--run", "--json", "--no-open"],
-        effect: "read-only",
+        argv: ["inm", "session", inputDir, ...(options.project ? ["--project", options.project] : []), "--experiment", target.experiment.id, "--run", "--json", "--no-open"],
+        effect: "read-only" as const,
         requiresConfirmation: false,
         studioRoute: route,
-      }],
+      }];
+    process.stdout.write(`${stableStringify(cliSuccess("session", result, {
+      context,
+      nextActions,
     }), 2)}\n`);
     return;
   }
+  const targetLines = target.kind === "project-next-action"
+    ? [
+      `Target: PROJECT NEXT ACTION · ${target.nextAction.id}`,
+      `Next action: ${target.nextAction.title}`,
+      `Reason: ${target.nextAction.reason}`,
+      `Action: ${target.nextAction.actionLabel} · ${target.nextAction.effect.toUpperCase()}${target.nextAction.requiresConfirmation ? " · CONFIRMATION REQUIRED" : ""}`,
+      `CLI: ${target.nextAction.argv.map((part) => JSON.stringify(part)).join(" ")}`,
+    ]
+    : [
+      `Target: EXPERIMENT · ${target.experiment.id}`,
+      `Experiment: ${target.experiment.name} · ${target.experiment.cases} ${target.experiment.cases === 1 ? "case" : "cases"} · ${target.experiment.locked ? "LOCKED" : "UNLOCKED"}`,
+    ];
   process.stdout.write([
-    "INM Experiment session ready",
-    `Experiment: ${selected.name} · ${selected.id} · ${selected.cases.length} ${selected.cases.length === 1 ? "case" : "cases"} · ${selected.locked ? "LOCKED" : "UNLOCKED"}`,
+    target.kind === "experiment" ? "INM Experiment session ready" : "INM project session ready",
+    ...targetLines,
     `Studio: ${url}`,
     `Service: ${lifecycle.state.toUpperCase()} · port ${lifecycle.port} ${lifecycle.portSelection.toUpperCase()} · source ${lifecycle.source.state.toUpperCase()}`,
     ...(started ? [
       `Operation: ${started.operation.id} · ${started.operation.status.toUpperCase()}${started.reused ? " · RECONNECTED" : ""}`,
       `Poll: ${baseUrl}/api/projects/${projectId}/operations/${encodeURIComponent(started.operation.id)}`,
     ] : [
-      `Run: inm session ${JSON.stringify(inputDir)}${options.project ? ` --project ${JSON.stringify(options.project)}` : ""} --experiment ${JSON.stringify(selected.id)} --run`,
+      ...(target.kind === "experiment"
+        ? [`Run: inm session ${JSON.stringify(inputDir)}${options.project ? ` --project ${JSON.stringify(options.project)}` : ""} --experiment ${JSON.stringify(target.experiment.id)} --run`]
+        : []),
     ]),
     "",
   ].join("\n"));

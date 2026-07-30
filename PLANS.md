@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/project-next-action-session]] | Enter the exact current project work from one source-current, portless session command. | 2026-07-30 |
 | [[plans/current-inspection-starvation-requalification]] | Continue Run 099 inspection reasoning through one physically distinct intervention or an exact bounded defer decision. | 2026-07-30 |
 | [[plans/isolated-compact-shipping-trial]] | Determine the independent causal effect of the retained compact finished-goods layout. | 2026-07-30 |
 | [[plans/capital-neutral-metrology-standby-trial]] | Decide whether a compact shipping layout can fund low-power metrology standby without weakening interruption service. | 2026-07-30 |

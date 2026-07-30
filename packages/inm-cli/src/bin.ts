@@ -5,7 +5,7 @@ import {
   analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, designCommand, formatCliError, helpCommand, inspectCommand, investigateCommand, isCliCancellationError, isCliUsageError, observeCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
   researchCommand, runsCommand, schemaCommand, simulateCommand, synthesizeCommand, testCommand, validateCommand, workspaceInitCommand,
 } from "./commands";
-import { experimentSessionCommand, studioLifecycleCommand, type StudioLifecycleAction } from "./studio-lifecycle";
+import { projectSessionCommand, studioLifecycleCommand, type StudioLifecycleAction } from "./studio-lifecycle";
 
 const HELP = `inm — Integrated Industry Maker
 
@@ -39,7 +39,7 @@ PROJECT COMMANDS
   test <path>                 Run scenario fixture benchmarks
   runs <path>                 List immutable run artifacts
   research <path>             Optimize a blueprint with JSON Patch experiments
-  session <path>              Enter one source-current Experiment session
+  session <path>              Enter the source-current project next action or one Experiment
   studio <action> <path>      Manage the local Studio workbench
 
 COMMON OPTIONS
@@ -264,10 +264,10 @@ async function main(signal: AbortSignal): Promise<void> {
       "no-open": { type: "boolean", default: false },
       json: common.json,
     }, allowPositionals: true });
-    if (!values.experiment) throw new Error("Usage: inm session <project-or-workspace-dir> --experiment ID [--run] [--no-open] [--json]");
-    const inputDir = oneArg(positionals, "inm session <project-or-workspace-dir> --experiment ID [--run]");
-    return experimentSessionCommand(inputDir, {
-      experiment: values.experiment,
+    if (values.run && !values.experiment) throw new Error("Usage: --run requires --experiment ID");
+    const inputDir = oneArg(positionals, "inm session <project-or-workspace-dir> [--experiment ID [--run]]");
+    return projectSessionCommand(inputDir, {
+      ...(values.experiment ? { experiment: values.experiment } : {}),
       run: values.run,
       ...(values.port !== undefined ? { port: Number(values.port) } : {}),
       project: values.project,

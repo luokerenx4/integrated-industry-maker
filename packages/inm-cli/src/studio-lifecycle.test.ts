@@ -87,9 +87,11 @@ test("Studio lifecycle is explicit in machine-readable CLI discovery", async () 
     data: {
       commands: Array<{
         id: string;
+        usage: string;
+        description: string;
         supportsJson: boolean;
         effect: string;
-        arguments: Array<{ name: string; default?: unknown; description: string }>;
+        arguments: Array<{ name: string; required: boolean; default?: unknown; description: string }>;
       }>;
     };
   }).data.commands;
@@ -107,6 +109,137 @@ test("Studio lifecycle is explicit in machine-readable CLI discovery", async () 
   expect(managedPort.default).toBeUndefined();
   expect(managedPort.description).toContain("Omit to discover");
   expect(foregroundPort.default).toBe(4176);
+  const session = commands.find((command) => command.id === "session")!;
+  expect(session.usage).toContain("[--experiment ID [--run]]");
+  expect(session.description).toContain("shared project next action");
+  expect(session.arguments.find((argument) => argument.name === "experiment")).toEqual(expect.objectContaining({
+    required: false,
+    description: expect.stringContaining("omit to enter the shared Workbench next action"),
+  }));
+  expect(session.arguments.find((argument) => argument.name === "run")?.description).toContain("With --experiment");
+});
+
+test("one command enters the authoritative shared project next action without route knowledge", async () => {
+  const project = await temporaryProject("project-session");
+  const port = 51_100 + process.pid % 300;
+  try {
+    const entered = await runCli([
+      "session", project,
+      "--port", String(port),
+      "--no-open",
+      "--json",
+    ]);
+    expect(entered).toEqual(expect.objectContaining({ exitCode: 0, stderr: "" }));
+    const envelope = JSON.parse(entered.stdout) as {
+      command: string;
+      context: { project: { id: string; rootDir: string } };
+      nextActions: Array<{
+        id: string;
+        title: string;
+        reason: string;
+        actionLabel: string;
+        argv: string[];
+        effect: string;
+        requiresConfirmation: boolean;
+        studioRoute: string;
+        target?: Record<string, string>;
+      }>;
+      data: {
+        lifecycle: { state: string; port: number; source: { state: string } };
+        target: {
+          kind: "project-next-action";
+          nextAction: {
+            id: string;
+            title: string;
+            reason: string;
+            actionLabel: string;
+            argv: string[];
+            effect: string;
+            requiresConfirmation: boolean;
+            studioRoute: string;
+            target?: Record<string, string>;
+          };
+        };
+        route: string;
+        url: string;
+        operation: null;
+      };
+    };
+    const overview = await fetch(`http://127.0.0.1:${port}/api/projects/ironworks/overview`)
+      .then((response) => response.json()) as { nextAction: typeof envelope.data.target.nextAction };
+    expect(envelope).toEqual(expect.objectContaining({
+      command: "session",
+      context: expect.objectContaining({ project: { id: "ironworks", name: "Ironworks Research Cell", rootDir: project } }),
+      data: expect.objectContaining({
+        lifecycle: expect.objectContaining({ state: "running", port, source: expect.objectContaining({ state: "current" }) }),
+        target: {
+          kind: "project-next-action",
+          nextAction: overview.nextAction,
+        },
+        route: overview.nextAction.studioRoute,
+        url: `http://127.0.0.1:${port}${overview.nextAction.studioRoute}`,
+        operation: null,
+      }),
+    }));
+    expect(envelope.nextActions).toEqual([expect.objectContaining({
+      id: overview.nextAction.id,
+      title: overview.nextAction.title,
+      reason: overview.nextAction.reason,
+      actionLabel: overview.nextAction.actionLabel,
+      argv: overview.nextAction.argv,
+      effect: overview.nextAction.effect,
+      requiresConfirmation: overview.nextAction.requiresConfirmation,
+      studioRoute: overview.nextAction.studioRoute,
+      target: overview.nextAction.target,
+    })]);
+
+    const reentered = await runCli([
+      "session", project,
+      "--port", String(port),
+      "--no-open",
+      "--json",
+    ]);
+    expect(reentered.exitCode).toBe(0);
+    expect(JSON.parse(reentered.stdout).data).toEqual(expect.objectContaining({
+      lifecycle: expect.objectContaining({ state: "reused", port }),
+      target: {
+        kind: "project-next-action",
+        nextAction: overview.nextAction,
+      },
+      route: overview.nextAction.studioRoute,
+      operation: null,
+    }));
+  } finally {
+    await runCli(["studio", "stop", project, "--port", String(port), "--json"]);
+  }
+}, 30_000);
+
+test("--run without an explicit Experiment fails before starting Studio", async () => {
+  const project = await temporaryProject("session-run-boundary");
+  const port = 51_400 + process.pid % 100;
+  const rejected = await runCli([
+    "session", project,
+    "--run",
+    "--port", String(port),
+    "--no-open",
+    "--json",
+  ]);
+  expect(rejected.exitCode).toBe(2);
+  expect(JSON.parse(rejected.stderr)).toEqual(expect.objectContaining({
+    ok: false,
+    command: "session",
+    error: expect.objectContaining({
+      code: "cli.usage",
+      message: "Usage: --run requires --experiment ID",
+    }),
+  }));
+  const status = await runCli(["studio", "status", project, "--port", String(port), "--json"]);
+  expect(status.exitCode).toBe(0);
+  expect(data(status.stdout).data).toEqual(expect.objectContaining({
+    state: "not-running",
+    port,
+    health: null,
+  }));
 });
 
 test("one command enters and starts a reconnectable Experiment session without port memory", async () => {
@@ -127,7 +260,10 @@ test("one command enters and starts a reconnectable Experiment session without p
       context: { project: { id: string; rootDir: string } };
       data: {
         lifecycle: { state: string; port: number; source: { state: string } };
-        experiment: { id: string; name: string; cases: number; locked: boolean };
+        target: {
+          kind: "experiment";
+          experiment: { id: string; name: string; cases: number; locked: boolean };
+        };
         route: string;
         url: string;
         operation: {
@@ -142,7 +278,10 @@ test("one command enters and starts a reconnectable Experiment session without p
       context: expect.objectContaining({ project: { id: "ironworks", name: "Ironworks Research Cell", rootDir: project } }),
       data: expect.objectContaining({
         lifecycle: expect.objectContaining({ state: "running", port, source: expect.objectContaining({ state: "current" }) }),
-        experiment: expect.objectContaining({ id: "power-priority", cases: 1, locked: true }),
+        target: {
+          kind: "experiment",
+          experiment: expect.objectContaining({ id: "power-priority", cases: 1, locked: true }),
+        },
         route: "/ironworks/experiments/power-priority",
         url: `http://127.0.0.1:${port}/ironworks/experiments/power-priority`,
         operation: expect.objectContaining({
@@ -181,6 +320,10 @@ test("one command enters and starts a reconnectable Experiment session without p
     expect(opened.exitCode).toBe(0);
     expect(JSON.parse(opened.stdout).data).toEqual(expect.objectContaining({
       lifecycle: expect.objectContaining({ state: "reused", port }),
+      target: {
+        kind: "experiment",
+        experiment: expect.objectContaining({ id: "power-priority", cases: 1, locked: true }),
+      },
       operation: null,
       route: "/ironworks/experiments/power-priority",
     }));
