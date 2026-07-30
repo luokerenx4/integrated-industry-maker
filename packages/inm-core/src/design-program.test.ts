@@ -328,7 +328,7 @@ test("inspection supply Design closes one exact causal frontier without changing
     "logistics:vacuum-dual-wafer-handoff",
   ]);
   expect(result.manifest.iterations.map((iteration) => iteration.lossTargetEvidence?.delta))
-    .toEqual([0, 333, 333, -1_000, -1_500, -1_750]);
+    .toEqual([0, 333, 333, -1_000, -1_500, -1_500]);
   expect(result.manifest.iterations.every((iteration) =>
     iteration.addressedLoss === "input-starvation"
     && iteration.addressedLossTarget?.contributor === "device:inspection-1:material-input-shortage"

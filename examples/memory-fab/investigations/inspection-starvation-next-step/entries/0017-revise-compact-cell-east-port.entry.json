@@ -1,0 +1,16 @@
+{
+  "author": "agent",
+  "disposition": "revise",
+  "entryHash": "85e5a0b51da2b14bfee44d7457b72f17eb40680e7f701000eb43bb8d4f97b987",
+  "evidence": [
+    "vacuum-handoff-factory"
+  ],
+  "id": "revise-compact-cell-east-port",
+  "introducedAnchors": [],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "decision",
+  "previousEntryHash": "a18d6f0ec6070c308f1afb583b3a2173bce2c4ed1da258bc35455b24a5d7a338",
+  "sequence": 17,
+  "statement": "Revise rather than evaluate compact-inspection-rework-cell: the proposed north-side return loader is not one cell from rework-1.recovered-output. The current qualified rework asset has an explicit west reject-input and east recovered-output at rotation 0, so physical port orientation—not free-form proximity—sets the legal return-path start.",
+  "version": 1
+}

@@ -1,0 +1,16 @@
+{
+  "author": "agent",
+  "entryHash": "a18d6f0ec6070c308f1afb583b3a2173bce2c4ed1da258bc35455b24a5d7a338",
+  "evidence": [
+    "vacuum-handoff-factory"
+  ],
+  "expectedEffect": "Reduce one rejected lot round trip from 3.8 s to 2.3 s, remove fifteen paid transport cells, lower build cost from 229940 to 229790 and occupied area from 269 to 254, and reduce rework-overlapped inspection starvation and Objective-equivalent WIP without changing delivery, yield, scrap, escapes, on-time completion, capacity readiness, or any current-factory case score.",
+  "id": "compact-inspection-rework-cell",
+  "introducedAnchors": [],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "hypothesis",
+  "previousEntryHash": "3d80a280f0a6725956b719623f2d5993145dd09da8931af904201cfda3fc9d44",
+  "sequence": 16,
+  "statement": "Co-locate the existing advanced rework cell with final metrology without changing equipment, Process, policy, or the ordinary etch-to-inspection lane: move rework-1 from (27,20) to (22,20), shorten inspection-to-rework from seven to two ordinary belt cells, and truncate rework-to-inspection from twenty-one to eleven cells while retaining its existing final approach and shared inspection destination.",
+  "version": 1
+}

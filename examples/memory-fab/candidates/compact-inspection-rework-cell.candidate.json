@@ -1,0 +1,107 @@
+{
+  "baseCandidateHash": "6b8b0ce24a75de511162b1d090c4c15fedd0e976dd1764d173e918d76a5832fe",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reduce one rejected lot round trip from 3.8 s to 2.3 s, remove fifteen paid transport cells, lower build cost from 229940 to 229790 and occupied area from 269 to 254, and reduce rework-overlapped inspection starvation and Objective-equivalent WIP without changing delivery, yield, scrap, escapes, on-time completion, capacity readiness, or any current-factory case score.",
+  "hypothesis": "Co-locate the existing advanced rework cell with final metrology without changing equipment, Process, policy, or the ordinary etch-to-inspection lane: move rework-1 from (27,20) to (22,20), shorten inspection-to-rework from seven to two ordinary belt cells, and truncate rework-to-inspection from twenty-one to eleven cells while retaining its existing final approach and shared inspection destination.",
+  "id": "compact-inspection-rework-cell",
+  "name": "Compact inspection-rework cell",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/7/position",
+      "value": {
+        "x": 22,
+        "y": 20
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/51/position",
+      "value": {
+        "x": 21,
+        "y": 21
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/52/position",
+      "value": {
+        "x": 24,
+        "y": 19
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/connections/13/path",
+      "value": [
+        {
+          "x": 20,
+          "y": 21
+        },
+        {
+          "x": 21,
+          "y": 21
+        }
+      ]
+    },
+    {
+      "op": "replace",
+      "path": "/connections/14/path",
+      "value": [
+        {
+          "x": 24,
+          "y": 19
+        },
+        {
+          "x": 24,
+          "y": 18
+        },
+        {
+          "x": 24,
+          "y": 17
+        },
+        {
+          "x": 23,
+          "y": 17
+        },
+        {
+          "x": 22,
+          "y": 17
+        },
+        {
+          "x": 21,
+          "y": 17
+        },
+        {
+          "x": 20,
+          "y": 17
+        },
+        {
+          "x": 19,
+          "y": 17
+        },
+        {
+          "x": 18,
+          "y": 17
+        },
+        {
+          "x": 18,
+          "y": 18
+        },
+        {
+          "x": 18,
+          "y": 19
+        }
+      ]
+    }
+  ],
+  "source": {
+    "entry": "compact-inspection-rework-cell",
+    "entryHash": "a18d6f0ec6070c308f1afb583b3a2173bce2c4ed1da258bc35455b24a5d7a338",
+    "investigation": "inspection-starvation-next-step",
+    "kind": "investigation-hypothesis",
+    "manifestHash": "a9fe64f1e50a57a712a659ef0b3d5c92dd28fd7e56cf91cab197699b186cf41a",
+    "project": "memory-fab"
+  },
+  "version": 1
+}

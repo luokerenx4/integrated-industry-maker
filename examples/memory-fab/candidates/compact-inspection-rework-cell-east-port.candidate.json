@@ -1,0 +1,127 @@
+{
+  "baseCandidateHash": "6b8b0ce24a75de511162b1d090c4c15fedd0e976dd1764d173e918d76a5832fe",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reduce one rejected-lot round trip from 3.8 s to 2.8 s, remove ten paid transport cells, lower build cost from 229940 to 229840 and occupied area from 269 to 259, and reduce rework-overlapped inspection starvation and Objective-equivalent WIP without changing equipment, Process, policy, the ordinary etch-to-inspection lane, delivery, quality, service, capacity, or any current-factory case score.",
+  "hypothesis": "Co-locate rework-1 at (22,20) while preserving its qualified west-input/east-output orientation: shorten inspection-to-rework from seven to two ordinary belt cells, start rework-to-inspection legally at the east output (25,21), and preserve the existing north-side approach to the shared inspection destination in a sixteen-cell return path.",
+  "id": "compact-inspection-rework-cell-east-port",
+  "name": "Compact inspection-rework cell, east-port compliant",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/7/position",
+      "value": {
+        "x": 22,
+        "y": 20
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/51/position",
+      "value": {
+        "x": 21,
+        "y": 21
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/52/position",
+      "value": {
+        "x": 25,
+        "y": 21
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/connections/13/path",
+      "value": [
+        {
+          "x": 20,
+          "y": 21
+        },
+        {
+          "x": 21,
+          "y": 21
+        }
+      ]
+    },
+    {
+      "op": "replace",
+      "path": "/connections/14/path",
+      "value": [
+        {
+          "x": 25,
+          "y": 21
+        },
+        {
+          "x": 26,
+          "y": 21
+        },
+        {
+          "x": 26,
+          "y": 20
+        },
+        {
+          "x": 26,
+          "y": 19
+        },
+        {
+          "x": 26,
+          "y": 18
+        },
+        {
+          "x": 26,
+          "y": 17
+        },
+        {
+          "x": 25,
+          "y": 17
+        },
+        {
+          "x": 24,
+          "y": 17
+        },
+        {
+          "x": 23,
+          "y": 17
+        },
+        {
+          "x": 22,
+          "y": 17
+        },
+        {
+          "x": 21,
+          "y": 17
+        },
+        {
+          "x": 20,
+          "y": 17
+        },
+        {
+          "x": 19,
+          "y": 17
+        },
+        {
+          "x": 18,
+          "y": 17
+        },
+        {
+          "x": 18,
+          "y": 18
+        },
+        {
+          "x": 18,
+          "y": 19
+        }
+      ]
+    }
+  ],
+  "source": {
+    "entry": "compact-inspection-rework-cell-east-port",
+    "entryHash": "3fcd9d4a667f6887b0ec54b69f0ba59d769ab017f0035ca569f751464ed7a13f",
+    "investigation": "inspection-starvation-next-step",
+    "kind": "investigation-hypothesis",
+    "manifestHash": "a9fe64f1e50a57a712a659ef0b3d5c92dd28fd7e56cf91cab197699b186cf41a",
+    "project": "memory-fab"
+  },
+  "version": 1
+}

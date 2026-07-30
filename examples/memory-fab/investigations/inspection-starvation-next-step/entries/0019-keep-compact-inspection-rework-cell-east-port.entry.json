@@ -1,0 +1,29 @@
+{
+  "author": "agent",
+  "disposition": "keep",
+  "entryHash": "397da32090c6fdc5c7d511607823aae1f1d5fb04f54a606c4884c8cba5aa90cc",
+  "evidence": [
+    "vacuum-handoff-factory",
+    "compact-inspection-rework-cell-east-port-review"
+  ],
+  "id": "keep-compact-inspection-rework-cell-east-port",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "compact-inspection-rework-cell-east-port",
+      "currentCandidateHash": "6b8b0ce24a75de511162b1d090c4c15fedd0e976dd1764d173e918d76a5832fe",
+      "id": "compact-inspection-rework-cell-east-port-review",
+      "kind": "candidate-review",
+      "proposalHash": "fd0ad9e29292c706d9191f2759432e9029be52bd34afc42d31767a8397a4c3dc",
+      "proposedCandidateHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+      "reviewResultHash": "fec094cad2760d3ad78cb81758643d36200fdc7e637905d23e93c15225f0d680",
+      "verdict": "KEEP"
+    }
+  ],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "decision",
+  "previousEntryHash": "3fcd9d4a667f6887b0ec54b69f0ba59d769ab017f0035ca569f751464ed7a13f",
+  "sequence": 19,
+  "statement": "Keep the east-port-compliant compact inspection/rework cell as a physical-economy and conditional-loop improvement, without yet claiming that it repairs the leading shortage. All five current-factory scores improve by +0.438903 to +0.505000; ten transport cells, 100 build cost, and ten occupied cells are removed; mixed-quality local rework-transit WIP falls by 0.066667 equivalent units; every capacity, Objective constraint, hard outcome, delivery, quality, scrap, escape, and on-time guard passes. The quality-excursion case adds 0.045933 total WIP-equivalent but still improves score by +0.438903, and mixed-quality P95 cycle time shifts 73.856 to 78.023 s while its mean, delivery, and on-time outcome remain unchanged. Commissioning therefore requires a new immutable Run to measure the actual inspection-starvation effect and must not relabel the layout gain as causal shortage repair if that effect is absent.",
+  "version": 1
+}

@@ -1,0 +1,72 @@
+{
+  "author": "agent",
+  "entryHash": "2a982bad091c9e7c0924d1066f4e2f22fcfee31ddf15267cb8043e5717c1e301",
+  "evidence": [
+    "vacuum-handoff-factory",
+    "compact-inspection-rework-cell-east-port-review",
+    "compact-inspection-rework-cell-factory"
+  ],
+  "id": "compact-inspection-rework-cell-current-factory",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:099e06e6d3",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:inspection-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 101-simulate (signal 0.2090). 9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "inspection-1",
+            "kind": "device"
+          },
+          {
+            "id": "etch-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "etch-l2",
+            "kind": "device"
+          },
+          {
+            "id": "rework-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "rework-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
+      },
+      "hashes": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "0476628653a3469ce918a2646a39b6160f17ca7536bf13a949ee32381b129723",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "scenarioHash": "b6cfa14ecff26487e959f7f1b38230f2e003a3eaf04bd8b587ed268c9fc8eafe",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "compact-inspection-rework-cell-factory",
+      "kind": "factory-observation",
+      "resultHash": "d0a140643718af750433d62a12f0fb1ba668408daa16142c1cfb13d552b33b3e",
+      "runId": "101-simulate",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      }
+    }
+  ],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "observation",
+  "previousEntryHash": "397da32090c6fdc5c7d511607823aae1f1d5fb04f54a606c4884c8cba5aa90cc",
+  "sequence": 20,
+  "statement": "After commissioning the east-port-compliant compact cell, immutable Run 101-simulate and the Factory replay show rework-1 at (22,20), inspection-to-rework shortened 7 to 2 cells and 1.2 to 0.7 s, rework-to-inspection shortened 21 to 16 cells and 2.6 to 2.1 s, and the ordinary four-cell etch-to-inspection lane unchanged at 0.9 s. Relative to Run 100, inspection-1 starvation falls 57.984 to 56.984 s and whole-factory attributed input starvation falls 245.026 to 244.026 s; the exact removed second is the etch-source-waiting/rework-return-transit overlap, while 38.640 s of etch processing and 9.000 s of main-lane transit remain unchanged. Score improves -0.306590 to 0.198410, build cost 229940 to 229840, occupied area 269 to 259, and mean lot movement 8.433 to 8.267 s. Delivery remains 88, all 12 lots finish on time, good yield remains 100% with two reworked lots, and scrap and quality escapes remain zero.",
+  "version": 1
+}

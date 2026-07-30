@@ -23,11 +23,24 @@ async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
     await readFile(join(projectDir, "runs/098-simulate/blueprint.json"), "utf8"),
   );
   await rm(join(projectDir, "candidates/compact-finished-goods-shipping.candidate.json"), { force: true });
+  await rm(join(projectDir, "candidates/compact-inspection-rework-cell.candidate.json"), { force: true });
+  await rm(join(projectDir, "candidates/compact-inspection-rework-cell-east-port.candidate.json"), { force: true });
   await rm(join(projectDir, "candidates/vacuum-lithography-etch-handoff.candidate.json"), { force: true });
   await rm(join(projectDir, "candidate-reviews/compact-finished-goods-shipping"), { recursive: true, force: true });
+  await rm(join(projectDir, "candidate-reviews/compact-inspection-rework-cell-east-port"), { recursive: true, force: true });
   await rm(join(projectDir, "candidate-reviews/vacuum-lithography-etch-handoff"), { recursive: true, force: true });
   await rm(join(projectDir, "runs/099-simulate"), { recursive: true, force: true });
   await rm(join(projectDir, "runs/100-simulate"), { recursive: true, force: true });
+  await rm(join(projectDir, "runs/101-simulate"), { recursive: true, force: true });
+  for (const entry of [
+    "0016-compact-inspection-rework-cell.entry.json",
+    "0017-revise-compact-cell-east-port.entry.json",
+    "0018-compact-inspection-rework-cell-east-port.entry.json",
+    "0019-keep-compact-inspection-rework-cell-east-port.entry.json",
+    "0020-compact-inspection-rework-cell-current-factory.entry.json",
+  ]) {
+    await rm(join(projectDir, "investigations/inspection-starvation-next-step/entries", entry), { force: true });
+  }
 }
 
 test("one workspace creates, selects, and isolates multiple self-contained projects", async () => {
@@ -519,8 +532,8 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
   const projectDir = join(repository, "examples/memory-fab");
   const before = await Bun.file(join(projectDir, "blueprints/generated-dram-fab.blueprint.json")).text();
   const [machine, human, help] = await Promise.all([
-    runCli(["observe", projectDir, "--run", "100-simulate", "--json"]),
-    runCli(["observe", projectDir, "--run", "100-simulate"]),
+    runCli(["observe", projectDir, "--run", "101-simulate", "--json"]),
+    runCli(["observe", projectDir, "--run", "101-simulate"]),
     runCli(["help", "--json"]),
   ]);
   expect({ machine: machine.exitCode, human: human.exitCode, machineStderr: machine.stderr, humanStderr: human.stderr })
@@ -542,28 +555,28 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
     data: expect.objectContaining({
       status: "ready",
       authority: "human-or-agent",
-      evidence: { state: "compatible", run: expect.objectContaining({ id: "100-simulate" }) },
+      evidence: { state: "compatible", run: expect.objectContaining({ id: "101-simulate" }) },
       leadingObjectiveTradeoff: expect.objectContaining({
         component: "wip",
         contribution: -73.78575000000001,
-        runId: "100-simulate",
+        runId: "101-simulate",
         interpretation: "objective-accounting-not-causal-loss",
       }),
       views: expect.arrayContaining([
-        expect.objectContaining({ studioRoute: "/memory-fab/factory?run=100-simulate" }),
-        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/burn-in-1?run=100-simulate" }),
-        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/packaging-1?run=100-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory?run=101-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/burn-in-1?run=101-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/packaging-1?run=101-simulate" }),
       ]),
     }),
   }));
   expect(envelope.nextActions[0]).toEqual(expect.objectContaining({
     id: "author-observation-hypothesis",
     effect: "read-only",
-    studioRoute: "/memory-fab/factory?run=100-simulate",
+    studioRoute: "/memory-fab/factory?run=101-simulate",
     argv: expect.arrayContaining(["--section", "objective"]),
   }));
   expect(human.stdout).toContain("observation brief");
-  expect(human.stdout).toContain("/memory-fab/factory?run=100-simulate");
+  expect(human.stdout).toContain("/memory-fab/factory?run=101-simulate");
   expect(human.stdout).toContain("Leading Objective tradeoff: wip -73.786");
   expect(human.stdout).not.toContain("analysis.material-deficit");
   const observeCapability = JSON.parse(help.stdout).data.commands.find((command: { id: string }) => command.id === "observe");
@@ -1483,30 +1496,30 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(lossProfile.version).toBe(8);
   expect(queueCongestion).toMatchObject({
     subjects: [
-      { kind: "device", id: "etch-1" },
+      { kind: "device", id: "probe-1" },
       { kind: "route", id: "dram-front-end" },
     ],
     evidence: {
       completedLots: 12,
-      totalQueueTicks: 65_197,
-      attributedQueueTicks: 65_197,
+      totalQueueTicks: 67_197,
+      attributedQueueTicks: 67_197,
       unattributedQueueTicks: 0,
     },
   });
   expect(queueCongestion.contributors[0]).toMatchObject({
-    label: "etch-1",
+    label: "probe-1",
     mechanism: "process-queue-wait",
     route: "dram-front-end",
-    step: "etch-cell-layer-1",
-    processes: ["etch-cell-layer-1"],
-    resources: ["patterned-cell-l1-lot"],
-    lots: ["dram-lot-06", "dram-lot-07", "dram-lot-08"],
+    step: "probe-dram",
+    processes: ["probe-sort-dram-standard"],
+    resources: ["qualified-dram-wafer-lot"],
+    lots: ["dram-lot-02", "dram-lot-03", "dram-lot-04", "dram-lot-05", "dram-lot-06", "dram-lot-08", "dram-lot-09", "dram-lot-11", "dram-lot-12"],
     evidence: {
-      queueTicks: 21_500,
-      queueShare: 21_500 / 65_197,
-      contributingLots: 3,
-      segments: 3,
-      maximumQueueTicks: 9_500,
+      queueTicks: 21_641,
+      queueShare: 21_641 / 67_197,
+      contributingLots: 9,
+      segments: 9,
+      maximumQueueTicks: 11_644,
     },
   });
   expect(queueCongestion.subjects).not.toContainEqual({ kind: "device", id: "burn-in-1" });
@@ -1544,9 +1557,9 @@ test("public inspect gives Agents and humans the same current loss contributors"
     ],
     evidence: {
       rawWaitingInputTicks: 1_596_215,
-      boundaryWaitingInputTicks: 1_119_189,
+      boundaryWaitingInputTicks: 1_120_189,
       exceptionWaitingInputTicks: 232_000,
-      starvationTicks: 245_026,
+      starvationTicks: 244_026,
     },
   });
   expect(inputStarvation.contributors.find((contributor: { id: string }) =>
@@ -1610,7 +1623,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).toContain("burn-in-1 · reliability-screen → commercial-screen · equipment-production-changeover · 8.0s · screen-commercial-dram · commercial-dram-device+packaged-dram-device · 180000mW / 1440000mJ");
   expect(human.stdout).not.toContain("Q-time contributors:");
   expect(human.stdout).toContain("Tracked-lot queue contributors:");
-  expect(human.stdout).toContain("etch-1 · process-queue-wait · 21.5s / 33.0% · 3 lots / 3 segments · max 9.5s · dram-front-end · etch-cell-layer-1 · etch-cell-layer-1 · patterned-cell-l1-lot");
+  expect(human.stdout).toContain("probe-1 · process-queue-wait · 21.6s / 32.2% · 9 lots / 9 segments · max 11.6s · dram-front-end · probe-dram · probe-sort-dram-standard · qualified-dram-wafer-lot");
   expect(human.stdout).not.toContain("burn-in-1 · process-queue-wait");
   expect(human.stdout).toContain("Maintenance and qualification contributors:");
   expect(human.stdout).toContain("lithography-1 · 34.0s total = 26.0s service + 8.0s qualification + 0.0s input wait + 0.0s crew wait · 0 asset / 2 planned / 0 opportunistic · 2 usage / 0 calendar · service 2 chamber-clean-kit · qualification 2 tool-qualification-wafer · lithography-1 → maintenance-service-1");
@@ -1641,7 +1654,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
   const currentInspection = result.designPrograms.find((item: { id: string }) => item.id === "inspection-supply-path");
   if (currentInspection?.evidence.state === "missing"
     && currentInspection.evidence.historicalRuns === 5
-    && result.objectiveEvidence?.runId === "100-simulate") {
+    && result.objectiveEvidence?.runId === "101-simulate") {
     expect(currentInspection).toEqual(expect.objectContaining({
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({
@@ -1656,7 +1669,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
     }));
     expect(result.lossDispositions).toHaveLength(0);
     expect(result.nextAction).toEqual(expect.objectContaining({
-      id: expect.stringMatching(/^design\.inspect:inspection-supply-path:fab-loss\.input-starvation:.*:816290a387$/),
+      id: expect.stringMatching(/^design\.inspect:inspection-supply-path:fab-loss\.input-starvation:.*:099e06e6d3$/),
       title: "Investigate the leading loss with Inspection Supply Path Convergence",
       actionLabel: "OPEN DESIGN LOOP",
       target: expect.objectContaining({
@@ -1665,7 +1678,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
       }),
     }));
     expect(JSON.parse(objective.stdout).data.result).toEqual(expect.objectContaining({
-      runId: "100-simulate",
+      runId: "101-simulate",
       dominantPenalty: { id: "wip", contribution: -73.78575000000001, role: "penalty" },
     }));
     expect(JSON.parse(dispositions.stdout).data.result).toHaveLength(0);
