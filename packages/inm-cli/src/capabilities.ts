@@ -218,7 +218,7 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
   },
   {
     id: "session", usage: "inm session <path> [--experiment ID [--run] | --investigation ID] [--project ID] [--port N] [--no-open] [--json]",
-    description: "Ensure a source-current Studio and enter the shared project next action, one phase-aware Investigation Design Session, or one exact reconnectable Experiment session.",
+    description: "Converge a source-current Studio target and enter the shared project next action, one phase-aware Investigation Design Session, or one exact reconnectable Experiment session.",
     effect: "mode-dependent", supportsJson: true, arguments: [path, project,
       { name: "experiment", form: "option", value: "string", required: false, description: "Optional project-local Benchmark id; omit to enter the shared Workbench next action." },
       { name: "investigation", form: "option", value: "string", required: false, description: "Optional project-local Investigation id; mutually exclusive with --experiment and enters its exact reasoning phase." },
@@ -232,10 +232,10 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
     id: `studio.${action}`,
     usage: `inm studio ${action} <path> [--project ID] [--port N]${action === "start" || action === "restart" || action === "serve" ? " [--no-open]" : ""}${action === "serve" ? "" : " [--json]"}`,
     description: ({
-      start: "Start, retry, or idempotently reuse a managed local Studio server.",
-      status: "Discover and inspect the exact managed Studio project, URL, PIDs, source-adoption state, and log.",
-      restart: "Discover and restart the verified managed Studio from current source.",
-      stop: "Discover and stop only the verified managed Studio for this target.",
+      start: "Start, retry, reuse, or converge the fully verified managers for one local Studio target.",
+      status: "Discover and inspect the exact managed Studio target, including pending verified-instance convergence.",
+      restart: "Converge and restart the verified managed Studio target from current source.",
+      stop: "Discover and stop the complete verified managed Studio target.",
       serve: "Run Studio directly in the foreground for debugging and tests.",
     })[action],
     effect: action === "status" ? "read-only" : "long-running-server",

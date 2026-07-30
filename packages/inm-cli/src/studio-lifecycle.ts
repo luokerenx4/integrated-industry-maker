@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { closeSync, openSync } from "node:fs";
-import { chmod, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { appendFile, chmod, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
@@ -120,6 +120,12 @@ export interface StudioLifecycleResult {
     managerRunningHash: string | null;
     serverState: "current" | "stale" | "not-running";
     managerState: "current" | "stale" | "not-running";
+  };
+  targetConvergence: null | {
+    observedPorts: number[];
+    selectedPort: number | null;
+    retiredPorts: number[];
+    pending: boolean;
   };
 }
 
@@ -329,6 +335,14 @@ interface StudioPortResolution {
   port: number;
   portSelection: StudioPortSelection;
   targetFound: boolean;
+  targetInstances: ManagedTargetInstance[];
+}
+
+interface ManagedTargetInstance {
+  port: number;
+  state: StudioState | null;
+  health: StudioHealth | null;
+  ownership: "verified-health" | "verified-manager" | "unverified-health";
 }
 
 function healthMatchesTarget(health: StudioHealth, inputDir: string, project: string | null): boolean {
@@ -344,6 +358,27 @@ function stateVerifiesHealth(state: StudioState, health: StudioHealth): boolean 
     && state.managerSourceHash === health.managerSourceHash;
 }
 
+function targetInstanceRank(instance: ManagedTargetInstance, expectedSourceHash: string): number {
+  if (instance.health?.sourceHash === expectedSourceHash
+    && instance.health.managerSourceHash === expectedSourceHash
+    && instance.health.supervisor.phase === "current") return 0;
+  if (instance.health?.sourceHash === expectedSourceHash) return 1;
+  if (instance.state?.managerSourceHash === expectedSourceHash) return 2;
+  return 3;
+}
+
+function selectTargetInstance(
+  instances: ManagedTargetInstance[],
+  expectedSourceHash: string,
+): ManagedTargetInstance {
+  return [...instances].sort((left, right) =>
+    targetInstanceRank(left, expectedSourceHash) - targetInstanceRank(right, expectedSourceHash)
+    || (right.state?.startedAt ?? right.health?.startedAt ?? "")
+      .localeCompare(left.state?.startedAt ?? left.health?.startedAt ?? "")
+    || left.port - right.port
+  )[0]!;
+}
+
 async function resolveLifecyclePort(
   action: Exclude<StudioLifecycleAction, "serve">,
   inputDir: string,
@@ -353,6 +388,7 @@ async function resolveLifecyclePort(
     port: options.port,
     portSelection: "explicit",
     targetFound: true,
+    targetInstances: [],
   };
 
   const project = options.project ?? null;
@@ -366,71 +402,84 @@ async function resolveLifecyclePort(
     return observed;
   };
   await Promise.all(states.map(async (state) => { await probe(state.port); }));
-  const targetInstances = states.flatMap((state) => {
+  const targetInstances: ManagedTargetInstance[] = [];
+  for (const state of states) {
     const observed = probes.get(state.port);
-    return observed?.kind === "studio" && healthMatchesTarget(observed.health, inputDir, project)
-      ? [{ port: state.port, health: observed.health, recorded: true }]
-      : [];
-  });
+    if (observed?.kind === "studio" && healthMatchesTarget(observed.health, inputDir, project)) {
+      targetInstances.push({
+        port: state.port,
+        state,
+        health: observed.health,
+        ownership: stateVerifiesHealth(state, observed.health) ? "verified-health" : "unverified-health",
+      });
+    } else if (observed?.kind === "free" && managerStateIsLive(state)) {
+      targetInstances.push({
+        port: state.port,
+        state,
+        health: null,
+        ownership: "verified-manager",
+      });
+    }
+  }
 
   const defaultObserved = await probe(DEFAULT_STUDIO_PORT);
   if (defaultObserved.kind === "studio" && healthMatchesTarget(defaultObserved.health, inputDir, project)
-    && !targetInstances.some((instance) => instance.health.pid === defaultObserved.health.pid)) {
+    && !targetInstances.some((instance) => instance.port === DEFAULT_STUDIO_PORT)) {
     targetInstances.push({
       port: DEFAULT_STUDIO_PORT,
+      state: null,
       health: defaultObserved.health,
-      recorded: states.some((state) => state.port === DEFAULT_STUDIO_PORT),
+      ownership: "unverified-health",
     });
   }
 
-  const managerOnlyInstances = states.filter((state) => {
-    const observed = probes.get(state.port);
-    return observed?.kind === "free"
-      && managerStateIsLive(state);
-  });
-  const targetCount = targetInstances.length + managerOnlyInstances.length;
-  if (targetCount > 1) throw new CliCommandError(
-    "studio.multiple-target-instances",
-    `Multiple Studio managers own this target on ports ${[
-      ...targetInstances.map((instance) => instance.port),
-      ...managerOnlyInstances.map((state) => state.port),
-    ].sort((left, right) => left - right).join(", ")}. Stop them with explicit --port before using portless lifecycle commands.`,
-  );
-  if (targetInstances.length === 1) {
-    const instance = targetInstances[0]!;
+  if (targetInstances.length > 1) {
+    const ports = targetInstances.map((instance) => instance.port).sort((left, right) => left - right);
+    const unverified = targetInstances.filter((instance) => instance.ownership === "unverified-health");
+    if (unverified.length > 0) throw new CliCommandError(
+      "studio.multiple-target-instances-unverified",
+      `Multiple Studio instances serve this target on ports ${ports.join(", ")}, but complete managed ownership is missing for ${unverified.map((instance) => instance.port).join(", ")}. No instance was stopped.`,
+    );
+    const instance = selectTargetInstance(targetInstances, await studioSourceHash());
     return {
       port: instance.port,
-      portSelection: instance.recorded ? "managed" : "default",
+      portSelection: "managed",
       targetFound: true,
+      targetInstances,
     };
   }
-  if (managerOnlyInstances.length === 1) return {
-    port: managerOnlyInstances[0]!.port,
+  if (targetInstances.length === 1) return {
+    port: targetInstances[0]!.port,
     portSelection: "managed",
     targetFound: true,
+    targetInstances,
   };
 
   if (action === "status" || action === "stop") return {
     port: states[0]?.port ?? DEFAULT_STUDIO_PORT,
     portSelection: states.length ? "managed" : "default",
     targetFound: false,
+    targetInstances: [],
   };
 
   for (const state of states) if ((await probe(state.port)).kind === "free") return {
     port: state.port,
     portSelection: "managed",
     targetFound: false,
+    targetInstances: [],
   };
   if (defaultObserved.kind === "free") return {
     port: DEFAULT_STUDIO_PORT,
     portSelection: "default",
     targetFound: false,
+    targetInstances: [],
   };
   for (let port = DEFAULT_STUDIO_PORT + 1; port < DEFAULT_STUDIO_PORT + FALLBACK_STUDIO_PORTS; port++) {
     if ((await probe(port)).kind === "free") return {
       port,
       portSelection: "fallback",
       targetFound: false,
+      targetInstances: [],
     };
   }
   throw new CliCommandError(
@@ -734,6 +783,7 @@ function result(
       serverState: runningHash ? (runningHash === expectedSourceHash ? "current" : "stale") : "not-running",
       managerState: managerRunningHash ? (managerRunningHash === expectedSourceHash ? "current" : "stale") : "not-running",
     },
+    targetConvergence: null,
   };
 }
 
@@ -786,6 +836,60 @@ async function stopManaged(inputDir: string, options: ResolvedStudioLifecycleOpt
   await unload(localState, probe.kind === "studio" ? probe.health : null);
   await waitForFreePort(options.port);
   return result("stop", "stopped", inputDir, options, null, sourceHash, localState.logPath);
+}
+
+function redundantTargetInstances(resolution: StudioPortResolution): ManagedTargetInstance[] {
+  return resolution.targetInstances
+    .filter((instance) => instance.port !== resolution.port)
+    .sort((left, right) => left.port - right.port);
+}
+
+async function stopTargetInstances(
+  inputDir: string,
+  options: StudioLifecycleOptions,
+  instances: ManagedTargetInstance[],
+): Promise<number[]> {
+  const retiredPorts: number[] = [];
+  for (const instance of instances) {
+    await stopManaged(inputDir, {
+      ...options,
+      port: instance.port,
+      portSelection: "managed",
+    });
+    retiredPorts.push(instance.port);
+  }
+  return retiredPorts;
+}
+
+async function projectTargetConvergence(
+  lifecycle: StudioLifecycleResult,
+  resolution: StudioPortResolution,
+  selectedPort: number | null,
+  retiredPorts: number[],
+  pending: boolean,
+  record: boolean,
+): Promise<StudioLifecycleResult> {
+  if (resolution.targetInstances.length <= 1) return lifecycle;
+  const targetConvergence = {
+    observedPorts: resolution.targetInstances
+      .map((instance) => instance.port)
+      .sort((left, right) => left - right),
+    selectedPort,
+    retiredPorts: [...retiredPorts].sort((left, right) => left - right),
+    pending,
+  };
+  if (record) {
+    await appendFile(lifecycle.logPath, `${JSON.stringify({
+      timestamp: new Date().toISOString(),
+      component: "studio-lifecycle",
+      event: "target-convergence",
+      action: lifecycle.action,
+      inputDir: lifecycle.inputDir,
+      project: lifecycle.project,
+      ...targetConvergence,
+    })}\n`);
+  }
+  return { ...lifecycle, targetConvergence };
 }
 
 function openBrowser(url: string): void {
@@ -882,6 +986,11 @@ export async function projectSessionCommand(
   const manifest = manifestSchema.parse(await readJson(join(projectDir, "inm.json")));
   const context = manifestProjectContext(projectDir, manifest);
   const selectedPort = await resolveLifecyclePort("start", inputDir, options);
+  const retiredPorts = await stopTargetInstances(
+    inputDir,
+    options,
+    redundantTargetInstances(selectedPort),
+  );
   let lifecycle = await startManaged(inputDir, {
     ...options,
     port: selectedPort.port,
@@ -898,6 +1007,14 @@ export async function projectSessionCommand(
       () => currentStatus(inputDir, resolvedOptions),
     );
   }
+  lifecycle = await projectTargetConvergence(
+    lifecycle,
+    selectedPort,
+    selectedPort.port,
+    retiredPorts,
+    false,
+    true,
+  );
   if (lifecycle.state === "degraded" || lifecycle.state === "recovering") {
     const failure = lifecycle.supervisor?.failure;
     throw new CliCommandError(
@@ -1097,6 +1214,9 @@ function emit(lifecycle: StudioLifecycleResult, context: ReturnType<typeof manif
         ? [`Failure: ${lifecycle.supervisor.failure.phase.toUpperCase()} · ${lifecycle.supervisor.failure.message}`]
         : []),
     ] : []),
+    ...(lifecycle.targetConvergence ? [
+      `Target convergence: observed ${lifecycle.targetConvergence.observedPorts.join(", ")} · selected ${lifecycle.targetConvergence.selectedPort ?? "none"} · retired ${lifecycle.targetConvergence.retiredPorts.join(", ") || "none"}${lifecycle.targetConvergence.pending ? " · ACTION REQUIRED" : ""}`,
+    ] : []),
     `Project root: ${lifecycle.inputDir}`,
     `Log: ${lifecycle.logPath}`,
     "",
@@ -1141,22 +1261,53 @@ export async function studioLifecycleCommand(
     portSelection: port.portSelection,
   };
   if (action === "status") {
-    const lifecycle = port.targetFound
+    let lifecycle = port.targetFound
       ? await currentStatus(inputDir, resolvedOptions)
       : result("status", "not-running", inputDir, resolvedOptions, null, await studioSourceHash());
+    lifecycle = await projectTargetConvergence(
+      lifecycle,
+      port,
+      port.targetFound ? port.port : null,
+      [],
+      port.targetInstances.length > 1,
+      false,
+    );
     emit(lifecycle, context, Boolean(options.json));
     return;
   }
   if (action === "stop") {
-    const lifecycle = port.targetFound
-      ? await stopManaged(inputDir, resolvedOptions)
-      : result("stop", "not-running", inputDir, resolvedOptions, null, await studioSourceHash());
+    let lifecycle: StudioLifecycleResult;
+    let retiredPorts: number[] = [];
+    if (port.targetFound) {
+      retiredPorts = await stopTargetInstances(inputDir, options, redundantTargetInstances(port));
+      lifecycle = await stopManaged(inputDir, resolvedOptions);
+      retiredPorts.push(port.port);
+    } else {
+      lifecycle = result("stop", "not-running", inputDir, resolvedOptions, null, await studioSourceHash());
+    }
+    lifecycle = await projectTargetConvergence(
+      lifecycle,
+      port,
+      null,
+      retiredPorts,
+      false,
+      true,
+    );
     emit(lifecycle, context, Boolean(options.json));
     return;
   }
+  const retiredPorts = await stopTargetInstances(inputDir, options, redundantTargetInstances(port));
   if (action === "restart" && port.targetFound) await stopManaged(inputDir, resolvedOptions);
   const started = await startManaged(inputDir, resolvedOptions);
-  const lifecycle = action === "restart" ? { ...started, action } : started;
+  let lifecycle = action === "restart" ? { ...started, action } : started;
+  lifecycle = await projectTargetConvergence(
+    lifecycle,
+    port,
+    port.port,
+    retiredPorts,
+    false,
+    true,
+  );
   if (!options.noOpen && lifecycle.state !== "degraded" && lifecycle.state !== "recovering") openBrowser(lifecycle.url);
   emit(lifecycle, context, Boolean(options.json));
 }

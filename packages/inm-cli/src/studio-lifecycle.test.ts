@@ -44,6 +44,22 @@ async function temporaryMemoryFab(name: string): Promise<string> {
   return project;
 }
 
+function availableTestPorts(count: number): number[] {
+  const reservations = Array.from({ length: count }, () => Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: () => new Response("reserved"),
+  }));
+  try {
+    return reservations.map((reservation) => {
+      if (reservation.port === undefined) throw new Error("Test port reservation did not expose a port");
+      return reservation.port;
+    });
+  } finally {
+    for (const reservation of reservations) reservation.stop(true);
+  }
+}
+
 function data(stdout: string) {
   return JSON.parse(stdout) as {
     ok: true;
@@ -122,6 +138,7 @@ function recoveringLifecycle(overrides: Partial<StudioLifecycleResult> = {}): St
       serverState: "stale",
       managerState: "current",
     },
+    targetConvergence: null,
     ...overrides,
   };
 }
@@ -998,10 +1015,9 @@ test("portless Studio start leaves a foreign default listener untouched and uses
   }
 }, 30_000);
 
-test("portless Studio lifecycle rejects multiple verified instances for one target", async () => {
-  const project = await temporaryProject("portless-ambiguous");
-  const firstPort = 58_000 + process.pid % 300;
-  const secondPort = firstPort + 1;
+test("portless Studio lifecycle deterministically converges every fully verified target instance", async () => {
+  const project = await temporaryProject("portless-convergence");
+  const [firstPort, secondPort] = availableTestPorts(2) as [number, number];
   const environment = { INM_STUDIO_DEFAULT_PORT: String(firstPort) };
   try {
     expect((await runCli([
@@ -1012,14 +1028,136 @@ test("portless Studio lifecycle rejects multiple verified instances for one targ
     ], environment)).exitCode).toBe(0);
 
     const status = await runCli(["studio", "status", project, "--json"], environment);
-    expect(status.exitCode).toBe(1);
-    expect(JSON.parse(status.stderr)).toEqual(expect.objectContaining({
+    expect(status.exitCode).toBe(0);
+    expect(data(status.stdout).data).toEqual(expect.objectContaining({
+      port: secondPort,
+      targetConvergence: {
+        observedPorts: [firstPort, secondPort],
+        selectedPort: secondPort,
+        retiredPorts: [],
+        pending: true,
+      },
+    }));
+
+    const converged = await runCli(["studio", "start", project, "--no-open", "--json"], environment);
+    expect(converged.exitCode).toBe(0);
+    expect(data(converged.stdout).data).toEqual(expect.objectContaining({
+      state: "reused",
+      port: secondPort,
+      source: expect.objectContaining({ state: "current" }),
+      targetConvergence: {
+        observedPorts: [firstPort, secondPort],
+        selectedPort: secondPort,
+        retiredPorts: [firstPort],
+        pending: false,
+      },
+    }));
+    expect((await readFile(data(converged.stdout).data.logPath, "utf8"))
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as { component?: string; event?: string; retiredPorts?: number[] }))
+      .toContainEqual(expect.objectContaining({
+        component: "studio-lifecycle",
+        event: "target-convergence",
+        retiredPorts: [firstPort],
+      }));
+    expect(await fetch(`http://127.0.0.1:${firstPort}/api/health`).then(
+      () => "running",
+      () => "stopped",
+    )).toBe("stopped");
+
+    expect((await runCli([
+      "studio", "start", project, "--port", String(firstPort), "--no-open", "--json",
+    ], environment)).exitCode).toBe(0);
+    const session = await runCli(["session", project, "--no-open", "--json"], environment);
+    expect(session.exitCode).toBe(0);
+    expect(JSON.parse(session.stdout).data.lifecycle).toEqual(expect.objectContaining({
+      port: firstPort,
+      source: expect.objectContaining({ state: "current" }),
+      targetConvergence: {
+        observedPorts: [firstPort, secondPort],
+        selectedPort: firstPort,
+        retiredPorts: [secondPort],
+        pending: false,
+      },
+    }));
+
+    expect((await runCli([
+      "studio", "start", project, "--port", String(secondPort), "--no-open", "--json",
+    ], environment)).exitCode).toBe(0);
+    const beforeRestartPid = (await fetch(`http://127.0.0.1:${secondPort}/api/health`).then(
+      (response) => response.json(),
+    ) as { pid: number }).pid;
+    const restarted = await runCli(["studio", "restart", project, "--no-open", "--json"], environment);
+    expect(restarted.exitCode).toBe(0);
+    expect(data(restarted.stdout).data).toEqual(expect.objectContaining({
+      port: secondPort,
+      targetConvergence: {
+        observedPorts: [firstPort, secondPort],
+        selectedPort: secondPort,
+        retiredPorts: [firstPort],
+        pending: false,
+      },
+    }));
+    expect(data(restarted.stdout).data.health.pid).not.toBe(beforeRestartPid);
+
+    expect((await runCli([
+      "studio", "start", project, "--port", String(firstPort), "--no-open", "--json",
+    ], environment)).exitCode).toBe(0);
+    const stopped = await runCli(["studio", "stop", project, "--json"], environment);
+    expect(stopped.exitCode).toBe(0);
+    expect(data(stopped.stdout).data).toEqual(expect.objectContaining({
+      state: "stopped",
+      targetConvergence: {
+        observedPorts: [firstPort, secondPort],
+        selectedPort: null,
+        retiredPorts: [firstPort, secondPort],
+        pending: false,
+      },
+    }));
+    for (const port of [firstPort, secondPort]) {
+      expect(await fetch(`http://127.0.0.1:${port}/api/health`).then(
+        () => "running",
+        () => "stopped",
+      )).toBe("stopped");
+    }
+  } finally {
+    await runCli(["studio", "stop", project, "--port", String(firstPort), "--json"], environment);
+    await runCli(["studio", "stop", project, "--port", String(secondPort), "--json"], environment);
+  }
+}, 60_000);
+
+test("portless Studio convergence leaves every instance untouched when duplicate ownership is incomplete", async () => {
+  const project = await temporaryProject("portless-unverified-duplicate");
+  const [firstPort, secondPort] = availableTestPorts(2) as [number, number];
+  const environment = { INM_STUDIO_DEFAULT_PORT: String(firstPort) };
+  const firstStatePath = join(project, ".inm", "studio", String(firstPort), "state.json");
+  let originalState: string | undefined;
+  try {
+    expect((await runCli([
+      "studio", "start", project, "--port", String(firstPort), "--no-open", "--json",
+    ], environment)).exitCode).toBe(0);
+    expect((await runCli([
+      "studio", "start", project, "--port", String(secondPort), "--no-open", "--json",
+    ], environment)).exitCode).toBe(0);
+    originalState = await readFile(firstStatePath, "utf8");
+    const tampered = JSON.parse(originalState) as { sourceHash: string };
+    tampered.sourceHash = "c".repeat(64);
+    await writeFile(firstStatePath, `${JSON.stringify(tampered, null, 2)}\n`);
+
+    const refused = await runCli(["studio", "start", project, "--no-open", "--json"], environment);
+    expect(refused.exitCode).toBe(1);
+    expect(JSON.parse(refused.stderr)).toEqual(expect.objectContaining({
       error: expect.objectContaining({
-        code: "studio.multiple-target-instances",
-        message: expect.stringContaining(`${firstPort}, ${secondPort}`),
+        code: "studio.multiple-target-instances-unverified",
+        message: expect.stringContaining(String(firstPort)),
       }),
     }));
+    for (const port of [firstPort, secondPort]) {
+      expect(await fetch(`http://127.0.0.1:${port}/api/health`).then((response) => response.status)).toBe(200);
+    }
   } finally {
+    if (originalState !== undefined) await writeFile(firstStatePath, originalState);
     await runCli(["studio", "stop", project, "--port", String(firstPort), "--json"], environment);
     await runCli(["studio", "stop", project, "--port", String(secondPort), "--json"], environment);
   }
