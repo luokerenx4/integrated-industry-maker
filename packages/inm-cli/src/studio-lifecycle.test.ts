@@ -45,12 +45,22 @@ async function temporaryMemoryFab(name: string): Promise<string> {
 }
 
 function availableTestPorts(count: number): number[] {
-  const reservations = Array.from({ length: count }, () => Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    fetch: () => new Response("reserved"),
-  }));
+  const reservations: Array<ReturnType<typeof Bun.serve>> = [];
+  const firstCandidate = 20_000 + (process.pid * 37) % 25_000;
   try {
+    for (let offset = 0; offset < 25_000 && reservations.length < count; offset += 1) {
+      const port = 20_000 + (firstCandidate - 20_000 + offset) % 25_000;
+      try {
+        reservations.push(Bun.serve({
+          hostname: "127.0.0.1",
+          port,
+          fetch: () => new Response("reserved"),
+        }));
+      } catch {
+        // Another local process owns this candidate; keep scanning the non-ephemeral range.
+      }
+    }
+    if (reservations.length !== count) throw new Error(`Could not reserve ${count} non-ephemeral Studio test ports`);
     return reservations.map((reservation) => {
       if (reservation.port === undefined) throw new Error("Test port reservation did not expose a port");
       return reservation.port;
@@ -377,21 +387,20 @@ test("one command enters the exact phase-aware Investigation Design Session", as
           investigation: expect.objectContaining({
             id: "source-lot-back-end-service",
             state: "historical",
-            entryCount: 4,
+            entryCount: 8,
           }),
           handoff: expect.objectContaining({
             phase: "observe-current-factory",
             sourceEntry: expect.objectContaining({
-              id: "parallel-burn-in-overflow-revise",
-              sequence: 4,
+              id: "batch-coherent-overflow-revise",
+              sequence: 8,
               kind: "decision",
             }),
             evidenceIds: [
-              "operating-run",
-              "diagnostic",
-              "source-lot-tail-run-105",
-              "parallel-burn-in-overflow-comparison",
+              "batch-coherent-burn-in-overflow-comparison",
+              "post-overflow-current-factory",
               "parallel-burn-in-overflow-review",
+              "batch-coherent-burn-in-overflow-review",
             ],
             authorship: expect.objectContaining({
               kind: "investigation-entry",
@@ -410,7 +419,7 @@ test("one command enters the exact phase-aware Investigation Design Session", as
             kind: "investigation",
             investigationId: "source-lot-back-end-service",
             phase: "observe-current-factory",
-            sourceEntryId: "parallel-burn-in-overflow-revise",
+            sourceEntryId: "batch-coherent-overflow-revise",
           }),
         }),
       ],

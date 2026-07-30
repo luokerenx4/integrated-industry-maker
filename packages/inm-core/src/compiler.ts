@@ -1808,6 +1808,60 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     });
   }
 
+  for (const device of Object.values(devices).filter((candidate) => candidate.policy?.dispatch === "batch-coherent")
+    .sort((left, right) => left.id.localeCompare(right.id))) {
+    const deviceIndex = loaded.blueprint.devices.findIndex((candidate) => candidate.id === device.id);
+    const policyPath = `blueprint/devices/${deviceIndex}/policy/dispatch`;
+    const outgoing = Object.values(connections).filter((connection) => connection.from.device === device.id)
+      .sort((left, right) => left.id.localeCompare(right.id));
+    if (!device.assetDef.capabilities.includes("transport-junction")) issues.push({
+      path: policyPath, code: "logistics.batch-coherent-junction-required",
+      message: `Batch-coherent local dispatch on '${device.id}' requires a transport-junction Device`,
+    });
+    if (outgoing.length < 2) issues.push({
+      path: policyPath, code: "logistics.batch-coherent-fanout-required",
+      message: `Batch-coherent local dispatch on '${device.id}' requires at least two compiled outgoing physical Connections`,
+    });
+    for (const connection of outgoing) for (const resource of connection.resources) {
+      const connectionIndex = loaded.blueprint.connections.findIndex((candidate) => candidate.id === connection.id);
+      const resourceIndex = loaded.blueprint.connections[connectionIndex]?.resources.indexOf(resource) ?? -1;
+      const resourcePath = `blueprint/connections/${connectionIndex}/resources/${resourceIndex}`;
+      const contracts = connection.toDevice.processPlans.flatMap((plan) => plan.inputs.filter((input) =>
+        input.buffer === connection.toPort.buffer && input.resource === resource));
+      const distinctContracts = new Map(contracts.map((contract) => [
+        `${contract.count}\0${contract.minimumTreatmentLevel ?? 0}`,
+        contract,
+      ]));
+      if (!contracts.length) {
+        issues.push({
+          path: resourcePath, code: "logistics.batch-coherent-process-input",
+          message: `Batch-coherent Connection '${connection.id}' must deliver '${resource}' directly into a qualified Process input on '${connection.to.device}.${connection.to.port}'`,
+        });
+        continue;
+      }
+      if (distinctContracts.size !== 1) {
+        issues.push({
+          path: resourcePath, code: "logistics.batch-coherent-ambiguous-input",
+          message: `Batch-coherent Connection '${connection.id}' reaches qualified Processes with different '${resource}' input batch contracts`,
+        });
+        continue;
+      }
+      const contract = [...distinctContracts.values()][0]!;
+      const sourceBuffer = connection.fromDevice.buffers[connection.fromPort.buffer]!;
+      const targetBuffer = connection.toDevice.buffers[connection.toPort.buffer]!;
+      const sourceCapacity = sourceBuffer.resourceCapacities?.[resource] ?? sourceBuffer.capacity;
+      const targetCapacity = targetBuffer.resourceCapacities?.[resource] ?? targetBuffer.capacity;
+      if (sourceCapacity < contract.count) issues.push({
+        path: policyPath, code: "logistics.batch-coherent-source-capacity",
+        message: `Batch-coherent source '${device.id}.${connection.from.port}' can hold ${sourceCapacity} '${resource}', below the complete downstream batch of ${contract.count}`,
+      });
+      if (targetCapacity < contract.count) issues.push({
+        path: resourcePath, code: "logistics.batch-coherent-target-capacity",
+        message: `Batch-coherent target '${connection.to.device}.${connection.to.port}' can hold ${targetCapacity} '${resource}', below its complete Process batch of ${contract.count}`,
+      });
+    }
+  }
+
   for (const device of Object.values(devices).sort((left, right) => left.id.localeCompare(right.id))) {
     const control = device.policy?.cadenceControl;
     if (!control) continue;

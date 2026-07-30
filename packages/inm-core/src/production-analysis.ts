@@ -1,4 +1,4 @@
-import type { BlueprintDevice, CompiledFactoryProject, DeviceAsset, DispatchPolicy, EquipmentChangeoverTransition, IndustrialProcess, PowerAllocationPolicy, ProcessAmount, ProcessUtilityDemand, ResourceId } from "./types";
+import type { BlueprintDevice, CompiledFactoryProject, DeviceAsset, DispatchPolicy, EquipmentChangeoverTransition, IndustrialProcess, LocalDispatchPolicy, PowerAllocationPolicy, ProcessAmount, ProcessUtilityDemand, ResourceId } from "./types";
 import {
   connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDepth, stationRouteDispatchProfile,
   type ConnectionDispatchProfile, type StationDispatchProfile,
@@ -167,7 +167,7 @@ export interface ConnectionRateLimit {
   from: string;
   to: string;
   resources: ResourceId[];
-  dispatchPolicy: DispatchPolicy;
+  dispatchPolicy: LocalDispatchPolicy;
   dispatchProfiles: ConnectionDispatchProfile[];
   capacityItemsPerMinute: number;
   capacityByResource: Record<ResourceId, number>;

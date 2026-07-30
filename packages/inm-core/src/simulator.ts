@@ -618,6 +618,13 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   let sequence = 0; let transitSequence = 0; let publicEventCount = 0;
   const unmetPowerDemand: Record<string, number> = {};
   const dispatchCursors: Record<string, number> = {};
+  const batchDispatchCommitments: Record<string, {
+    connection: string;
+    resource: string;
+    treatmentLevel: number;
+    remainingItems: number;
+    coverageUnit: number;
+  } | undefined> = {};
   const transportCellCursors: Record<string, number> = {};
   const transportPowerBlocked: Record<string, boolean> = {};
   const pausedTransportWork: Record<string, {
@@ -1513,16 +1520,24 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const sourceBuffer = state.devices[connection.from.device]!.buffers[connection.fromPort.buffer]!;
     const targetBuffer = state.devices[connection.to.device]!.buffers[connection.toPort.buffer]!;
     const filter = connection.fromDevice.policy?.filter;
+    const policy = dispatchPolicyByConnection[connection.id]!;
+    const commitment = batchDispatchCommitments[connection.from.device];
     const candidates = dispatchProfiles[connection.id]!.flatMap((profile) => {
-      const sourceLevel = sourceTreatmentLevel(connection.from.device, connection.fromPort.buffer, profile.resource, profile.minimumTreatmentLevel);
+      if (commitment && (commitment.connection !== connection.id || commitment.resource !== profile.resource)) return [];
+      const sourceLevel = commitment?.treatmentLevel
+        ?? sourceTreatmentLevel(connection.from.device, connection.fromPort.buffer, profile.resource, profile.minimumTreatmentLevel);
       if (sourceLevel === undefined || !accepts(connection.toDevice, connection.toPort.buffer, profile.resource)
         || freeBufferCapacity(connection.to.device, connection.toPort.buffer, profile.resource) <= 0) return [];
       if (filter && (connection.from.port === filter.outputPort ? profile.resource !== filter.resource : profile.resource === filter.resource)) return [];
+      const sourceQuantity = materialLevelQuantity(connection.from.device, connection.fromPort.buffer, profile.resource, sourceLevel);
+      const freeCapacity = freeBufferCapacity(connection.to.device, connection.toPort.buffer, profile.resource);
+      if (policy === "batch-coherent" && !commitment
+        && (profile.targetKind !== "process" || sourceQuantity < profile.coverageUnit || freeCapacity < profile.coverageUnit)) return [];
       const residentAndInbound = materialQuantity(connection.to.device, connection.toPort.buffer, profile.resource, profile.minimumTreatmentLevel)
         + incomingQuantity(connection.to.device, connection.toPort.buffer, profile.resource, profile.minimumTreatmentLevel);
       return [{ ...profile, sourceLevel, coverage: residentAndInbound / profile.coverageUnit }];
     });
-    if (dispatchPolicyByConnection[connection.id] !== "shortage-first") return candidates.sort((a, b) => a.resource.localeCompare(b.resource));
+    if (policy !== "shortage-first") return candidates.sort((a, b) => a.resource.localeCompare(b.resource));
     return candidates.sort((a, b) => a.coverage - b.coverage
       || (a.criticalDepth ?? Number.MAX_SAFE_INTEGER) - (b.criticalDepth ?? Number.MAX_SAFE_INTEGER)
       || a.resource.localeCompare(b.resource));
@@ -1535,7 +1550,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (policy === "fifo") return fifoOrder;
       const cursor = dispatchCursors[source] ?? 0;
       const rotated = [...outgoing.slice(cursor % outgoing.length), ...outgoing.slice(0, cursor % outgoing.length)];
-      if (policy === "round-robin") {
+      if (policy === "round-robin" || policy === "batch-coherent") {
         if (outputPriority === undefined) return rotated;
         const preferred: CompiledConnection[] = [];
         const regular: CompiledConnection[] = [];
@@ -1556,6 +1571,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     }
     const orderedConnections = [...inputPrioritizedConnections, ...regularConnections];
     for (const connection of orderedConnections) {
+      const existingBatchCommitment = batchDispatchCommitments[connection.from.device];
+      if (existingBatchCommitment && existingBatchCommitment.connection !== connection.id) continue;
       const sourceState = state.devices[connection.from.device]!;
       const targetState = state.devices[connection.to.device]!;
       if ((usesPersistentPower(connection.fromDevice) && sourceState.status === "unpowered") || (usesPersistentPower(connection.toDevice) && targetState.status === "unpowered")) continue;
@@ -1571,9 +1588,19 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         continue;
       }
       if (!transportStagePowered(connection, "loader")) continue;
+      const batchCommitment = existingBatchCommitment ?? (dispatchPolicyByConnection[connection.id] === "batch-coherent"
+        ? {
+          connection: connection.id,
+          resource,
+          treatmentLevel: sourceLevel,
+          remainingItems: candidate.coverageUnit,
+          coverageUnit: candidate.coverageUnit,
+        }
+        : undefined);
+      if (batchCommitment && !existingBatchCommitment) batchDispatchCommitments[connection.from.device] = batchCommitment;
       const freeCapacity = freeBufferCapacity(connection.to.device, connection.toPort.buffer, resource);
       const count = Math.min(materialLevelQuantity(connection.from.device, connection.fromPort.buffer, resource, sourceLevel),
-        freeCapacity, connection.stackSizeByResource[resource] ?? 1);
+        freeCapacity, connection.stackSizeByResource[resource] ?? 1, batchCommitment?.remainingItems ?? Number.POSITIVE_INFINITY);
       if (count <= 0) continue;
       const transitId = `transit-${String(transitSequence++).padStart(6, "0")}`;
       const lotIds = isTracked(resource) ? takeLotIds(connection.fromDevice, connection.fromPort.buffer, resource, count, sourceLevel) : [];
@@ -1608,7 +1635,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       nextDispatchTick[connection.id] = state.tick + connection.loaderDispatchIntervalTicks;
       scheduleLogisticsReady(connection.id, nextDispatchTick[connection.id]!);
       moved = true;
-      if (dispatchPolicyByConnection[connection.id] !== "fifo") {
+      if (batchCommitment) {
+        batchCommitment.remainingItems -= count;
+        if (batchCommitment.remainingItems === 0) {
+          delete batchDispatchCommitments[connection.from.device];
+          const outgoingCount = outgoingConnectionsBySource[connection.from.device]!.length;
+          dispatchCursors[connection.from.device] = ((dispatchCursors[connection.from.device] ?? 0) + 1) % outgoingCount;
+        }
+      } else if (dispatchPolicyByConnection[connection.id] !== "fifo") {
         const outgoingCount = outgoingConnectionsBySource[connection.from.device]!.length;
         dispatchCursors[connection.from.device] = ((dispatchCursors[connection.from.device] ?? 0) + 1) % outgoingCount;
       }

@@ -1,0 +1,20 @@
+{
+  "author": "agent",
+  "entryHash": "5b180853cd09dbc26fe494e3cba255505291a582588aefb0cffba91ed012234d",
+  "evidence": [
+    "post-overflow-current-factory",
+    "source-lot-tail-run-105",
+    "parallel-burn-in-overflow-comparison",
+    "parallel-burn-in-overflow-review"
+  ],
+  "expectedEffect": "The junction should commit each complete eight-device packaged-DRAM source batch to one rack instead of splitting it four-and-four. Run 105 versus the revised trial should therefore show zero four-device sibling-rack tails and delivery above the rejected trial's 64, with 96 as the physical recovery target; locked evidence must still expose the unchanged 15,310 capital-limit deficit and every interruption/service trade.",
+  "id": "batch-coherent-burn-in-overflow",
+  "intervention": "blueprint",
+  "introducedAnchors": [],
+  "investigation": "source-lot-back-end-service",
+  "kind": "hypothesis",
+  "previousEntryHash": "c42249531fa72de2b9616490a58f15ee242f8208fe2d8b1cc9c7def49bba64ef",
+  "sequence": 6,
+  "statement": "Replace only the parallel overflow junction's item-level round-robin policy with explicit batch-coherent local dispatch while preserving the second qualified rack, every physical lane, the twelve-lot Production Plan, eight-device screening recipes, incumbent policy, customer sinks, quality physics, Scenario, Objective, and seed.",
+  "version": 1
+}

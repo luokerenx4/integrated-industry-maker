@@ -464,6 +464,8 @@ export interface IndustrialWorld {
 }
 export type Rotation = 0 | 90 | 180 | 270;
 export type DispatchPolicy = "fifo" | "round-robin" | "shortage-first";
+/** Source-local physical-lane arbitration. Batch coherence is intentionally unavailable to station fleets. */
+export type LocalDispatchPolicy = DispatchPolicy | "batch-coherent";
 export type PowerAllocationPolicy = "proportional" | "priority-load-shedding";
 export type RecipeDispatchPolicy = "authored-order" | "shortest-cycle" | "highest-priority" | "minimize-changeover" | "contract-value" | "oldest-lot" | "earliest-due-date" | "least-slack" | "highest-lot-priority";
 export type LotDispatchPolicy = "fifo" | "oldest-release" | "earliest-due-date" | "highest-priority";
@@ -543,7 +545,7 @@ export interface BlueprintDevice {
   resourceNodes?: string[];
   config?: Record<string, unknown>;
   policy?: {
-    dispatch?: DispatchPolicy;
+    dispatch?: LocalDispatchPolicy;
     /** Deterministic selection among ready qualified operations. */
     recipeDispatch?: RecipeDispatchPolicy;
     /** Non-preemptive same-Process mode selection from explicit downstream physical coverage. */

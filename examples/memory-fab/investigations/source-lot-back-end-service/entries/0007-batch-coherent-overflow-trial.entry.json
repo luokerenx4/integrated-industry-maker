@@ -1,0 +1,97 @@
+{
+  "author": "agent",
+  "entryHash": "e29e3fd7ff02fc1369848f82739edde0f782f8156a153fac921b97647ee7932b",
+  "evidence": [
+    "post-overflow-current-factory",
+    "source-lot-tail-run-105",
+    "parallel-burn-in-overflow-review",
+    "batch-coherent-burn-in-overflow-comparison"
+  ],
+  "id": "batch-coherent-overflow-trial",
+  "introducedAnchors": [
+    {
+      "comparisonHash": "f3b61a4abc60983771313810592aee5b1dc24fcfe942d3ce3ba5c465dd30d973",
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:facb6d8084",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:inspection-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 107-candidate-trial-batch-coherent-burn-in-overflow (signal 0.2082). 9/11 active flow Devices accumulated 242.8 explicit material-shortage device-s inside 1166.1 device-s of repeated production opportunity; 33.3 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1121.4 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "inspection-1",
+            "kind": "device"
+          },
+          {
+            "id": "etch-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "etch-l2",
+            "kind": "device"
+          },
+          {
+            "id": "rework-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "rework-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/11 active flow Devices accumulated 242.8 explicit material-shortage device-s inside 1166.1 device-s of repeated production opportunity; 33.3 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1121.4 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
+      },
+      "from": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "353061d1b81789346483a196dd373568d2cacd67ea12b05e9374cec675fe2f8e",
+        "runId": "105-simulate"
+      },
+      "hashes": {
+        "blueprintHash": "a6720f245fe4f737da4f31953782684d3683bd498e46ec5a0da4f1791d3de4e2",
+        "engineVersion": "inm-sim/0.92.0",
+        "executionHash": "a01b050138b607d1a9d92234b624df18f6176c968c74b58273cfab3ca6eb86c3",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "batch-coherent-burn-in-overflow-comparison",
+      "intervention": {
+        "from": {
+          "hash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+          "id": "generated-dram-fab"
+        },
+        "kind": "blueprint",
+        "to": {
+          "hash": "a6720f245fe4f737da4f31953782684d3683bd498e46ec5a0da4f1791d3de4e2",
+          "id": "generated-dram-fab"
+        }
+      },
+      "kind": "run-comparison",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "to": {
+        "blueprintHash": "a6720f245fe4f737da4f31953782684d3683bd498e46ec5a0da4f1791d3de4e2",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "e9c615495570004b240f40cb1b4fde593a5a3ab2e950e9125940d69b92963a2f",
+        "runId": "107-candidate-trial-batch-coherent-burn-in-overflow"
+      }
+    }
+  ],
+  "investigation": "source-lot-back-end-service",
+  "kind": "observation",
+  "previousEntryHash": "5b180853cd09dbc26fe494e3cba255505291a582588aefb0cffba91ed012234d",
+  "sequence": 7,
+  "statement": "Run 107 proves the local routing revision itself: every packaged source lot now reaches one rack as a complete eight-device batch, commingled jobs fall from four to zero, and no four-device sibling-rack tails remain. Delivery nevertheless stays at 64 because burn-in-overflow-1 completes changeovers but starts zero screening jobs while its shipping grid repeatedly offers less than the 384 W active requirement; four complete source batches remain at that rack.",
+  "version": 1
+}

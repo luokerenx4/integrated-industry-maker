@@ -5,7 +5,7 @@ import { join, relative, resolve } from "node:path";
 import {
   ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeFabLossProfile, analyzeProduction, applyBlueprintPatch, applyCandidateChangeSet, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel, evaluateBlueprintBenchmark,
   findBlueprintConnectionPath, listRuns, loadBlueprintBenchmark, loadFactoryProject, lockBlueprintBenchmark, openFactoryProject, optimizeResourceDemand, optimizeResourceDemands, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
-  hashValue, listCandidateChangeSets, previewCandidateChangeSet, stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom, evaluatePowerEnvelope, optimizePowerInfrastructure,
+  connectionDispatchProfiles, effectiveDispatchPolicy, hashValue, listCandidateChangeSets, previewCandidateChangeSet, stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom, evaluatePowerEnvelope, optimizePowerInfrastructure,
   parallelizeWorkCenter, rotatePortSide, specializeSharedWorkCenterCandidates, transportEndpointRotation, blueprintSchema,
   type Blueprint, type BlueprintResearchAgent, type DeviceProgram, type DeviceProgramContext, type FactoryEvent, type LoadedFactoryProject,
 } from "./index";
@@ -2981,6 +2981,64 @@ describe("deterministic discrete-event simulation", () => {
     ]);
     expect(result.state.devices["target-east"]!.buffers.storage!["iron-ore"]).toBe(1);
     expect(result.state.devices["target-north"]!.buffers.storage!.coal).toBe(1);
+  });
+
+  test("batch-coherent local dispatch commits one complete Process input batch before rotating", async () => {
+    const batchProjectSource = async (): Promise<LoadedFactoryProject> => {
+      const source = await loaded();
+      source.deviceAssets.splitter!.power.idleMilliWatts = 0;
+      source.deviceAssets.splitter!.power.activeMilliWatts = 0;
+      source.deviceAssets.sorter!.power.idleMilliWatts = 0;
+      source.deviceAssets.sorter!.power.activeMilliWatts = 0;
+      source.deviceAssets.smelter!.power.idleMilliWatts = 0;
+      source.deviceAssets.smelter!.power.activeMilliWatts = 0;
+      const recipe = structuredClone(source.blueprint.devices.find((device) => device.id === "smelter-1")!.recipe!);
+      source.blueprint.devices = [
+        { id: "source", asset: "splitter", region: "forge-zone", position: { x: 4, y: 4 }, rotation: 0, policy: { dispatch: "batch-coherent" } },
+        { id: "target-east", asset: "smelter", region: "forge-zone", position: { x: 10, y: 4 }, rotation: 0, recipe: structuredClone(recipe) },
+        { id: "target-north", asset: "smelter", region: "forge-zone", position: { x: 7, y: 1 }, rotation: 0, recipe: structuredClone(recipe) },
+      ];
+      const logistics = { loader: { deviceAsset: "sorter", distance: 1 }, line: { deviceAsset: "conveyor" }, unloader: { deviceAsset: "sorter", distance: 1 } };
+      setTestConnections(source, [
+        { id: "a-east", from: { device: "source", port: "output-east" }, to: { device: "target-east", port: "input" }, resources: ["iron-ore"], path: [{ x: 6, y: 4 }, { x: 7, y: 4 }, { x: 8, y: 4 }, { x: 9, y: 4 }], logistics },
+        { id: "z-north", from: { device: "source", port: "output-north" }, to: { device: "target-north", port: "input" }, resources: ["iron-ore"], path: [{ x: 5, y: 3 }, { x: 5, y: 2 }, { x: 5, y: 1 }, { x: 6, y: 1 }], logistics },
+      ]);
+      source.blueprint.logisticsNetworks = [];
+      source.scenario.initialBuffers = { source: { storage: { "iron-ore": 4 } } };
+      source.scenario.failures = [{ device: "a-east-loader", atTick: 50, durationTicks: 500 }];
+      return source;
+    };
+
+    const source = await batchProjectSource();
+    const project = compileFactoryProject(source);
+    expect(Object.values(project.connections).sort((left, right) => left.id.localeCompare(right.id)).map((connection) => ({
+      connection: connection.id,
+      policy: effectiveDispatchPolicy(project, connection),
+      coverage: connectionDispatchProfiles(project, connection)[0]?.coverageUnit,
+    }))).toEqual([
+      { connection: "a-east", policy: "batch-coherent", coverage: 2 },
+      { connection: "z-north", policy: "batch-coherent", coverage: 2 },
+    ]);
+    const first = runUntil(project, undefined, { untilTick: 3_000 });
+    const second = runUntil(project, undefined, { untilTick: 3_000 });
+    expect(first.events.filter((event) => event.type === "resource.depart").map((event) => event.connection)).toEqual([
+      "a-east", "a-east", "z-north", "z-north",
+    ]);
+    expect(first.events.some((event) => event.type === "device.breakdown" && event.device === "a-east-loader")).toBeTrue();
+    expect(first).toEqual(second);
+
+    const partial = await batchProjectSource();
+    partial.scenario.initialBuffers = { source: { storage: { "iron-ore": 1 } } };
+    partial.scenario.failures = [];
+    const partialResult = runUntil(compileFactoryProject(partial), undefined, { untilTick: 3_000 });
+    expect(partialResult.events.filter((event) => event.type === "resource.depart")).toHaveLength(0);
+
+    const invalidTarget = await batchProjectSource();
+    delete invalidTarget.blueprint.devices.find((device) => device.id === "target-east")!.recipe;
+    expect(issueCodes(() => compileFactoryProject(invalidTarget))).toContain("logistics.batch-coherent-process-input");
+    const invalidCapacity = await batchProjectSource();
+    invalidCapacity.deviceAssets.smelter!.buffers.find((buffer) => buffer.id === "input")!.capacity = 1;
+    expect(issueCodes(() => compileFactoryProject(invalidCapacity))).toContain("production-mode.job-capacity");
   });
 
   test("shortage-first dispatch feeds the least-covered downstream buffer deterministically", async () => {

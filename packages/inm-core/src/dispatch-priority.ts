@@ -1,4 +1,4 @@
-import type { CompiledConnection, CompiledFactoryProject, CompiledLogisticsRoute, DispatchPolicy, ResourceId } from "./types";
+import type { CompiledConnection, CompiledFactoryProject, CompiledLogisticsRoute, LocalDispatchPolicy, ResourceId } from "./types";
 
 export type DispatchTargetKind = "objective" | "process" | "fuel" | "buffer";
 
@@ -18,7 +18,7 @@ export interface StationDispatchProfile extends ConnectionDispatchProfile {
   downstreamConnections: string[];
 }
 
-export function effectiveDispatchPolicy(project: CompiledFactoryProject, connection: CompiledConnection): DispatchPolicy {
+export function effectiveDispatchPolicy(project: CompiledFactoryProject, connection: CompiledConnection): LocalDispatchPolicy {
   return connection.fromDevice.policy?.dispatch ?? project.blueprint.policies?.dispatch ?? "fifo";
 }
 

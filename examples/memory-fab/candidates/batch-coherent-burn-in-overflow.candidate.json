@@ -1,0 +1,727 @@
+{
+  "baseCandidateHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "The junction should commit each complete eight-device packaged-DRAM source batch to one rack instead of splitting it four-and-four. Run 105 versus the revised trial should therefore show zero four-device sibling-rack tails and delivery above the rejected trial's 64, with 96 as the physical recovery target; locked evidence must still expose the unchanged 15,310 capital-limit deficit and every interruption/service trade.",
+  "hypothesis": "Replace only the parallel overflow junction's item-level round-robin policy with explicit batch-coherent local dispatch while preserving the second qualified rack, every physical lane, the twelve-lot Production Plan, eight-device screening recipes, incumbent policy, customer sinks, quality physics, Scenario, Objective, and seed.",
+  "id": "batch-coherent-burn-in-overflow",
+  "name": "Batch-coherent qualified Burn-in overflow",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/43",
+      "value": {
+        "asset": "sorter",
+        "id": "packaging-to-burn-in-unloader",
+        "position": {
+          "x": 5,
+          "y": 25
+        },
+        "region": "cleanroom",
+        "rotation": 0,
+        "transportEndpoint": {
+          "connection": "packaging-to-burn-in",
+          "distance": 1,
+          "stage": "unloader"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "dram-burn-in-rack",
+        "id": "burn-in-overflow-1",
+        "policy": {
+          "powerPriority": 5,
+          "recipeDispatch": "contract-value"
+        },
+        "position": {
+          "x": 10,
+          "y": 23
+        },
+        "recipes": [
+          {
+            "inputs": {
+              "packaged-dram-device": "package-input"
+            },
+            "mode": "agile-screening-5-8",
+            "outputs": {
+              "commercial-dram-device": "commercial-output"
+            },
+            "priority": 1,
+            "process": "screen-commercial-dram"
+          },
+          {
+            "inputs": {
+              "packaged-dram-device": "package-input"
+            },
+            "mode": "agile-screening-5-8",
+            "outputs": {
+              "automotive-dram-device": "automotive-output",
+              "commercial-dram-device": "commercial-output",
+              "performance-dram-device": "performance-output"
+            },
+            "priority": 10,
+            "process": "screen-performance-mix"
+          }
+        ],
+        "region": "cleanroom",
+        "rotation": 270
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "splitter",
+        "id": "burn-in-1-dispatcher",
+        "policy": {
+          "dispatch": "batch-coherent"
+        },
+        "position": {
+          "x": 6,
+          "y": 25
+        },
+        "region": "cleanroom",
+        "rotation": 0
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "sorter",
+        "id": "burn-in-1-dispatch-burn-in-1-loader",
+        "position": {
+          "x": 8,
+          "y": 25
+        },
+        "region": "cleanroom",
+        "rotation": 0,
+        "transportEndpoint": {
+          "connection": "burn-in-1-dispatch-burn-in-1",
+          "distance": 1,
+          "stage": "loader"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "sorter",
+        "id": "burn-in-1-dispatch-burn-in-1-unloader",
+        "position": {
+          "x": 9,
+          "y": 25
+        },
+        "region": "cleanroom",
+        "rotation": 90,
+        "transportEndpoint": {
+          "connection": "burn-in-1-dispatch-burn-in-1",
+          "distance": 1,
+          "stage": "unloader"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "sorter",
+        "id": "burn-in-1-dispatch-burn-in-overflow-1-loader",
+        "position": {
+          "x": 7,
+          "y": 24
+        },
+        "region": "cleanroom",
+        "rotation": 270,
+        "transportEndpoint": {
+          "connection": "burn-in-1-dispatch-burn-in-overflow-1",
+          "distance": 1,
+          "stage": "loader"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "sorter",
+        "id": "burn-in-1-dispatch-burn-in-overflow-1-unloader",
+        "position": {
+          "x": 9,
+          "y": 24
+        },
+        "region": "cleanroom",
+        "rotation": 0,
+        "transportEndpoint": {
+          "connection": "burn-in-1-dispatch-burn-in-overflow-1",
+          "distance": 1,
+          "stage": "unloader"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "sorter",
+        "id": "commercial-to-customer-burn-in-overflow-1-loader",
+        "position": {
+          "x": 11,
+          "y": 26
+        },
+        "region": "cleanroom",
+        "rotation": 90,
+        "transportEndpoint": {
+          "connection": "commercial-to-customer-burn-in-overflow-1",
+          "distance": 1,
+          "stage": "loader"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "sorter",
+        "id": "commercial-to-customer-burn-in-overflow-1-unloader",
+        "position": {
+          "x": 6,
+          "y": 27
+        },
+        "region": "cleanroom",
+        "rotation": 180,
+        "transportEndpoint": {
+          "connection": "commercial-to-customer-burn-in-overflow-1",
+          "distance": 1,
+          "stage": "unloader"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "sorter",
+        "id": "performance-to-customer-burn-in-overflow-1-loader",
+        "position": {
+          "x": 13,
+          "y": 24
+        },
+        "region": "cleanroom",
+        "rotation": 0,
+        "transportEndpoint": {
+          "connection": "performance-to-customer-burn-in-overflow-1",
+          "distance": 1,
+          "stage": "loader"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "sorter",
+        "id": "performance-to-customer-burn-in-overflow-1-unloader",
+        "position": {
+          "x": 10,
+          "y": 29
+        },
+        "region": "cleanroom",
+        "rotation": 90,
+        "transportEndpoint": {
+          "connection": "performance-to-customer-burn-in-overflow-1",
+          "distance": 1,
+          "stage": "unloader"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "sorter",
+        "id": "automotive-to-customer-burn-in-overflow-1-loader",
+        "position": {
+          "x": 11,
+          "y": 22
+        },
+        "region": "cleanroom",
+        "rotation": 270,
+        "transportEndpoint": {
+          "connection": "automotive-to-customer-burn-in-overflow-1",
+          "distance": 1,
+          "stage": "loader"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/-",
+      "value": {
+        "asset": "sorter",
+        "id": "automotive-to-customer-burn-in-overflow-1-unloader",
+        "position": {
+          "x": 12,
+          "y": 27
+        },
+        "region": "cleanroom",
+        "rotation": 0,
+        "transportEndpoint": {
+          "connection": "automotive-to-customer-burn-in-overflow-1",
+          "distance": 1,
+          "stage": "unloader"
+        }
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/connections/9",
+      "value": {
+        "from": {
+          "device": "packaging-1",
+          "port": "package-output"
+        },
+        "id": "packaging-to-burn-in",
+        "logistics": {
+          "line": {
+            "deviceAsset": "conveyor"
+          },
+          "loader": {
+            "device": "packaging-to-burn-in-loader"
+          },
+          "unloader": {
+            "device": "packaging-to-burn-in-unloader"
+          }
+        },
+        "path": [
+          {
+            "level": 0,
+            "x": 8,
+            "y": 23
+          },
+          {
+            "level": 1,
+            "x": 7,
+            "y": 23
+          },
+          {
+            "level": 1,
+            "x": 6,
+            "y": 23
+          },
+          {
+            "level": 1,
+            "x": 5,
+            "y": 23
+          },
+          {
+            "level": 1,
+            "x": 5,
+            "y": 24
+          },
+          {
+            "level": 0,
+            "x": 5,
+            "y": 25
+          }
+        ],
+        "resources": [
+          "packaged-dram-device"
+        ],
+        "to": {
+          "device": "burn-in-1-dispatcher",
+          "port": "input-west"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/connections/-",
+      "value": {
+        "from": {
+          "device": "burn-in-1-dispatcher",
+          "port": "output-east"
+        },
+        "id": "burn-in-1-dispatch-burn-in-1",
+        "logistics": {
+          "line": {
+            "deviceAsset": "conveyor"
+          },
+          "loader": {
+            "device": "burn-in-1-dispatch-burn-in-1-loader"
+          },
+          "unloader": {
+            "device": "burn-in-1-dispatch-burn-in-1-unloader"
+          }
+        },
+        "path": [
+          {
+            "x": 8,
+            "y": 25
+          },
+          {
+            "x": 9,
+            "y": 25
+          }
+        ],
+        "resources": [
+          "packaged-dram-device"
+        ],
+        "to": {
+          "device": "burn-in-1",
+          "port": "package-input"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/connections/-",
+      "value": {
+        "from": {
+          "device": "burn-in-1-dispatcher",
+          "port": "output-north"
+        },
+        "id": "burn-in-1-dispatch-burn-in-overflow-1",
+        "logistics": {
+          "line": {
+            "deviceAsset": "conveyor"
+          },
+          "loader": {
+            "device": "burn-in-1-dispatch-burn-in-overflow-1-loader"
+          },
+          "unloader": {
+            "device": "burn-in-1-dispatch-burn-in-overflow-1-unloader"
+          }
+        },
+        "path": [
+          {
+            "x": 7,
+            "y": 24
+          },
+          {
+            "x": 8,
+            "y": 24
+          },
+          {
+            "x": 9,
+            "y": 24
+          }
+        ],
+        "resources": [
+          "packaged-dram-device"
+        ],
+        "to": {
+          "device": "burn-in-overflow-1",
+          "port": "package-input"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/connections/-",
+      "value": {
+        "from": {
+          "device": "burn-in-overflow-1",
+          "port": "commercial-output"
+        },
+        "id": "commercial-to-customer-burn-in-overflow-1",
+        "logistics": {
+          "line": {
+            "deviceAsset": "conveyor"
+          },
+          "loader": {
+            "device": "commercial-to-customer-burn-in-overflow-1-loader"
+          },
+          "unloader": {
+            "device": "commercial-to-customer-burn-in-overflow-1-unloader"
+          }
+        },
+        "path": [
+          {
+            "level": 0,
+            "x": 11,
+            "y": 26
+          },
+          {
+            "level": 1,
+            "x": 11,
+            "y": 27
+          },
+          {
+            "level": 1,
+            "x": 11,
+            "y": 28
+          },
+          {
+            "level": 1,
+            "x": 11,
+            "y": 29
+          },
+          {
+            "level": 1,
+            "x": 10,
+            "y": 29
+          },
+          {
+            "level": 1,
+            "x": 9,
+            "y": 29
+          },
+          {
+            "level": 1,
+            "x": 8,
+            "y": 29
+          },
+          {
+            "level": 1,
+            "x": 7,
+            "y": 29
+          },
+          {
+            "level": 1,
+            "x": 7,
+            "y": 28
+          },
+          {
+            "level": 1,
+            "x": 7,
+            "y": 27
+          },
+          {
+            "level": 0,
+            "x": 6,
+            "y": 27
+          }
+        ],
+        "resources": [
+          "commercial-dram-device"
+        ],
+        "to": {
+          "device": "commercial-customer",
+          "port": "input"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/connections/-",
+      "value": {
+        "from": {
+          "device": "burn-in-overflow-1",
+          "port": "performance-output"
+        },
+        "id": "performance-to-customer-burn-in-overflow-1",
+        "logistics": {
+          "line": {
+            "deviceAsset": "conveyor"
+          },
+          "loader": {
+            "device": "performance-to-customer-burn-in-overflow-1-loader"
+          },
+          "unloader": {
+            "device": "performance-to-customer-burn-in-overflow-1-unloader"
+          }
+        },
+        "path": [
+          {
+            "x": 13,
+            "y": 24
+          },
+          {
+            "x": 13,
+            "y": 25
+          },
+          {
+            "x": 13,
+            "y": 26
+          },
+          {
+            "x": 14,
+            "y": 26
+          },
+          {
+            "x": 15,
+            "y": 26
+          },
+          {
+            "x": 15,
+            "y": 27
+          },
+          {
+            "x": 15,
+            "y": 28
+          },
+          {
+            "x": 15,
+            "y": 29
+          },
+          {
+            "x": 14,
+            "y": 29
+          },
+          {
+            "x": 13,
+            "y": 29
+          },
+          {
+            "x": 12,
+            "y": 29
+          },
+          {
+            "x": 11,
+            "y": 29
+          },
+          {
+            "x": 10,
+            "y": 29
+          }
+        ],
+        "resources": [
+          "performance-dram-device"
+        ],
+        "to": {
+          "device": "performance-customer",
+          "port": "input"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/connections/-",
+      "value": {
+        "from": {
+          "device": "burn-in-overflow-1",
+          "port": "automotive-output"
+        },
+        "id": "automotive-to-customer-burn-in-overflow-1",
+        "logistics": {
+          "line": {
+            "deviceAsset": "conveyor"
+          },
+          "loader": {
+            "device": "automotive-to-customer-burn-in-overflow-1-loader"
+          },
+          "unloader": {
+            "device": "automotive-to-customer-burn-in-overflow-1-unloader"
+          }
+        },
+        "path": [
+          {
+            "level": 0,
+            "x": 11,
+            "y": 22
+          },
+          {
+            "level": 1,
+            "x": 11,
+            "y": 21
+          },
+          {
+            "level": 1,
+            "x": 11,
+            "y": 20
+          },
+          {
+            "level": 1,
+            "x": 11,
+            "y": 19
+          },
+          {
+            "level": 1,
+            "x": 12,
+            "y": 19
+          },
+          {
+            "level": 1,
+            "x": 13,
+            "y": 19
+          },
+          {
+            "level": 1,
+            "x": 14,
+            "y": 19
+          },
+          {
+            "level": 1,
+            "x": 15,
+            "y": 19
+          },
+          {
+            "level": 1,
+            "x": 15,
+            "y": 20
+          },
+          {
+            "level": 1,
+            "x": 15,
+            "y": 21
+          },
+          {
+            "level": 1,
+            "x": 15,
+            "y": 22
+          },
+          {
+            "level": 1,
+            "x": 15,
+            "y": 23
+          },
+          {
+            "level": 1,
+            "x": 14,
+            "y": 23
+          },
+          {
+            "level": 1,
+            "x": 13,
+            "y": 23
+          },
+          {
+            "level": 1,
+            "x": 13,
+            "y": 24
+          },
+          {
+            "level": 1,
+            "x": 13,
+            "y": 25
+          },
+          {
+            "level": 1,
+            "x": 13,
+            "y": 26
+          },
+          {
+            "level": 1,
+            "x": 12,
+            "y": 26
+          },
+          {
+            "level": 0,
+            "x": 12,
+            "y": 27
+          }
+        ],
+        "resources": [
+          "automotive-dram-device"
+        ],
+        "to": {
+          "device": "automotive-customer",
+          "port": "input"
+        }
+      }
+    }
+  ],
+  "source": {
+    "entry": "batch-coherent-burn-in-overflow",
+    "entryHash": "5b180853cd09dbc26fe494e3cba255505291a582588aefb0cffba91ed012234d",
+    "investigation": "source-lot-back-end-service",
+    "kind": "investigation-hypothesis",
+    "manifestHash": "b044659484502494dfd05421422a3647e36690f23f1844d0c030b37a1b04edbe",
+    "project": "memory-fab"
+  },
+  "version": 1
+}

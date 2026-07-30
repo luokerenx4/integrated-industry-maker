@@ -1,0 +1,31 @@
+{
+  "author": "agent",
+  "disposition": "revise",
+  "entryHash": "e7dd049783ab52e845b71400eb4e001b402cff78bb53882867186ac0c5f01b7e",
+  "evidence": [
+    "batch-coherent-burn-in-overflow-comparison",
+    "post-overflow-current-factory",
+    "parallel-burn-in-overflow-review",
+    "batch-coherent-burn-in-overflow-review"
+  ],
+  "id": "batch-coherent-overflow-revise",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "batch-coherent-burn-in-overflow",
+      "currentCandidateHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+      "id": "batch-coherent-burn-in-overflow-review",
+      "kind": "candidate-review",
+      "proposalHash": "df8fdd6d0280f050cfd11b9edc9ee710aee2859c39150cc8038c1c0d9f610067",
+      "proposedCandidateHash": "a6720f245fe4f737da4f31953782684d3683bd498e46ec5a0da4f1791d3de4e2",
+      "reviewResultHash": "ff72f2cb0a9e3fb8893ce613bbb72957ebe775d2c23f5323c3c06345c80fcd7e",
+      "verdict": "DISCARD"
+    }
+  ],
+  "investigation": "source-lot-back-end-service",
+  "kind": "decision",
+  "previousEntryHash": "e29e3fd7ff02fc1369848f82739edde0f782f8156a153fac921b97647ee7932b",
+  "sequence": 8,
+  "statement": "REVISE rather than apply. Retain batch-coherent dispatch as the correct explicit equipment-routing contract, but the parallel rack topology is not an operable capacity addition until an explicitly costed shipping-grid intervention supplies its active screening load. Any next Candidate must also resolve or deliberately justify the existing 15,310 currency capital-limit deficit; Run 107 remains rejected physical evidence, not current factory authority.",
+  "version": 1
+}

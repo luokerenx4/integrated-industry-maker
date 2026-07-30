@@ -37,7 +37,7 @@ Cargo progresses through `loading`, `belt`, and `unloading` phases. A busy cell 
 
 ## Local dispatch policy
 
-Every Blueprint has one default local dispatch policy, and a source Device may override it. `fifo` uses stable connection and Resource ids. `round-robin` rotates eligible outgoing connections after each successful departure. `shortage-first` makes the physical network demand-aware without adding a hidden mutable controller.
+Every Blueprint has one default local dispatch policy, and a source Device may override it. `fifo` uses stable connection and Resource ids. `round-robin` rotates eligible outgoing connections after each successful departure. `shortage-first` makes the physical network demand-aware without adding a hidden mutable controller. A transport junction may additionally select `batch-coherent` when its sibling lanes terminate directly at Process inputs.
 
 For each eligible `(connection, Resource)` pair, the runtime divides destination resident plus already-inbound inventory by a compiled coverage unit:
 
@@ -51,11 +51,13 @@ For a Process input with a minimum treatment level, only resident and inbound lo
 
 An explicit source `outputPriority` or destination `inputPriority` remains an operator override above automatic shortage ordering. A junction Resource filter remains absolute. Capacity, power, allowlists, filters, and destination reservations still decide eligibility before any policy can rank a candidate.
 
-Connection ownership, stable connection-id order, effective policy, authored input/output-priority membership, and the number of outgoing lanes are immutable for one simulation. Runtime prepares one source-grouped local-dispatch view from that topology instead of reconstructing it on every settle pass. Round-robin cursors, inventory, material grade, inbound reservations, free capacity, endpoint availability, power, and shortage coverage remain live authority; the prepared view is never a second demand or reservation ledger.
+`batch-coherent` bridges item-moving transport and fixed-batch equipment without changing either contract. The compiler requires a real transport-junction fan-out, and every allowed `(connection, Resource)` must terminate directly in one unambiguous Process input batch. The source buffer and destination input must each fit that complete coverage unit. Runtime starts no commitment until the complete quantity exists at one exact treatment level and the destination has room for all of it. Its first departure pins that source to the same connection, Resource, and level until the coverage unit has departed; sorter timing, stack size, backpressure, power loss, and endpoint failure may delay the remainder but cannot divert it to a sibling lane. Only the completed unit advances the rotated cursor. The committed departures immediately join the ordinary inbound-capacity ledger, so this policy adds no shadow destination inventory.
+
+Connection ownership, stable connection-id order, effective policy, authored input/output-priority membership, and the number of outgoing lanes are immutable for one simulation. Runtime prepares one source-grouped local-dispatch view from that topology instead of reconstructing it on every settle pass. Round-robin cursors, active batch commitments, inventory, material grade, inbound reservations, free capacity, endpoint availability, power, and shortage coverage remain live authority; the prepared view is never a second demand or reservation ledger.
 
 ## Junctions
 
-A transport-junction is a real powered Device with an internal buffer and multiple ports. It uses the same FIFO, round-robin, or shortage-first policy as any source Device; input/output port priorities and a Resource-to-output filter are instance policies. Synthesis creates deterministic merge/split trees, assigns single-use physical ports, conserves planned rate on every edge, writes an exact Resource filter on every junction, and may retain round-robin on symmetric generated trees even when the factory default is shortage-first.
+A transport-junction is a real powered Device with an internal buffer and multiple ports. It uses FIFO, round-robin, shortage-first, or the stricter Process-input-only batch-coherent policy; input/output port priorities and a Resource-to-output filter are instance policies. Synthesis creates deterministic merge/split trees, assigns single-use physical ports, conserves planned rate on every edge, writes an exact Resource filter on every junction, and may retain round-robin on symmetric generated trees even when the factory default is shortage-first. Synthesis never invents batch coherence: a human or reasoning Agent authors it as an industrial intervention and retains its evidence.
 
 ## Synthesis and parallel capacity
 
@@ -134,7 +136,7 @@ The memory-fab back-end study demonstrates why endpoint stack and power priority
 ## Verification
 
 ```bash
-bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "transport|belt|connection Resource filter|sorter span|endpoint reach|stack|junction|station|parallel lanes|shortage-first|output priority"
+bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "transport|belt|connection Resource filter|sorter span|endpoint reach|stack|junction|station|parallel lanes|shortage-first|batch-coherent|output priority"
 bun run inm analyze examples/ironworks
 bun run inm simulate examples/ironworks --blueprint stacked-cargo --scenario stacked-cargo --objective stacked-cargo
 ```

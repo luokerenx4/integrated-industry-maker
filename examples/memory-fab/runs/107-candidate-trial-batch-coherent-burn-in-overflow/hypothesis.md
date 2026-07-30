@@ -1,0 +1,1 @@
+Replace only the parallel overflow junction's item-level round-robin policy with explicit batch-coherent local dispatch while preserving the second qualified rack, every physical lane, the twelve-lot Production Plan, eight-device screening recipes, incumbent policy, customer sinks, quality physics, Scenario, Objective, and seed.

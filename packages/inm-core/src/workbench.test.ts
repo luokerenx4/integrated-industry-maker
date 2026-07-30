@@ -479,6 +479,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     verdict: candidate.decision.verdict,
   }))).toEqual([
     { id: "back-end-wip-conwip-5-4", benchmark: "greenfield-dram-design", patchOperations: 2, state: "stale", verdict: "DISCARD" },
+    { id: "batch-coherent-burn-in-overflow", benchmark: "greenfield-dram-design", patchOperations: 19, state: "reviewed-discard", verdict: "DISCARD" },
     { id: "candidate-3", benchmark: "greenfield-dram-design", patchOperations: 2, state: "stale", verdict: undefined },
     { id: "closed-loop-layer-two-etch", benchmark: "greenfield-dram-design", patchOperations: 2, state: "stale", verdict: undefined },
     { id: "commissioned-furnace-supply-recovery", benchmark: "greenfield-dram-design", patchOperations: 3, state: "stale", verdict: undefined },

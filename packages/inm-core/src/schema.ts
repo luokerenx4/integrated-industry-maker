@@ -244,7 +244,7 @@ export const blueprintSchema = z.object({
     resourceNodes: z.array(id).min(1).optional(),
     config: z.record(z.unknown()).optional(),
     policy: z.object({
-      dispatch: z.enum(["fifo", "round-robin", "shortage-first"]).optional(),
+      dispatch: z.enum(["fifo", "round-robin", "shortage-first", "batch-coherent"]).optional(),
       recipeDispatch: z.enum(["authored-order", "shortest-cycle", "highest-priority", "minimize-changeover", "contract-value", "oldest-lot", "earliest-due-date", "least-slack", "highest-lot-priority"]).optional(),
       cadenceControl: z.discriminatedUnion("kind", [
         z.object({
