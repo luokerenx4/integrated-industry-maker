@@ -144,14 +144,15 @@ test("memory-fab on-time service rejects score-positive inspection maintenance",
       metric: "onTimeLots",
       cases: [
         expect.objectContaining({ id: "steady-production", candidateValue: 12, threshold: 12, candidatePassed: true }),
-        expect.objectContaining({ id: "mixed-quality", candidateValue: 10, threshold: 10, candidatePassed: true }),
-        expect.objectContaining({ id: "quality-excursion", candidateValue: 10, threshold: 8, candidatePassed: true }),
+        expect.objectContaining({ id: "mixed-quality", candidateValue: 9, threshold: 10, candidatePassed: false }),
+        expect.objectContaining({ id: "quality-excursion", candidateValue: 12, threshold: 8, candidatePassed: true }),
         expect.objectContaining({ id: "lithography-interruption", candidateValue: 7, threshold: 7, candidatePassed: true }),
         expect.objectContaining({ id: "facility-interruption", candidateValue: 6, threshold: 9, candidatePassed: false }),
       ],
     }),
   ]);
   expect(result.reasons).toEqual([
+    "outcome guardrail 'preserve-on-time-service' failed in case 'mixed-quality': onTimeLots 9.000000 must be >= 10.000000",
     "outcome guardrail 'preserve-on-time-service' failed in case 'facility-interruption': onTimeLots 6.000000 must be >= 9.000000",
   ]);
 }, 30_000);
@@ -162,7 +163,8 @@ test("memory-fab advanced recovery exposes exact Objective score causality", asy
   const incumbentBlueprint = structuredClone(loaded.blueprint);
   const incumbentEtch = incumbentBlueprint.devices.find((device) => device.id === "etch-l2")!;
   incumbentEtch.asset = "plasma-etch-bay";
-  incumbentEtch.recipes![0]!.mode = "qualified";
+  incumbentEtch.recipes = [{ ...incumbentEtch.recipes![0]!, mode: "qualified" }];
+  if (incumbentEtch.policy) delete incumbentEtch.policy.cadenceControl;
   const incumbentRecovery = incumbentBlueprint.devices.find((device) => device.id === "rework-1")!;
   incumbentRecovery.asset = "pattern-rework-bay";
   incumbentRecovery.recipe!.process = "rework-final-pattern";

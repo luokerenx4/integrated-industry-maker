@@ -1,0 +1,49 @@
+{
+  "baseCandidateHash": "35ef45f0eb537a5e2f7a94b40b1e41bf74fb5f13fb21d067ed996443785ed144",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reproduce Design Run 966127dd542d: aggregate score -2.098439 (+168.651211 versus locked baseline) across 5 cases.",
+  "hypothesis": "A qualified four-fifths etch cycle can enter after one simulation tick when the physical inspection lane has no resident or in-flight wafer.",
+  "id": "inspection-supply-path-966127dd",
+  "name": "Inspection Supply Path Convergence leading design",
+  "patch": [
+    {
+      "op": "remove",
+      "path": "/devices/61/policy/recipeDispatch"
+    },
+    {
+      "op": "add",
+      "path": "/devices/61/policy/cadenceControl",
+      "value": {
+        "downstreamConnection": "etch-to-inspection",
+        "kind": "downstream-coverage-recovery",
+        "minimumCoverageDeficitTicks": 1,
+        "normalMode": "closed-loop-control",
+        "process": "etch-cell-layer-2",
+        "recoverBelowItems": 1,
+        "recoveryMode": "closed-loop-fast-4-5"
+      }
+    },
+    {
+      "op": "add",
+      "path": "/devices/61/recipes/-",
+      "value": {
+        "inputs": {
+          "patterned-cell-l2-lot": "pattern-input"
+        },
+        "mode": "closed-loop-fast-4-5",
+        "outputs": {
+          "dram-wafer-lot": "final-output"
+        },
+        "priority": 10,
+        "process": "etch-cell-layer-2"
+      }
+    }
+  ],
+  "source": {
+    "blueprintHash": "8281c50706c578b823b7d8cc3f5d4f94cef230fefbee210c8a3756a6a9a9563a",
+    "kind": "design-run",
+    "program": "inspection-supply-path",
+    "resultHash": "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06"
+  },
+  "version": 1
+}

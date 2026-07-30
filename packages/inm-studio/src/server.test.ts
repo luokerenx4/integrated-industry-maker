@@ -90,7 +90,7 @@ test("Studio defaults to current compatible evidence instead of the newest unrel
   }
 }, 30_000);
 
-test("Studio reopens the recorded memory-fab revision handoff without evaluation", async () => {
+test("Studio keeps a recorded memory-fab revision handoff visible after its base becomes stale", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-studio-revision-"));
   const projectDir = join(root, "memory-fab");
   await cp(join(repository, "examples/memory-fab"), projectDir, {
@@ -116,7 +116,7 @@ test("Studio reopens the recorded memory-fab revision handoff without evaluation
     );
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual(expect.objectContaining({
-      state: "reviewed-discard",
+      state: "stale",
       review: expect.objectContaining({
         revisionBrief: expect.objectContaining({
           disposition: "revise-or-retire",

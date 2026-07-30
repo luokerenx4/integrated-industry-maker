@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/current-inspection-evidence-continuity]] | Commission the only current-safe inspection-supply intervention, then retain an exhausted optimized-seed frontier instead of rediscovering old hypotheses. | 2026-07-30 |
 | [[plans/wip-equivalent-unit-accounting]] | Score and compare heterogeneous factory WIP in explicit Objective-owned equivalent units without hiding raw physical inventory. | 2026-07-30 |
 | [[plans/selection-scoped-evidence-identity]] | Keep unused project-local design options from invalidating the exact selected factory's evidence. | 2026-07-30 |
 | [[plans/frictionless-industrial-design-cycle]] | Make the ordinary start, run, inspect, edit, and repeat cycle trustworthy without process or port archaeology. | 2026-07-29 |

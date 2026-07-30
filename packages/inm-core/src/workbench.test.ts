@@ -71,9 +71,9 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.project.id).toBe("memory-fab");
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
-    flow: { state: "at-risk", warningCount: 8, infoCount: 8 },
-    evidence: { state: "current", runId: "097-simulate" },
-    review: { state: "stale", pendingCount: 0, staleCount: 16, verifiedCount: 0 },
+    flow: { state: "at-risk", warningCount: 8, infoCount: 9 },
+    evidence: { state: "current", runId: "098-simulate" },
+    review: { state: "stale", pendingCount: 0, staleCount: 17, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.objective.wipAccounting).toEqual(expect.objectContaining({
@@ -86,47 +86,47 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.objective.wipAccounting.resources.map((entry) => entry.resource))
     .not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "097-simulate",
+    runId: "098-simulate",
     wipEquivalentUnit: "dram-device-equivalent",
-    averageRawWipInventory: 27.834429166666666,
-    averageWipEquivalentUnits: 49.457166666666666,
-    averageTotalInventory: 124.73002083333333,
+    averageRawWipInventory: 27.988595833333335,
+    averageWipEquivalentUnits: 49.2905,
+    averageTotalInventory: 124.4341875,
     peakRawWipInventory: 59,
     peakWipEquivalentUnits: 88,
   }));
-  expect(snapshot.inventoryAccounting!.averageExcludedInventory).toBeCloseTo(96.89559166666666, 12);
+  expect(snapshot.inventoryAccounting!.averageExcludedInventory).toBeCloseTo(96.44559166666666, 12);
   expect(snapshot.inventoryAccounting?.resources["dram-package-substrate"]).toEqual(expect.objectContaining({
     includedInWip: false,
-    averageInventory: 40.0292,
+    averageInventory: 39.6292,
   }));
   expect(snapshot.inventoryAccounting?.locations["buffer:burn-in-1:package-input:packaged-dram-device"]).toEqual(expect.objectContaining({
     kind: "buffer",
     device: "burn-in-1",
     buffer: "package-input",
-    averageInventory: 9.781316666666667,
+    averageInventory: 9.81465,
   }));
   expect(snapshot.objectiveEvidence).toEqual(expect.objectContaining({
-    runId: "097-simulate",
-    finalScore: -1.5504066583333294,
-    dominantPenalty: { id: "wip", contribution: -74.18575, role: "penalty" },
+    runId: "098-simulate",
+    finalScore: -1.2706583827777775,
+    dominantPenalty: { id: "wip", contribution: -73.93575, role: "penalty" },
     wip: expect.objectContaining({
       equivalentUnit: "dram-device-equivalent",
       weight: 1.5,
-      scoreContribution: -74.18575,
-      averageRawWipInventory: 27.834429166666666,
-      averageWipEquivalentUnits: 49.457166666666666,
+      scoreContribution: -73.93575,
+      averageRawWipInventory: 27.988595833333335,
+      averageWipEquivalentUnits: 49.2905,
       peakRawWipInventory: 59,
       peakWipEquivalentUnits: 88,
       resources: [
         expect.objectContaining({
           resource: "packaged-dram-device",
-          averageInventory: 15.152566666666667,
-          scoreContribution: -22.72885,
+          averageInventory: 15.1859,
+          scoreContribution: -22.77885,
         }),
         expect.objectContaining({
           resource: "known-good-dram-die",
-          averageInventory: 9.5929,
-          scoreContribution: -14.38935,
+          averageInventory: 9.759566666666666,
+          scoreContribution: -14.63935,
         }),
         ...snapshot.objectiveEvidence!.wip.resources.slice(2),
       ],
@@ -134,12 +134,12 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
         expect.objectContaining({
           physicalLocation: "burn-in-1.package-input",
           subject: { kind: "device", id: "burn-in-1" },
-          averageInventory: 9.781316666666667,
+          averageInventory: 9.81465,
         }),
         expect.objectContaining({
           physicalLocation: "packaging-1.die-input",
           subject: { kind: "device", id: "packaging-1" },
-          averageInventory: 7.965816666666667,
+          averageInventory: 8.1179,
         }),
         ...snapshot.objectiveEvidence!.wip.locations.slice(2),
       ],
@@ -162,8 +162,8 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   }));
   expect(snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "power-interruption")).toMatchObject({
     evidence: {
-      unpoweredTicks: 552_076,
-      attributedTicks: 552_076,
+      unpoweredTicks: 560_576,
+      attributedTicks: 560_576,
       unattributedTicks: 0,
       contributors: 7,
       affectedGrids: 1,
@@ -180,8 +180,8 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
         grid: "grid-cleanroom-shipping-power",
         endpointStage: "loader",
         evidence: expect.objectContaining({
-          unpoweredTicks: 163_777,
-          gridUnservedMilliJoules: 149_450,
+          unpoweredTicks: 164_777,
+          gridUnservedMilliJoules: 144_994,
           gridPeakDeficitMilliWatts: 7_000,
           gridRequiredStorageCapacityMilliJoules: 21_225,
         }),
@@ -189,7 +189,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       expect.objectContaining({
         id: "device:substrate-receiving-to-packaging-unloader:power-interruption",
         endpointStage: "unloader",
-        evidence: expect.objectContaining({ unpoweredTicks: 163_777 }),
+        evidence: expect.objectContaining({ unpoweredTicks: 164_777 }),
       }),
     ]),
   });
@@ -197,11 +197,11 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     label: "Local transport blocking by cause",
     evidence: {
       blockedConnections: 2,
-      blockedItemTicks: 58_000,
+      blockedItemTicks: 61_200,
       connections: 17,
-      lineContentionTicks: 33_000,
-      endpointCapacityTicks: 15_300,
-      endpointPowerTicks: 9_700,
+      lineContentionTicks: 35_100,
+      endpointCapacityTicks: 16_100,
+      endpointPowerTicks: 10_000,
       endpointFailureTicks: 0,
     },
     subjects: [{ kind: "connection", id: "probe-to-packaging" }],
@@ -209,10 +209,10 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       id: "connection:probe-to-packaging:transport-line-contention",
       mechanism: "transport-line-contention",
       evidence: expect.objectContaining({
-        blockedItemTicks: 46_800,
-        lineContentionTicks: 27_000,
-        endpointCapacityTicks: 14_000,
-        endpointPowerTicks: 5_800,
+        blockedItemTicks: 50_000,
+        lineContentionTicks: 29_100,
+        endpointCapacityTicks: 14_800,
+        endpointPowerTicks: 6_100,
         endpointFailureTicks: 0,
       }),
     })]),
@@ -277,9 +277,9 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       capacityBlockedLots: 0,
       capacityBlockedTicks: 0,
       controlBlockedLots: 6,
-      controlBlockedTicks: 171_738,
-      blockedTicks: 171_738,
-      attributedTicks: 171_738,
+      controlBlockedTicks: 165_738,
+      blockedTicks: 165_738,
+      attributedTicks: 165_738,
       unattributedTicks: 0,
       contributors: 6,
       maximumWip: 6,
@@ -297,10 +297,10 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
         resources: ["blank-dram-wafer-lot"],
         lots: ["dram-lot-07"],
         evidence: expect.objectContaining({
-          totalTicks: 63_623,
-          controlBlockedTicks: 63_623,
+          totalTicks: 62_623,
+          controlBlockedTicks: 62_623,
           plannedReleaseTick: 36_000,
-          actualReleaseTick: 99_623,
+          actualReleaseTick: 98_623,
           dueTick: 180_000,
           priority: 5,
           releaseOrdinal: 12,
@@ -309,11 +309,11 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
           reopenAtWip: 5,
         }),
       }),
-      expect.objectContaining({ id: "lot:dram-lot-08:release-admission", evidence: expect.objectContaining({ totalTicks: 49_623 }) }),
-      expect.objectContaining({ id: "lot:dram-lot-09:release-admission", evidence: expect.objectContaining({ totalTicks: 35_623 }) }),
-      expect.objectContaining({ id: "lot:dram-lot-11:release-admission", evidence: expect.objectContaining({ totalTicks: 15_623 }) }),
-      expect.objectContaining({ id: "lot:dram-lot-10:release-admission", evidence: expect.objectContaining({ totalTicks: 5_623 }) }),
-      expect.objectContaining({ id: "lot:dram-lot-12:release-admission", evidence: expect.objectContaining({ totalTicks: 1_623 }) }),
+      expect.objectContaining({ id: "lot:dram-lot-08:release-admission", evidence: expect.objectContaining({ totalTicks: 48_623 }) }),
+      expect.objectContaining({ id: "lot:dram-lot-09:release-admission", evidence: expect.objectContaining({ totalTicks: 34_623 }) }),
+      expect.objectContaining({ id: "lot:dram-lot-11:release-admission", evidence: expect.objectContaining({ totalTicks: 14_623 }) }),
+      expect.objectContaining({ id: "lot:dram-lot-10:release-admission", evidence: expect.objectContaining({ totalTicks: 4_623 }) }),
+      expect.objectContaining({ id: "lot:dram-lot-12:release-admission", evidence: expect.objectContaining({ totalTicks: 623 }) }),
     ],
   });
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.transport-blocking")).toBeTrue();
@@ -430,7 +430,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     state: candidate.decision.state,
     verdict: candidate.decision.verdict,
   }))).toEqual([
-    { id: "back-end-wip-conwip-5-4", benchmark: "greenfield-dram-design", patchOperations: 2, state: "reviewed-discard", verdict: "DISCARD" },
+    { id: "back-end-wip-conwip-5-4", benchmark: "greenfield-dram-design", patchOperations: 2, state: "stale", verdict: "DISCARD" },
     { id: "candidate-3", benchmark: "greenfield-dram-design", patchOperations: 2, state: "stale", verdict: undefined },
     { id: "closed-loop-layer-two-etch", benchmark: "greenfield-dram-design", patchOperations: 2, state: "stale", verdict: undefined },
     { id: "commissioned-furnace-supply-recovery", benchmark: "greenfield-dram-design", patchOperations: 3, state: "stale", verdict: undefined },
@@ -442,6 +442,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     { id: "furnace-flex-dual-service", benchmark: "greenfield-dram-design", patchOperations: 4, state: "stale", verdict: undefined },
     { id: "identity-safe-release-control", benchmark: "greenfield-dram-design", patchOperations: 2, state: "stale", verdict: undefined },
     { id: "inspection-edd-resilience", benchmark: "greenfield-dram-design", patchOperations: 1, state: "stale", verdict: undefined },
+    { id: "inspection-supply-path-966127dd", benchmark: "greenfield-dram-design", patchOperations: 3, state: "verified", verdict: "KEEP" },
     { id: "layer-two-lithography-capacity", benchmark: "greenfield-dram-design", patchOperations: 30, state: "stale", verdict: undefined },
     { id: "lithography-l2-edd", benchmark: "greenfield-dram-design", patchOperations: 1, state: "stale", verdict: undefined },
     { id: "planned-lithography-maintenance", benchmark: "greenfield-dram-design", patchOperations: 2, state: "stale", verdict: undefined },
@@ -564,14 +565,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       activeProductiveDevices: 11,
       flowProductiveDevices: 10,
       contributingDevices: 8,
-      rawWaitingInputTicks: 1_588_215,
-      flowRawWaitingInputTicks: 1_356_215,
+      rawWaitingInputTicks: 1_596_215,
+      flowRawWaitingInputTicks: 1_364_215,
       exceptionWaitingInputTicks: 232_000,
-      boundaryWaitingInputTicks: 1_106_939,
-      opportunityWindowTicks: 1_181_061,
+      boundaryWaitingInputTicks: 1_115_939,
+      opportunityWindowTicks: 1_172_061,
       unavailableGapTicks: 79_000,
-      starvationTicks: 249_276,
-      subjectStarvationTicks: 59_584,
+      starvationTicks: 248_276,
+      subjectStarvationTicks: 58_584,
     },
   });
   expect(inputStarvation?.contributors.find((contributor) =>
@@ -586,8 +587,8 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     ],
     evidence: {
       jobs: 12,
-      starvationTicks: 40_456,
-      opportunityWindowTicks: 112_456,
+      starvationTicks: 39_456,
+      opportunityWindowTicks: 111_456,
       unattributedGapTicks: 0,
     },
     inputStates: expect.arrayContaining([expect.objectContaining({
@@ -611,30 +612,18 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.operations.find((operation) => operation.id === "candidate.apply")?.availability.state).toBe("unavailable");
 });
 
-test("shared handoff opens the exact Objective-focused Program after diagnostic work is bounded", async () => {
+test("shared handoff keeps stale Objective evidence behind the current physical Design frontier", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/memory-fab"));
   const objectiveAuthority = snapshot.designPrograms
     .find((program) => program.id === "back-end-wip-convergence")?.evidence.authorityRunId;
-  expect(objectiveAuthority).toBeTruthy();
-  const nextAction = buildWorkbenchNextAction({
-    ...snapshot,
-    candidates: [],
-    diagnostics: snapshot.diagnostics.filter((diagnostic) => diagnostic.severity === "info"),
-    lossDispositions: [],
-  });
-  expect(nextAction).toEqual(expect.objectContaining({
-    id: `design.run.objective:back-end-wip-convergence:${objectiveAuthority}:wip:097-simulate`,
-    title: "Continue the current Back-end WIP Convergence frontier",
-    argv: ["inm", "design", snapshot.project.rootDir, "--program", "back-end-wip-convergence", "--run-id", objectiveAuthority!, "--json"],
-    studioRoute: `/memory-fab/designs/back-end-wip-convergence/runs/${objectiveAuthority}`,
-    target: {
+  expect(objectiveAuthority).toBeNull();
+  expect(snapshot.nextAction).toEqual(expect.objectContaining({
+    title: "Expand Inspection Supply Path Convergence's intervention portfolio",
+    target: expect.objectContaining({
       kind: "design-run",
-      programId: "back-end-wip-convergence",
-      objectiveComponent: "wip",
-      evidenceRunId: "097-simulate",
-      phase: "continuable",
-      runId: objectiveAuthority,
-    },
+      programId: "inspection-supply-path",
+      phase: "exhausted",
+    }),
   }));
 });
 
@@ -646,6 +635,22 @@ test("an active physical loss still outranks current Objective Design evidence",
   const snapshot = await openProjectWorkbenchSnapshot(projectDir);
   expect(snapshot.version).toBe(12);
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.input-starvation")).toBeTrue();
+  const currentInspection = snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")?.evidence;
+  if (currentInspection?.authorityRunId === "6f1f260672f18ae77d72dfb4425a3c9ddd5870f4f50a41cd84d95c0984730bde") {
+    expect(snapshot.lossDispositions).toHaveLength(0);
+    expect(currentInspection).toEqual(expect.objectContaining({ state: "exhausted", currentRuns: 1 }));
+    expect(snapshot.nextAction).toEqual(expect.objectContaining({
+      title: "Expand Inspection Supply Path Convergence's intervention portfolio",
+      target: expect.objectContaining({
+        kind: "design-run",
+        programId: "inspection-supply-path",
+        phase: "exhausted",
+        diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+      }),
+    }));
+    await rm(root, { recursive: true, force: true });
+    return;
+  }
   const objectiveAuthority = snapshot.designPrograms
     .find((program) => program.id === "back-end-wip-convergence")?.evidence.authorityRunId;
   if (objectiveAuthority && snapshot.lossDispositions.length > 0) {
@@ -1149,7 +1154,7 @@ test("a non-KEEP Candidate receipt resolves review work without displacing curre
   const reviewed = await openProjectWorkbenchSnapshot(projectDir);
   expect(reviewed.candidates.find((candidate) => candidate.id === "stable-furnace-sleep")?.decision)
     .toEqual(expect.objectContaining({ state: "reviewed-discard", verdict: "DISCARD" }));
-  expect(reviewed.status.review).toEqual({ state: "stale", pendingCount: 0, staleCount: 16, verifiedCount: 0 });
+  expect(reviewed.status.review).toEqual({ state: "stale", pendingCount: 0, staleCount: 17, verifiedCount: 1 });
   expect(reviewed.nextAction).toEqual(expect.objectContaining({
     id: expect.stringContaining("design.inspect:inspection-supply-path:fab-loss."),
     target: expect.objectContaining({ kind: "design-program", programId: "inspection-supply-path" }),

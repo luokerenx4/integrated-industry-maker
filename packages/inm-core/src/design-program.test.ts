@@ -315,23 +315,29 @@ test("inspection supply Design closes one exact causal frontier without changing
   expect(result.artifact.id).toHaveLength(64);
   expect(result.manifest).toMatchObject({
     stopReason: "frontier-exhausted",
-    budget: { maximum: 7, evaluated: 2 },
-    best: { iteration: 1, promotionPatchOperations: 3 },
-    frontier: { leader: "candidate-1", alternatives: [], scheduler: { searchOrder: [], exhausted: ["candidate-1"] } },
+    budget: { maximum: 7, evaluated: 6 },
+    best: { iteration: 0, promotionPatchOperations: 0 },
+    frontier: { leader: "seed", alternatives: [], scheduler: { searchOrder: [], exhausted: ["seed"] } },
   });
   expect(result.manifest.iterations.map((iteration) => iteration.strategy)).toEqual([
     "recipe:closed-loop-fast-4-5-after-1-tick",
+    "recipe:closed-loop-fast-4-5-after-2000",
+    "recipe:closed-loop-fast-3-4-after-2000",
+    "recipe:closed-loop-fast-4-5-always",
+    "recipe:closed-loop-fast-3-4-always",
     "logistics:vacuum-dual-wafer-handoff",
   ]);
   expect(result.manifest.iterations.map((iteration) => iteration.lossTargetEvidence?.delta))
-    .toEqual([-1_000, -1_750]);
+    .toEqual([0, 333, 333, -1_000, -1_500, -1_750]);
   expect(result.manifest.iterations.every((iteration) =>
     iteration.addressedLoss === "input-starvation"
     && iteration.addressedLossTarget?.contributor === "device:inspection-1:material-input-shortage"
-    && iteration.addressedLossTarget.metric === "starvationTicks"
-    && iteration.lossTargetEvidence?.improved === true)).toBeTrue();
-  expect(result.manifest.iterations.map((iteration) => iteration.decision)).toEqual(["KEEP", "REJECT"]);
-  expect(progress.filter((event) => event.phase === "loss-target-completed")).toHaveLength(2);
+    && iteration.addressedLossTarget.metric === "starvationTicks")).toBeTrue();
+  expect(result.manifest.iterations.map((iteration) => iteration.lossTargetEvidence?.improved))
+    .toEqual([false, false, false, true, true, true]);
+  expect(result.manifest.iterations.map((iteration) => iteration.decision))
+    .toEqual(["REJECT", "REJECT", "REJECT", "REJECT", "REJECT", "REJECT"]);
+  expect(progress.filter((event) => event.phase === "loss-target-completed")).toHaveLength(6);
   expect(progress.filter((event) => event.phase === "driver-replay-started"
     || event.phase === "driver-replay-completed")).toEqual([]);
   const completedCaseProgress = progress.filter((event): event is DesignRunProgress & { phase: "case-completed" } =>
@@ -345,7 +351,7 @@ test("inspection supply Design closes one exact causal frontier without changing
   expect(progress.at(-1)).toEqual(expect.objectContaining({
     version: 5,
     phase: "run-completed",
-    work: { completedCases: 20, plannedCases: 20 },
+    work: { completedCases: 40, plannedCases: 40 },
   }));
   expect(await readFile(seedPath, "utf8")).toBe(seedBefore);
   expect((await loadDesignRun(cleanProject, "inspection-supply-path", result.manifest.resultHash)).manifest.resultHash)

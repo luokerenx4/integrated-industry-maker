@@ -683,7 +683,10 @@ test("current commissioned fab prevents latent etch damage without reintroducing
   }));
   expect(project.blueprint.devices.find((device) => device.id === "etch-l2")).toEqual(expect.objectContaining({
     asset: "closed-loop-plasma-etch-bay",
-    recipes: [expect.objectContaining({ process: "etch-cell-layer-2", mode: "closed-loop-control" })],
+    recipes: expect.arrayContaining([
+      expect.objectContaining({ process: "etch-cell-layer-2", mode: "closed-loop-control" }),
+      expect.objectContaining({ process: "etch-cell-layer-2", mode: "closed-loop-fast-4-5" }),
+    ]),
   }));
   expect(project.deviceAssets["closed-loop-plasma-etch-bay"]?.production?.modes).toContainEqual(
     expect.objectContaining({
@@ -1087,6 +1090,7 @@ test("focused layer-two control targets the current etch-origin defect count exa
     scenario: "production-window",
     objective: "dram-output",
   });
+  loaded.blueprint = JSON.parse(await readFile(resolve(root, "runs/097-simulate/blueprint.json"), "utf8"));
   const project = compileFactoryProject(loaded);
   const result = runUntil(project, undefined, { seed: 42 });
   const fabLoss = analyzeFabLossProfile(result.metrics, project.scenario.durationTicks, project, result.events)!;
@@ -1156,6 +1160,7 @@ test("focused back-end handoff provider batches the exact blocked die lane with 
     scenario: "production-window",
     objective: "dram-output",
   });
+  loaded.blueprint = JSON.parse(await readFile(resolve(root, "runs/097-simulate/blueprint.json"), "utf8"));
   const project = compileFactoryProject(loaded);
   const result = runUntil(project, undefined, { seed: 42 });
   const fabLoss = analyzeFabLossProfile(result.metrics, project.scenario.durationTicks, project, result.events)!;

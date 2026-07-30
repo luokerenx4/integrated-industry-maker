@@ -36,17 +36,18 @@ function connectionIndex(blueprint: ProposalBlueprint, id: string): number {
 function currentEtch(blueprint: ProposalBlueprint): {
   index: number;
   device: Record<string, unknown>;
-  recipe: Record<string, unknown>;
+  recipeTemplate: Record<string, unknown>;
   policy: Record<string, unknown>;
 } | null {
   const index = deviceIndex(blueprint, etchId);
   const device = blueprint.devices[index];
   if (!device || device.asset !== etchAsset || device.recipe !== undefined || !Array.isArray(device.recipes)
-    || device.recipes.length !== 1 || !isRecord(device.recipes[0])
-    || device.recipes[0].process !== "etch-cell-layer-2"
-    || device.recipes[0].mode !== "closed-loop-control"
-    || !isRecord(device.policy) || Object.hasOwn(device.policy, "cadenceControl")) return null;
-  return { index, device, recipe: device.recipes[0], policy: device.policy };
+    || device.recipes.length < 1 || device.recipes.length > 2
+    || !device.recipes.every((recipe) => isRecord(recipe)
+      && recipe.process === "etch-cell-layer-2"
+      && ["closed-loop-control", "closed-loop-fast-4-5", "closed-loop-fast-3-4"].includes(String(recipe.mode)))
+    || !isRecord(device.recipes[0]) || !isRecord(device.policy)) return null;
+  return { index, device, recipeTemplate: device.recipes[0], policy: device.policy };
 }
 
 function recoveryModePatch(
@@ -56,30 +57,31 @@ function recoveryModePatch(
 ): JsonPatchOperation[] | null {
   const current = currentEtch(blueprint);
   if (!current) return null;
+  const cadenceControl = {
+    kind: "downstream-coverage-recovery",
+    process: "etch-cell-layer-2",
+    normalMode: "closed-loop-control",
+    recoveryMode: mode,
+    downstreamConnection: mainConnection,
+    recoverBelowItems: 1,
+    minimumCoverageDeficitTicks,
+  };
   return [
     {
       op: "replace",
       path: `/devices/${current.index}/recipes`,
       value: [
-        structuredClone(current.recipe),
-        { ...structuredClone(current.recipe), mode },
+        { ...structuredClone(current.recipeTemplate), mode: "closed-loop-control" },
+        { ...structuredClone(current.recipeTemplate), mode },
       ],
     },
     ...(Object.hasOwn(current.policy, "recipeDispatch")
       ? [{ op: "remove" as const, path: `/devices/${current.index}/policy/recipeDispatch` }]
       : []),
     {
-      op: "add",
+      op: Object.hasOwn(current.policy, "cadenceControl") ? "replace" : "add",
       path: `/devices/${current.index}/policy/cadenceControl`,
-      value: {
-        kind: "downstream-coverage-recovery",
-        process: "etch-cell-layer-2",
-        normalMode: "closed-loop-control",
-        recoveryMode: mode,
-        downstreamConnection: mainConnection,
-        recoverBelowItems: 1,
-        minimumCoverageDeficitTicks,
-      },
+      value: cadenceControl,
     },
   ];
 }
@@ -90,11 +92,16 @@ function alwaysModePatch(
 ): JsonPatchOperation[] | null {
   const current = currentEtch(blueprint);
   if (!current) return null;
-  return [{
-    op: "replace",
-    path: `/devices/${current.index}/recipes/0/mode`,
-    value: mode,
-  }];
+  return [
+    {
+      op: "replace",
+      path: `/devices/${current.index}/recipes`,
+      value: [{ ...structuredClone(current.recipeTemplate), mode }],
+    },
+    ...(Object.hasOwn(current.policy, "cadenceControl")
+      ? [{ op: "remove" as const, path: `/devices/${current.index}/policy/cadenceControl` }]
+      : []),
+  ];
 }
 
 function dualVacuumHandoffPatch(blueprint: ProposalBlueprint): JsonPatchOperation[] | null {
