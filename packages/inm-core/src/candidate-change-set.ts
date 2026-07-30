@@ -164,6 +164,22 @@ export interface CandidateCurrentFactoryOutcomeComparison {
   cases: CandidateCurrentFactoryOutcomeCaseComparison[];
 }
 
+export interface CandidatePhysicalEconomicsSnapshot {
+  totalBuildCost: number;
+  equipmentBuildCost: number;
+  transportEndpointBuildCost: number;
+  transportLineBuildCost: number;
+  occupiedArea: number;
+  equipmentArea: number;
+  transportCells: number;
+}
+
+export interface CandidatePhysicalEconomicsComparison {
+  current: CandidatePhysicalEconomicsSnapshot;
+  proposed: CandidatePhysicalEconomicsSnapshot;
+  delta: CandidatePhysicalEconomicsSnapshot;
+}
+
 export interface CandidateEvaluatedCurrentFactoryComparison {
   reference: "current-factory";
   status: "evaluated";
@@ -174,6 +190,8 @@ export interface CandidateEvaluatedCurrentFactoryComparison {
   scoreDelta: number;
   minimumCaseScoreDelta: number;
   verdict: "IMPROVED" | "REGRESSED" | "UNCHANGED";
+  /** Present on newly evaluated evidence; older immutable receipts may predate this ledger. */
+  physicalEconomics?: CandidatePhysicalEconomicsComparison;
   cases: CandidateCurrentFactoryCaseComparison[];
   outcomeGuardrails?: CandidateCurrentFactoryOutcomeComparison[];
 }
@@ -377,9 +395,56 @@ function currentFactoryOutcomeComparison(
   });
 }
 
+function physicalEconomics(project: CompiledFactoryProject): CandidatePhysicalEconomicsSnapshot {
+  let equipmentBuildCost = 0;
+  let transportEndpointBuildCost = 0;
+  let equipmentArea = 0;
+  for (const device of Object.values(project.devices)) {
+    if (device.transportEndpoint) transportEndpointBuildCost += device.assetDef.economics.buildCost;
+    else {
+      equipmentBuildCost += device.assetDef.economics.buildCost;
+      equipmentArea += device.footprint.width * device.footprint.height;
+    }
+  }
+  const transportCells = Object.values(project.transportCells);
+  const transportLineBuildCost = transportCells.reduce(
+    (sum, cell) => sum + cell.asset.economics.buildCost,
+    0,
+  );
+  return {
+    totalBuildCost: equipmentBuildCost + transportEndpointBuildCost + transportLineBuildCost,
+    equipmentBuildCost,
+    transportEndpointBuildCost,
+    transportLineBuildCost,
+    occupiedArea: equipmentArea + transportCells.length,
+    equipmentArea,
+    transportCells: transportCells.length,
+  };
+}
+
+function comparePhysicalEconomics(
+  current: CompiledFactoryProject,
+  proposed: CompiledFactoryProject,
+): CandidatePhysicalEconomicsComparison {
+  const currentSnapshot = physicalEconomics(current);
+  const proposedSnapshot = physicalEconomics(proposed);
+  const delta: CandidatePhysicalEconomicsSnapshot = {
+    totalBuildCost: proposedSnapshot.totalBuildCost - currentSnapshot.totalBuildCost,
+    equipmentBuildCost: proposedSnapshot.equipmentBuildCost - currentSnapshot.equipmentBuildCost,
+    transportEndpointBuildCost: proposedSnapshot.transportEndpointBuildCost - currentSnapshot.transportEndpointBuildCost,
+    transportLineBuildCost: proposedSnapshot.transportLineBuildCost - currentSnapshot.transportLineBuildCost,
+    occupiedArea: proposedSnapshot.occupiedArea - currentSnapshot.occupiedArea,
+    equipmentArea: proposedSnapshot.equipmentArea - currentSnapshot.equipmentArea,
+    transportCells: proposedSnapshot.transportCells - currentSnapshot.transportCells,
+  };
+  return { current: currentSnapshot, proposed: proposedSnapshot, delta };
+}
+
 function compareWithCurrentFactory(
   current: BlueprintBenchmarkResult,
   proposed: BlueprintBenchmarkResult,
+  currentProject: CompiledFactoryProject,
+  proposedProject: CompiledFactoryProject,
 ): CandidateCurrentFactoryComparison {
   const currentCases = new Map(current.cases.map((item) => [item.id, item]));
   const cases = proposed.cases.map((item): CandidateCurrentFactoryCaseComparison => {
@@ -413,6 +478,14 @@ function compareWithCurrentFactory(
     };
   });
   const scoreDelta = proposed.candidateScore - current.candidateScore;
+  const physicalEconomics = comparePhysicalEconomics(currentProject, proposedProject);
+  if (cases.some((item) =>
+    item.currentMetrics.totalBuildCost !== physicalEconomics.current.totalBuildCost
+    || item.proposedMetrics.totalBuildCost !== physicalEconomics.proposed.totalBuildCost
+    || item.currentMetrics.occupiedArea !== physicalEconomics.current.occupiedArea
+    || item.proposedMetrics.occupiedArea !== physicalEconomics.proposed.occupiedArea)) {
+    throw new Error("Current-factory physical economics disagree with evaluator-owned case metrics");
+  }
   return {
     reference: "current-factory",
     status: "evaluated",
@@ -423,6 +496,7 @@ function compareWithCurrentFactory(
     scoreDelta,
     minimumCaseScoreDelta: Math.min(...cases.map((item) => item.scoreDelta)),
     verdict: Math.abs(scoreDelta) <= 1e-9 ? "UNCHANGED" : scoreDelta > 0 ? "IMPROVED" : "REGRESSED",
+    physicalEconomics,
     cases,
     ...(proposed.outcomeGuardrails
       ? { outcomeGuardrails: currentFactoryOutcomeComparison(current, proposed) }
@@ -537,8 +611,9 @@ export async function prepareCandidateChangeSet(
     // whose Scenario references only become valid after this exact patch.
     operationProject = compileFactoryProject({ ...loaded, blueprint: proposedBlueprint });
     let currentFactoryUnavailableReason: string | undefined;
+    let currentOperationProject: CompiledFactoryProject | undefined;
     try {
-      compileFactoryProject(loaded);
+      currentOperationProject = compileFactoryProject(loaded);
     } catch (error) {
       currentFactoryUnavailableReason = error instanceof Error ? error.message : String(error);
     }
@@ -572,7 +647,7 @@ export async function prepareCandidateChangeSet(
         caseExecutor,
       });
       currentFactory = currentResult
-        ? compareWithCurrentFactory(currentResult, result)
+        ? compareWithCurrentFactory(currentResult, result, currentOperationProject!, operationProject)
         : {
             reference: "current-factory",
             status: "not-operational",

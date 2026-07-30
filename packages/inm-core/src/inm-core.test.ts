@@ -4693,6 +4693,23 @@ describe("coding-agent Blueprint benchmarks", () => {
       proposedBlueprintHash: preview.proposedCandidateHash,
       verdict: "IMPROVED",
       scoreDelta: expect.any(Number),
+      physicalEconomics: {
+        current: expect.objectContaining({
+          totalBuildCost: expect.any(Number),
+          transportLineBuildCost: expect.any(Number),
+          transportCells: expect.any(Number),
+        }),
+        proposed: expect.objectContaining({
+          totalBuildCost: expect.any(Number),
+          transportLineBuildCost: expect.any(Number),
+          transportCells: expect.any(Number),
+        }),
+        delta: expect.objectContaining({
+          totalBuildCost: expect.any(Number),
+          transportLineBuildCost: expect.any(Number),
+          transportCells: expect.any(Number),
+        }),
+      },
       cases: [expect.objectContaining({
         id: "constrained-grid",
         currentMetrics: expect.objectContaining({ scoreBreakdown: expect.any(Object) }),
@@ -4701,6 +4718,16 @@ describe("coding-agent Blueprint benchmarks", () => {
       })],
     }));
     if (preview.currentFactory.status !== "evaluated") throw new Error("Expected an operational current factory");
+    const physicalEconomics = preview.currentFactory.physicalEconomics;
+    if (!physicalEconomics) throw new Error("Expected newly evaluated physical economics");
+    expect(physicalEconomics.current.totalBuildCost)
+      .toBe(preview.currentFactory.cases[0]!.currentMetrics.totalBuildCost);
+    expect(physicalEconomics.proposed.totalBuildCost)
+      .toBe(preview.currentFactory.cases[0]!.proposedMetrics.totalBuildCost);
+    expect(physicalEconomics.current.occupiedArea)
+      .toBe(preview.currentFactory.cases[0]!.currentMetrics.occupiedArea);
+    expect(physicalEconomics.proposed.occupiedArea)
+      .toBe(preview.currentFactory.cases[0]!.proposedMetrics.occupiedArea);
     expect(Object.values(preview.currentFactory.cases[0]!.scoreBreakdownDelta).reduce((sum, value) => sum + value, 0))
       .toBeCloseTo(preview.currentFactory.cases[0]!.scoreDelta, 8);
     expect(await readFile(blueprintPath, "utf8")).toBe(beforePreview);

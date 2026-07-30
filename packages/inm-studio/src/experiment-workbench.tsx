@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type {
-  AppliedCandidateChangeSet, BlueprintBenchmarkProgress, BlueprintBenchmarkResult, BlueprintBenchmarkSummary, CandidateChangeSet, CandidateChangeSetPreview, CandidateDecisionState, CandidateInvestigationSourceEvidence, IndustrialInvestigationInspection,
+  AppliedCandidateChangeSet, BlueprintBenchmarkProgress, BlueprintBenchmarkResult, BlueprintBenchmarkSummary, CandidateChangeSet, CandidateChangeSetPreview, CandidateDecisionState, CandidateInvestigationSourceEvidence, CandidatePhysicalEconomicsComparison, IndustrialInvestigationInspection, ObjectiveConstraintEvidence,
 } from "@inm/core";
 import { CadenceControlEvidence } from "./cadence-control-evidence";
 import { ScoreBreakdownDetails } from "./score-breakdown";
@@ -30,6 +30,42 @@ const shortHash = (value: string) => value.slice(0, 12);
 const outcomeValue = (metric: string, value: number) => metric === "contractFulfillment" || metric === "firstPassYield"
   ? percent(value)
   : Number.isInteger(value) ? String(value) : value.toFixed(3);
+
+function PhysicalEconomicsEvidence({
+  comparison,
+  constraint,
+}: {
+  comparison: CandidatePhysicalEconomicsComparison;
+  constraint: ObjectiveConstraintEvidence | undefined;
+}) {
+  const cost = (value: number) => value.toLocaleString("en-US");
+  const measures = [
+    { label: "EQUIPMENT + FACILITIES", current: comparison.current.equipmentBuildCost, proposed: comparison.proposed.equipmentBuildCost, delta: comparison.delta.equipmentBuildCost, unit: "currency" },
+    { label: "SORTER ENDPOINTS", current: comparison.current.transportEndpointBuildCost, proposed: comparison.proposed.transportEndpointBuildCost, delta: comparison.delta.transportEndpointBuildCost, unit: "currency" },
+    { label: "TRANSPORT LINES", current: comparison.current.transportLineBuildCost, proposed: comparison.proposed.transportLineBuildCost, delta: comparison.delta.transportLineBuildCost, unit: "currency" },
+    { label: "OCCUPIED AREA", current: comparison.current.occupiedArea, proposed: comparison.proposed.occupiedArea, delta: comparison.delta.occupiedArea, unit: "area" },
+    { label: "EQUIPMENT FOOTPRINT", current: comparison.current.equipmentArea, proposed: comparison.proposed.equipmentArea, delta: comparison.delta.equipmentArea, unit: "area" },
+    { label: "TRANSPORT CELLS", current: comparison.current.transportCells, proposed: comparison.proposed.transportCells, delta: comparison.delta.transportCells, unit: "cells" },
+  ];
+  return <section className="candidate-physical-economics" data-testid="candidate-physical-economics">
+    <header>
+      <span><small>PHYSICAL CAPITAL LEDGER</small><strong>{cost(comparison.current.totalBuildCost)} → {cost(comparison.proposed.totalBuildCost)}</strong></span>
+      <b className={comparison.delta.totalBuildCost <= 0 ? "improved" : "regressed"}>Δ {signed(comparison.delta.totalBuildCost, 0)}</b>
+      {constraint && <code className={constraint.passed ? "passed" : "failed"}>
+        {constraint.passed ? "PASS" : "FAIL"} · {constraint.operator === "maximum" ? "≤" : "≥"} {cost(constraint.threshold)}
+        {constraint.operator === "maximum"
+          ? ` · ${constraint.passed ? `${cost(constraint.threshold - constraint.actual)} HEADROOM` : `${cost(constraint.deficit)} OVER`}`
+          : ""}
+      </code>}
+    </header>
+    <div>{measures.map((item) => <span key={item.label}>
+      <small>{item.label}</small>
+      <strong>{cost(item.current)} → {cost(item.proposed)}</strong>
+      <b className={item.delta <= 0 ? "improved" : "regressed"}>{signed(item.delta, 0)}</b>
+      <code>{item.unit}</code>
+    </span>)}</div>
+  </section>;
+}
 
 export function ExperimentWorkbench({
   projectId, experiments, selectedId, selectedCandidateId, refreshRevision, onSelect, onSelectCandidate, onDesignSource, onInvestigationSource, onClose,
@@ -365,6 +401,12 @@ export function ExperimentWorkbench({
                 <span><small>PROPOSED FACTORY</small><b>{candidatePreview.currentFactory.proposedScore.toFixed(6)}</b></span>
                 <span className="experiment-delta"><small>CURRENT DELTA</small><b>{signed(candidatePreview.currentFactory.scoreDelta, 6)}</b></span>
               </section>
+              {candidatePreview.currentFactory.physicalEconomics && <PhysicalEconomicsEvidence
+                comparison={candidatePreview.currentFactory.physicalEconomics}
+                constraint={candidatePreview.currentFactory.cases[0]?.proposedMetrics.objectiveConstraints.find(
+                  (constraint) => constraint.metric === "totalBuildCost",
+                )}
+              />}
               <div className="experiment-case-head"><span>CASE</span><span>SCORE</span><span>DELTA</span><span>CAPACITY</span><span>WIP</span><span>ON TIME</span></div>
               {candidatePreview.currentFactory.cases.map((item) => <article className="experiment-case-evidence" id={`candidate-current-case-${item.id}`} key={item.id}>
                 <div className="experiment-case-result" data-testid={`candidate-current-case-${item.id}`}>

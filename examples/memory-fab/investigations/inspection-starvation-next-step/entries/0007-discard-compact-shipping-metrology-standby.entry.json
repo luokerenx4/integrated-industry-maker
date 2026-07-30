@@ -1,0 +1,29 @@
+{
+  "author": "agent",
+  "disposition": "discard",
+  "entryHash": "a16879789c676069650c49529ce139c4dc08d1546130b5f89e132d22b445cbee",
+  "evidence": [
+    "post-standby-factory",
+    "compact-shipping-metrology-standby-review"
+  ],
+  "id": "discard-compact-shipping-metrology-standby",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "compact-shipping-metrology-standby",
+      "currentCandidateHash": "8281c50706c578b823b7d8cc3f5d4f94cef230fefbee210c8a3756a6a9a9563a",
+      "id": "compact-shipping-metrology-standby-review",
+      "kind": "candidate-review",
+      "proposalHash": "6ec76ca0d3e5d44e461826948408936fbd91de88d1f06b7723bf160662cf4683",
+      "proposedCandidateHash": "428fe183f93319fb74d7299793b0d6ca393a15320303f92f68482a8f89b917db",
+      "reviewResultHash": "360cab07004f24e392d8519b4e9d312a1fc48757f938f95acc0d6975b1e72300",
+      "verdict": "DISCARD"
+    }
+  ],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "decision",
+  "previousEntryHash": "f7b1eb3f7ad3d2402617d0a60e729f396f9d793e9e60ca1161b82e158cce62d3",
+  "sequence": 7,
+  "statement": "Discard the compact-shipping-funded metrology standby proposal: it proves that sixteen fewer transport cells recover 160 build cost and keep total capital at 229,990, but the low-power inspection substitution still reduces facility-interruption on-time lots from 9 to 7 and regresses every current-factory case; preserve the compact terminal geometry as a separable future layout hypothesis, not as authority to apply this combined Candidate.",
+  "version": 1
+}

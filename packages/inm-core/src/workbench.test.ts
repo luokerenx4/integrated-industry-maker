@@ -437,6 +437,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     { id: "commissioned-greenfield-dram-fab", benchmark: "greenfield-dram-design", patchOperations: 74, state: "stale", verdict: undefined },
     { id: "commissioned-release-control", benchmark: "greenfield-dram-design", patchOperations: 2, state: "stale", verdict: undefined },
     { id: "commissioned-sustained-starvation-cadence", benchmark: "greenfield-dram-design", patchOperations: 3, state: "stale", verdict: undefined },
+    { id: "compact-shipping-metrology-standby", benchmark: "greenfield-dram-design", patchOperations: 15, state: "reviewed-discard", verdict: "DISCARD" },
     { id: "continuous-deep-metrology", benchmark: "greenfield-dram-design", patchOperations: 4, state: "stale", verdict: undefined },
     { id: "dedicated-etch-quality-cell", benchmark: "greenfield-dram-design", patchOperations: 27, state: "stale", verdict: undefined },
     { id: "furnace-flex-dual-service", benchmark: "greenfield-dram-design", patchOperations: 4, state: "stale", verdict: undefined },

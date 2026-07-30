@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/capital-neutral-metrology-standby-trial]] | Decide whether a compact shipping layout can fund low-power metrology standby without weakening interruption service. | 2026-07-30 |
 | [[plans/continuous-investigation-evidence]] | Keep one Investigation current across factory revisions through append-only operating evidence checkpoints. | 2026-07-30 |
 | [[plans/causal-objective-constraint-evidence]] | Turn Objective constraint penalties into exact evaluator-owned evidence shared by humans and Agents. | 2026-07-30 |
 | [[plans/investigation-sourced-candidate-cycle]] | Carry one exact Investigation hypothesis through Candidate authoring, retained review, and explicit disposition without reconstructing provenance. | 2026-07-30 |

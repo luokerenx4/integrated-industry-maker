@@ -165,6 +165,11 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
         currentBlueprintHash: expect.any(String),
         proposedBlueprintHash: expect.any(String),
         verdict: expect.stringMatching(/IMPROVED|REGRESSED|UNCHANGED/),
+        physicalEconomics: {
+          current: expect.objectContaining({ totalBuildCost: expect.any(Number), transportCells: expect.any(Number) }),
+          proposed: expect.objectContaining({ totalBuildCost: expect.any(Number), transportCells: expect.any(Number) }),
+          delta: expect.objectContaining({ totalBuildCost: expect.any(Number), transportCells: expect.any(Number) }),
+        },
         cases: expect.arrayContaining([expect.objectContaining({
           currentWip: expect.any(Number),
           proposedWip: expect.any(Number),
@@ -193,6 +198,11 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
       reference: "current-factory",
       currentBlueprintHash: expect.any(String),
       proposedBlueprintHash: expect.any(String),
+      physicalEconomics: expect.objectContaining({
+        current: expect.objectContaining({ totalBuildCost: expect.any(Number) }),
+        proposed: expect.objectContaining({ totalBuildCost: expect.any(Number) }),
+        delta: expect.objectContaining({ totalBuildCost: expect.any(Number) }),
+      }),
       cases: expect.any(Array),
     }),
   }));

@@ -10,7 +10,7 @@ A factory edit needs two answers: what changed, and whether that change improved
 
 `inm compare` treats two complete Blueprint files as a controlled experiment. It compiles, plans, simulates, and scores both while holding every benchmark input constant. The result is suitable for a human review or the next coding-agent iteration.
 
-Candidate review reuses the same comparison invariant across every locked Benchmark case. Its immutable baseline-to-proposed result answers compliance; when the Candidate artifact's hash-pinned current Blueprint is operational, its `currentFactory` record compares that Blueprint with the proposed Blueprint and answers the incremental design question. A non-operational greenfield shell is explicitly not comparable. Neither reference is relabeled or substituted for the other.
+Candidate review reuses the same comparison invariant across every locked Benchmark case. Its immutable baseline-to-proposed result answers compliance; when the Candidate artifact's hash-pinned current Blueprint is operational, its `currentFactory` record compares that Blueprint with the proposed Blueprint and answers the incremental design question. That record also separates equipment/facility, sorter-endpoint, and unique transport-line capital plus occupied area and transport-cell count into one exact physical-economics ledger. Total cost and area reconcile against every evaluator-owned case metric before the result can be published. A non-operational greenfield shell is explicitly not comparable. Neither reference is relabeled or substituted for the other.
 
 ## Comparison invariant
 

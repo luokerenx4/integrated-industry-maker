@@ -912,7 +912,16 @@ test("opening a project without runs does not write a Studio baseline", async ()
     const previewResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/preview`, { method: "POST" });
     const preview = (await completedStudioOperation<{
       currentCandidateHash: string; proposedCandidateHash: string;
-      currentFactory: { verdict: string; currentBlueprintHash: string; proposedBlueprintHash: string };
+      currentFactory: {
+        verdict: string;
+        currentBlueprintHash: string;
+        proposedBlueprintHash: string;
+        physicalEconomics: {
+          current: { totalBuildCost: number };
+          proposed: { totalBuildCost: number };
+          delta: { totalBuildCost: number };
+        };
+      };
       result: { verdict: string };
       operation: { operation: string; effect: string; artifacts: Array<{ kind: string }> };
     }>(port, "ironworks", previewResponse)).result!;
@@ -921,6 +930,11 @@ test("opening a project without runs does not write a Studio baseline", async ()
       verdict: "IMPROVED",
       currentBlueprintHash: preview.currentCandidateHash,
       proposedBlueprintHash: preview.proposedCandidateHash,
+      physicalEconomics: {
+        current: expect.objectContaining({ totalBuildCost: expect.any(Number) }),
+        proposed: expect.objectContaining({ totalBuildCost: expect.any(Number) }),
+        delta: expect.objectContaining({ totalBuildCost: expect.any(Number) }),
+      },
     }));
     expect(preview.operation.operation).toBe("candidate.preview");
     expect(preview.operation.effect).toBe("creates-artifact");

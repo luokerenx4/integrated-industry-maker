@@ -405,6 +405,7 @@ function currentFactorySummary(comparison: CandidateCurrentFactoryComparison) {
     scoreDelta: comparison.scoreDelta,
     minimumCaseScoreDelta: comparison.minimumCaseScoreDelta,
     verdict: comparison.verdict,
+    physicalEconomics: comparison.physicalEconomics,
     cases: comparison.cases.map((item) => ({
       id: item.id,
       currentScore: item.currentScore,
@@ -435,6 +436,38 @@ function currentFactorySummary(comparison: CandidateCurrentFactoryComparison) {
       })),
     })),
   };
+}
+
+function physicalEconomicsLines(comparison: CandidateCurrentFactoryComparison): string[] {
+  if (comparison.status !== "evaluated") return [];
+  const economics = comparison.physicalEconomics;
+  if (!economics) return [];
+  const costConstraint = comparison.cases[0]?.proposedMetrics.objectiveConstraints.find(
+    (constraint) => constraint.metric === "totalBuildCost",
+  );
+  const boundary = costConstraint
+    ? ` · ${costConstraint.passed ? "PASS" : "FAIL"} ${costConstraint.operator === "maximum" ? "≤" : "≥"} ${costConstraint.threshold.toLocaleString("en-US")}`
+      + (costConstraint.operator === "maximum"
+        ? ` · ${costConstraint.passed
+          ? `${(costConstraint.threshold - costConstraint.actual).toLocaleString("en-US")} headroom`
+          : `${costConstraint.deficit.toLocaleString("en-US")} over`}`
+        : "")
+    : "";
+  const line = (
+    label: string,
+    current: number,
+    proposed: number,
+    delta: number,
+  ) => `  ${label.padEnd(24)} ${current.toLocaleString("en-US").padStart(10)} → ${proposed.toLocaleString("en-US").padStart(10)}  Δ ${signed(delta, 0)}`;
+  return [
+    `Physical economics: ${economics.current.totalBuildCost.toLocaleString("en-US")} → ${economics.proposed.totalBuildCost.toLocaleString("en-US")} · Δ ${signed(economics.delta.totalBuildCost, 0)}${boundary}`,
+    line("equipment + facilities", economics.current.equipmentBuildCost, economics.proposed.equipmentBuildCost, economics.delta.equipmentBuildCost),
+    line("sorter endpoints", economics.current.transportEndpointBuildCost, economics.proposed.transportEndpointBuildCost, economics.delta.transportEndpointBuildCost),
+    line("transport lines", economics.current.transportLineBuildCost, economics.proposed.transportLineBuildCost, economics.delta.transportLineBuildCost),
+    line("occupied area", economics.current.occupiedArea, economics.proposed.occupiedArea, economics.delta.occupiedArea),
+    line("equipment footprint", economics.current.equipmentArea, economics.proposed.equipmentArea, economics.delta.equipmentArea),
+    line("transport cells", economics.current.transportCells, economics.proposed.transportCells, economics.delta.transportCells),
+  ];
 }
 
 function currentFactoryOutcomeLines(comparison: CandidateCurrentFactoryComparison): string[] {
@@ -1801,6 +1834,7 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
       ...(preview.currentFactory.status === "evaluated"
         ? [`Current factory Δ ${signed(preview.currentFactory.scoreDelta, 6)} · ${preview.currentFactory.verdict}`]
         : [`Current factory ${preview.currentFactory.verdict}`]),
+      ...physicalEconomicsLines(preview.currentFactory),
       ...currentFactoryConstraintLines(preview.currentFactory),
       ...lockedObjectiveConstraintLines(preview.result),
       ...revisionBriefLines(preview.revisionBrief),
@@ -1861,6 +1895,7 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
       ...(applied.currentFactory.status === "evaluated"
         ? [`Current factory: ${applied.currentFactory.verdict} · ${applied.currentFactory.currentScore.toFixed(6)} → ${applied.currentFactory.proposedScore.toFixed(6)} · Δ ${signed(applied.currentFactory.scoreDelta, 6)}`]
         : []),
+      ...physicalEconomicsLines(applied.currentFactory),
       ...currentFactoryOutcomeLines(applied.currentFactory),
       ...currentFactoryConstraintLines(applied.currentFactory),
       ...lockedObjectiveConstraintLines(applied.result),
@@ -1904,6 +1939,7 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
           ...preview.currentFactory.cases.map((item) => `  ${item.id.padEnd(24)} ${item.currentScore.toFixed(3).padStart(10)} → ${item.proposedScore.toFixed(3).padStart(10)}  Δ ${signed(item.scoreDelta)}  ${item.proposedCapacityReady ? "READY" : `${item.proposedCapacityGaps.length} GAPS`}`),
         ]
       : []),
+    ...physicalEconomicsLines(preview.currentFactory),
     ...currentFactoryOutcomeLines(preview.currentFactory),
     ...currentFactoryConstraintLines(preview.currentFactory),
     ...lockedObjectiveConstraintLines(preview.result),

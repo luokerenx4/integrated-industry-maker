@@ -1,0 +1,141 @@
+{
+  "baseCandidateHash": "8281c50706c578b823b7d8cc3f5d4f94cef230fefbee210c8a3756a6a9a9563a",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Keep capacity READY and every locked/current Objective constraint passing; retain at least 9 facility-interruption on-time lots, current delivery and quality floors, and zero output-lane blockage; reduce all three finished-goods lines to two cells and show inspection-1 sleeping only across long empty intervals with bounded wake work.",
+  "hypothesis": "Rotate and compact the three finished-goods customer cells around burn-in-1 so their outbound routes fall from 22 to 6 conveyor cells, recovering 160 build cost; spend 200 of that recovery on qualified low-power standby for inspection-1, leaving the complete factory at 229,990 while shorter outbound travel may preserve facility-interruption service.",
+  "id": "compact-shipping-metrology-standby",
+  "name": "Compact shipping funded metrology standby",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/6/asset",
+      "value": "low-power-continuous-deep-metrology-cell"
+    },
+    {
+      "op": "add",
+      "path": "/devices/6/policy/idleEnergy",
+      "value": {
+        "sleepAfterTicks": 10000
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/11/position",
+      "value": {
+        "x": 4,
+        "y": 27
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/11/rotation",
+      "value": 180
+    },
+    {
+      "op": "replace",
+      "path": "/devices/12/position",
+      "value": {
+        "x": 10,
+        "y": 30
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/12/rotation",
+      "value": 90
+    },
+    {
+      "op": "replace",
+      "path": "/devices/13/position",
+      "value": {
+        "x": 13,
+        "y": 27
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/45/position",
+      "value": {
+        "x": 6,
+        "y": 27
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/45/rotation",
+      "value": 180
+    },
+    {
+      "op": "replace",
+      "path": "/devices/47/position",
+      "value": {
+        "x": 10,
+        "y": 29
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/47/rotation",
+      "value": 90
+    },
+    {
+      "op": "replace",
+      "path": "/devices/49/position",
+      "value": {
+        "x": 12,
+        "y": 27
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/connections/10/path",
+      "value": [
+        {
+          "x": 7,
+          "y": 27
+        },
+        {
+          "x": 6,
+          "y": 27
+        }
+      ]
+    },
+    {
+      "op": "replace",
+      "path": "/connections/11/path",
+      "value": [
+        {
+          "x": 9,
+          "y": 29
+        },
+        {
+          "x": 10,
+          "y": 29
+        }
+      ]
+    },
+    {
+      "op": "replace",
+      "path": "/connections/12/path",
+      "value": [
+        {
+          "x": 11,
+          "y": 27
+        },
+        {
+          "x": 12,
+          "y": 27
+        }
+      ]
+    }
+  ],
+  "source": {
+    "entry": "compact-shipping-funds-metrology-standby",
+    "entryHash": "f7b1eb3f7ad3d2402617d0a60e729f396f9d793e9e60ca1161b82e158cce62d3",
+    "investigation": "inspection-starvation-next-step",
+    "kind": "investigation-hypothesis",
+    "manifestHash": "a9fe64f1e50a57a712a659ef0b3d5c92dd28fd7e56cf91cab197699b186cf41a",
+    "project": "memory-fab"
+  },
+  "version": 1
+}

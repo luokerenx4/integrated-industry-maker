@@ -684,6 +684,22 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .experiment-verdict > i { color: #42717e; text-align: center; font-style: normal; }
 .experiment-verdict .experiment-delta b { color: #69d9f4; }
 .candidate-current-factory { margin-top: 12px; padding: 12px; border: 1px solid #244957; border-radius: 8px; background: #071419; }
+.candidate-physical-economics { margin: 10px 0; overflow: hidden; border: 1px solid #2c5360; border-radius: 7px; background: #09181d; }
+.candidate-physical-economics > header { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; padding: 11px 12px; border-bottom: 1px solid #1b3a44; }
+.candidate-physical-economics > header span small, .candidate-physical-economics > header span strong { display: block; }
+.candidate-physical-economics > header small { margin-bottom: 5px; color: #5b7f8a; font: 7px var(--mono); letter-spacing: .12em; }
+.candidate-physical-economics > header strong { color: #c2d9df; font: 15px var(--mono); }
+.candidate-physical-economics > header b { font: 12px var(--mono); }
+.candidate-physical-economics > header code { padding: 6px 8px; border: 1px solid #2e6859; border-radius: 4px; color: #7cdeb9; font-size: 8px; }
+.candidate-physical-economics > header code.failed { border-color: #80483f; color: #ff9787; }
+.candidate-physical-economics > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); }
+.candidate-physical-economics > div span { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; padding: 10px 11px; border-right: 1px solid #15313a; }
+.candidate-physical-economics > div small { grid-column: 1 / -1; color: #52727c; font: 6px var(--mono); letter-spacing: .08em; }
+.candidate-physical-economics > div strong { color: #a9c4cb; font: 8px var(--mono); }
+.candidate-physical-economics > div b { text-align: right; font: 8px var(--mono); }
+.candidate-physical-economics > div code { grid-column: 1 / -1; color: #47656e; font-size: 7px; }
+.candidate-physical-economics .improved { color: #6dd9b2; }
+.candidate-physical-economics .regressed { color: #ff9c8c; }
 .candidate-revision { margin-top: 12px; padding: 14px; border: 1px solid #755534; border-radius: 8px; background: linear-gradient(135deg, #17120c, #0d1114); display: grid; gap: 12px; }
 .candidate-revision > header { display: flex; flex-direction: column; gap: 4px; color: #d8c5a7; }
 .candidate-revision > header strong { color: #ffb36b; font: 700 18px/1.2 var(--display); letter-spacing: .08em; }

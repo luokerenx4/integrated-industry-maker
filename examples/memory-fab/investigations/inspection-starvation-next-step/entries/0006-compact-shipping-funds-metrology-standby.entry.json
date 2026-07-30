@@ -1,0 +1,16 @@
+{
+  "author": "agent",
+  "entryHash": "f7b1eb3f7ad3d2402617d0a60e729f396f9d793e9e60ca1161b82e158cce62d3",
+  "evidence": [
+    "post-standby-factory"
+  ],
+  "expectedEffect": "Keep capacity READY and every locked/current Objective constraint passing; retain at least 9 facility-interruption on-time lots, current delivery and quality floors, and zero output-lane blockage; reduce all three finished-goods lines to two cells and show inspection-1 sleeping only across long empty intervals with bounded wake work.",
+  "id": "compact-shipping-funds-metrology-standby",
+  "introducedAnchors": [],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "hypothesis",
+  "previousEntryHash": "bca79441ac4c736a6cca8ce460e065c175d1a9aed15c2d2fbbfb771f3b60a239",
+  "sequence": 6,
+  "statement": "Rotate and compact the three finished-goods customer cells around burn-in-1 so their outbound routes fall from 22 to 6 conveyor cells, recovering 160 build cost; spend 200 of that recovery on qualified low-power standby for inspection-1, leaving the complete factory at 229,990 while shorter outbound travel may preserve facility-interruption service.",
+  "version": 1
+}
