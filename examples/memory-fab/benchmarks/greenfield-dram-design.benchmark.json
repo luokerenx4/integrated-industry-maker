@@ -144,41 +144,41 @@
     "cases": {
       "facility-interruption": {
         "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
-        "engineVersion": "inm-sim/0.89.0",
-        "executionHash": "4de5f01b464c55c6c31dc5b54d7eb3d9f38c9fec09816ddcb0e77b1f33d4dee8",
-        "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "ced13d1f2048591cd471a436c2b13b7039690b7bea5876cfa256a1d217def0d5",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
         "scenarioHash": "06050c89a627e374f8131a6d6abd33686687db14af1a64ca0f008a125f6dc740",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       },
       "lithography-interruption": {
         "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
-        "engineVersion": "inm-sim/0.89.0",
-        "executionHash": "b29b5e760133fdcaf925aacc11404c010ee4c4666e406627bcc02dbaf4181b03",
-        "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "3fe5eaf894e20beab79d58a213f40f1c2f07ec24802eac3ec3b087f5f85c0131",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
         "scenarioHash": "7963e81a203fc000672ace4092d3ced4fdb759cb6f4eee0784e79e1a1009811e",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       },
       "mixed-quality": {
         "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
-        "engineVersion": "inm-sim/0.89.0",
-        "executionHash": "a9f2a31cf4a5b709c3dd077b112a73aef1b650a70d6b6f4ea8a11c5cff76797b",
-        "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "c69b1f11ebfd79fe1d9803f844605c3dfd9f565faaada3166d6544ed105964bd",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
         "scenarioHash": "b6cfa14ecff26487e959f7f1b38230f2e003a3eaf04bd8b587ed268c9fc8eafe",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       },
       "quality-excursion": {
         "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
-        "engineVersion": "inm-sim/0.89.0",
-        "executionHash": "9ba72967077f4dbe23d0d1bd8811a6ae12ab8b9c14b070bc94e596cf1319832d",
-        "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "3976b4a647816a2ff1d2249cbb55b9ee23ea0a85e7476ea49cd8d3b383c43329",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
         "scenarioHash": "cc6d15d9bed59472de6a496c46ddaceb479572d081fa00956a9d9983068dd5c2",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       },
       "steady-production": {
         "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
-        "engineVersion": "inm-sim/0.89.0",
-        "executionHash": "59ed77fd0af3e65379d2abe38bb3d299ce62336b78e8b14f778491ea14a95325",
-        "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "c28037b553ec15a07a219c98f26513bd04811f490c5c2367a15cf22b9ac50350",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
         "scenarioHash": "87befcae2f98392c8bbef61523ce1ebe884e9bfd84ebe124632008d459b68f7e",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       }

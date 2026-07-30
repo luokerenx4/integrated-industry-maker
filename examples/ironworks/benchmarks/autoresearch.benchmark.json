@@ -40,25 +40,25 @@
     "cases": {
       "intermittent-power": {
         "blueprintHash": "e140905b32a71485bd71f4d9f72b54282f92b44d4c050f5b75ad1d9c68a4d7a4",
-        "engineVersion": "inm-sim/0.89.0",
-        "executionHash": "17e14c18c8702600567cac49405916bd98f66e7afe8958edc4e2951d3afba8e9",
-        "objectiveHash": "8893fbeb7a3f3c530a711eae305e1773c9c74e8513b510e73545a812e965b76d",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "f2707f5cea50c350be29532884aafc6f39d6fe3432c13fb2b5a6ccf523f0201a",
+        "objectiveHash": "8f797af70982a5fa1363919ba58a840ca5b6fb613abb1f8ee309bec7018b9f70",
         "scenarioHash": "d571978bf17c26135e3ebaebc489c99ed08ea080b4395879a555816a552d7aa7",
         "worldHash": "667920f2b2a4dbcd839064f6a43c4182a4ad001044dd67a78da0e07260169168"
       },
       "normal-production": {
         "blueprintHash": "e140905b32a71485bd71f4d9f72b54282f92b44d4c050f5b75ad1d9c68a4d7a4",
-        "engineVersion": "inm-sim/0.89.0",
-        "executionHash": "e66427c2fb1c902073cc6f85f74f1e49d563b280ffe8a6105e727d06932fbf3c",
-        "objectiveHash": "8893fbeb7a3f3c530a711eae305e1773c9c74e8513b510e73545a812e965b76d",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "2fe05203ba37d39d43edf28c3d57f6331cde7b0c9e59e7acf2e4562cb14b5103",
+        "objectiveHash": "8f797af70982a5fa1363919ba58a840ca5b6fb613abb1f8ee309bec7018b9f70",
         "scenarioHash": "ba90230fc2542e93f3729dd95927af96ba3c37f2c52e53abf6717945f20a8c83",
         "worldHash": "667920f2b2a4dbcd839064f6a43c4182a4ad001044dd67a78da0e07260169168"
       },
       "smelter-outage": {
         "blueprintHash": "e140905b32a71485bd71f4d9f72b54282f92b44d4c050f5b75ad1d9c68a4d7a4",
-        "engineVersion": "inm-sim/0.89.0",
-        "executionHash": "da32fff1badfe9d0c219a4b838a4d598656c5ee9bf1953bb78a29dd867ba8492",
-        "objectiveHash": "8893fbeb7a3f3c530a711eae305e1773c9c74e8513b510e73545a812e965b76d",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "f343f3424cf251bbc9930286ae0e84e9bbc23fc6fb471fd579fa0113169ac741",
+        "objectiveHash": "8f797af70982a5fa1363919ba58a840ca5b6fb613abb1f8ee309bec7018b9f70",
         "scenarioHash": "d9f7788a6c41bb31d3c38a01f61726aec663b33bc5b6269d33a204cc31700803",
         "worldHash": "667920f2b2a4dbcd839064f6a43c4182a4ad001044dd67a78da0e07260169168"
       }

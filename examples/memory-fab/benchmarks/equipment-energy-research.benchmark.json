@@ -22,9 +22,9 @@
     "cases": {
       "equipment-energy-window": {
         "blueprintHash": "68dd0e51d822ebbbfe1f450eeefee512c4d30b4c6a30680cbeac9f17b4ad62bf",
-        "engineVersion": "inm-sim/0.89.0",
-        "executionHash": "f3c996ad05e0026bf600d07bbaa82346f8e6e2505e221386abb8adb4652ef34e",
-        "objectiveHash": "460550d870c673def3fb7f60c2f9c673aca190ee4a81be3e407528ce64152608",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "b9f03fb8e24cf2cd944bd57671bd46e962235b1bbe98c29055824e94da43fdb1",
+        "objectiveHash": "11e297dc2eced2620577af9cc83c7f2912228528bf0bcc147e980597f2d2ebb2",
         "scenarioHash": "63804dfca87bde7e658fb7fba886a7afc85433531f813cd886bde3488f268736",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       }

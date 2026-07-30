@@ -267,7 +267,7 @@ const rows = variants.map((variant) => {
         onTimeLots: item.metrics.onTimeLots,
         meanTardinessTicks: item.metrics.meanTardinessTicks,
         meanCycleTimeTicks: item.metrics.meanCycleTimeTicks,
-        averageWip: item.metrics.averageWip,
+        averageWipEquivalentUnits: item.metrics.averageWipEquivalentUnits,
         firstPassYield: item.metrics.firstPassYield,
         reworkCycles: item.metrics.reworkCycles,
         energyConsumedMilliJoules: item.metrics.energyConsumedMilliJoules,

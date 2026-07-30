@@ -711,8 +711,17 @@ export interface Objective {
   targetResource: ResourceId;
   targetRegion: string;
   targetRatePerMinute: number;
-  /** Exact Objective-owned Resource scope whose resident and in-flight quantities contribute to average WIP. */
-  wipResources: ResourceId[];
+  /**
+   * Objective-owned normalization for heterogeneous WIP.
+   * Physical inventory remains available as raw item counts; scoring uses the declared equivalent unit.
+   */
+  wipAccounting: {
+    unit: string;
+    resources: Array<{
+      resource: ResourceId;
+      equivalentUnitsPerItem: number;
+    }>;
+  };
   /** Optional source work-lot family used for service and quality metrics when the target Resource is untracked. */
   trackedFamily?: string;
   /** Fixed evaluator-owned customer contracts. Demand is a service floor, not a production ceiling. */
@@ -1381,9 +1390,13 @@ export type WipInventoryLocationIdentity =
     route: string;
   };
 export type WipInventoryLocationAccounting = WipInventoryLocationIdentity & {
+  equivalentUnitsPerItem: number;
   averageInventory: number;
   peakInventory: number;
   finalInventory: number;
+  averageWipEquivalentUnits: number;
+  peakWipEquivalentUnits: number;
+  finalWipEquivalentUnits: number;
 };
 export interface FactoryState {
   tick: Tick;
@@ -1921,18 +1934,25 @@ export interface FactoryMetrics {
   blockedOutputTime: Record<DeviceInstanceId, Tick>;
   unpoweredTime: Record<DeviceInstanceId, Tick>;
   failedTime: Record<DeviceInstanceId, Tick>;
-  averageWip: number;
+  averageWipEquivalentUnits: number;
   inventoryAccounting: {
+    wipEquivalentUnit: string;
     averageTotalInventory: number;
-    averageWip: number;
+    averageRawWipInventory: number;
+    averageWipEquivalentUnits: number;
     averageExcludedInventory: number;
     peakTotalInventory: number;
-    peakWip: number;
+    peakRawWipInventory: number;
+    peakWipEquivalentUnits: number;
     resources: Record<ResourceId, {
       includedInWip: boolean;
+      wipEquivalentUnitsPerItem: number | null;
       averageInventory: number;
       peakInventory: number;
       finalInventory: number;
+      averageWipEquivalentUnits: number;
+      peakWipEquivalentUnits: number;
+      finalWipEquivalentUnits: number;
     }>;
     locations: Record<string, WipInventoryLocationAccounting>;
   };

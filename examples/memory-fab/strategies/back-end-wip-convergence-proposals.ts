@@ -121,7 +121,7 @@ export default {
       addressedObjectiveTarget: {
         component: "wip",
         location: burnInLocation,
-        metric: "averageInventory",
+        metric: "averageWipEquivalentUnits",
         direction: "decrease",
       },
       patch,

@@ -22,9 +22,9 @@
     "cases": {
       "constrained-grid": {
         "blueprintHash": "ef014d80202e92c1c289e613a98ae169eb01733da7906218940801dd827013a8",
-        "engineVersion": "inm-sim/0.89.0",
-        "executionHash": "2f5db336e0b6212d929b803e15963bed6c41eda9657360fbff8602ad61d8f0bc",
-        "objectiveHash": "fb0e6a7fc5f199a0f11a3f9fd61da0e9727535ad0ec07331147152daba2b3911",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "a2bc39123136a3bf625b90db82a665ae488edb0b81a0d63d1b9c106ce9d09da3",
+        "objectiveHash": "1df09e2fd18324cc0cb19098f3e0abeac1cc16034d557b02b9244a2eea6fd44c",
         "scenarioHash": "8c8c77abaaf05b0a2a37f606ae2afb7f803de9e57893b78c95b40ec00389417e",
         "worldHash": "667920f2b2a4dbcd839064f6a43c4182a4ad001044dd67a78da0e07260169168"
       }

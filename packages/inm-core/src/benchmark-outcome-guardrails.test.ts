@@ -199,9 +199,9 @@ test("memory-fab advanced recovery exposes exact Objective score causality", asy
     incumbentInterruption.candidateMetrics.scoreBreakdown,
     branchInterruption.candidateMetrics.scoreBreakdown,
   );
-  expect(scoreDelta).toBeCloseTo(-3.0001583333333297, 12);
+  expect(scoreDelta).toBeCloseTo(-1.014083333333332, 12);
   expect(breakdownDelta.onTimeDelivery).toBeCloseTo(0, 12);
-  expect(breakdownDelta.wip).toBeCloseTo(-2.9606749999999954, 12);
+  expect(breakdownDelta.wip).toBeCloseTo(-0.9745999999999952, 12);
   expect(breakdownDelta.energy).toBeCloseTo(-0.00604, 12);
   expect(breakdownDelta.buildCost).toBeCloseTo(-0.005, 12);
   expect(breakdownDelta.cycleTime).toBeCloseTo(0.06737969696969737, 12);

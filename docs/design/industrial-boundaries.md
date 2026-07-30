@@ -30,7 +30,7 @@ This is a conservation boundary, not an implicit sink. The simulator holds the e
 
 ## Product throughput plus work-order service
 
-An Objective may target an untracked finished Resource while declaring `trackedFamily`. Target production, throughput, and regional delivery count the finished Resource. Completion, yield, due-date, cycle-time, tardiness, and WIP terms use Route-terminal lots from the selected family. This keeps the score dimensionally honest: eight DRAM devices contribute eight delivered units, while their source wafer contributes one completed work order.
+An Objective may target an untracked finished Resource while declaring `trackedFamily`. Target production, throughput, and regional delivery count the finished Resource. Completion, yield, due-date, cycle-time, and tardiness use Route-terminal lots from the selected family. WIP separately uses the Objective's explicit equivalent-unit contract, so one eight-die wafer lot and its eight downstream die represent the same material quantity while remaining distinct raw physical counts.
 
 `deliveryContracts` adds a frozen product portfolio. Every contract owns one fungible Resource, delivery region, demand rate, unit value, shortfall penalty, and optional hard minimum fulfillment. Demand is a service floor: every delivered unit earns product value, units below demand additionally avoid their shortage penalty, and above-demand output remains valuable while being reported separately. The target-rate planner solves all demand floors together, so coproducts from one test program satisfy sibling demands exactly once. See [[docs/design/delivery-contracts]].
 

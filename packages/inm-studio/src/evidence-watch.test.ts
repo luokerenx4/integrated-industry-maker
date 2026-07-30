@@ -7,12 +7,12 @@ import { completedProjectRefresh, projectRefreshProbePath } from "./evidence-wat
 const memoryFab = resolve("examples/memory-fab");
 
 test("Studio refreshes only complete immutable evidence at exact project boundaries", async () => {
-  expect(projectRefreshProbePath("runs/093-simulate/metrics.json"))
-    .toBe("runs/093-simulate/manifest.json");
+  expect(projectRefreshProbePath("runs/097-simulate/metrics.json"))
+    .toBe("runs/097-simulate/manifest.json");
   expect(projectRefreshProbePath(
-    "design-runs/back-end-wip-convergence/e9398d18f3a922db253f127be886912a3897853239c54f5bb02b2a8dc19f18e6/best.blueprint.json",
+    "design-runs/back-end-wip-convergence/803e348a6c6d13ffa1d5e28b9e67a7470a0079d906bb3d124cba4302c25b768b/best.blueprint.json",
   )).toBe(
-    "design-runs/back-end-wip-convergence/e9398d18f3a922db253f127be886912a3897853239c54f5bb02b2a8dc19f18e6/manifest.json",
+    "design-runs/back-end-wip-convergence/803e348a6c6d13ffa1d5e28b9e67a7470a0079d906bb3d124cba4302c25b768b/manifest.json",
   );
   expect(projectRefreshProbePath(".inm/operations/example/state.json")).toBeNull();
   expect(projectRefreshProbePath("candidate-reviews/back-end-wip-conwip-5-4"))
@@ -20,24 +20,24 @@ test("Studio refreshes only complete immutable evidence at exact project boundar
   expect(await completedProjectRefresh(
     memoryFab,
     "memory-fab",
-    "runs/093-simulate/manifest.json",
+    "runs/097-simulate/manifest.json",
   )).toEqual({
     version: 1,
     type: "project-refresh",
     projectId: "memory-fab",
     reason: "run",
-    artifactId: "093-simulate",
+    artifactId: "097-simulate",
   });
   expect(await completedProjectRefresh(
     memoryFab,
     "memory-fab",
-    "design-runs/back-end-wip-convergence/e9398d18f3a922db253f127be886912a3897853239c54f5bb02b2a8dc19f18e6/manifest.json",
+    "design-runs/back-end-wip-convergence/803e348a6c6d13ffa1d5e28b9e67a7470a0079d906bb3d124cba4302c25b768b/manifest.json",
   )).toEqual({
     version: 1,
     type: "project-refresh",
     projectId: "memory-fab",
     reason: "design-run",
-    artifactId: "e9398d18f3a922db253f127be886912a3897853239c54f5bb02b2a8dc19f18e6",
+    artifactId: "803e348a6c6d13ffa1d5e28b9e67a7470a0079d906bb3d124cba4302c25b768b",
   });
   expect(await completedProjectRefresh(
     memoryFab,
@@ -65,7 +65,7 @@ test("Studio refreshes only complete immutable evidence at exact project boundar
     .toEqual({ version: 1, type: "project-refresh", projectId: "memory-fab", reason: "project-source", artifactId: null });
   for (const ignored of [
     ".inm/operations/example/state.json",
-    "runs/093-simulate/metrics.json",
+    "runs/097-simulate/metrics.json",
     "design-runs/back-end-wip-convergence/example/best.blueprint.json",
     "candidate-reviews/back-end-wip-conwip-5-4/.partial.tmp",
   ]) expect(await completedProjectRefresh(memoryFab, "memory-fab", ignored)).toBeNull();

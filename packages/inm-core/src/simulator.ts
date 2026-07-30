@@ -389,7 +389,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const measurementLotIds = Object.keys(state.lots);
   const measurementConnectionIds = Object.keys(state.transports);
   const measurementLogisticsNetworkIds = Object.keys(state.logisticsTransports);
-  const measurementWipResources = new Set(project.objective.wipResources);
+  const measurementWipEquivalentUnitsPerItem = Object.fromEntries(
+    project.objective.wipAccounting.resources.map((entry) => [entry.resource, entry.equivalentUnitsPerItem]),
+  );
+  const measurementWipResources = new Set(Object.keys(measurementWipEquivalentUnitsPerItem));
   const measurementTransportCellCount = Math.max(1, Object.keys(project.transportCells).length);
   const measurementConnectionCount = connectionIds.length;
   const measurementStationFleets = measurementLogisticsNetworkIds.flatMap((network) =>
@@ -535,9 +538,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const generations: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, 0]));
   const statusSince: Record<string, number> = Object.fromEntries(Object.keys(project.devices).map((id) => [id, state.tick]));
   const stats: SimulationStats = {
-    durations: {}, wipArea: 0, inventoryArea: {}, inventoryPeak: {},
+    durations: {}, rawWipArea: 0, wipEquivalentUnitArea: 0, inventoryArea: {}, inventoryPeak: {},
     wipLocationArea: {}, wipLocationPeak: {}, wipLocationIdentities: {},
-    peakTotalInventory: 0, peakWip: 0,
+    peakTotalInventory: 0, peakRawWipInventory: 0, peakWipEquivalentUnits: 0,
     congestionArea: 0, beltOccupancyArea: 0, beltItemArea: 0, beltBlockedArea: 0, peakBeltItems: 0, peakActiveLots: 0,
     releaseControlServiceLevelOpenings: 0,
     transportStageActiveArea: {}, connectionOccupancyArea: {}, connectionBlockedAreaByCause: {}, connectionDepartedItems: {}, connectionDeliveredItems: {},
@@ -1044,23 +1047,36 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       }
     }
     let totalInventory = 0;
-    let wip = 0;
+    let rawWipInventory = 0;
+    let wipEquivalentUnits = 0;
     for (const [resource, count] of Object.entries(inventory)) {
       totalInventory += count;
-      if (measurementWipResources.has(resource)) wip += count;
+      const equivalentUnitsPerItem = measurementWipEquivalentUnitsPerItem[resource];
+      if (equivalentUnitsPerItem !== undefined) {
+        rawWipInventory += count;
+        wipEquivalentUnits += count * equivalentUnitsPerItem;
+      }
       stats.inventoryArea[resource] = (stats.inventoryArea[resource] ?? 0) + count * delta;
       stats.inventoryPeak[resource] = Math.max(stats.inventoryPeak[resource] ?? 0, count);
     }
-    const locatedWip = Object.entries(wipLocationInventory).reduce((sum, [id, count]) => {
+    const locatedRawWipInventory = Object.entries(wipLocationInventory).reduce((sum, [id, count]) => {
       stats.wipLocationArea[id] = (stats.wipLocationArea[id] ?? 0) + count * delta;
       stats.wipLocationPeak[id] = Math.max(stats.wipLocationPeak[id] ?? 0, count);
       return sum + count;
     }, 0);
-    if (locatedWip !== wip) {
-      throw new Error(`WIP location inventory ${locatedWip} does not reconcile with Objective WIP ${wip} at tick ${state.tick}`);
+    const locatedWipEquivalentUnits = Object.entries(wipLocationInventory).reduce((sum, [id, count]) => {
+      const resource = stats.wipLocationIdentities[id]!.resource;
+      return sum + count * measurementWipEquivalentUnitsPerItem[resource]!;
+    }, 0);
+    if (locatedRawWipInventory !== rawWipInventory) {
+      throw new Error(`WIP location inventory ${locatedRawWipInventory} does not reconcile with raw Objective WIP ${rawWipInventory} at tick ${state.tick}`);
+    }
+    if (locatedWipEquivalentUnits !== wipEquivalentUnits) {
+      throw new Error(`WIP location equivalents ${locatedWipEquivalentUnits} do not reconcile with Objective WIP ${wipEquivalentUnits} at tick ${state.tick}`);
     }
     stats.peakTotalInventory = Math.max(stats.peakTotalInventory, totalInventory);
-    stats.peakWip = Math.max(stats.peakWip, wip);
+    stats.peakRawWipInventory = Math.max(stats.peakRawWipInventory, rawWipInventory);
+    stats.peakWipEquivalentUnits = Math.max(stats.peakWipEquivalentUnits, wipEquivalentUnits);
     updatePeakActiveLots();
     const connectionCongestion = occupiedBeltCells / measurementTransportCellCount * measurementConnectionCount;
     const stationFleetBusyCounts = new Array<number>(measurementStationFleets.length).fill(0);
@@ -1078,7 +1094,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (fleet.count > 0) stationCongestion += stationFleetBusyCounts[index]! / fleet.count;
     }
     const congestion = connectionCongestion + stationCongestion;
-    stats.wipArea += wip * delta; stats.congestionArea += congestion * delta;
+    stats.rawWipArea += rawWipInventory * delta;
+    stats.wipEquivalentUnitArea += wipEquivalentUnits * delta;
+    stats.congestionArea += congestion * delta;
     stats.beltOccupancyArea += occupiedBeltCells * delta;
     stats.beltItemArea += beltItems * delta;
     stats.beltBlockedArea += blockedBeltItems * delta;

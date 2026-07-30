@@ -428,18 +428,23 @@ interface Metrics {
   };
   totalBuildCost: number;
   occupiedArea: number;
-  averageWip: number;
+  averageWipEquivalentUnits: number;
   inventoryAccounting: {
-    averageTotalInventory: number; averageWip: number; averageExcludedInventory: number;
-    peakTotalInventory: number; peakWip: number;
+    wipEquivalentUnit: string;
+    averageTotalInventory: number; averageRawWipInventory: number; averageWipEquivalentUnits: number; averageExcludedInventory: number;
+    peakTotalInventory: number; peakRawWipInventory: number; peakWipEquivalentUnits: number;
     resources: Record<string, {
-      includedInWip: boolean; averageInventory: number; peakInventory: number; finalInventory: number;
+      includedInWip: boolean; wipEquivalentUnitsPerItem: number | null;
+      averageInventory: number; peakInventory: number; finalInventory: number;
+      averageWipEquivalentUnits: number; peakWipEquivalentUnits: number; finalWipEquivalentUnits: number;
     }>;
     locations: Record<string, {
       resource: string;
       kind: "buffer" | "in-process" | "local-transit" | "station-transit";
       device?: string; buffer?: string; process?: string; connection?: string; phase?: "loading" | "belt" | "unloading"; network?: string; route?: string;
+      equivalentUnitsPerItem: number;
       averageInventory: number; peakInventory: number; finalInventory: number;
+      averageWipEquivalentUnits: number; peakWipEquivalentUnits: number; finalWipEquivalentUnits: number;
     }>;
   };
   averageBeltItems: number;
@@ -2292,7 +2297,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
         <header><div><span className="eyebrow">OBJECTIVE TRADEOFF{snapshot.objectiveEvidence ? ` · ${snapshot.objectiveEvidence.runId}` : ""}</span><h3>Scored work in process</h3></div>{snapshot.objectiveEvidence && <b>{snapshot.objectiveEvidence.wip.scoreContribution.toFixed(2)}<small> SCORE</small></b>}</header>
         {snapshot.objectiveEvidence && snapshot.inventoryAccounting ? <>
           <div className="objective-component-list" data-testid="objective-score-components">{snapshot.objectiveEvidence.components.slice(0, 6).map((component) => <div key={component.id} className={component.role}><span>{component.id}</span><b>{component.contribution > 0 ? "+" : ""}{component.contribution.toFixed(2)}</b></div>)}</div>
-          <div className="contract-list">{wipContributors.slice(0, 6).map((resource) => <div key={resource.resource}><span><strong>{resource.resource}</strong><code>{resource.finalInventory.toFixed(2)} final · {resource.peakInventory.toFixed(2)} peak · {(resource.shareOfAverageWip * 100).toFixed(1)}%</code></span><b>{resource.averageInventory.toFixed(2)}<small> AVG · {resource.scoreContribution.toFixed(2)} SCORE</small></b></div>)}</div>
+          <div className="contract-list">{wipContributors.slice(0, 6).map((resource) => <div key={resource.resource}><span><strong>{resource.resource}</strong><code>{resource.averageInventory.toFixed(2)} raw avg · ×{resource.equivalentUnitsPerItem} · {(resource.shareOfAverageWip * 100).toFixed(1)}%</code></span><b>{resource.averageWipEquivalentUnits.toFixed(2)}<small> EQUIV · {resource.scoreContribution.toFixed(2)} SCORE</small></b></div>)}</div>
           <div className="contract-list" data-testid="objective-wip-locations">{snapshot.objectiveEvidence.wip.locations.slice(0, 8).map((location) => <a
             key={location.id}
             href={factoryObjectPath(snapshot.project.id, location.subject, snapshot.objectiveEvidence!.runId)}
@@ -2301,11 +2306,11 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
               event.preventDefault();
               onObjectiveTradeoff(snapshot.objectiveEvidence!.runId, location.subject);
             }}
-          ><span><strong>{location.physicalLocation}</strong><code>{location.resource} · {location.kind} · {(location.shareOfAverageWip * 100).toFixed(1)}%</code></span><b>{location.averageInventory.toFixed(2)}<small> AVG · {location.peakInventory.toFixed(2)} PEAK</small></b></a>)}</div>
-          <footer><span>{snapshot.inventoryAccounting.averageTotalInventory.toFixed(2)} average total inventory</span><span>{snapshot.inventoryAccounting.averageExcludedInventory.toFixed(2)} excluded</span><span>{snapshot.inventoryAccounting.peakWip.toFixed(2)} peak WIP</span></footer>
+          ><span><strong>{location.physicalLocation}</strong><code>{location.resource} · {location.kind} · {location.averageInventory.toFixed(2)} raw avg · ×{location.equivalentUnitsPerItem}</code></span><b>{location.averageWipEquivalentUnits.toFixed(2)}<small> EQUIV · {(location.shareOfAverageWip * 100).toFixed(1)}%</small></b></a>)}</div>
+          <footer><span>{snapshot.inventoryAccounting.averageWipEquivalentUnits.toFixed(2)} average {snapshot.inventoryAccounting.wipEquivalentUnit}</span><span>{snapshot.inventoryAccounting.averageRawWipInventory.toFixed(2)} raw WIP items</span><span>{snapshot.inventoryAccounting.averageTotalInventory.toFixed(2)} total raw items</span></footer>
           <p className="objective-interpretation">Objective accounting evidence, not proof that the inventory is avoidable.</p>
         </> : <div className="overview-empty"><span>Create a compatible immutable run to measure the Objective's WIP scope.</span></div>}
-        <code>{snapshot.objective.wipResources.join(" · ") || "Objective scores no Resource inventory as WIP"}</code>
+        <code>{snapshot.objective.wipAccounting.unit} · {snapshot.objective.wipAccounting.resources.map((entry) => `${entry.resource}×${entry.equivalentUnitsPerItem}`).join(" · ") || "no scored Resources"}</code>
       </section>
       <section className="overview-panel contracts-panel">
         <header><div><span className="eyebrow">INDUSTRIAL OUTCOME</span><h3>Delivery contracts</h3></div></header>
@@ -3034,35 +3039,35 @@ function App() {
               <h2>Objective inventory</h2>
               <div className="metrics">
                 <Metric
-                  label="AVERAGE WIP / TOTAL"
-                  value={`${data.metrics.inventoryAccounting.averageWip.toFixed(2)} / ${data.metrics.inventoryAccounting.averageTotalInventory.toFixed(2)}`}
+                  label={`AVERAGE ${data.metrics.inventoryAccounting.wipEquivalentUnit.toUpperCase()}`}
+                  value={`${data.metrics.inventoryAccounting.averageWipEquivalentUnits.toFixed(2)} equiv · ${data.metrics.inventoryAccounting.averageRawWipInventory.toFixed(2)} raw`}
                   accent
                 />
                 <Metric
-                  label="PEAK WIP / TOTAL"
-                  value={`${data.metrics.inventoryAccounting.peakWip.toFixed(0)} / ${data.metrics.inventoryAccounting.peakTotalInventory.toFixed(0)}`}
+                  label="PEAK WIP EQUIV / RAW"
+                  value={`${data.metrics.inventoryAccounting.peakWipEquivalentUnits.toFixed(0)} / ${data.metrics.inventoryAccounting.peakRawWipInventory.toFixed(0)}`}
                 />
                 {Object.entries(data.metrics.inventoryAccounting.resources)
                   .filter(
                     ([, accounting]) =>
                       accounting.includedInWip &&
-                      accounting.averageInventory > 0,
+                      accounting.averageWipEquivalentUnits > 0,
                   )
                   .sort(
                     ([, left], [, right]) =>
-                      right.averageInventory - left.averageInventory,
+                      right.averageWipEquivalentUnits - left.averageWipEquivalentUnits,
                   )
                   .slice(0, 6)
                   .map(([resource, accounting]) => (
                     <Metric
                       key={resource}
                       label={resource.toUpperCase()}
-                      value={`${accounting.averageInventory.toFixed(2)} avg · ${accounting.peakInventory.toFixed(0)} peak`}
+                      value={`${accounting.averageWipEquivalentUnits.toFixed(2)} equiv · ${accounting.averageInventory.toFixed(2)} raw · ×${accounting.wipEquivalentUnitsPerItem}`}
                     />
                   ))}
                 {Object.values(data.metrics.inventoryAccounting.locations)
-                  .filter((accounting) => accounting.averageInventory > 0)
-                  .sort((left, right) => right.averageInventory - left.averageInventory)
+                  .filter((accounting) => accounting.averageWipEquivalentUnits > 0)
+                  .sort((left, right) => right.averageWipEquivalentUnits - left.averageWipEquivalentUnits)
                   .slice(0, 8)
                   .map((accounting) => (
                     <Metric
@@ -3074,7 +3079,7 @@ function App() {
                           : accounting.connection && accounting.phase
                             ? `${accounting.connection}.${accounting.phase}`
                             : `${accounting.network}.${accounting.route}`}`.toUpperCase()}
-                      value={`${accounting.averageInventory.toFixed(2)} avg · ${accounting.resource}`}
+                      value={`${accounting.averageWipEquivalentUnits.toFixed(2)} equiv · ${accounting.averageInventory.toFixed(2)} raw · ${accounting.resource}`}
                     />
                   ))}
               </div>

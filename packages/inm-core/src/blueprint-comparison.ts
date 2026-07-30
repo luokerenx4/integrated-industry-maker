@@ -129,7 +129,7 @@ export interface BlueprintMetricSnapshot {
   unpoweredTicks: number;
   totalBuildCost: number;
   occupiedArea: number;
-  averageWip: number;
+  averageWipEquivalentUnits: number;
   inventoryAccounting: FactoryMetrics["inventoryAccounting"];
   averageBlockedBeltItems: number;
   beltCellUtilization: number;
@@ -243,18 +243,24 @@ export interface BlueprintMetricDelta {
   unpoweredTicks: number;
   totalBuildCost: number;
   occupiedArea: number;
-  averageWip: number;
+  averageWipEquivalentUnits: number;
   inventoryAccounting: {
     averageTotalInventory: number;
-    averageWip: number;
+    averageRawWipInventory: number;
+    averageWipEquivalentUnits: number;
     averageExcludedInventory: number;
     peakTotalInventory: number;
-    peakWip: number;
+    peakRawWipInventory: number;
+    peakWipEquivalentUnits: number;
     resources: Record<string, {
       includedInWip: boolean;
+      wipEquivalentUnitsPerItem: number | null;
       averageInventory: number;
       peakInventory: number;
       finalInventory: number;
+      averageWipEquivalentUnits: number;
+      peakWipEquivalentUnits: number;
+      finalWipEquivalentUnits: number;
     }>;
     locations: FactoryMetrics["inventoryAccounting"]["locations"];
   };
@@ -508,7 +514,7 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     unpoweredTicks: Object.values(metrics.unpoweredTime).reduce((sum, ticks) => sum + ticks, 0),
     totalBuildCost: metrics.totalBuildCost,
     occupiedArea: metrics.occupiedArea,
-    averageWip: metrics.averageWip,
+    averageWipEquivalentUnits: metrics.averageWipEquivalentUnits,
     inventoryAccounting: structuredClone(metrics.inventoryAccounting),
     averageBlockedBeltItems: metrics.averageBlockedBeltItems,
     beltCellUtilization: metrics.beltCellUtilization,
@@ -531,18 +537,24 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
   ])].sort();
   const inventoryAccounting: BlueprintMetricDelta["inventoryAccounting"] = {
     averageTotalInventory: after.inventoryAccounting.averageTotalInventory - before.inventoryAccounting.averageTotalInventory,
-    averageWip: after.inventoryAccounting.averageWip - before.inventoryAccounting.averageWip,
+    averageRawWipInventory: after.inventoryAccounting.averageRawWipInventory - before.inventoryAccounting.averageRawWipInventory,
+    averageWipEquivalentUnits: after.inventoryAccounting.averageWipEquivalentUnits - before.inventoryAccounting.averageWipEquivalentUnits,
     averageExcludedInventory: after.inventoryAccounting.averageExcludedInventory - before.inventoryAccounting.averageExcludedInventory,
     peakTotalInventory: after.inventoryAccounting.peakTotalInventory - before.inventoryAccounting.peakTotalInventory,
-    peakWip: after.inventoryAccounting.peakWip - before.inventoryAccounting.peakWip,
+    peakRawWipInventory: after.inventoryAccounting.peakRawWipInventory - before.inventoryAccounting.peakRawWipInventory,
+    peakWipEquivalentUnits: after.inventoryAccounting.peakWipEquivalentUnits - before.inventoryAccounting.peakWipEquivalentUnits,
     resources: Object.fromEntries(inventoryResourceIds.map((resource) => {
       const baseline = before.inventoryAccounting.resources[resource];
       const candidate = after.inventoryAccounting.resources[resource];
       return [resource, {
         includedInWip: candidate?.includedInWip ?? baseline?.includedInWip ?? false,
+        wipEquivalentUnitsPerItem: candidate?.wipEquivalentUnitsPerItem ?? baseline?.wipEquivalentUnitsPerItem ?? null,
         averageInventory: (candidate?.averageInventory ?? 0) - (baseline?.averageInventory ?? 0),
         peakInventory: (candidate?.peakInventory ?? 0) - (baseline?.peakInventory ?? 0),
         finalInventory: (candidate?.finalInventory ?? 0) - (baseline?.finalInventory ?? 0),
+        averageWipEquivalentUnits: (candidate?.averageWipEquivalentUnits ?? 0) - (baseline?.averageWipEquivalentUnits ?? 0),
+        peakWipEquivalentUnits: (candidate?.peakWipEquivalentUnits ?? 0) - (baseline?.peakWipEquivalentUnits ?? 0),
+        finalWipEquivalentUnits: (candidate?.finalWipEquivalentUnits ?? 0) - (baseline?.finalWipEquivalentUnits ?? 0),
       }];
     })),
     locations: Object.fromEntries(inventoryLocationIds.map((id) => {
@@ -555,6 +567,9 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
         averageInventory: (candidate?.averageInventory ?? 0) - (baseline?.averageInventory ?? 0),
         peakInventory: (candidate?.peakInventory ?? 0) - (baseline?.peakInventory ?? 0),
         finalInventory: (candidate?.finalInventory ?? 0) - (baseline?.finalInventory ?? 0),
+        averageWipEquivalentUnits: (candidate?.averageWipEquivalentUnits ?? 0) - (baseline?.averageWipEquivalentUnits ?? 0),
+        peakWipEquivalentUnits: (candidate?.peakWipEquivalentUnits ?? 0) - (baseline?.peakWipEquivalentUnits ?? 0),
+        finalWipEquivalentUnits: (candidate?.finalWipEquivalentUnits ?? 0) - (baseline?.finalWipEquivalentUnits ?? 0),
       }];
     })),
   };
@@ -664,7 +679,7 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     unpoweredTicks: after.unpoweredTicks - before.unpoweredTicks,
     totalBuildCost: after.totalBuildCost - before.totalBuildCost,
     occupiedArea: after.occupiedArea - before.occupiedArea,
-    averageWip: after.averageWip - before.averageWip,
+    averageWipEquivalentUnits: after.averageWipEquivalentUnits - before.averageWipEquivalentUnits,
     inventoryAccounting,
     averageBlockedBeltItems: after.averageBlockedBeltItems - before.averageBlockedBeltItems,
     beltCellUtilization: after.beltCellUtilization - before.beltCellUtilization,

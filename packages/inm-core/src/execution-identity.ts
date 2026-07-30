@@ -225,7 +225,7 @@ function collectSelectedResources(project: CompiledProjectWithoutHashes, process
   for (const delivery of project.scenario.materialDeliveries ?? []) ids.add(delivery.resource);
   for (const treatment of project.scenario.initialTreatments ?? []) ids.add(treatment.resource);
   ids.add(project.objective.targetResource);
-  for (const resource of project.objective.wipResources) ids.add(resource);
+  for (const entry of project.objective.wipAccounting.resources) ids.add(entry.resource);
   for (const contract of project.objective.deliveryContracts ?? []) ids.add(contract.resource);
   return ids;
 }

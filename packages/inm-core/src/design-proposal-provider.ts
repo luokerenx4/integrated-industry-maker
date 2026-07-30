@@ -67,7 +67,7 @@ function proposalOf(value: unknown, entry: string): ResearchProposal | null {
     && (
       objectiveTarget.metric === "contribution"
         ? objectiveTarget.direction === "increase" && objectiveTarget.location === undefined
-        : objectiveTarget.metric === "averageInventory"
+        : objectiveTarget.metric === "averageWipEquivalentUnits"
           ? objectiveTarget.component === "wip"
           && typeof objectiveTarget.location === "string"
           && objectiveTarget.location.length > 0
@@ -196,7 +196,7 @@ export class ProjectStrategyResearchAgent {
         );
       } else {
         const location = input.metrics.inventoryAccounting.locations[target.location];
-        if (!location || !Number.isFinite(location.averageInventory)) throw new Error(
+        if (!location || !Number.isFinite(location.averageWipEquivalentUnits)) throw new Error(
           `Project proposal provider '${this.entry}' targeted missing WIP location '${target.location}'`,
         );
       }

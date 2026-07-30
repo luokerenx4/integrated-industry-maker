@@ -23,6 +23,7 @@ import {
   type CompiledFactoryProject,
   type FactoryEvent,
   type FactoryMetrics,
+  type Objective,
   type ProjectHashes,
   type ScoreBreakdown,
   type ScoreBreakdownComponent,
@@ -189,15 +190,22 @@ export interface WorkbenchObjectiveEvidence {
   components: WorkbenchObjectiveComponentEvidence[];
   dominantPenalty: WorkbenchObjectiveComponentEvidence | null;
   wip: {
+    equivalentUnit: string;
     weight: number;
     scoreContribution: number;
-    averageWip: number;
-    peakWip: number;
+    averageRawWipInventory: number;
+    averageWipEquivalentUnits: number;
+    peakRawWipInventory: number;
+    peakWipEquivalentUnits: number;
     resources: Array<{
       resource: string;
+      equivalentUnitsPerItem: number;
       averageInventory: number;
       peakInventory: number;
       finalInventory: number;
+      averageWipEquivalentUnits: number;
+      peakWipEquivalentUnits: number;
+      finalWipEquivalentUnits: number;
       shareOfAverageWip: number;
       scoreContribution: number;
     }>;
@@ -207,9 +215,13 @@ export interface WorkbenchObjectiveEvidence {
       kind: "buffer" | "in-process" | "local-transit" | "station-transit";
       physicalLocation: string;
       subject: { kind: "device" | "connection"; id: string } | null;
+      equivalentUnitsPerItem: number;
       averageInventory: number;
       peakInventory: number;
       finalInventory: number;
+      averageWipEquivalentUnits: number;
+      peakWipEquivalentUnits: number;
+      finalWipEquivalentUnits: number;
       shareOfAverageWip: number;
       scoreContribution: number;
     }>;
@@ -234,7 +246,7 @@ export interface ProjectWorkbenchSnapshot {
     targetResource: string;
     targetRegion: string;
     targetRatePerMinute: number;
-    wipResources: string[];
+    wipAccounting: Objective["wipAccounting"];
     deliveryContracts: Array<{
       id: string;
       resource: string;
@@ -891,7 +903,7 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
       tone: "evidence",
       title: `Review the dominant Objective tradeoff: ${objectivePenalty.id}`,
       reason: wip
-        ? `WIP contributes ${objectivePenalty.contribution.toFixed(3)} to the exact Run score. ${leadingResources.map((resource) => `${resource.resource} averages ${resource.averageInventory.toFixed(2)}`).join(" and ")}. This is Objective accounting evidence, not proof that the inventory is avoidable.`
+        ? `WIP contributes ${objectivePenalty.contribution.toFixed(3)} to the exact Run score. ${leadingResources.map((resource) => `${resource.resource} averages ${resource.averageWipEquivalentUnits.toFixed(2)} equivalent units (${resource.averageInventory.toFixed(2)} raw items)`).join(" and ")}. This is Objective accounting evidence, not proof that the inventory is avoidable.`
         : `${objectivePenalty.id} contributes ${objectivePenalty.contribution.toFixed(3)} to the exact Run score. Review its measured context before authoring a bounded intervention.`,
       actionLabel: "OBSERVE TRADEOFF",
       effect: "read-only",
@@ -950,21 +962,25 @@ function buildWorkbenchObjectiveEvidence(
       || SCORE_BREAKDOWN_COMPONENTS.indexOf(left.id) - SCORE_BREAKDOWN_COMPONENTS.indexOf(right.id))[0] ?? null;
   const wipWeight = project.objective.weights.wip;
   const wipResources = Object.entries(metrics.inventoryAccounting.resources)
-    .filter(([, accounting]) => accounting.includedInWip && accounting.averageInventory > 0)
+    .filter(([, accounting]) => accounting.includedInWip && accounting.averageWipEquivalentUnits > 0)
     .map(([resource, accounting]) => ({
       resource,
+      equivalentUnitsPerItem: accounting.wipEquivalentUnitsPerItem!,
       averageInventory: accounting.averageInventory,
       peakInventory: accounting.peakInventory,
       finalInventory: accounting.finalInventory,
-      shareOfAverageWip: metrics.inventoryAccounting.averageWip > 0
-        ? accounting.averageInventory / metrics.inventoryAccounting.averageWip
+      averageWipEquivalentUnits: accounting.averageWipEquivalentUnits,
+      peakWipEquivalentUnits: accounting.peakWipEquivalentUnits,
+      finalWipEquivalentUnits: accounting.finalWipEquivalentUnits,
+      shareOfAverageWip: metrics.inventoryAccounting.averageWipEquivalentUnits > 0
+        ? accounting.averageWipEquivalentUnits / metrics.inventoryAccounting.averageWipEquivalentUnits
         : 0,
-      scoreContribution: -accounting.averageInventory * wipWeight,
+      scoreContribution: -accounting.averageWipEquivalentUnits * wipWeight,
     }))
     .sort((left, right) =>
-      right.averageInventory - left.averageInventory || left.resource.localeCompare(right.resource));
+      right.averageWipEquivalentUnits - left.averageWipEquivalentUnits || left.resource.localeCompare(right.resource));
   const wipLocations = Object.entries(metrics.inventoryAccounting.locations)
-    .filter(([, accounting]) => accounting.averageInventory > 0)
+    .filter(([, accounting]) => accounting.averageWipEquivalentUnits > 0)
     .map(([id, accounting]) => ({
       id,
       resource: accounting.resource,
@@ -975,16 +991,20 @@ function buildWorkbenchObjectiveEvidence(
         : accounting.kind === "local-transit"
           ? { kind: "connection" as const, id: accounting.connection }
           : null,
+      equivalentUnitsPerItem: accounting.equivalentUnitsPerItem,
       averageInventory: accounting.averageInventory,
       peakInventory: accounting.peakInventory,
       finalInventory: accounting.finalInventory,
-      shareOfAverageWip: metrics.inventoryAccounting.averageWip > 0
-        ? accounting.averageInventory / metrics.inventoryAccounting.averageWip
+      averageWipEquivalentUnits: accounting.averageWipEquivalentUnits,
+      peakWipEquivalentUnits: accounting.peakWipEquivalentUnits,
+      finalWipEquivalentUnits: accounting.finalWipEquivalentUnits,
+      shareOfAverageWip: metrics.inventoryAccounting.averageWipEquivalentUnits > 0
+        ? accounting.averageWipEquivalentUnits / metrics.inventoryAccounting.averageWipEquivalentUnits
         : 0,
-      scoreContribution: -accounting.averageInventory * wipWeight,
+      scoreContribution: -accounting.averageWipEquivalentUnits * wipWeight,
     }))
     .sort((left, right) =>
-      right.averageInventory - left.averageInventory || left.id.localeCompare(right.id));
+      right.averageWipEquivalentUnits - left.averageWipEquivalentUnits || left.id.localeCompare(right.id));
   return {
     runId,
     finalScore: metrics.finalScore,
@@ -992,10 +1012,13 @@ function buildWorkbenchObjectiveEvidence(
     components,
     dominantPenalty: dominantPenalty ? { ...dominantPenalty } : null,
     wip: {
+      equivalentUnit: metrics.inventoryAccounting.wipEquivalentUnit,
       weight: wipWeight,
       scoreContribution: metrics.scoreBreakdown.wip,
-      averageWip: metrics.inventoryAccounting.averageWip,
-      peakWip: metrics.inventoryAccounting.peakWip,
+      averageRawWipInventory: metrics.inventoryAccounting.averageRawWipInventory,
+      averageWipEquivalentUnits: metrics.inventoryAccounting.averageWipEquivalentUnits,
+      peakRawWipInventory: metrics.inventoryAccounting.peakRawWipInventory,
+      peakWipEquivalentUnits: metrics.inventoryAccounting.peakWipEquivalentUnits,
       resources: wipResources,
       locations: wipLocations,
     },
@@ -1195,7 +1218,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
       targetResource: project.objective.targetResource,
       targetRegion: project.objective.targetRegion,
       targetRatePerMinute: project.objective.targetRatePerMinute,
-      wipResources: [...project.objective.wipResources],
+      wipAccounting: structuredClone(project.objective.wipAccounting),
       deliveryContracts,
     },
     inventoryAccounting: currentMetrics

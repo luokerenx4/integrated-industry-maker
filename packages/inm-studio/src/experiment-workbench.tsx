@@ -303,7 +303,7 @@ export function ExperimentWorkbench({
                   <span>{item.currentScore.toFixed(3)} → {item.proposedScore.toFixed(3)}</span>
                   <b className={item.scoreDelta >= 0 ? "positive" : "negative"}>{signed(item.scoreDelta)}</b>
                   <span>{item.proposedCapacityReady ? "READY" : `${item.proposedCapacityGaps.length} GAPS`}</span>
-                  <span>{item.currentMetrics.averageWip.toFixed(2)} → {item.proposedMetrics.averageWip.toFixed(2)}</span>
+                  <span>{item.currentMetrics.averageWipEquivalentUnits.toFixed(2)} → {item.proposedMetrics.averageWipEquivalentUnits.toFixed(2)}</span>
                   <span>{item.currentMetrics.onTimeLots} → {item.proposedMetrics.onTimeLots}</span>
                 </div>
                 <ScoreBreakdownDetails

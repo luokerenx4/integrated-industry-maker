@@ -54,7 +54,7 @@ export interface DesignDriverEvidence {
   fabLoss: FabLossProfile | null;
   objective?: {
     scoreBreakdown: ScoreBreakdown;
-    wipAverageInventoryByLocation: Record<string, number>;
+    wipAverageEquivalentUnitsByLocation: Record<string, number>;
   };
 }
 
@@ -78,10 +78,10 @@ function designDriverEvidence(
     ),
     objective: {
       scoreBreakdown,
-      wipAverageInventoryByLocation: Object.fromEntries(
+      wipAverageEquivalentUnitsByLocation: Object.fromEntries(
         Object.entries(simulation.metrics.inventoryAccounting.locations)
           .sort(([left], [right]) => left.localeCompare(right))
-          .map(([id, location]) => [id, location.averageInventory]),
+          .map(([id, location]) => [id, location.averageWipEquivalentUnits]),
       ),
     },
   };
@@ -352,9 +352,9 @@ function validDriverEvidence(value: unknown): value is DesignDriverEvidence {
   if (!/^[0-9a-f]{64}$/.test(evidence.metricsHash ?? "")) return false;
   const validObjective = evidence.objective === undefined || (
     validScoreBreakdown(evidence.objective.scoreBreakdown)
-    && Boolean(evidence.objective.wipAverageInventoryByLocation)
-    && typeof evidence.objective.wipAverageInventoryByLocation === "object"
-    && Object.entries(evidence.objective.wipAverageInventoryByLocation).every(([id, average]) =>
+    && Boolean(evidence.objective.wipAverageEquivalentUnitsByLocation)
+    && typeof evidence.objective.wipAverageEquivalentUnitsByLocation === "object"
+    && Object.entries(evidence.objective.wipAverageEquivalentUnitsByLocation).every(([id, average]) =>
       id.length > 0 && Number.isFinite(average))
   );
   if (!validObjective) return false;
@@ -422,7 +422,7 @@ function objectiveTargetValue(
 ): number {
   if (!evidence.objective) throw new Error("Addressed Objective target requires exact driver Objective evidence");
   if (target.metric === "contribution") return evidence.objective.scoreBreakdown[target.component];
-  const value = evidence.objective.wipAverageInventoryByLocation[target.location];
+  const value = evidence.objective.wipAverageEquivalentUnitsByLocation[target.location];
   if (value === undefined) throw new Error(`Addressed WIP location '${target.location}' is absent from driver Objective evidence`);
   return value;
 }
@@ -452,7 +452,7 @@ function validObjectiveTargetEvidence(value: unknown): value is DesignObjectiveT
     ? SCORE_BREAKDOWN_COMPONENTS.includes(target.component)
       && target.direction === "increase"
       && !Object.hasOwn(target, "location")
-    : target?.metric === "averageInventory"
+    : target?.metric === "averageWipEquivalentUnits"
       && target.component === "wip"
       && typeof target.location === "string"
       && target.location.length > 0
@@ -1533,7 +1533,7 @@ export async function runDesignProgram(
         `Design proposal Objective target '${target.component}' is outside Program '${program.id}' focus`,
       );
       if (programFocus.locations
-        && (target.metric !== "averageInventory" || !programFocus.locations.includes(target.location))) throw new Error(
+        && (target.metric !== "averageWipEquivalentUnits" || !programFocus.locations.includes(target.location))) throw new Error(
         `Design proposal WIP location is outside Program '${program.id}' focus`,
       );
     }

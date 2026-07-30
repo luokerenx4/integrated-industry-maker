@@ -31,17 +31,17 @@
     "cases": {
       "yield-excursion": {
         "blueprintHash": "242c37558c8c24138216bedb79a128275436e37aa2c20a046cca279f2083fac8",
-        "engineVersion": "inm-sim/0.89.0",
-        "executionHash": "ca919c791acb59626e69fd82ada837ed903f5ef169aff6400d3ed339b44aaa29",
-        "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "8204ff8f1b3c24a57d4b8fecba6b92be477e5af7057ea064f46de0fc44371aa1",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
         "scenarioHash": "8ec51094abee8cf14d1733ea7b1446d712cdca9b583395cab9a00fd10a39cd8d",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       },
       "yield-window": {
         "blueprintHash": "242c37558c8c24138216bedb79a128275436e37aa2c20a046cca279f2083fac8",
-        "engineVersion": "inm-sim/0.89.0",
-        "executionHash": "cf4a41b5292e195d120f7e3ed4155d78fd62102abc4de64a0a3816663c2de428",
-        "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "541435934dfa9f105b0d8ccd2ded926f4335cf7db94e3b65472c96b88b58b6ec",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
         "scenarioHash": "c389336267e3c9c50ac7a2a32f5d2d53904e4a4121e745f878150842a86c3ff7",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       }

@@ -89,7 +89,7 @@ export type ResearchObjectiveTarget =
   | {
     component: "wip";
     location: string;
-    metric: "averageInventory";
+    metric: "averageWipEquivalentUnits";
     direction: "decrease";
   };
 export interface ResearchProposal {

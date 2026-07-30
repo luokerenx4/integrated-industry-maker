@@ -177,7 +177,7 @@ function writeDesignProgress(progress: DesignRunProgress, mode: ProgressMode, ex
   else if (progress.phase === "loss-target-completed") line = `CAUSE   ${work}  ${progress.lossTargetEvidence.target.contributor}.${progress.lossTargetEvidence.target.metric} ${progress.lossTargetEvidence.before} → ${progress.lossTargetEvidence.after} · Δ ${signed(progress.lossTargetEvidence.delta, 3)} · ${progress.lossTargetEvidence.improved ? "improved" : "not improved"}`;
   else if (progress.phase === "objective-target-completed") {
     const target = progress.objectiveTargetEvidence.target;
-    line = `CAUSE   ${work}  Objective ${target.component}.${target.metric}${target.metric === "averageInventory" ? ` @ ${target.location}` : ""} ${progress.objectiveTargetEvidence.before} → ${progress.objectiveTargetEvidence.after} · Δ ${signed(progress.objectiveTargetEvidence.delta, 3)} · ${progress.objectiveTargetEvidence.improved ? "improved" : "not improved"}`;
+    line = `CAUSE   ${work}  Objective ${target.component}.${target.metric}${target.metric === "averageWipEquivalentUnits" ? ` @ ${target.location}` : ""} ${progress.objectiveTargetEvidence.before} → ${progress.objectiveTargetEvidence.after} · Δ ${signed(progress.objectiveTargetEvidence.delta, 3)} · ${progress.objectiveTargetEvidence.improved ? "improved" : "not improved"}`;
   }
   else if (progress.phase === "node-exhausted") line = `EXHAUST ${work}  ${progress.exhaustion.node.role} ${progress.exhaustion.node.nodeId} · proposal portfolio exhausted · next ${progress.exhaustion.nextNodeId ?? "none"}`;
   else if (progress.phase === "candidate-completed") line = `DECIDE  ${work}  iteration ${progress.iteration} ${progress.decision} · ${progress.frontierEvidence.parent.nodeId} → ${progress.frontierEvidence.outcome}${progress.addressedCase ? ` · repaired ${progress.addressedCase}` : ""}${!progress.decisionEvidence ? ` · ${progress.error}` : ` · score ${progress.decisionEvidence.aggregate.candidateScore.toFixed(6)} · leader Δ ${signed(progress.decisionEvidence.aggregate.scoreDelta, 6)} · ${designDecisionDetail(progress.decisionEvidence)}`}`;
@@ -240,7 +240,7 @@ function designIterationLines(iteration: DesignRunIteration): string[] {
       `      causal target: ${iteration.lossTargetEvidence.target.contributor}.${iteration.lossTargetEvidence.target.metric} ${iteration.lossTargetEvidence.before} → ${iteration.lossTargetEvidence.after} · Δ ${signed(iteration.lossTargetEvidence.delta, 3)} · ${iteration.lossTargetEvidence.improved ? "improved" : "not improved"}`,
     ] : []),
     ...(iteration.objectiveTargetEvidence ? [
-      `      Objective target: ${iteration.objectiveTargetEvidence.target.component}.${iteration.objectiveTargetEvidence.target.metric}${iteration.objectiveTargetEvidence.target.metric === "averageInventory" ? ` @ ${iteration.objectiveTargetEvidence.target.location}` : ""} ${iteration.objectiveTargetEvidence.before} → ${iteration.objectiveTargetEvidence.after} · Δ ${signed(iteration.objectiveTargetEvidence.delta, 3)} · ${iteration.objectiveTargetEvidence.improved ? "improved" : "not improved"}`,
+      `      Objective target: ${iteration.objectiveTargetEvidence.target.component}.${iteration.objectiveTargetEvidence.target.metric}${iteration.objectiveTargetEvidence.target.metric === "averageWipEquivalentUnits" ? ` @ ${iteration.objectiveTargetEvidence.target.location}` : ""} ${iteration.objectiveTargetEvidence.before} → ${iteration.objectiveTargetEvidence.after} · Δ ${signed(iteration.objectiveTargetEvidence.delta, 3)} · ${iteration.objectiveTargetEvidence.improved ? "improved" : "not improved"}`,
     ] : []),
     ...(iteration.evaluation?.cases.flatMap((item) => {
       const lines = cadenceControlComparisonLines(
@@ -356,8 +356,8 @@ function currentFactorySummary(comparison: CandidateCurrentFactoryComparison) {
       scoreDelta: item.scoreDelta,
       currentCapacityReady: item.currentCapacityReady,
       proposedCapacityReady: item.proposedCapacityReady,
-      currentWip: item.currentMetrics.averageWip,
-      proposedWip: item.proposedMetrics.averageWip,
+      currentWip: item.currentMetrics.averageWipEquivalentUnits,
+      proposedWip: item.proposedMetrics.averageWipEquivalentUnits,
       currentOnTimeLots: item.currentMetrics.onTimeLots,
       proposedOnTimeLots: item.proposedMetrics.onTimeLots,
       leadingScoreDrivers: leadingScoreDrivers(item.scoreBreakdownDelta),
@@ -646,23 +646,23 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     `Hashes: World ${snapshot.hashes.worldHash.slice(0, 12)} · Blueprint ${snapshot.hashes.blueprintHash.slice(0, 12)} · Scenario ${snapshot.hashes.scenarioHash.slice(0, 12)} · Objective ${snapshot.hashes.objectiveHash.slice(0, 12)}`,
     `Objective: ${snapshot.objective.targetRatePerMinute} ${snapshot.objective.targetResource}/min @ ${snapshot.objective.targetRegion}`,
     `Contracts: ${snapshot.objective.deliveryContracts.map((contract) => `${contract.id}=${contract.demandPerMinute} ${contract.resource}/min @ ${contract.region}`).join("; ")}`,
-    `WIP scope: ${snapshot.objective.wipResources.join(", ") || "none"}`,
+    `WIP accounting: ${snapshot.objective.wipAccounting.unit} · ${snapshot.objective.wipAccounting.resources.map((entry) => `${entry.resource}×${entry.equivalentUnitsPerItem}`).join(", ") || "no scored resources"}`,
     ...(snapshot.inventoryAccounting ? [
-      `Inventory evidence: run ${snapshot.inventoryAccounting.runId} · ${snapshot.inventoryAccounting.averageWip.toFixed(3)} average scored WIP / ${snapshot.inventoryAccounting.averageTotalInventory.toFixed(3)} total · ${snapshot.inventoryAccounting.peakWip.toFixed(3)} peak WIP`,
+      `Inventory evidence: run ${snapshot.inventoryAccounting.runId} · ${snapshot.inventoryAccounting.averageWipEquivalentUnits.toFixed(3)} average ${snapshot.inventoryAccounting.wipEquivalentUnit} / ${snapshot.inventoryAccounting.averageRawWipInventory.toFixed(3)} raw WIP items / ${snapshot.inventoryAccounting.averageTotalInventory.toFixed(3)} total raw items`,
       ...Object.entries(snapshot.inventoryAccounting.resources)
-        .filter(([, accounting]) => accounting.includedInWip && accounting.averageInventory > 0)
-        .sort(([, left], [, right]) => right.averageInventory - left.averageInventory)
+        .filter(([, accounting]) => accounting.includedInWip && accounting.averageWipEquivalentUnits > 0)
+        .sort(([, left], [, right]) => right.averageWipEquivalentUnits - left.averageWipEquivalentUnits)
         .slice(0, 5)
-        .map(([resource, accounting]) => `  ${resource}: ${accounting.averageInventory.toFixed(3)} average · ${accounting.peakInventory.toFixed(3)} peak`),
+        .map(([resource, accounting]) => `  ${resource}: ${accounting.averageWipEquivalentUnits.toFixed(3)} equivalent average · ${accounting.averageInventory.toFixed(3)} raw average · factor ×${accounting.wipEquivalentUnitsPerItem}`),
     ] : ["Inventory evidence: no compatible run"]),
     ...(snapshot.objectiveEvidence ? [
       `Objective evidence: run ${snapshot.objectiveEvidence.runId} · score ${snapshot.objectiveEvidence.finalScore.toFixed(3)} · dominant penalty ${snapshot.objectiveEvidence.dominantPenalty ? `${snapshot.objectiveEvidence.dominantPenalty.id} ${snapshot.objectiveEvidence.dominantPenalty.contribution.toFixed(3)}` : "none"}`,
-      `  WIP: weight ${snapshot.objectiveEvidence.wip.weight} × ${snapshot.objectiveEvidence.wip.averageWip.toFixed(3)} average = ${snapshot.objectiveEvidence.wip.scoreContribution.toFixed(3)} score`,
+      `  WIP: weight ${snapshot.objectiveEvidence.wip.weight} × ${snapshot.objectiveEvidence.wip.averageWipEquivalentUnits.toFixed(3)} ${snapshot.objectiveEvidence.wip.equivalentUnit} = ${snapshot.objectiveEvidence.wip.scoreContribution.toFixed(3)} score`,
       ...snapshot.objectiveEvidence.wip.resources.slice(0, 5).map((resource) =>
-        `    ${resource.resource}: ${resource.averageInventory.toFixed(3)} average / ${resource.peakInventory.toFixed(3)} peak / ${resource.finalInventory.toFixed(3)} final · ${(resource.shareOfAverageWip * 100).toFixed(1)}% · ${resource.scoreContribution.toFixed(3)} score`),
+        `    ${resource.resource}: ${resource.averageWipEquivalentUnits.toFixed(3)} equivalent / ${resource.averageInventory.toFixed(3)} raw average · ×${resource.equivalentUnitsPerItem} · ${(resource.shareOfAverageWip * 100).toFixed(1)}% · ${resource.scoreContribution.toFixed(3)} score`),
       "  Physical WIP locations:",
       ...snapshot.objectiveEvidence.wip.locations.slice(0, 8).map((location) =>
-        `    ${location.resource} @ ${location.physicalLocation} (${location.kind}): ${location.averageInventory.toFixed(3)} average / ${location.peakInventory.toFixed(3)} peak / ${location.finalInventory.toFixed(3)} final · ${(location.shareOfAverageWip * 100).toFixed(1)}% · ${location.scoreContribution.toFixed(3)} score`),
+        `    ${location.resource} @ ${location.physicalLocation} (${location.kind}): ${location.averageWipEquivalentUnits.toFixed(3)} equivalent / ${location.averageInventory.toFixed(3)} raw average · ×${location.equivalentUnitsPerItem} · ${(location.shareOfAverageWip * 100).toFixed(1)}% · ${location.scoreContribution.toFixed(3)} score`),
       "  Interpretation: Objective accounting evidence, not proof that the inventory is avoidable.",
     ] : []),
     `Status: capacity ${snapshot.status.capacity.state.toUpperCase()}${snapshot.status.capacity.gapCount ? ` (${snapshot.status.capacity.gapCount} gaps)` : ""} · flow ${snapshot.status.flow.state.toUpperCase()}${snapshot.status.flow.warningCount ? ` (${snapshot.status.flow.warningCount} warnings)` : ""} · review ${snapshot.status.review.state.toUpperCase()}${snapshot.status.review.pendingCount ? ` (${snapshot.status.review.pendingCount} pending)` : snapshot.status.review.staleCount ? ` (${snapshot.status.review.staleCount} stale)` : ""} · evidence ${snapshot.status.evidence.state.toUpperCase()}`,
@@ -1065,7 +1065,7 @@ export async function compareCommand(
     `  unpowered time     ${fromMetrics.unpoweredTicks.toFixed(0).padStart(12)} → ${toMetrics.unpoweredTicks.toFixed(0).padStart(12)} ticks  Δ ${signed(comparison.delta.unpoweredTicks, 0)}`,
     `  build cost         ${fromMetrics.totalBuildCost.toFixed(0).padStart(12)} → ${toMetrics.totalBuildCost.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.totalBuildCost, 0)}`,
     `  occupied area      ${fromMetrics.occupiedArea.toFixed(0).padStart(12)} → ${toMetrics.occupiedArea.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.occupiedArea, 0)}`,
-    `  average WIP        ${fromMetrics.averageWip.toFixed(3).padStart(12)} → ${toMetrics.averageWip.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.averageWip)}`,
+    `  WIP equivalents    ${fromMetrics.averageWipEquivalentUnits.toFixed(3).padStart(12)} → ${toMetrics.averageWipEquivalentUnits.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.averageWipEquivalentUnits)}`,
     `  total inventory    ${fromMetrics.inventoryAccounting.averageTotalInventory.toFixed(3).padStart(12)} → ${toMetrics.inventoryAccounting.averageTotalInventory.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.inventoryAccounting.averageTotalInventory)}`,
     `  blocked belt items ${fromMetrics.averageBlockedBeltItems.toFixed(3).padStart(12)} → ${toMetrics.averageBlockedBeltItems.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.averageBlockedBeltItems)}`,
     `  bottleneck         ${(fromMetrics.bottleneckEntity ?? "none").padStart(12)} → ${(toMetrics.bottleneckEntity ?? "none").padStart(12)}`, "",
@@ -1186,16 +1186,16 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
     `Contracts: ${(result.metrics.deliveryPortfolio.fulfillment * 100).toFixed(1)}% demand attainment · ${result.metrics.deliveryPortfolio.valued.toFixed(3)}/${result.metrics.deliveryPortfolio.demanded.toFixed(3)} valued · ${result.metrics.deliveryPortfolio.overflow.toFixed(3)} above demand · ${result.metrics.deliveryPortfolio.netValuePerMinute.toFixed(3)} net value/min`,
     ...Object.entries(result.metrics.deliveryPortfolio.contracts).map(([id, contract]) => `  ${id}: ${contract.delivered.toFixed(3)}/${contract.demand.toFixed(3)} ${contract.resource} · ${(contract.fulfillment * 100).toFixed(1)}% · net ${contract.netValue.toFixed(3)}`),
     `Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`,
-    `Inventory: ${result.metrics.inventoryAccounting.averageWip.toFixed(3)} average scored WIP / ${result.metrics.inventoryAccounting.averageTotalInventory.toFixed(3)} total · ${result.metrics.inventoryAccounting.peakWip.toFixed(3)} peak WIP / ${result.metrics.inventoryAccounting.peakTotalInventory.toFixed(3)} peak total`,
+    `Inventory: ${result.metrics.inventoryAccounting.averageWipEquivalentUnits.toFixed(3)} average ${result.metrics.inventoryAccounting.wipEquivalentUnit} / ${result.metrics.inventoryAccounting.averageRawWipInventory.toFixed(3)} raw WIP items / ${result.metrics.inventoryAccounting.averageTotalInventory.toFixed(3)} total raw items`,
     ...Object.entries(result.metrics.inventoryAccounting.resources)
-      .filter(([, accounting]) => accounting.includedInWip && accounting.averageInventory > 0)
-      .sort(([, left], [, right]) => right.averageInventory - left.averageInventory)
-      .map(([resource, accounting]) => `  WIP ${resource}: ${accounting.averageInventory.toFixed(3)} average · ${accounting.peakInventory.toFixed(3)} peak · ${accounting.finalInventory.toFixed(3)} final`),
+      .filter(([, accounting]) => accounting.includedInWip && accounting.averageWipEquivalentUnits > 0)
+      .sort(([, left], [, right]) => right.averageWipEquivalentUnits - left.averageWipEquivalentUnits)
+      .map(([resource, accounting]) => `  WIP ${resource}: ${accounting.averageWipEquivalentUnits.toFixed(3)} equivalent / ${accounting.averageInventory.toFixed(3)} raw average · ×${accounting.wipEquivalentUnitsPerItem}`),
     ...Object.values(result.metrics.inventoryAccounting.locations)
-      .filter((accounting) => accounting.averageInventory > 0)
-      .sort((left, right) => right.averageInventory - left.averageInventory)
+      .filter((accounting) => accounting.averageWipEquivalentUnits > 0)
+      .sort((left, right) => right.averageWipEquivalentUnits - left.averageWipEquivalentUnits)
       .slice(0, 8)
-      .map((accounting) => `    at ${describeWipInventoryLocation(accounting)} (${accounting.kind}, ${accounting.resource}): ${accounting.averageInventory.toFixed(3)} average · ${accounting.peakInventory.toFixed(3)} peak · ${accounting.finalInventory.toFixed(3)} final`),
+      .map((accounting) => `    at ${describeWipInventoryLocation(accounting)} (${accounting.kind}, ${accounting.resource}): ${accounting.averageWipEquivalentUnits.toFixed(3)} equivalent / ${accounting.averageInventory.toFixed(3)} raw average`),
     ...(result.metrics.lotFlow.family ? [
       `Lots: ${result.metrics.lotFlow.completed}/${result.metrics.lotFlow.released}/${result.metrics.lotFlow.scheduled} completed/released/scheduled · ${result.metrics.lotFlow.scrapped} scrapped · ${result.metrics.lotFlow.onTimeCompleted} on time · ${(result.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(3)} s mean cycle · ${(result.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(3)} s p95`,
       `Release flow: ${(result.metrics.releaseFlow.meanPlannedIntervalTicks / 1000).toFixed(3)} s planned interval · ${(result.metrics.releaseFlow.meanActualIntervalTicks / 1000).toFixed(3)} s actual · ${(result.metrics.releaseFlow.meanReleaseDelayTicks / 1000).toFixed(3)} s mean / ${(result.metrics.releaseFlow.maximumReleaseDelayTicks / 1000).toFixed(3)} s maximum delay · ${result.metrics.releaseFlow.pending} pending`,
@@ -1337,7 +1337,7 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
       `  ${item.id.padEnd(24)} ${item.baselineScore.toFixed(3).padStart(10)} → ${item.candidateScore.toFixed(3).padStart(10)}  Δ ${signed(item.scoreDelta)}  ×${item.weight}  ${item.candidateCapacityReady ? "READY" : `${item.candidateCapacityGaps.length} GAPS`}`,
       ...scoreBreakdownLines(item.baselineMetrics.scoreBreakdown, item.candidateMetrics.scoreBreakdown, item.scoreBreakdownDelta),
       `    contracts ${(item.baselineMetrics.contractFulfillment * 100).toFixed(1)}% / ${item.baselineMetrics.deliveryNetValuePerMinute.toFixed(3)} net/min / ${item.baselineMetrics.deliveryOverflow.toFixed(3)} overflow → ${(item.candidateMetrics.contractFulfillment * 100).toFixed(1)}% / ${item.candidateMetrics.deliveryNetValuePerMinute.toFixed(3)} / ${item.candidateMetrics.deliveryOverflow.toFixed(3)}`,
-      `    inventory ${item.baselineMetrics.averageWip.toFixed(3)} WIP / ${item.baselineMetrics.inventoryAccounting.averageTotalInventory.toFixed(3)} total → ${item.candidateMetrics.averageWip.toFixed(3)} / ${item.candidateMetrics.inventoryAccounting.averageTotalInventory.toFixed(3)}`,
+      `    inventory ${item.baselineMetrics.averageWipEquivalentUnits.toFixed(3)} equivalent / ${item.baselineMetrics.inventoryAccounting.averageRawWipInventory.toFixed(3)} raw WIP → ${item.candidateMetrics.averageWipEquivalentUnits.toFixed(3)} / ${item.candidateMetrics.inventoryAccounting.averageRawWipInventory.toFixed(3)}`,
       ...(item.baselineMetrics.completedLots || item.candidateMetrics.completedLots ? [
         `    lots ${item.baselineMetrics.completedLots}/${item.baselineMetrics.onTimeLots} complete/on-time → ${item.candidateMetrics.completedLots}/${item.candidateMetrics.onTimeLots} · mean cycle ${(item.baselineMetrics.meanCycleTimeTicks / 1000).toFixed(3)} → ${(item.candidateMetrics.meanCycleTimeTicks / 1000).toFixed(3)} s · tardiness ${(item.baselineMetrics.meanTardinessTicks / 1000).toFixed(3)} → ${(item.candidateMetrics.meanTardinessTicks / 1000).toFixed(3)} s`,
         `    release ${item.baselineMetrics.releasedLots}/${item.baselineMetrics.scheduledLots} released · ${(item.baselineMetrics.meanActualReleaseIntervalTicks / 1000).toFixed(3)} s interval / ${(item.baselineMetrics.meanReleaseDelayTicks / 1000).toFixed(3)} s delay → ${item.candidateMetrics.releasedLots}/${item.candidateMetrics.scheduledLots} · ${(item.candidateMetrics.meanActualReleaseIntervalTicks / 1000).toFixed(3)} s / ${(item.candidateMetrics.meanReleaseDelayTicks / 1000).toFixed(3)} s`,

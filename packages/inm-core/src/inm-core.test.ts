@@ -1546,10 +1546,16 @@ describe("blueprint compiler", () => {
     });
     expect(issueCodes(() => compileFactoryProject(duplicateContractResource))).toContain("objective.duplicate-contract-resource");
     const duplicateWipResource = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
-    duplicateWipResource.objective.wipResources.push("known-good-dram-die");
+    duplicateWipResource.objective.wipAccounting.resources.push({
+      resource: "known-good-dram-die",
+      equivalentUnitsPerItem: 1,
+    });
     expect(issueCodes(() => compileFactoryProject(duplicateWipResource))).toContain("objective.duplicate-wip-resource");
     const unknownWipResource = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
-    unknownWipResource.objective.wipResources.push("unobtainium");
+    unknownWipResource.objective.wipAccounting.resources.push({
+      resource: "unobtainium",
+      equivalentUnitsPerItem: 1,
+    });
     expect(issueCodes(() => compileFactoryProject(unknownWipResource))).toContain("reference.resource");
 
     const portfolioProject = compileFactoryProject(await loadFactoryProject(memoryFab, { blueprint: "experiment" }));
@@ -1563,13 +1569,13 @@ describe("blueprint compiler", () => {
       "performance-order": expect.objectContaining({ demand: 12, delivered: 12, fulfillment: 1 }),
       "automotive-order": expect.objectContaining({ demand: 6, delivered: 6, fulfillment: 1 }),
     }));
-    expect(portfolio.metrics.inventoryAccounting.averageWip).toBe(portfolio.metrics.averageWip);
+    expect(portfolio.metrics.inventoryAccounting.averageWipEquivalentUnits).toBe(portfolio.metrics.averageWipEquivalentUnits);
     expect(portfolio.metrics.inventoryAccounting.averageTotalInventory)
-      .toBeGreaterThan(portfolio.metrics.inventoryAccounting.averageWip);
+      .toBeGreaterThan(portfolio.metrics.inventoryAccounting.averageWipEquivalentUnits);
     expect(Object.entries(portfolio.metrics.inventoryAccounting.resources)
       .filter(([, accounting]) => accounting.includedInWip)
-      .reduce((sum, [, accounting]) => sum + accounting.averageInventory, 0))
-      .toBeCloseTo(portfolio.metrics.averageWip, 12);
+      .reduce((sum, [, accounting]) => sum + accounting.averageWipEquivalentUnits, 0))
+      .toBeCloseTo(portfolio.metrics.averageWipEquivalentUnits, 12);
     expect(portfolio.metrics.inventoryAccounting.resources["dram-package-substrate"]).toEqual(expect.objectContaining({
       includedInWip: false,
       averageInventory: expect.any(Number),
@@ -1579,8 +1585,8 @@ describe("blueprint compiler", () => {
       finalInventory: 1,
     }));
     expect(Object.values(portfolio.metrics.inventoryAccounting.locations)
-      .reduce((sum, location) => sum + location.averageInventory, 0))
-      .toBeCloseTo(portfolio.metrics.averageWip, 12);
+      .reduce((sum, location) => sum + location.averageWipEquivalentUnits, 0))
+      .toBeCloseTo(portfolio.metrics.averageWipEquivalentUnits, 12);
     for (const [resource, accounting] of Object.entries(portfolio.metrics.inventoryAccounting.resources)
       .filter(([, accounting]) => accounting.includedInWip)) {
       expect(Object.values(portfolio.metrics.inventoryAccounting.locations)
@@ -3060,7 +3066,10 @@ describe("deterministic discrete-event simulation", () => {
 
   test("station networks batch resources through a finite station-owned round-trip fleet", async () => {
     const source = await stationProjectSource();
-    source.objective.wipResources = ["iron-ore"];
+    source.objective.wipAccounting = {
+      unit: "ore-equivalent",
+      resources: [{ resource: "iron-ore", equivalentUnitsPerItem: 2 }],
+    };
     const project = compileFactoryProject(source);
     expect(project.devices["station-supply"]!.buffers.storage!.accepts).toEqual(["iron-ore"]);
     expect(project.devices["station-demand"]!.buffers.storage!.accepts).toEqual(["iron-ore"]);
@@ -3074,7 +3083,8 @@ describe("deterministic discrete-event simulation", () => {
     expect(result.state.logisticsMissions["local-main"]).toHaveLength(0);
     expect(result.metrics.stationFleets["local-main:station-supply"]).toEqual(expect.objectContaining({ configuredCarriers: 1, activeMissions: 0, completedReturns: 2, utilization: 1 }));
     expect(result.metrics.inventoryAccounting).toEqual(expect.objectContaining({
-      averageWip: 25,
+      averageRawWipInventory: 25,
+      averageWipEquivalentUnits: 50,
       averageTotalInventory: 25,
     }));
     expect(result.metrics.inventoryAccounting.locations["station-transit:local-main:local-main%3Airon-ore%3Astation-supply-%3Estation-demand:iron-ore"]).toEqual({
@@ -3082,9 +3092,13 @@ describe("deterministic discrete-event simulation", () => {
       resource: "iron-ore",
       network: "local-main",
       route: "local-main:iron-ore:station-supply->station-demand",
+      equivalentUnitsPerItem: 2,
       averageInventory: 5,
       peakInventory: 10,
       finalInventory: 0,
+      averageWipEquivalentUnits: 10,
+      peakWipEquivalentUnits: 20,
+      finalWipEquivalentUnits: 0,
     });
     expect(Object.values(result.metrics.inventoryAccounting.locations)
       .reduce((sum, location) => sum + location.finalInventory, 0)).toBe(25);
@@ -3725,7 +3739,10 @@ describe("deterministic discrete-event simulation", () => {
 
   test("storage depletion pauses an active Device job without refunding its inputs", async () => {
     const source = await accumulatorProjectSource();
-    source.objective.wipResources = ["iron-ore"];
+    source.objective.wipAccounting = {
+      unit: "plate-equivalent",
+      resources: [{ resource: "iron-ore", equivalentUnitsPerItem: 2 }],
+    };
     const result = runUntil(compileFactoryProject(source), undefined, { untilTick: 10_000 });
     const smelter = result.state.devices["smelter-1"]!;
     expect(result.metrics.produced["iron-plate"]).toBe(1);
@@ -3738,23 +3755,32 @@ describe("deterministic discrete-event simulation", () => {
     }));
     expect(smelter.progressTicks).toBe(500);
     expect(result.metrics.inventoryAccounting).toEqual(expect.objectContaining({
-      averageWip: 2.8,
+      averageRawWipInventory: 2.8,
+      averageWipEquivalentUnits: 5.6,
       averageTotalInventory: 3.4,
     }));
     expect(result.metrics.inventoryAccounting.resources["iron-ore"]).toEqual({
       includedInWip: true,
+      wipEquivalentUnitsPerItem: 2,
       averageInventory: 2.8,
       peakInventory: 4,
       finalInventory: 2,
+      averageWipEquivalentUnits: 5.6,
+      peakWipEquivalentUnits: 8,
+      finalWipEquivalentUnits: 4,
     });
     expect(result.metrics.inventoryAccounting.locations["in-process:smelter-1:smelt-iron:iron-ore"]).toEqual({
       kind: "in-process",
       resource: "iron-ore",
       device: "smelter-1",
       process: "smelt-iron",
+      equivalentUnitsPerItem: 2,
       averageInventory: 2,
       peakInventory: 2,
       finalInventory: 2,
+      averageWipEquivalentUnits: 4,
+      peakWipEquivalentUnits: 4,
+      finalWipEquivalentUnits: 4,
     });
     expect(Object.values(result.metrics.inventoryAccounting.locations)
       .reduce((sum, location) => sum + location.finalInventory, 0)).toBe(2);
@@ -3766,6 +3792,35 @@ describe("deterministic discrete-event simulation", () => {
       expect.objectContaining({ type: "power.storage-depleted", tick: 4_500, device: "accumulator-1" }),
       expect.objectContaining({ type: "power.shortage", tick: 4_500, device: "smelter-1" }),
     ]));
+  });
+
+  test("equivalent-unit WIP is conserved across a unit-expanding process while raw counts remain physical", async () => {
+    const source = await accumulatorProjectSource();
+    source.scenario.initialBuffers = {
+      "smelter-1": { input: { "iron-ore": 2 } },
+    };
+    source.objective.wipAccounting = {
+      unit: "plate-equivalent",
+      resources: [
+        { resource: "iron-ore", equivalentUnitsPerItem: 1 },
+        { resource: "iron-plate", equivalentUnitsPerItem: 2 },
+      ],
+    };
+    const project = compileFactoryProject(source);
+    const beforeCompletion = runUntil(project, undefined, { untilTick: 3_999 });
+    const afterCompletion = runUntil(project, undefined, { untilTick: 4_000 });
+    const finalRawWip = (result: typeof beforeCompletion) => Object.values(result.metrics.inventoryAccounting.resources)
+      .filter((resource) => resource.includedInWip)
+      .reduce((sum, resource) => sum + resource.finalInventory, 0);
+    const finalEquivalentWip = (result: typeof beforeCompletion) => Object.values(result.metrics.inventoryAccounting.resources)
+      .reduce((sum, resource) => sum + resource.finalWipEquivalentUnits, 0);
+
+    expect(finalRawWip(beforeCompletion)).toBe(2);
+    expect(finalRawWip(afterCompletion)).toBe(1);
+    expect(finalEquivalentWip(beforeCompletion)).toBe(2);
+    expect(finalEquivalentWip(afterCompletion)).toBe(2);
+    expect(beforeCompletion.metrics.averageWipEquivalentUnits).toBe(2);
+    expect(afterCompletion.metrics.averageWipEquivalentUnits).toBe(2);
   });
 
   test("restored generation resumes the exact remaining Device work", async () => {
@@ -4140,6 +4195,11 @@ describe("research boundary and experiment decisions", () => {
           - (comparison.from.metrics.inventoryAccounting.locations[id]?.averageInventory ?? 0),
         12,
       );
+      expect(delta.averageWipEquivalentUnits).toBeCloseTo(
+        (comparison.to.metrics.inventoryAccounting.locations[id]?.averageWipEquivalentUnits ?? 0)
+          - (comparison.from.metrics.inventoryAccounting.locations[id]?.averageWipEquivalentUnits ?? 0),
+        12,
+      );
     }
     expect(comparison.verdict).toBe("REGRESSED");
     expect(compareFactoryBlueprints(before, after, { seed: 42 }).delta).toEqual(comparison.delta);
@@ -4494,7 +4554,7 @@ describe("coding-agent Blueprint benchmarks", () => {
     expect(result.accepted).toBeTrue();
     expect(result.cases.map((item) => item.id)).toEqual(["incomplete-tail"]);
     expect(result.totalSimulationTicks).toBe(720_000);
-    expect(result.scoreDelta).toBeCloseTo(5.267401, 5);
+    expect(result.scoreDelta).toBeCloseTo(12.938234761904752, 5);
     expect(result.cases[0]!.baselineMetrics.batchJobs).toBe(3);
     expect(result.cases[0]!.candidateMetrics).toEqual(expect.objectContaining({
       batchJobs: 3, averageLotsPerBatch: 3, batchFormationHolds: 4,
@@ -4529,12 +4589,12 @@ describe("coding-agent Blueprint benchmarks", () => {
     }));
     expect(benchmarkCase.candidateMetrics.deliveryNetValuePerMinute)
       .toBeLessThan(benchmarkCase.baselineMetrics.deliveryNetValuePerMinute);
-    expect(benchmarkCase.candidateMetrics.averageWip)
-      .toBeGreaterThan(benchmarkCase.baselineMetrics.averageWip);
-    expect(result.scoreDelta).toBeCloseTo(-0.697250, 5);
+    expect(benchmarkCase.candidateMetrics.averageWipEquivalentUnits)
+      .toBeGreaterThan(benchmarkCase.baselineMetrics.averageWipEquivalentUnits);
+    expect(result.scoreDelta).toBeCloseTo(-1.397250, 5);
     expect(result.reasons).toEqual([
-      "aggregate score delta -0.697250 is below required 0.001000",
-      "case 'equipment-energy-window' regressed by 0.697250, above allowed 0.000000",
+      "aggregate score delta -1.397250 is below required 0.001000",
+      "case 'equipment-energy-window' regressed by 1.397250, above allowed 0.000000",
     ]);
   }, 15_000);
 
@@ -4626,20 +4686,20 @@ describe("coding-agent Blueprint benchmarks", () => {
     });
     expect(preview.result).toEqual(expect.objectContaining({
       verdict: "DISCARD",
-      scoreDelta: 114.7876540988492,
+      scoreDelta: 171.12051659884924,
     }));
     expect(preview.currentFactory).toEqual(expect.objectContaining({
       status: "evaluated",
       verdict: "IMPROVED",
-      scoreDelta: 2.5176200746428528,
-      minimumCaseScoreDelta: -5.402707133333344,
+      scoreDelta: 2.7776825746428546,
+      minimumCaseScoreDelta: -4.246788383333339,
     }));
     if (preview.currentFactory.status !== "evaluated") throw new Error("Expected an operational current factory");
     expect(preview.currentFactory.cases.map((item) => ({
       id: item.id,
       currentOnTime: item.currentMetrics.onTimeLots,
       proposedOnTime: item.proposedMetrics.onTimeLots,
-      wipDelta: item.proposedMetrics.averageWip - item.currentMetrics.averageWip,
+      wipDelta: item.proposedMetrics.averageWipEquivalentUnits - item.currentMetrics.averageWipEquivalentUnits,
     }))).toEqual([
       { id: "steady-production", currentOnTime: 12, proposedOnTime: 11, wipDelta: expect.any(Number) },
       { id: "mixed-quality", currentOnTime: 12, proposedOnTime: 11, wipDelta: expect.any(Number) },
@@ -4648,7 +4708,7 @@ describe("coding-agent Blueprint benchmarks", () => {
       { id: "facility-interruption", currentOnTime: 9, proposedOnTime: 7, wipDelta: expect.any(Number) },
     ]);
     expect(preview.currentFactory.cases.every((item) =>
-      item.proposedMetrics.averageWip < item.currentMetrics.averageWip)).toBeTrue();
+      item.proposedMetrics.averageWipEquivalentUnits < item.currentMetrics.averageWipEquivalentUnits)).toBeTrue();
     expect(preview.currentFactory.outcomeGuardrails?.find((item) =>
       item.id === "preserve-on-time-service")).toEqual(expect.objectContaining({
         currentPassed: true,
@@ -4667,7 +4727,7 @@ describe("coding-agent Blueprint benchmarks", () => {
         expect.objectContaining({ caseId: "facility-interruption", metric: "onTimeLots", deficit: 2 }),
       ],
       caseRegressions: [
-        expect.objectContaining({ caseId: "lithography-interruption", scoreDelta: -5.402707133333344 }),
+        expect.objectContaining({ caseId: "lithography-interruption", scoreDelta: -4.246788383333339 }),
       ],
       benefitsToPreserve: expect.arrayContaining([expect.objectContaining({ component: "wip", scoreDelta: expect.any(Number) })]),
       costsToRemove: expect.arrayContaining([expect.objectContaining({ component: "onTimeDelivery", scoreDelta: expect.any(Number) })]),

@@ -19,14 +19,16 @@ import {
 
 export interface SimulationStats {
   durations: Record<string, Record<string, Tick>>;
-  wipArea: number;
+  rawWipArea: number;
+  wipEquivalentUnitArea: number;
   inventoryArea: Record<string, number>;
   inventoryPeak: Record<string, number>;
   wipLocationArea: Record<string, number>;
   wipLocationPeak: Record<string, number>;
   wipLocationIdentities: Record<string, WipInventoryLocationIdentity>;
   peakTotalInventory: number;
-  peakWip: number;
+  peakRawWipInventory: number;
+  peakWipEquivalentUnits: number;
   congestionArea: number;
   beltOccupancyArea: number;
   beltItemArea: number;
@@ -348,7 +350,10 @@ export function evaluateFactory(
   for (const contract of contractMetrics) if (contract.minimumFulfillment !== undefined && contract.fulfillment + 1e-12 < contract.minimumFulfillment) violations.push(
     `delivery contract ${contract.id} fulfillment ${(contract.fulfillment * 100).toFixed(1)}% is below ${(contract.minimumFulfillment * 100).toFixed(1)}%`,
   );
-  const wipResources = new Set(project.objective.wipResources);
+  const wipEquivalentUnitsPerItem = Object.fromEntries(
+    project.objective.wipAccounting.resources.map((entry) => [entry.resource, entry.equivalentUnitsPerItem]),
+  );
+  const wipResources = new Set(Object.keys(wipEquivalentUnitsPerItem));
   const finalInventory: Record<string, number> = {};
   const finalWipLocations: Record<string, number> = {};
   const finalWipLocationIdentities: Record<string, WipInventoryLocationIdentity> = {};
@@ -392,7 +397,7 @@ export function evaluateFactory(
     }
   }
   const accountedResources = [...new Set([
-    ...project.objective.wipResources,
+    ...project.objective.wipAccounting.resources.map((entry) => entry.resource),
     ...Object.keys(stats.inventoryArea),
     ...Object.keys(stats.inventoryPeak),
     ...Object.keys(finalInventory),
@@ -401,12 +406,17 @@ export function evaluateFactory(
     resource,
     {
       includedInWip: wipResources.has(resource),
+      wipEquivalentUnitsPerItem: wipEquivalentUnitsPerItem[resource] ?? null,
       averageInventory: (stats.inventoryArea[resource] ?? 0) / duration,
       peakInventory: stats.inventoryPeak[resource] ?? 0,
       finalInventory: finalInventory[resource] ?? 0,
+      averageWipEquivalentUnits: (stats.inventoryArea[resource] ?? 0) / duration * (wipEquivalentUnitsPerItem[resource] ?? 0),
+      peakWipEquivalentUnits: (stats.inventoryPeak[resource] ?? 0) * (wipEquivalentUnitsPerItem[resource] ?? 0),
+      finalWipEquivalentUnits: (finalInventory[resource] ?? 0) * (wipEquivalentUnitsPerItem[resource] ?? 0),
     },
   ]));
-  const averageWip = stats.wipArea / duration;
+  const averageRawWipInventory = stats.rawWipArea / duration;
+  const averageWipEquivalentUnits = stats.wipEquivalentUnitArea / duration;
   const averageTotalInventory = Object.values(stats.inventoryArea).reduce((sum, area) => sum + area, 0) / duration;
   const wipLocationIds = [...new Set([
     ...Object.keys(stats.wipLocationArea),
@@ -416,30 +426,53 @@ export function evaluateFactory(
   const wipLocations: FactoryMetrics["inventoryAccounting"]["locations"] = Object.fromEntries(wipLocationIds.map((id) => {
     const identity = stats.wipLocationIdentities[id] ?? finalWipLocationIdentities[id];
     if (!identity) throw new Error(`WIP inventory location '${id}' has measurements without an identity`);
+    const equivalentUnitsPerItem = wipEquivalentUnitsPerItem[identity.resource]!;
+    const averageInventory = (stats.wipLocationArea[id] ?? 0) / duration;
+    const peakInventory = stats.wipLocationPeak[id] ?? 0;
+    const finalInventoryAtLocation = finalWipLocations[id] ?? 0;
     return [id, {
       ...identity,
-      averageInventory: (stats.wipLocationArea[id] ?? 0) / duration,
-      peakInventory: stats.wipLocationPeak[id] ?? 0,
-      finalInventory: finalWipLocations[id] ?? 0,
+      equivalentUnitsPerItem,
+      averageInventory,
+      peakInventory,
+      finalInventory: finalInventoryAtLocation,
+      averageWipEquivalentUnits: averageInventory * equivalentUnitsPerItem,
+      peakWipEquivalentUnits: peakInventory * equivalentUnitsPerItem,
+      finalWipEquivalentUnits: finalInventoryAtLocation * equivalentUnitsPerItem,
     }];
   }));
-  const locatedAverageWip = Object.values(wipLocations).reduce((sum, location) => sum + location.averageInventory, 0);
-  const locatedFinalWip = Object.values(wipLocations).reduce((sum, location) => sum + location.finalInventory, 0);
-  const resourceFinalWip = Object.values(inventoryResources)
+  const locatedAverageRawWipInventory = Object.values(wipLocations).reduce((sum, location) => sum + location.averageInventory, 0);
+  const locatedAverageWipEquivalentUnits = Object.values(wipLocations)
+    .reduce((sum, location) => sum + location.averageWipEquivalentUnits, 0);
+  const locatedFinalRawWipInventory = Object.values(wipLocations).reduce((sum, location) => sum + location.finalInventory, 0);
+  const locatedFinalWipEquivalentUnits = Object.values(wipLocations)
+    .reduce((sum, location) => sum + location.finalWipEquivalentUnits, 0);
+  const resourceFinalRawWipInventory = Object.values(inventoryResources)
     .filter((resource) => resource.includedInWip)
     .reduce((sum, resource) => sum + resource.finalInventory, 0);
-  if (Math.abs(locatedAverageWip - averageWip) > 1e-9) {
-    throw new Error(`WIP location average ${locatedAverageWip} does not reconcile with Objective WIP ${averageWip}`);
+  const resourceFinalWipEquivalentUnits = Object.values(inventoryResources)
+    .reduce((sum, resource) => sum + resource.finalWipEquivalentUnits, 0);
+  if (Math.abs(locatedAverageRawWipInventory - averageRawWipInventory) > 1e-9) {
+    throw new Error(`WIP location average ${locatedAverageRawWipInventory} does not reconcile with raw Objective WIP ${averageRawWipInventory}`);
   }
-  if (Math.abs(locatedFinalWip - resourceFinalWip) > 1e-9) {
-    throw new Error(`WIP location final inventory ${locatedFinalWip} does not reconcile with Objective WIP ${resourceFinalWip}`);
+  if (Math.abs(locatedAverageWipEquivalentUnits - averageWipEquivalentUnits) > 1e-9) {
+    throw new Error(`WIP location average equivalents ${locatedAverageWipEquivalentUnits} do not reconcile with Objective WIP ${averageWipEquivalentUnits}`);
+  }
+  if (Math.abs(locatedFinalRawWipInventory - resourceFinalRawWipInventory) > 1e-9) {
+    throw new Error(`WIP location final inventory ${locatedFinalRawWipInventory} does not reconcile with raw Objective WIP ${resourceFinalRawWipInventory}`);
+  }
+  if (Math.abs(locatedFinalWipEquivalentUnits - resourceFinalWipEquivalentUnits) > 1e-9) {
+    throw new Error(`WIP location final equivalents ${locatedFinalWipEquivalentUnits} do not reconcile with Objective WIP ${resourceFinalWipEquivalentUnits}`);
   }
   const inventoryAccounting: FactoryMetrics["inventoryAccounting"] = {
+    wipEquivalentUnit: project.objective.wipAccounting.unit,
     averageTotalInventory,
-    averageWip,
-    averageExcludedInventory: Math.max(0, averageTotalInventory - averageWip),
+    averageRawWipInventory,
+    averageWipEquivalentUnits,
+    averageExcludedInventory: Math.max(0, averageTotalInventory - averageRawWipInventory),
     peakTotalInventory: stats.peakTotalInventory,
-    peakWip: stats.peakWip,
+    peakRawWipInventory: stats.peakRawWipInventory,
+    peakWipEquivalentUnits: stats.peakWipEquivalentUnits,
     resources: inventoryResources,
     locations: wipLocations,
   };
@@ -712,7 +745,7 @@ export function evaluateFactory(
     electricityCost: -(electricityCosts.totalMicroCurrency / 1_000_000) * (weights.electricityCost ?? 0),
     buildCost: -(totalBuildCost / 1_000) * weights.buildCost,
     occupiedArea: -occupiedArea * weights.occupiedArea,
-    wip: -averageWip * weights.wip,
+    wip: -averageWipEquivalentUnits * weights.wip,
     blocked: -(Object.values(blockedOutputTime).reduce((a, b) => a + b, 0) / duration) * weights.blocked,
     cycleTime: -(lotFlow.meanCycleTimeTicks / 60_000) * (weights.cycleTime ?? 0),
     tardiness: -(lotFlow.meanTardinessTicks / 60_000) * (weights.tardiness ?? 0),
@@ -814,7 +847,7 @@ export function evaluateFactory(
     }])),
     materialTreatment: structuredClone(state.materialTreatment), productionTooling, productionUtilities, equipmentSetups, equipmentMaintenance, equipmentEnergyManagement,
     totalBuildCost, occupiedArea, machineUtilization, idleTime, sleepingTime, waitingInputTime, blockedOutputTime, unpoweredTime, failedTime,
-    averageWip, inventoryAccounting, averageBeltItems, averageBlockedBeltItems, peakBeltItems: stats.peakBeltItems, beltCellUtilization,
+    averageWipEquivalentUnits, inventoryAccounting, averageBeltItems, averageBlockedBeltItems, peakBeltItems: stats.peakBeltItems, beltCellUtilization,
     transportStageUtilization, transportFlows, transportEnergyConsumedMilliJoules: stats.transportEnergyConsumedMilliJoules,
     transportCongestion, bottleneckEntity, infeasibleReason: violations.length ? violations.join("; ") : null,
     scoreBreakdown, finalScore,

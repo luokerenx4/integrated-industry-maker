@@ -93,12 +93,13 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
   const inventoryRows = Object.entries(result.metrics.inventoryAccounting.resources)
     .filter(([, accounting]) => accounting.averageInventory > 0 || accounting.peakInventory > 0 || accounting.finalInventory > 0)
     .sort(([, left], [, right]) => Number(right.includedInWip) - Number(left.includedInWip)
+      || right.averageWipEquivalentUnits - left.averageWipEquivalentUnits
       || right.averageInventory - left.averageInventory)
-    .map(([resource, accounting]) => `| ${resource} | ${accounting.includedInWip ? "WIP" : "excluded"} | ${accounting.averageInventory.toFixed(3)} | ${accounting.peakInventory.toFixed(3)} | ${accounting.finalInventory.toFixed(3)} |`);
+    .map(([resource, accounting]) => `| ${resource} | ${accounting.includedInWip ? `WIP ×${accounting.wipEquivalentUnitsPerItem}` : "excluded"} | ${accounting.averageInventory.toFixed(3)} | ${accounting.peakInventory.toFixed(3)} | ${accounting.finalInventory.toFixed(3)} | ${accounting.averageWipEquivalentUnits.toFixed(3)} | ${accounting.peakWipEquivalentUnits.toFixed(3)} | ${accounting.finalWipEquivalentUnits.toFixed(3)} |`);
   const wipLocationRows = Object.entries(result.metrics.inventoryAccounting.locations)
     .filter(([, accounting]) => accounting.averageInventory > 0 || accounting.peakInventory > 0 || accounting.finalInventory > 0)
-    .sort(([, left], [, right]) => right.averageInventory - left.averageInventory)
-    .map(([id, accounting]) => `| ${id} | ${accounting.resource} | ${accounting.kind} | ${describeWipInventoryLocation(accounting)} | ${accounting.averageInventory.toFixed(3)} | ${accounting.peakInventory.toFixed(3)} | ${accounting.finalInventory.toFixed(3)} |`);
+    .sort(([, left], [, right]) => right.averageWipEquivalentUnits - left.averageWipEquivalentUnits)
+    .map(([id, accounting]) => `| ${id} | ${accounting.resource} | ${accounting.kind} | ${describeWipInventoryLocation(accounting)} | ×${accounting.equivalentUnitsPerItem} | ${accounting.averageInventory.toFixed(3)} | ${accounting.peakInventory.toFixed(3)} | ${accounting.finalInventory.toFixed(3)} | ${accounting.averageWipEquivalentUnits.toFixed(3)} | ${accounting.peakWipEquivalentUnits.toFixed(3)} | ${accounting.finalWipEquivalentUnits.toFixed(3)} |`);
   const totalUnpoweredTicks = Object.values(result.metrics.unpoweredTime).reduce((sum, ticks) => sum + ticks, 0);
   const treatedMaterials = Object.entries(result.metrics.materialTreatment.treated)
     .flatMap(([resource, levels]) => Object.entries(levels).map(([level, count]) => `${count} ${resource}@${level}`));
@@ -127,7 +128,7 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     `- Batch processing: ${result.metrics.batchFlow.jobs} jobs · ${result.metrics.batchFlow.lots} lots · ${result.metrics.batchFlow.averageLotsPerJob.toFixed(3)} lots/job · ${(result.metrics.batchFlow.meanQueueWaitTicksPerLot / 1000).toFixed(3)} s mean device wait/lot · ${result.metrics.batchFlow.formationHolds} formation holds / ${(result.metrics.batchFlow.formationHoldTicks / 1000).toFixed(3)} s (${result.metrics.batchFlow.preferredReleases} full-batch / ${result.metrics.batchFlow.timeoutReleases} timeout)`,
     `- Equipment setup: ${result.metrics.equipmentSetups.totalChangeovers} changeovers · ${(result.metrics.equipmentSetups.totalSetupTicks / 1000).toFixed(3)} s work · ${result.metrics.equipmentSetups.totalCampaignHolds} campaign holds / ${(result.metrics.equipmentSetups.totalCampaignHoldTicks / 1000).toFixed(3)} s (${result.metrics.equipmentSetups.campaignMinimumLotReleases} lot-ready / ${result.metrics.equipmentSetups.campaignMaximumHoldReleases} timeout)`,
     `- Equipment energy states: ${result.metrics.equipmentEnergyManagement.totalSleeps} sleeps · ${result.metrics.equipmentEnergyManagement.totalWakeups} wakeups · ${(result.metrics.equipmentEnergyManagement.totalSleepingTicks / 1000).toFixed(3)} equipment-s sleeping · ${(result.metrics.equipmentEnergyManagement.totalWakeTicks / 1000).toFixed(3)} equipment-s waking`,
-    `- Inventory accounting: ${result.metrics.inventoryAccounting.averageWip.toFixed(3)} average scored WIP / ${result.metrics.inventoryAccounting.averageTotalInventory.toFixed(3)} total inventory · ${result.metrics.inventoryAccounting.peakWip.toFixed(3)} peak WIP / ${result.metrics.inventoryAccounting.peakTotalInventory.toFixed(3)} peak total`,
+    `- Inventory accounting: ${result.metrics.inventoryAccounting.averageWipEquivalentUnits.toFixed(3)} average / ${result.metrics.inventoryAccounting.peakWipEquivalentUnits.toFixed(3)} peak \`${result.metrics.inventoryAccounting.wipEquivalentUnit}\` · ${result.metrics.inventoryAccounting.averageRawWipInventory.toFixed(3)} average / ${result.metrics.inventoryAccounting.peakRawWipInventory.toFixed(3)} peak raw WIP items · ${result.metrics.inventoryAccounting.averageTotalInventory.toFixed(3)} average / ${result.metrics.inventoryAccounting.peakTotalInventory.toFixed(3)} peak total raw items`,
     `- Electricity cost: ${(result.metrics.electricityCosts.totalMicroCurrency / 1e6).toFixed(6)} currency · ${(result.metrics.electricityCosts.energyChargeMicroCurrency / 1e6).toFixed(6)} energy · ${(result.metrics.electricityCosts.demandChargeMicroCurrency / 1e6).toFixed(6)} peak demand`,
     `- Primary target rate: ${capacityPlan.targetRatePerMinute.toFixed(3)} ${capacityPlan.targetResource}/min`,
     `- Capacity delivery targets: ${capacityPlan.deliveryTargets.map((target) => `${target.ratePerMinute.toFixed(3)} ${target.resource}/min`).join(" + ")}`,
@@ -155,15 +156,15 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
       "| Station | Initial (MJ) | Final / capacity (MJ) | Charge cap (W) | Charged (MJ) | Missions (MJ) |",
       "| --- | ---: | ---: | ---: | ---: | ---: |", ...stationEnergyRows,
     ] : ["No configured logistics stations."]), "", "## Objective inventory accounting", "",
-    "| Resource | Scope | Average inventory | Peak inventory | Final inventory |",
-    "| --- | --- | ---: | ---: | ---: |",
+    "| Resource | Scope / factor | Average raw | Peak raw | Final raw | Average equivalent | Peak equivalent | Final equivalent |",
+    "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...inventoryRows,
-    "", "Only Resources explicitly declared by the selected Objective as `WIP` contribute to the WIP score component.",
+    "", "Only Resources explicitly declared by the selected Objective contribute to the WIP score; each uses its Objective-owned equivalent-unit factor.",
     "", "### Physical WIP locations", "",
-    "| Location ID | Resource | Kind | Physical location | Average inventory | Peak inventory | Final inventory |",
-    "| --- | --- | --- | --- | ---: | ---: | ---: |",
+    "| Location ID | Resource | Kind | Physical location | Factor | Average raw | Peak raw | Final raw | Average equivalent | Peak equivalent | Final equivalent |",
+    "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...wipLocationRows,
-    "", "Location averages and final quantities conserve to Objective WIP. Per-location peaks are exact but not additive because locations can peak at different times.",
+    "", "Raw and equivalent location averages and final quantities both conserve to Objective WIP. Per-location peaks are exact but not additive because locations can peak at different times.",
     "", "## Score breakdown", "",
     "```json", stableStringify(result.metrics.scoreBreakdown, 2), "```", "",
   ].join("\n");

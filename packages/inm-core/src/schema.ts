@@ -367,7 +367,13 @@ export const scenarioSchema = z.object({
 
 export const objectiveSchema = z.object({
   id, name: z.string().min(1), targetResource: id, targetRegion: id, targetRatePerMinute: z.number().positive(),
-  wipResources: z.array(id),
+  wipAccounting: z.object({
+    unit: z.string().min(1),
+    resources: z.array(z.object({
+      resource: id,
+      equivalentUnitsPerItem: z.number().positive(),
+    }).strict()),
+  }).strict(),
   trackedFamily: id.optional(),
   deliveryContracts: z.array(z.object({
     id, name: z.string().min(1), resource: id, region: id, demandPerMinute: z.number().positive(),

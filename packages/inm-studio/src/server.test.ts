@@ -765,22 +765,22 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     });
     const campaignOperation = await completedStudioOperation<any>(port, "memory-fab", campaignRunResponse);
     const campaignProgress = campaignOperation.progressLog as any[];
-    expect(campaignProgress.filter((progress) => progress.phase === "node-exhausted")).toHaveLength(0);
+    expect(campaignProgress.filter((progress) => progress.phase === "node-exhausted")).toHaveLength(1);
     expect(campaignProgress).toContainEqual(expect.objectContaining({
-      phase: "proposal-completed", iteration: 7, strategy: "facility:utility-n-plus-one",
+      phase: "proposal-completed", iteration: 7, strategy: "setup-campaign:lithography-3-12000",
     }));
     expect(campaignProgress).toContainEqual(expect.objectContaining({
-      phase: "candidate-completed", iteration: 7, strategy: "facility:utility-n-plus-one", decision: "BRANCH",
+      phase: "candidate-completed", iteration: 7, strategy: "setup-campaign:lithography-3-12000", decision: "KEEP",
     }));
     const campaignResult = campaignOperation.result!;
     const campaignRepairRunId = campaignResult.manifest.resultHash as string;
     expect(campaignResult.manifest).toMatchObject({
       budget: { maximum: 7, evaluated: 7 },
-      best: { iteration: 4, candidateScore: -59.9160458015873, verdict: "KEEP" },
+      best: { iteration: 7, candidateScore: -128.71456687301585, verdict: "KEEP" },
       frontier: {
-        leader: "candidate-4",
-        alternatives: ["candidate-7"],
-        scheduler: { searchOrder: ["candidate-7", "candidate-4"], exhausted: [] },
+        leader: "candidate-7",
+        alternatives: ["candidate-6"],
+        scheduler: { searchOrder: ["candidate-7"], exhausted: ["candidate-6"] },
         nodes: expect.any(Array),
       },
     });
@@ -809,11 +809,11 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
       resultHash: campaignRepairRunId,
       iterations: expect.arrayContaining([expect.objectContaining({
         iteration: 7,
-        strategy: "facility:utility-n-plus-one",
-        promotionBoundary: expect.objectContaining({ guardrail: expect.objectContaining({ passed: false, violations: expect.any(Array) }) }),
-        decision: "BRANCH",
-        decisionEvidence: expect.objectContaining({ basis: "current-best-case-guardrail", guardrail: expect.objectContaining({ passed: false, violations: expect.any(Array) }) }),
-        frontierEvidence: expect.objectContaining({ parent: { nodeId: "candidate-6", role: "alternative", depth: 3 }, leaderAfter: "candidate-4" }),
+        strategy: "setup-campaign:lithography-3-12000",
+        promotionBoundary: expect.objectContaining({ guardrail: expect.objectContaining({ passed: true, violations: [] }) }),
+        decision: "KEEP",
+        decisionEvidence: expect.objectContaining({ basis: "current-best-improvement", guardrail: expect.objectContaining({ passed: true, violations: [] }) }),
+        frontierEvidence: expect.objectContaining({ parent: { nodeId: "candidate-4", role: "leader", depth: 2 }, leaderAfter: "candidate-7" }),
       })]),
     }) }));
     const continuationResponse = await fetch(`http://localhost:${port}/api/projects/memory-fab/designs/greenfield-dram-fab/runs/${campaignRepairRunId}/continue`, {
@@ -833,15 +833,15 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     expect(continuationProgress.filter((progress) => progress.phase === "node-exhausted")).toEqual([]);
     const continuationResult = continuationOperation.result!;
     expect(continuationResult.manifest).toMatchObject({
-      continuation: { sourceResultHash: campaignRepairRunId, reusedIterations: 7, reusedExhaustions: 0, additionalCandidateBudget: 1 },
+      continuation: { sourceResultHash: campaignRepairRunId, reusedIterations: 7, reusedExhaustions: 1, additionalCandidateBudget: 1 },
       budget: { maximum: 8, evaluated: 8 },
-      best: { iteration: 4, verdict: "KEEP" },
+      best: { iteration: 7, verdict: "KEEP" },
       frontier: {
-        leader: "candidate-4",
-        alternatives: expect.any(Array),
-        scheduler: { searchOrder: expect.any(Array), exhausted: [] },
+        leader: "candidate-7",
+        alternatives: ["candidate-6"],
+        scheduler: { searchOrder: ["candidate-7"], exhausted: ["candidate-6"] },
       },
-      exhaustions: [],
+      exhaustions: [expect.objectContaining({ node: expect.objectContaining({ nodeId: "candidate-6" }), reason: "proposal-exhausted" })],
       stopReason: "budget-exhausted",
     });
     expect(continuationResult.manifest.iterations).toHaveLength(8);

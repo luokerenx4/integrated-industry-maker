@@ -35,7 +35,7 @@ interface SearchRow {
   accepted: boolean;
   active: boolean;
   scores: number[];
-  averageWip: number[];
+  averageWipEquivalentUnits: number[];
   releaseDelayTicks: number[];
 }
 
@@ -131,7 +131,7 @@ function evaluatePolicy(
     accepted: aggregateDelta >= definition.acceptance.minimumAggregateScoreDelta
       && minimumCaseDelta >= -definition.acceptance.maximumCaseScoreRegression,
     active: results.some((metrics) => metrics.releaseFlow.controlBlockedLots > 0),
-    scores, averageWip: results.map((metrics) => metrics.averageWip),
+    scores, averageWipEquivalentUnits: results.map((metrics) => metrics.averageWipEquivalentUnits),
     releaseDelayTicks: results.map((metrics) => metrics.releaseFlow.meanReleaseDelayTicks),
   };
 }
@@ -164,6 +164,6 @@ for (const row of ranked.slice(0, 30)) console.log([
   row.aggregateScore.toFixed(6), row.aggregateDelta.toFixed(6), row.minimumCaseDelta.toFixed(6),
   row.maximumWip, row.reopenAtWip, row.serviceLevelAfterTicks ?? "none", row.dispatch, row.recipeDispatch ?? "incumbent", row.lotDispatch ?? "incumbent",
   row.scores.map((value) => value.toFixed(3)).join(","),
-  row.averageWip.map((value) => value.toFixed(3)).join(","),
+  row.averageWipEquivalentUnits.map((value) => value.toFixed(3)).join(","),
   row.releaseDelayTicks.map((value) => (value / 1000).toFixed(3)).join(","),
 ].join("\t"));

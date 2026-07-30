@@ -72,17 +72,27 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 8, infoCount: 8 },
-    evidence: { state: "current", runId: "096-simulate" },
+    evidence: { state: "current", runId: "097-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 16, verifiedCount: 0 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
-  expect(snapshot.objective.wipResources).toContain("packaged-dram-device");
-  expect(snapshot.objective.wipResources).not.toContain("dram-package-substrate");
+  expect(snapshot.objective.wipAccounting).toEqual(expect.objectContaining({
+    unit: "dram-device-equivalent",
+    resources: expect.arrayContaining([
+      { resource: "qualified-dram-wafer-lot", equivalentUnitsPerItem: 8 },
+      { resource: "packaged-dram-device", equivalentUnitsPerItem: 1 },
+    ]),
+  }));
+  expect(snapshot.objective.wipAccounting.resources.map((entry) => entry.resource))
+    .not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "096-simulate",
-    averageWip: 27.834429166666666,
+    runId: "097-simulate",
+    wipEquivalentUnit: "dram-device-equivalent",
+    averageRawWipInventory: 27.834429166666666,
+    averageWipEquivalentUnits: 49.457166666666666,
     averageTotalInventory: 124.73002083333333,
-    peakWip: 59,
+    peakRawWipInventory: 59,
+    peakWipEquivalentUnits: 88,
   }));
   expect(snapshot.inventoryAccounting!.averageExcludedInventory).toBeCloseTo(96.89559166666666, 12);
   expect(snapshot.inventoryAccounting?.resources["dram-package-substrate"]).toEqual(expect.objectContaining({
@@ -96,14 +106,17 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     averageInventory: 9.781316666666667,
   }));
   expect(snapshot.objectiveEvidence).toEqual(expect.objectContaining({
-    runId: "096-simulate",
-    finalScore: 30.88369959166667,
-    dominantPenalty: { id: "wip", contribution: -41.75164375, role: "penalty" },
+    runId: "097-simulate",
+    finalScore: -1.5504066583333294,
+    dominantPenalty: { id: "wip", contribution: -74.18575, role: "penalty" },
     wip: expect.objectContaining({
+      equivalentUnit: "dram-device-equivalent",
       weight: 1.5,
-      scoreContribution: -41.75164375,
-      averageWip: 27.834429166666666,
-      peakWip: 59,
+      scoreContribution: -74.18575,
+      averageRawWipInventory: 27.834429166666666,
+      averageWipEquivalentUnits: 49.457166666666666,
+      peakRawWipInventory: 59,
+      peakWipEquivalentUnits: 88,
       resources: [
         expect.objectContaining({
           resource: "packaged-dram-device",
@@ -610,16 +623,16 @@ test("shared handoff opens the exact Objective-focused Program after diagnostic 
     lossDispositions: [],
   });
   expect(nextAction).toEqual(expect.objectContaining({
-    id: `design.run.objective:back-end-wip-convergence:${objectiveAuthority}:wip:096-simulate`,
-    title: "Expand Back-end WIP Convergence's intervention portfolio",
+    id: `design.run.objective:back-end-wip-convergence:${objectiveAuthority}:wip:097-simulate`,
+    title: "Continue the current Back-end WIP Convergence frontier",
     argv: ["inm", "design", snapshot.project.rootDir, "--program", "back-end-wip-convergence", "--run-id", objectiveAuthority!, "--json"],
     studioRoute: `/memory-fab/designs/back-end-wip-convergence/runs/${objectiveAuthority}`,
     target: {
       kind: "design-run",
       programId: "back-end-wip-convergence",
       objectiveComponent: "wip",
-      evidenceRunId: "096-simulate",
-      phase: "exhausted",
+      evidenceRunId: "097-simulate",
+      phase: "continuable",
       runId: objectiveAuthority,
     },
   }));

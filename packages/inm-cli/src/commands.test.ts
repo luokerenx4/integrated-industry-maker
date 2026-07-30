@@ -490,8 +490,8 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
   const projectDir = join(repository, "examples/memory-fab");
   const before = await Bun.file(join(projectDir, "blueprints/generated-dram-fab.blueprint.json")).text();
   const [machine, human, help] = await Promise.all([
-    runCli(["observe", projectDir, "--run", "096-simulate", "--json"]),
-    runCli(["observe", projectDir, "--run", "096-simulate"]),
+    runCli(["observe", projectDir, "--run", "097-simulate", "--json"]),
+    runCli(["observe", projectDir, "--run", "097-simulate"]),
     runCli(["help", "--json"]),
   ]);
   expect({ machine: machine.exitCode, human: human.exitCode, machineStderr: machine.stderr, humanStderr: human.stderr })
@@ -513,29 +513,29 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
     data: expect.objectContaining({
       status: "ready",
       authority: "human-or-agent",
-      evidence: { state: "compatible", run: expect.objectContaining({ id: "096-simulate" }) },
+      evidence: { state: "compatible", run: expect.objectContaining({ id: "097-simulate" }) },
       leadingObjectiveTradeoff: expect.objectContaining({
         component: "wip",
-        contribution: -41.75164375,
-        runId: "096-simulate",
+        contribution: -74.18575,
+        runId: "097-simulate",
         interpretation: "objective-accounting-not-causal-loss",
       }),
       views: expect.arrayContaining([
-        expect.objectContaining({ studioRoute: "/memory-fab/factory?run=096-simulate" }),
-        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/burn-in-1?run=096-simulate" }),
-        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/packaging-1?run=096-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory?run=097-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/burn-in-1?run=097-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/packaging-1?run=097-simulate" }),
       ]),
     }),
   }));
   expect(envelope.nextActions[0]).toEqual(expect.objectContaining({
     id: "author-observation-hypothesis",
     effect: "read-only",
-    studioRoute: "/memory-fab/factory?run=096-simulate",
+    studioRoute: "/memory-fab/factory?run=097-simulate",
     argv: expect.arrayContaining(["--section", "objective"]),
   }));
   expect(human.stdout).toContain("observation brief");
-  expect(human.stdout).toContain("/memory-fab/factory?run=096-simulate");
-  expect(human.stdout).toContain("Leading Objective tradeoff: wip -41.752");
+  expect(human.stdout).toContain("/memory-fab/factory?run=097-simulate");
+  expect(human.stdout).toContain("Leading Objective tradeoff: wip -74.186");
   expect(human.stdout).not.toContain("analysis.material-deficit");
   const observeCapability = JSON.parse(help.stdout).data.commands.find((command: { id: string }) => command.id === "observe");
   expect(observeCapability).toEqual(expect.objectContaining({
@@ -818,14 +818,14 @@ test("public Design Program workflow discovers, inspects, and executes without m
     section: "runs",
     result: expect.objectContaining({
       evidence: expect.objectContaining({
-        state: "continuable",
+        state: "promotable",
         authorityRunId: continuedHash,
         currentRuns: 2,
         historicalRuns: 0,
         invalidRuns: 1,
         runs: expect.arrayContaining([
           expect.objectContaining({ id: resultHash, currentness: { state: "current", reasons: [] }, outcome: "continuable" }),
-          expect.objectContaining({ id: continuedHash, currentness: { state: "current", reasons: [] }, outcome: "continuable" }),
+          expect.objectContaining({ id: continuedHash, currentness: { state: "current", reasons: [] }, outcome: "promotable" }),
         ]),
       }),
       runs: expect.arrayContaining([
@@ -848,7 +848,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
     data: expect.objectContaining({
       result: expect.objectContaining({
         evidence: {
-          state: "continuable",
+          state: "promotable",
           authorityRunId: continuedHash,
           currentRuns: 2,
           historicalRuns: 0,
@@ -857,16 +857,16 @@ test("public Design Program workflow discovers, inspects, and executes without m
       }),
     }),
     nextActions: [expect.objectContaining({
-      id: `design.continue:${continuedHash}`,
+      id: `design.promote:${continuedHash}`,
       effect: "creates-artifact",
-      argv: expect.arrayContaining(["--run-id", continuedHash, "--continue"]),
+      argv: expect.arrayContaining(["--run-id", continuedHash, "--promote"]),
     })],
   }));
 
   const guardedExecuted = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run", "--max-candidates", "7", "--progress", "ndjson", "--json"]);
   expect(guardedExecuted.exitCode).toBe(0);
   const guardedProgress = guardedExecuted.stderr.trim().split("\n").map((line) => JSON.parse(line));
-  expect(guardedProgress.filter((record) => record.progress.phase === "node-exhausted")).toHaveLength(0);
+  expect(guardedProgress.filter((record) => record.progress.phase === "node-exhausted")).toHaveLength(1);
   const guardedRunHash = JSON.parse(guardedExecuted.stdout).data.result.resultHash as string;
   const guardedJson = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash, "--section", "iterations", "--json"]);
   const guardedIterations = JSON.parse(guardedJson.stdout).data.result;
@@ -886,36 +886,36 @@ test("public Design Program workflow discovers, inspects, and executes without m
     { iteration: 2, strategy: "dispatch:probe-highest-priority", decision: "REJECT", parent: "candidate-1", outcome: "rejected" },
     { iteration: 3, strategy: "maintenance:lithography-jobs-6", decision: "REJECT", parent: "candidate-1", outcome: "rejected" },
     { iteration: 4, strategy: "dispatch:conwip-8-5-edd", decision: "KEEP", parent: "candidate-1", outcome: "leader-promoted" },
-    { iteration: 5, strategy: "batch-formation:furnace-flex-30000", decision: "REJECT", parent: "candidate-4", outcome: "rejected" },
-    { iteration: 6, strategy: "setup-campaign:lithography-3-12000", decision: "BRANCH", parent: "candidate-4", outcome: "branch-retained" },
-    { iteration: 7, strategy: "facility:utility-n-plus-one", decision: "BRANCH", parent: "candidate-6", outcome: "branch-retained" },
+    { iteration: 5, strategy: "batch-formation:furnace-flex-30000", decision: "BRANCH", parent: "candidate-4", outcome: "branch-retained" },
+    { iteration: 6, strategy: "facility:utility-n-plus-one", decision: "BRANCH", parent: "candidate-5", outcome: "branch-retained" },
+    { iteration: 7, strategy: "setup-campaign:lithography-3-12000", decision: "KEEP", parent: "candidate-4", outcome: "leader-promoted" },
   ]);
   expect(guardedIterations.filter((iteration: { decision: string }) => iteration.decision === "KEEP")
     .every((iteration: { decisionEvidence: { guardrail: { passed: boolean } } }) => iteration.decisionEvidence.guardrail.passed)).toBeTrue();
   expect(guardedProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
     phase: "proposal-completed",
     iteration: 7,
-    strategy: "facility:utility-n-plus-one",
+    strategy: "setup-campaign:lithography-3-12000",
   }) }));
   expect(guardedProgress).toContainEqual(expect.objectContaining({ progress: expect.objectContaining({
     phase: "candidate-completed",
     iteration: 7,
-    strategy: "facility:utility-n-plus-one",
-    decision: "BRANCH",
+    strategy: "setup-campaign:lithography-3-12000",
+    decision: "KEEP",
   }) }));
   const guardedHuman = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash]);
-  expect(guardedHuman.stdout).toContain("007 BRANCH facility:utility-n-plus-one");
-  expect(guardedHuman.stdout).toContain("Frontier: leader candidate-4");
+  expect(guardedHuman.stdout).toContain("007 KEEP   setup-campaign:lithography-3-12000");
+  expect(guardedHuman.stdout).toContain("Frontier: leader candidate-7");
   const guardedFrontier = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--run-id", guardedRunHash, "--section", "frontier", "--json"]);
   expect(JSON.parse(guardedFrontier.stdout).data.result).toMatchObject({
-    leader: "candidate-4",
-    alternatives: ["candidate-7"],
-    scheduler: { searchOrder: ["candidate-7", "candidate-4"], exhausted: [] },
+    leader: "candidate-7",
+    alternatives: ["candidate-6"],
+    scheduler: { searchOrder: ["candidate-7"], exhausted: ["candidate-6"] },
     nodes: [
-      expect.objectContaining({ nodeId: "candidate-4", role: "leader", searchStatus: "searchable" }),
-      expect.objectContaining({ nodeId: "candidate-7", role: "alternative", searchStatus: "searchable" }),
+      expect.objectContaining({ nodeId: "candidate-7", role: "leader", searchStatus: "searchable" }),
+      expect.objectContaining({ nodeId: "candidate-6", role: "alternative", searchStatus: "exhausted" }),
     ],
-    exhaustions: [],
+    exhaustions: [expect.objectContaining({ node: expect.objectContaining({ nodeId: "candidate-6" }), reason: "proposal-exhausted" })],
   });
 
   const commissionedCandidate = "cli-commissioned-greenfield-fab";
@@ -1161,36 +1161,24 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
         ],
       },
       evidence: expect.objectContaining({
-        state: "exhausted",
+        state: "continuable",
         authorityRunId,
-        currentRuns: 2,
+        currentRuns: 1,
       }),
     }));
-    expect(result.lossDispositions).toHaveLength(8);
-    expect(result.lossDispositions.map((item: { source: { programId: string } }) => item.source.programId).sort()).toEqual([
-      "back-end-die-handoff",
-      "burn-in-changeover-convergence",
-      "front-end-queue-convergence",
-      "inspection-supply-path",
-      "layer-two-particle-control",
-      "lithography-maintenance-convergence",
-      "release-admission-convergence",
-      "shipping-power-convergence",
-    ]);
+    expect(result.lossDispositions).toHaveLength(0);
     expect(result.nextAction).toEqual(expect.objectContaining({
-      id: `design.run.objective:back-end-wip-convergence:${authorityRunId}:wip:096-simulate`,
+      id: "design.inspect:inspection-supply-path:fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:c3f1b3047f",
       target: expect.objectContaining({
-        evidenceRunId: "096-simulate",
-        kind: "design-run",
-        programId: "back-end-wip-convergence",
-        runId: authorityRunId,
+        kind: "design-program",
+        programId: "inspection-supply-path",
       }),
     }));
     expect(JSON.parse(objective.stdout).data.result).toEqual(expect.objectContaining({
-      dominantPenalty: { id: "wip", contribution: -41.75164375, role: "penalty" },
+      dominantPenalty: { id: "wip", contribution: -74.18575, role: "penalty" },
     }));
-    expect(JSON.parse(dispositions.stdout).data.result).toHaveLength(8);
-    expect(human.stdout).toContain("Next action: Expand Back-end WIP Convergence's intervention portfolio");
+    expect(JSON.parse(dispositions.stdout).data.result).toHaveLength(0);
+    expect(human.stdout).toContain("Next action: Investigate the leading loss with Inspection Supply Path Convergence");
     return;
   }
   const program = result.designPrograms.find((item: { id: string }) => item.id === "commissioned-dram-fab");

@@ -315,27 +315,23 @@ test("inspection supply Design closes one exact causal frontier without changing
   expect(result.artifact.id).toHaveLength(64);
   expect(result.manifest).toMatchObject({
     stopReason: "frontier-exhausted",
-    budget: { maximum: 7, evaluated: 6 },
-    best: { iteration: 0, promotionPatchOperations: 0 },
-    frontier: { leader: "seed", alternatives: [], scheduler: { searchOrder: [], exhausted: ["seed"] } },
+    budget: { maximum: 7, evaluated: 2 },
+    best: { iteration: 1, promotionPatchOperations: 3 },
+    frontier: { leader: "candidate-1", alternatives: [], scheduler: { searchOrder: [], exhausted: ["candidate-1"] } },
   });
   expect(result.manifest.iterations.map((iteration) => iteration.strategy)).toEqual([
     "recipe:closed-loop-fast-4-5-after-1-tick",
-    "recipe:closed-loop-fast-4-5-after-2000",
-    "recipe:closed-loop-fast-3-4-after-2000",
-    "recipe:closed-loop-fast-4-5-always",
-    "recipe:closed-loop-fast-3-4-always",
     "logistics:vacuum-dual-wafer-handoff",
   ]);
   expect(result.manifest.iterations.map((iteration) => iteration.lossTargetEvidence?.delta))
-    .toEqual([-1_000, -667, -667, -2_000, -2_500, -1_750]);
+    .toEqual([-1_000, -1_750]);
   expect(result.manifest.iterations.every((iteration) =>
     iteration.addressedLoss === "input-starvation"
     && iteration.addressedLossTarget?.contributor === "device:inspection-1:material-input-shortage"
     && iteration.addressedLossTarget.metric === "starvationTicks"
-    && iteration.lossTargetEvidence?.improved === true
-    && iteration.decision === "REJECT")).toBeTrue();
-  expect(progress.filter((event) => event.phase === "loss-target-completed")).toHaveLength(6);
+    && iteration.lossTargetEvidence?.improved === true)).toBeTrue();
+  expect(result.manifest.iterations.map((iteration) => iteration.decision)).toEqual(["KEEP", "REJECT"]);
+  expect(progress.filter((event) => event.phase === "loss-target-completed")).toHaveLength(2);
   expect(progress.filter((event) => event.phase === "driver-replay-started"
     || event.phase === "driver-replay-completed")).toEqual([]);
   const completedCaseProgress = progress.filter((event): event is DesignRunProgress & { phase: "case-completed" } =>
@@ -349,7 +345,7 @@ test("inspection supply Design closes one exact causal frontier without changing
   expect(progress.at(-1)).toEqual(expect.objectContaining({
     version: 5,
     phase: "run-completed",
-    work: { completedCases: 40, plannedCases: 40 },
+    work: { completedCases: 20, plannedCases: 20 },
   }));
   expect(await readFile(seedPath, "utf8")).toBe(seedBefore);
   expect((await loadDesignRun(cleanProject, "inspection-supply-path", result.manifest.resultHash)).manifest.resultHash)
@@ -701,16 +697,16 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     continuation: null,
     budget: { maximum: 7, evaluated: 7 },
     frontier: {
-      leader: "candidate-4",
-      alternatives: ["candidate-7"],
-      scheduler: { searchOrder: ["candidate-7", "candidate-4"], exhausted: [] },
+      leader: "candidate-7",
+      alternatives: ["candidate-6"],
+      scheduler: { searchOrder: ["candidate-7"], exhausted: ["candidate-6"] },
       nodes: [
-        expect.objectContaining({ nodeId: "candidate-4", role: "leader", searchStatus: "searchable" }),
-        expect.objectContaining({ nodeId: "candidate-7", role: "alternative", searchStatus: "searchable" }),
+        expect.objectContaining({ nodeId: "candidate-7", role: "leader", searchStatus: "searchable" }),
+        expect.objectContaining({ nodeId: "candidate-6", role: "alternative", searchStatus: "exhausted" }),
       ],
     },
-    best: { iteration: 4, verdict: "KEEP" },
-    exhaustions: [],
+    best: { iteration: 7, verdict: "KEEP" },
+    exhaustions: [expect.objectContaining({ node: expect.objectContaining({ nodeId: "candidate-6" }) })],
     stopReason: "budget-exhausted",
   });
   const promotionPatchOperations = first.manifest.best.promotionPatchOperations;
@@ -726,9 +722,9 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     { iteration: 2, strategy: "dispatch:probe-highest-priority", decision: "REJECT", parent: "candidate-1", outcome: "rejected" },
     { iteration: 3, strategy: "maintenance:lithography-jobs-6", decision: "REJECT", parent: "candidate-1", outcome: "rejected" },
     { iteration: 4, strategy: "dispatch:conwip-8-5-edd", decision: "KEEP", parent: "candidate-1", outcome: "leader-promoted" },
-    { iteration: 5, strategy: "batch-formation:furnace-flex-30000", decision: "REJECT", parent: "candidate-4", outcome: "rejected" },
-    { iteration: 6, strategy: "setup-campaign:lithography-3-12000", decision: "BRANCH", parent: "candidate-4", outcome: "branch-retained" },
-    { iteration: 7, strategy: "facility:utility-n-plus-one", decision: "BRANCH", parent: "candidate-6", outcome: "branch-retained" },
+    { iteration: 5, strategy: "batch-formation:furnace-flex-30000", decision: "BRANCH", parent: "candidate-4", outcome: "branch-retained" },
+    { iteration: 6, strategy: "facility:utility-n-plus-one", decision: "BRANCH", parent: "candidate-5", outcome: "branch-retained" },
+    { iteration: 7, strategy: "setup-campaign:lithography-3-12000", decision: "KEEP", parent: "candidate-4", outcome: "leader-promoted" },
   ]);
   expect(first.manifest.iterations[0]).toMatchObject({
     addressedLoss: "q-time",
@@ -750,7 +746,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
   expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "baseline")).toHaveLength(5);
   expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "seed")).toHaveLength(5);
   expect(progress.filter((event) => event.phase === "case-completed" && event.evaluation.kind === "candidate")).toHaveLength(35);
-  expect(progress.filter((event) => event.phase === "node-exhausted")).toHaveLength(0);
+  expect(progress.filter((event) => event.phase === "node-exhausted")).toHaveLength(1);
   expect(progress.at(-1)).toEqual(expect.objectContaining({
     phase: "run-completed",
     resultHash: first.manifest.resultHash,
@@ -867,7 +863,7 @@ test("objective-focused Design verifies exact in-process WIP replay before locke
       target: {
         component: "wip",
         location: processLocation,
-        metric: "averageInventory",
+        metric: "averageWipEquivalentUnits",
         direction: "decrease",
       },
       evidence: expect.objectContaining({ before: 0.6, after: 0.6, delta: 0, improved: false }),
@@ -879,7 +875,7 @@ test("objective-focused Design verifies exact in-process WIP replay before locke
       target: {
         component: "wip",
         location: processLocation,
-        metric: "averageInventory",
+        metric: "averageWipEquivalentUnits",
         direction: "decrease",
       },
       evidence: expect.objectContaining({ before: 0.6, after: 0.6, delta: 0, improved: false }),
@@ -891,7 +887,7 @@ test("objective-focused Design verifies exact in-process WIP replay before locke
       target: {
         component: "wip",
         location: processLocation,
-        metric: "averageInventory",
+        metric: "averageWipEquivalentUnits",
         direction: "decrease",
       },
       evidence: expect.objectContaining({ before: 0.6, after: 0.6, delta: 0, improved: false }),

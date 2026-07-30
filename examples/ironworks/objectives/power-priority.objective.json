@@ -9,9 +9,12 @@
   "targetRatePerMinute": 12,
   "targetRegion": "assembly-zone",
   "targetResource": "gear",
-  "wipResources": [
-    "iron-plate"
-  ],
+  "wipAccounting": {
+    "unit": "gear-equivalent",
+    "resources": [
+      { "resource": "iron-plate", "equivalentUnitsPerItem": 1 }
+    ]
+  },
   "weights": {
     "blocked": 2,
     "buildCost": 0.2,

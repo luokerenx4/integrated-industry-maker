@@ -155,7 +155,7 @@ export function buildFactoryObservationBrief(
     runId: objectiveTarget.runId,
     subjects: objectiveSubjects,
     summary: objectiveTarget.dominantPenalty.id === "wip"
-      ? `${objectiveTarget.wip.averageWip.toFixed(3)} average scored WIP contributes ${objectiveTarget.wip.scoreContribution.toFixed(3)} to the exact Objective score; leading physical exposure is ${objectiveTarget.wip.locations.slice(0, 2).map((location) => `${location.averageInventory.toFixed(3)} at ${location.physicalLocation}`).join(" and ")}.`
+      ? `${objectiveTarget.wip.averageWipEquivalentUnits.toFixed(3)} average ${objectiveTarget.wip.equivalentUnit} (${objectiveTarget.wip.averageRawWipInventory.toFixed(3)} raw WIP items) contributes ${objectiveTarget.wip.scoreContribution.toFixed(3)} to the exact Objective score; leading equivalent exposure is ${objectiveTarget.wip.locations.slice(0, 2).map((location) => `${location.averageWipEquivalentUnits.toFixed(3)} at ${location.physicalLocation}`).join(" and ")}.`
       : `${objectiveTarget.dominantPenalty.id} contributes ${objectiveTarget.dominantPenalty.contribution.toFixed(3)} to the exact Objective score.`,
     interpretation: "objective-accounting-not-causal-loss" as const,
   } : null;
