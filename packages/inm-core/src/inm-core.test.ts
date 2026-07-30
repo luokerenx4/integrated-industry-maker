@@ -4162,6 +4162,41 @@ describe("research boundary and experiment decisions", () => {
       completed: 8, scrapped: 4, queueTimeViolations: 0, violatedLots: 0,
     }));
     expect(result.metrics.routeFlow["dram-front-end"]!.steps["final-inspection"]!.maximumQueueTicks).toBeLessThan(35_000);
+    expect(result.metrics.objectiveConstraints).toEqual([
+      {
+        id: "objective:max-build-cost",
+        label: "Maximum build cost",
+        source: "objective",
+        metric: "totalBuildCost",
+        operator: "maximum",
+        unit: "currency",
+        actual: 240_230,
+        threshold: 230_000,
+        deficit: 10_230,
+        passed: false,
+      },
+      {
+        id: "objective:max-occupied-area",
+        label: "Maximum occupied area",
+        source: "objective",
+        metric: "occupiedArea",
+        operator: "maximum",
+        unit: "area",
+        actual: result.metrics.occupiedArea,
+        threshold: 350,
+        deficit: 0,
+        passed: true,
+      },
+      expect.objectContaining({
+        id: "objective:min-production",
+        metric: "targetProduction",
+        operator: "minimum",
+        actual: expect.any(Number),
+        threshold: 8,
+        deficit: 0,
+        passed: true,
+      }),
+    ]);
     expect(result.metrics.infeasibleReason).toBe("build cost 240230 exceeds 230000");
 
     const hybrid = parallelizeWorkCenter(project, project.blueprint, {

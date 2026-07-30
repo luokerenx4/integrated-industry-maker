@@ -752,6 +752,27 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .score-breakdown-body b { color: #678087; font-weight: 400; }
 .score-breakdown-body b.positive { color: #60dcb7; }
 .score-breakdown-body b.negative { color: #ff8f80; }
+.objective-constraints { scroll-margin-top: 110px; border-top: 1px solid #102830; background: #061015; }
+.objective-constraints summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; color: #587a83; font: 7px var(--mono); letter-spacing: .07em; cursor: pointer; list-style: none; }
+.objective-constraints summary::-webkit-details-marker { display: none; }
+.objective-constraints summary::before { content: "+"; color: #4bd3b0; }
+.objective-constraints[open] summary::before { content: "−"; }
+.objective-constraints summary span { flex: 1; }
+.objective-constraints summary b { color: #6bcbb1; font-weight: 400; letter-spacing: 0; }
+.objective-constraints.failed { border-color: #572f29; background: #130b0a; }
+.objective-constraints.failed summary b { color: #ff9584; }
+.objective-constraint-head, .objective-constraint-body > div { display: grid; grid-template-columns: minmax(180px, 1.35fr) repeat(3, minmax(105px, .7fr)); gap: 10px; align-items: center; padding: 8px 12px; }
+.objective-constraint-head { color: #3f616a; font: 6px var(--mono); }
+.objective-constraint-body > div { border-top: 1px solid #0e242b; color: #759097; font: 7px var(--mono); box-shadow: inset 3px 0 #276b59; }
+.objective-constraint-body > div.failed { background: #170d0b; box-shadow: inset 3px 0 #b55345; }
+.objective-constraint-body > div.recovered { box-shadow: inset 3px 0 #c99c4b; }
+.objective-constraint-body strong { color: #a9c1c5; font: 8px var(--mono); }
+.objective-constraint-body strong code { display: block; margin-top: 4px; color: #456871; font-size: 6px; }
+.objective-constraint-body span { display: grid; gap: 3px; }
+.objective-constraint-body span > b { color: #64d7b5; font: 6px var(--mono); }
+.objective-constraint-body .failed span > b { color: #ff9584; }
+.objective-constraint-body span > code { color: #8ca5aa; font: 7px var(--mono); }
+.objective-constraint-body span > small { color: #ff9584; font: 6px var(--mono); }
 .cadence-control-evidence { border-top: 1px solid #14312e; background: #071513; }
 .cadence-control-evidence summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; color: #64a997; font: 7px var(--mono); letter-spacing: .07em; cursor: pointer; list-style: none; }
 .cadence-control-evidence summary::-webkit-details-marker { display: none; }
@@ -1119,7 +1140,8 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
   .experiment-gates { grid-template-columns: 1fr 1fr; }
   .experiment-case-contract, .experiment-case-head, .experiment-case-result { grid-template-columns: minmax(150px, 1.4fr) 1fr .7fr; }
   .experiment-case-contract > :nth-child(n+4), .experiment-case-head > :nth-child(n+4), .experiment-case-result > :nth-child(n+4) { display: none; }
-  .score-breakdown-head, .score-breakdown-body > div { grid-template-columns: minmax(115px, 1.2fr) repeat(3, minmax(68px, .7fr)); gap: 6px; padding-inline: 9px; }
+  .score-breakdown-head, .score-breakdown-body > div,
+  .objective-constraint-head, .objective-constraint-body > div { grid-template-columns: minmax(115px, 1.2fr) repeat(3, minmax(68px, .7fr)); gap: 6px; padding-inline: 9px; }
   .design-workbench { height: 100%; border: 0; border-radius: 0; grid-template: 74px 150px minmax(0, 1fr) / 1fr; }
   .design-header { grid-column: 1; padding: 0 14px; }
   .design-header p { display: none; }

@@ -946,6 +946,44 @@
           "meanReleaseDelayTicks": 13811.5,
           "meanTardinessTicks": 0,
           "objectiveAttainment": 1,
+          "objectiveConstraints": [
+            {
+              "actual": 229950,
+              "deficit": 0,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 285,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 88,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 285,
           "onTimeLots": 12,
           "p95CycleTimeTicks": 78623,
@@ -1999,6 +2037,44 @@
           "meanReleaseDelayTicks": 15311.5,
           "meanTardinessTicks": 0,
           "objectiveAttainment": 1,
+          "objectiveConstraints": [
+            {
+              "actual": 230150,
+              "deficit": 150,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": false,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 285,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 72,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 285,
           "onTimeLots": 12,
           "p95CycleTimeTicks": 87623,
@@ -3149,6 +3225,44 @@
           "meanReleaseDelayTicks": 13811.5,
           "meanTardinessTicks": 0,
           "objectiveAttainment": 1,
+          "objectiveConstraints": [
+            {
+              "actual": 229950,
+              "deficit": 0,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 285,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 88,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 285,
           "onTimeLots": 12,
           "p95CycleTimeTicks": 74456,
@@ -4293,6 +4407,44 @@
           "meanReleaseDelayTicks": 15311.5,
           "meanTardinessTicks": 0,
           "objectiveAttainment": 1,
+          "objectiveConstraints": [
+            {
+              "actual": 230150,
+              "deficit": 150,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": false,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 285,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 72,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 285,
           "onTimeLots": 12,
           "p95CycleTimeTicks": 81623,
@@ -5443,6 +5595,44 @@
           "meanReleaseDelayTicks": 14759.666666666666,
           "meanTardinessTicks": 0,
           "objectiveAttainment": 1,
+          "objectiveConstraints": [
+            {
+              "actual": 229950,
+              "deficit": 0,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 285,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 88,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 285,
           "onTimeLots": 12,
           "p95CycleTimeTicks": 78623,
@@ -6587,6 +6777,44 @@
           "meanReleaseDelayTicks": 15311.5,
           "meanTardinessTicks": 0,
           "objectiveAttainment": 1,
+          "objectiveConstraints": [
+            {
+              "actual": 230150,
+              "deficit": 150,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": false,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 285,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 72,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 285,
           "onTimeLots": 12,
           "p95CycleTimeTicks": 79623,
@@ -7750,6 +7978,44 @@
           "meanReleaseDelayTicks": 13811.5,
           "meanTardinessTicks": 2855.6666666666665,
           "objectiveAttainment": 0.75,
+          "objectiveConstraints": [
+            {
+              "actual": 229950,
+              "deficit": 0,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 285,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 88,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 285,
           "onTimeLots": 9,
           "p95CycleTimeTicks": 93133,
@@ -8894,6 +9160,44 @@
           "meanReleaseDelayTicks": 15311.5,
           "meanTardinessTicks": 2596.5,
           "objectiveAttainment": 0.75,
+          "objectiveConstraints": [
+            {
+              "actual": 230150,
+              "deficit": 150,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": false,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 285,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 72,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 285,
           "onTimeLots": 9,
           "p95CycleTimeTicks": 91689,
@@ -9966,6 +10270,44 @@
           "meanReleaseDelayTicks": 6749.333333333333,
           "meanTardinessTicks": 495.6,
           "objectiveAttainment": 0.75,
+          "objectiveConstraints": [
+            {
+              "actual": 229950,
+              "deficit": 0,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 285,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 80,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 285,
           "onTimeLots": 9,
           "p95CycleTimeTicks": 78333,
@@ -11136,6 +11478,44 @@
           "meanReleaseDelayTicks": 7749.333333333333,
           "meanTardinessTicks": 1710.4,
           "objectiveAttainment": 0.5833333333333334,
+          "objectiveConstraints": [
+            {
+              "actual": 230150,
+              "deficit": 150,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": false,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 285,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 72,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 285,
           "onTimeLots": 7,
           "p95CycleTimeTicks": 74745,
@@ -12682,6 +13062,44 @@
           "meanReleaseDelayTicks": 0,
           "meanTardinessTicks": 22500,
           "objectiveAttainment": 0.16666666666666666,
+          "objectiveConstraints": [
+            {
+              "actual": 177990,
+              "deficit": 0,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 251,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 24,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 251,
           "onTimeLots": 2,
           "p95CycleTimeTicks": 198500,
@@ -13732,6 +14150,44 @@
           "meanReleaseDelayTicks": 15311.5,
           "meanTardinessTicks": 0,
           "objectiveAttainment": 1,
+          "objectiveConstraints": [
+            {
+              "actual": 230150,
+              "deficit": 150,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": false,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 285,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 72,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 285,
           "onTimeLots": 12,
           "p95CycleTimeTicks": 87623,
@@ -14871,6 +15327,44 @@
           "meanReleaseDelayTicks": 0,
           "meanTardinessTicks": 22500,
           "objectiveAttainment": 0.16666666666666666,
+          "objectiveConstraints": [
+            {
+              "actual": 177990,
+              "deficit": 0,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 251,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 24,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 251,
           "onTimeLots": 2,
           "p95CycleTimeTicks": 198500,
@@ -16012,6 +16506,44 @@
           "meanReleaseDelayTicks": 15311.5,
           "meanTardinessTicks": 0,
           "objectiveAttainment": 1,
+          "objectiveConstraints": [
+            {
+              "actual": 230150,
+              "deficit": 150,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": false,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 285,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 72,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 285,
           "onTimeLots": 12,
           "p95CycleTimeTicks": 81623,
@@ -17151,6 +17683,44 @@
           "meanReleaseDelayTicks": 0,
           "meanTardinessTicks": 10500,
           "objectiveAttainment": 0.16666666666666666,
+          "objectiveConstraints": [
+            {
+              "actual": 177990,
+              "deficit": 0,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 251,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 24,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 251,
           "onTimeLots": 2,
           "p95CycleTimeTicks": 198500,
@@ -18292,6 +18862,44 @@
           "meanReleaseDelayTicks": 15311.5,
           "meanTardinessTicks": 0,
           "objectiveAttainment": 1,
+          "objectiveConstraints": [
+            {
+              "actual": 230150,
+              "deficit": 150,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": false,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 285,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 72,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 285,
           "onTimeLots": 12,
           "p95CycleTimeTicks": 79623,
@@ -19444,6 +20052,44 @@
           "meanReleaseDelayTicks": 0,
           "meanTardinessTicks": 0,
           "objectiveAttainment": 0.25,
+          "objectiveConstraints": [
+            {
+              "actual": 177990,
+              "deficit": 0,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 251,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 8,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 251,
           "onTimeLots": 3,
           "p95CycleTimeTicks": 211300,
@@ -20585,6 +21231,44 @@
           "meanReleaseDelayTicks": 15311.5,
           "meanTardinessTicks": 2596.5,
           "objectiveAttainment": 0.75,
+          "objectiveConstraints": [
+            {
+              "actual": 230150,
+              "deficit": 150,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": false,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 285,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 72,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 285,
           "onTimeLots": 9,
           "p95CycleTimeTicks": 91689,
@@ -21737,6 +22421,44 @@
           "meanReleaseDelayTicks": 0,
           "meanTardinessTicks": 32600,
           "objectiveAttainment": 0.3333333333333333,
+          "objectiveConstraints": [
+            {
+              "actual": 177990,
+              "deficit": 0,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 251,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 16,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 251,
           "onTimeLots": 4,
           "p95CycleTimeTicks": 203800,
@@ -22904,6 +23626,44 @@
           "meanReleaseDelayTicks": 7749.333333333333,
           "meanTardinessTicks": 1710.4,
           "objectiveAttainment": 0.5833333333333334,
+          "objectiveConstraints": [
+            {
+              "actual": 230150,
+              "deficit": 150,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": false,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 285,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 72,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 285,
           "onTimeLots": 7,
           "p95CycleTimeTicks": 74745,
@@ -25274,7 +26034,7 @@
     "worstCaseBaselineScore": -185.5302905416667,
     "worstCaseCandidateScore": -1000016.0576993278
   },
-  "resultHash": "816f065fd250ddfe40fba4b65b0821be458cf97223309b3564240912651bf7f0",
+  "resultHash": "dd92773a62bef8de28266d59db69f7b14b2cf3a88d55cc459ad28650bd6a6d6e",
   "scoreDelta": -999839.8836426572,
   "verdict": "DISCARD",
   "version": 2

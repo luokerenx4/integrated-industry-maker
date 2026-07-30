@@ -6,6 +6,7 @@ import {
   type Blueprint,
   type CompiledFactoryProject,
   type FactoryMetrics,
+  type ObjectiveConstraintEvidence,
   type ScoreBreakdown,
   type SimulationResult,
 } from "./types";
@@ -135,6 +136,7 @@ export interface BlueprintMetricSnapshot {
   beltCellUtilization: number;
   transportCongestion: number;
   bottleneckEntity: string | null;
+  objectiveConstraints: ObjectiveConstraintEvidence[];
   infeasibleReason: string | null;
 }
 
@@ -520,6 +522,7 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     beltCellUtilization: metrics.beltCellUtilization,
     transportCongestion: metrics.transportCongestion,
     bottleneckEntity: metrics.bottleneckEntity,
+    objectiveConstraints: structuredClone(metrics.objectiveConstraints),
     infeasibleReason: metrics.infeasibleReason,
   };
 }

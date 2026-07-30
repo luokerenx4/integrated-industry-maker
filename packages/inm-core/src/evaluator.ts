@@ -16,6 +16,7 @@ import {
   stationTransitInventoryLocation,
   wipInventoryLocationId,
 } from "./inventory-location";
+import { evaluateObjectiveConstraints, objectiveConstraintReason } from "./objective-constraints";
 
 export interface SimulationStats {
   durations: Record<string, Record<string, Tick>>;
@@ -342,14 +343,13 @@ export function evaluateFactory(
       bottleneckValue = value; bottleneckEntity = id;
     }
   }
-  const constraints = project.objective.constraints ?? {};
-  const violations: string[] = [];
-  if (constraints.maxBuildCost !== undefined && totalBuildCost > constraints.maxBuildCost) violations.push(`build cost ${totalBuildCost} exceeds ${constraints.maxBuildCost}`);
-  if (constraints.maxOccupiedArea !== undefined && occupiedArea > constraints.maxOccupiedArea) violations.push(`occupied area ${occupiedArea} exceeds ${constraints.maxOccupiedArea}`);
-  if (constraints.minProduction !== undefined && targetProduced < constraints.minProduction) violations.push(`production ${targetProduced} is below ${constraints.minProduction}`);
-  for (const contract of contractMetrics) if (contract.minimumFulfillment !== undefined && contract.fulfillment + 1e-12 < contract.minimumFulfillment) violations.push(
-    `delivery contract ${contract.id} fulfillment ${(contract.fulfillment * 100).toFixed(1)}% is below ${(contract.minimumFulfillment * 100).toFixed(1)}%`,
-  );
+  const objectiveConstraints = evaluateObjectiveConstraints(project.objective, {
+    totalBuildCost,
+    occupiedArea,
+    targetProduction: targetProduced,
+    contractFulfillment: Object.fromEntries(contractMetrics.map((contract) => [contract.id, contract.fulfillment])),
+  });
+  const violations = objectiveConstraints.filter((constraint) => !constraint.passed);
   const wipEquivalentUnitsPerItem = Object.fromEntries(
     project.objective.wipAccounting.resources.map((entry) => [entry.resource, entry.equivalentUnitsPerItem]),
   );
@@ -849,7 +849,8 @@ export function evaluateFactory(
     totalBuildCost, occupiedArea, machineUtilization, idleTime, sleepingTime, waitingInputTime, blockedOutputTime, unpoweredTime, failedTime,
     averageWipEquivalentUnits, inventoryAccounting, averageBeltItems, averageBlockedBeltItems, peakBeltItems: stats.peakBeltItems, beltCellUtilization,
     transportStageUtilization, transportFlows, transportEnergyConsumedMilliJoules: stats.transportEnergyConsumedMilliJoules,
-    transportCongestion, bottleneckEntity, infeasibleReason: violations.length ? violations.join("; ") : null,
+    transportCongestion, bottleneckEntity, objectiveConstraints,
+    infeasibleReason: violations.length ? violations.map(objectiveConstraintReason).join("; ") : null,
     scoreBreakdown, finalScore,
   };
 }

@@ -310,7 +310,7 @@ function benchmarkPath(projectDir: string, benchmarkId: string): string {
 }
 
 interface CachedBaselineEvaluation {
-  version: 1;
+  version: 2;
   identityHash: string;
   evaluationHash: string;
   evaluation: FactoryBlueprintEvaluation;
@@ -322,7 +322,7 @@ function baselineCacheIdentity(
   hashes: ProjectEvidenceHashes,
 ): string {
   return hashValue({
-    version: 1,
+    version: 2,
     engineVersion: ENGINE_VERSION,
     benchmark: manifest.id,
     contractHash: manifest.lock.contractHash,
@@ -344,7 +344,7 @@ async function readCachedBaselineEvaluation(
   const identityHash = baselineCacheIdentity(manifest, item, projectEvidenceHashes(baseline.hashes));
   try {
     const cached = await readJson(baselineCachePath(projectDir, manifest.id, item.id, identityHash)) as Partial<CachedBaselineEvaluation>;
-    if (cached.version !== 1 || cached.identityHash !== identityHash || !cached.evaluation
+    if (cached.version !== 2 || cached.identityHash !== identityHash || !cached.evaluation
       || cached.evaluation.blueprintHash !== baseline.hashes.blueprintHash
       || cached.evaluationHash !== hashValue(cached.evaluation)) return null;
     return cached.evaluation;
@@ -362,7 +362,7 @@ async function writeCachedBaselineEvaluation(
 ): Promise<void> {
   const identityHash = baselineCacheIdentity(manifest, item, projectEvidenceHashes(baseline.hashes));
   await atomicWriteJson(baselineCachePath(projectDir, manifest.id, item.id, identityHash), {
-    version: 1,
+    version: 2,
     identityHash,
     evaluationHash: hashValue(evaluation),
     evaluation,

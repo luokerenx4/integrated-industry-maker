@@ -1545,6 +1545,34 @@ export const SCORE_BREAKDOWN_COMPONENTS = [
 ] as const;
 export type ScoreBreakdownComponent = typeof SCORE_BREAKDOWN_COMPONENTS[number];
 export type ScoreBreakdown = Record<ScoreBreakdownComponent, number>;
+
+export type ObjectiveConstraintMetric =
+  | "totalBuildCost"
+  | "occupiedArea"
+  | "targetProduction"
+  | "contractFulfillment";
+
+export interface ObjectiveConstraintEvidence {
+  /** Stable evaluator identity within one Objective. */
+  id: string;
+  label: string;
+  source: "objective" | "delivery-contract";
+  metric: ObjectiveConstraintMetric;
+  operator: "maximum" | "minimum";
+  unit: "currency" | "area" | "items" | "ratio";
+  actual: number;
+  threshold: number;
+  /** Non-negative distance beyond the allowed boundary; zero when passing. */
+  deficit: number;
+  passed: boolean;
+  contract?: {
+    id: string;
+    name: string;
+    resource: ResourceId;
+    region: string;
+  };
+}
+
 export interface FactoryMetrics {
   produced: Record<ResourceId, number>;
   consumed: Record<ResourceId, number>;
@@ -1978,6 +2006,7 @@ export interface FactoryMetrics {
   transportEnergyConsumedMilliJoules: number;
   transportCongestion: number;
   bottleneckEntity: DeviceInstanceId | null;
+  objectiveConstraints: ObjectiveConstraintEvidence[];
   infeasibleReason: string | null;
   scoreBreakdown: ScoreBreakdown;
   finalScore: number;

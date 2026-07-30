@@ -1707,6 +1707,44 @@
     "agentsConsumed": {},
     "treated": {}
   },
+  "objectiveConstraints": [
+    {
+      "actual": 229950,
+      "deficit": 0,
+      "id": "objective:max-build-cost",
+      "label": "Maximum build cost",
+      "metric": "totalBuildCost",
+      "operator": "maximum",
+      "passed": true,
+      "source": "objective",
+      "threshold": 230000,
+      "unit": "currency"
+    },
+    {
+      "actual": 285,
+      "deficit": 0,
+      "id": "objective:max-occupied-area",
+      "label": "Maximum occupied area",
+      "metric": "occupiedArea",
+      "operator": "maximum",
+      "passed": true,
+      "source": "objective",
+      "threshold": 350,
+      "unit": "area"
+    },
+    {
+      "actual": 88,
+      "deficit": 0,
+      "id": "objective:min-production",
+      "label": "Minimum target production",
+      "metric": "targetProduction",
+      "operator": "minimum",
+      "passed": true,
+      "source": "objective",
+      "threshold": 8,
+      "unit": "items"
+    }
+  ],
   "occupiedArea": 285,
   "onTimeDelivery": 1,
   "peakBeltItems": 8,

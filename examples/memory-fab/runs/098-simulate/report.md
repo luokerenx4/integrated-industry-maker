@@ -3,7 +3,7 @@
 - Decision: **BASELINE**
 - Blueprint: `generated-dram-fab`
 - Score: **-1.271**
-- Result hash: `7bcc176c6e6a5aa422332c9f5f47411349d3c2cce191b0332f13dee836ce7bc0`
+- Result hash: `19fd034abbecc9dff1a2d7c67d3cf1e2f0c2ab56c3445e39b6b1e0c4b36decbc`
 - Bottleneck: burn-in-1
 - Throughput/min: 22.000
 - Delivery portfolio: 176.0% demand attainment · 88.000 / 50.000 valued / demanded · 38.000 above demand · 86.000 net value/min

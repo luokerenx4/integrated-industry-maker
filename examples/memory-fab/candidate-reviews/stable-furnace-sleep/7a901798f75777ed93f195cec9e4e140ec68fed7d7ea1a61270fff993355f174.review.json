@@ -553,6 +553,44 @@
           "meanReleaseDelayTicks": 0,
           "meanTardinessTicks": 0,
           "objectiveAttainment": 1,
+          "objectiveConstraints": [
+            {
+              "actual": 217050,
+              "deficit": 0,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 276,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 63,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 276,
           "onTimeLots": 12,
           "p95CycleTimeTicks": 138400,
@@ -1187,6 +1225,44 @@
           "meanReleaseDelayTicks": 0,
           "meanTardinessTicks": 0,
           "objectiveAttainment": 1,
+          "objectiveConstraints": [
+            {
+              "actual": 217050,
+              "deficit": 0,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 276,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 63,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 276,
           "onTimeLots": 12,
           "p95CycleTimeTicks": 138400,
@@ -1853,6 +1929,44 @@
           "meanReleaseDelayTicks": 0,
           "meanTardinessTicks": 0,
           "objectiveAttainment": 1,
+          "objectiveConstraints": [
+            {
+              "actual": 217050,
+              "deficit": 0,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 276,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 77,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 276,
           "onTimeLots": 12,
           "p95CycleTimeTicks": 134400,
@@ -2484,6 +2598,44 @@
           "meanReleaseDelayTicks": 0,
           "meanTardinessTicks": 0,
           "objectiveAttainment": 1,
+          "objectiveConstraints": [
+            {
+              "actual": 217050,
+              "deficit": 0,
+              "id": "objective:max-build-cost",
+              "label": "Maximum build cost",
+              "metric": "totalBuildCost",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 230000,
+              "unit": "currency"
+            },
+            {
+              "actual": 276,
+              "deficit": 0,
+              "id": "objective:max-occupied-area",
+              "label": "Maximum occupied area",
+              "metric": "occupiedArea",
+              "operator": "maximum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 350,
+              "unit": "area"
+            },
+            {
+              "actual": 63,
+              "deficit": 0,
+              "id": "objective:min-production",
+              "label": "Minimum target production",
+              "metric": "targetProduction",
+              "operator": "minimum",
+              "passed": true,
+              "source": "objective",
+              "threshold": 8,
+              "unit": "items"
+            }
+          ],
           "occupiedArea": 276,
           "onTimeLots": 12,
           "p95CycleTimeTicks": 138400,
@@ -2689,7 +2841,7 @@
     "worstCaseBaselineScore": -123.7652805555551,
     "worstCaseCandidateScore": -124.76919722222267
   },
-  "resultHash": "fb745b6e57d48c3c3b0258395ed7ca1c0c215c655370726ea15409756c4659f0",
+  "resultHash": "7164aee24b289db638f4e7638e4a174e69e60f5d70d9f6921596cda7573d5420",
   "scoreDelta": -1.0039166666675783,
   "verdict": "DISCARD",
   "version": 2

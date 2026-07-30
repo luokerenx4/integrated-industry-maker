@@ -53,7 +53,7 @@ test("a project-local Investigation preserves exact evidence and append-only hum
         expect.objectContaining({
           id: "operating-run",
           runId: "098-simulate",
-          resultHash: "7bcc176c6e6a5aa422332c9f5f47411349d3c2cce191b0332f13dee836ce7bc0",
+          resultHash: "19fd034abbecc9dff1a2d7c67d3cf1e2f0c2ab56c3445e39b6b1e0c4b36decbc",
         }),
         expect.objectContaining({
           id: "diagnostic",
@@ -70,7 +70,7 @@ test("a project-local Investigation preserves exact evidence and append-only hum
           runId: "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06",
           candidateId: "inspection-supply-path-966127dd",
           proposalHash: "18c8ebc898254d30a5e428dbd93412f947da062a1c20779656728237640c9832",
-          reviewResultHash: "1dc38090f1221597f8a0abfd6c96c33dc94ac49c2a4aeeec1313e49420599e56",
+          reviewResultHash: "36c0fc962b3231e6a3a928d1ec7c6a1f1d6c8e0ceaea46f5a4b55cf277fc6a0e",
         }),
       ],
     }));
@@ -274,7 +274,7 @@ test("an Investigation hypothesis creates a strictly sourced Candidate without c
         kind: "investigation-hypothesis",
         project: "memory-fab",
         investigation: "inspection-starvation-next-step",
-        manifestHash: "b233943b95bd8e6ad4c0e8f118aab550f749b04e9704dac53759890ae8da0cc9",
+        manifestHash: "a9fe64f1e50a57a712a659ef0b3d5c92dd28fd7e56cf91cab197699b186cf41a",
         entry: "metrology-low-power-standby",
         entryHash: "fe0a8d067272f1edbb7a76e27dc86c24a877b44fa0a6fb32860c3967dd2d2ceb",
       },

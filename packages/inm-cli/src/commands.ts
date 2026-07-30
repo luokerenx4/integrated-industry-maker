@@ -6,7 +6,7 @@ import {
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
   TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals,
-  type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type CandidateChangeSetPreview, type CandidateCurrentFactoryComparison, type CandidatePatch, type CandidateRevisionBrief, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FabLossContributorMechanism, type FactoryEvent, type FactoryMetrics, type IndustrialInvestigationEntryInput, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
+  type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type CandidateChangeSetPreview, type CandidateCurrentFactoryComparison, type CandidatePatch, type CandidateRevisionBrief, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FabLossContributorMechanism, type FactoryEvent, type FactoryMetrics, type IndustrialInvestigationEntryInput, type InmManifest, type InmWorkspaceManifest, type ObjectiveConstraintEvidence, type ProjectSelection, type ScoreBreakdown,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
@@ -85,6 +85,62 @@ function scoreBreakdownLines(
     ...SCORE_BREAKDOWN_COMPONENTS.map((component) =>
       `      ${component.padEnd(18)} ${baseline[component].toFixed(6).padStart(12)} → ${candidate[component].toFixed(6).padStart(12)}  Δ ${signed(delta[component], 6)}`),
   ];
+}
+
+function objectiveConstraintValue(constraint: ObjectiveConstraintEvidence, value: number): string {
+  if (constraint.unit === "ratio") return `${(value * 100).toFixed(1)}%`;
+  return Number.isInteger(value) ? value.toLocaleString("en-US") : value.toFixed(6);
+}
+
+function objectiveConstraintComparisonLines(
+  baseline: ObjectiveConstraintEvidence[],
+  candidate: ObjectiveConstraintEvidence[],
+  indent = "    ",
+): string[] {
+  if (!baseline.length && !candidate.length) return [];
+  const before = new Map(baseline.map((constraint) => [constraint.id, constraint]));
+  const after = new Map(candidate.map((constraint) => [constraint.id, constraint]));
+  const ids = [...new Set([...before.keys(), ...after.keys()])];
+  const failing = ids.filter((id) => !before.get(id)?.passed || !after.get(id)?.passed);
+  if (!failing.length) return [];
+  const baselinePassed = baseline.filter((constraint) => constraint.passed).length;
+  const candidatePassed = candidate.filter((constraint) => constraint.passed).length;
+  return [
+    `${indent}Objective constraints ${baselinePassed}/${baseline.length} pass → ${candidatePassed}/${candidate.length} pass:`,
+    ...failing.map((id) => {
+      const left = before.get(id);
+      const right = after.get(id);
+      if (!left || !right) throw new Error(`Objective constraint '${id}' is not present on both comparison sides`);
+      const direction = right.operator === "minimum" ? "≥" : "≤";
+      const deficit = right.passed ? "" : ` · proposed deficit ${objectiveConstraintValue(right, right.deficit)}`;
+      return `${indent}  ${left.passed ? "PASS" : "FAIL"} → ${right.passed ? "PASS" : "FAIL"} ${right.label} · ${right.metric} ${objectiveConstraintValue(left, left.actual)} → ${objectiveConstraintValue(right, right.actual)} ${direction} ${objectiveConstraintValue(right, right.threshold)}${deficit} · ${right.id}`;
+    }),
+  ];
+}
+
+function lockedObjectiveConstraintLines(result: BlueprintBenchmarkResult): string[] {
+  const cases = result.cases.flatMap((item) => {
+    const lines = objectiveConstraintComparisonLines(
+      item.baselineMetrics.objectiveConstraints,
+      item.candidateMetrics.objectiveConstraints,
+      "    ",
+    );
+    return lines.length ? [`  ${item.id}`, ...lines] : [];
+  });
+  return cases.length ? ["Locked Objective constraint evidence:", ...cases] : [];
+}
+
+function currentFactoryConstraintLines(comparison: CandidateCurrentFactoryComparison): string[] {
+  if (comparison.status !== "evaluated") return [];
+  const cases = comparison.cases.flatMap((item) => {
+    const lines = objectiveConstraintComparisonLines(
+      item.currentMetrics.objectiveConstraints,
+      item.proposedMetrics.objectiveConstraints,
+      "    ",
+    );
+    return lines.length ? [`  ${item.id}`, ...lines] : [];
+  });
+  return cases.length ? ["Current-factory Objective constraint evidence:", ...cases] : [];
 }
 
 function cadenceControlSide(
@@ -361,6 +417,8 @@ function currentFactorySummary(comparison: CandidateCurrentFactoryComparison) {
       currentOnTimeLots: item.currentMetrics.onTimeLots,
       proposedOnTimeLots: item.proposedMetrics.onTimeLots,
       leadingScoreDrivers: leadingScoreDrivers(item.scoreBreakdownDelta),
+      currentObjectiveConstraints: item.currentMetrics.objectiveConstraints,
+      proposedObjectiveConstraints: item.proposedMetrics.objectiveConstraints,
     })),
     outcomeGuardrails: comparison.outcomeGuardrails?.map((guardrail) => ({
       id: guardrail.id,
@@ -1614,6 +1672,7 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
     ...result.cases.flatMap((item) => [
       `  ${item.id.padEnd(24)} ${item.baselineScore.toFixed(3).padStart(10)} → ${item.candidateScore.toFixed(3).padStart(10)}  Δ ${signed(item.scoreDelta)}  ×${item.weight}  ${item.candidateCapacityReady ? "READY" : `${item.candidateCapacityGaps.length} GAPS`}`,
       ...scoreBreakdownLines(item.baselineMetrics.scoreBreakdown, item.candidateMetrics.scoreBreakdown, item.scoreBreakdownDelta),
+      ...objectiveConstraintComparisonLines(item.baselineMetrics.objectiveConstraints, item.candidateMetrics.objectiveConstraints),
       `    contracts ${(item.baselineMetrics.contractFulfillment * 100).toFixed(1)}% / ${item.baselineMetrics.deliveryNetValuePerMinute.toFixed(3)} net/min / ${item.baselineMetrics.deliveryOverflow.toFixed(3)} overflow → ${(item.candidateMetrics.contractFulfillment * 100).toFixed(1)}% / ${item.candidateMetrics.deliveryNetValuePerMinute.toFixed(3)} / ${item.candidateMetrics.deliveryOverflow.toFixed(3)}`,
       `    inventory ${item.baselineMetrics.averageWipEquivalentUnits.toFixed(3)} equivalent / ${item.baselineMetrics.inventoryAccounting.averageRawWipInventory.toFixed(3)} raw WIP → ${item.candidateMetrics.averageWipEquivalentUnits.toFixed(3)} / ${item.candidateMetrics.inventoryAccounting.averageRawWipInventory.toFixed(3)}`,
       ...(item.baselineMetrics.completedLots || item.candidateMetrics.completedLots ? [
@@ -1727,6 +1786,8 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
       ...(preview.currentFactory.status === "evaluated"
         ? [`Current factory Δ ${signed(preview.currentFactory.scoreDelta, 6)} · ${preview.currentFactory.verdict}`]
         : [`Current factory ${preview.currentFactory.verdict}`]),
+      ...currentFactoryConstraintLines(preview.currentFactory),
+      ...lockedObjectiveConstraintLines(preview.result),
       ...revisionBriefLines(preview.revisionBrief),
       "",
       `Re-evaluate explicitly: inm candidate <path> --candidate ${candidate.id} --review`,
@@ -1786,6 +1847,8 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
         ? [`Current factory: ${applied.currentFactory.verdict} · ${applied.currentFactory.currentScore.toFixed(6)} → ${applied.currentFactory.proposedScore.toFixed(6)} · Δ ${signed(applied.currentFactory.scoreDelta, 6)}`]
         : []),
       ...currentFactoryOutcomeLines(applied.currentFactory),
+      ...currentFactoryConstraintLines(applied.currentFactory),
+      ...lockedObjectiveConstraintLines(applied.result),
       ...outcomeGuardrailLines(applied.result),
       "The proposal is now stale by design and cannot be applied twice.", "",
     ].join("\n"), false);
@@ -1827,6 +1890,8 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
         ]
       : []),
     ...currentFactoryOutcomeLines(preview.currentFactory),
+    ...currentFactoryConstraintLines(preview.currentFactory),
+    ...lockedObjectiveConstraintLines(preview.result),
     ...outcomeGuardrailLines(preview.result),
     ...preview.result.reasons.map((reason) => `Gate: ${reason}`),
     ...revisionBriefLines(preview.revisionBrief),

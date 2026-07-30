@@ -1,7 +1,7 @@
 {
   "author": "agent",
   "disposition": "discard",
-  "entryHash": "a6d165f99d4f6c11d5daa03149cd4aa61834d2b9746507570558ab7f1242d82d",
+  "entryHash": "6b3008e80d8932d848b3a4f2ce1e366db1a0e7464a4a0ce8a7242354255ae3b2",
   "evidence": [
     "diagnostic",
     "design-lineage",
@@ -17,7 +17,7 @@
       "kind": "candidate-review",
       "proposalHash": "0a666ec26a4a6e2d6955b6eaa9a5ffb76625fb4e67f26b32e55e6a4e9082869e",
       "proposedCandidateHash": "270521ff24a6a0625431e27a5f564ca2e1b2b81a6208fe2644cf979acdc0e150",
-      "reviewResultHash": "816f065fd250ddfe40fba4b65b0821be458cf97223309b3564240912651bf7f0",
+      "reviewResultHash": "dd92773a62bef8de28266d59db69f7b14b2cf3a88d55cc459ad28650bd6a6d6e",
       "verdict": "DISCARD"
     }
   ],

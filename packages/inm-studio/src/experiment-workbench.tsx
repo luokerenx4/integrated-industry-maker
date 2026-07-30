@@ -4,6 +4,7 @@ import type {
 } from "@inm/core";
 import { CadenceControlEvidence } from "./cadence-control-evidence";
 import { ScoreBreakdownDetails } from "./score-breakdown";
+import { ObjectiveConstraintComparison } from "./objective-constraint-evidence";
 import { cancelStudioOperation, followStudioOperation, listStudioOperations, readStudioOperation, startStudioOperation } from "./studio-operation-client";
 import { isTerminalOperationExecution, type OperationExecutionSnapshot } from "@inm/core/operation-execution";
 
@@ -364,7 +365,7 @@ export function ExperimentWorkbench({
                 <span className="experiment-delta"><small>CURRENT DELTA</small><b>{signed(candidatePreview.currentFactory.scoreDelta, 6)}</b></span>
               </section>
               <div className="experiment-case-head"><span>CASE</span><span>SCORE</span><span>DELTA</span><span>CAPACITY</span><span>WIP</span><span>ON TIME</span></div>
-              {candidatePreview.currentFactory.cases.map((item) => <article className="experiment-case-evidence" key={item.id}>
+              {candidatePreview.currentFactory.cases.map((item) => <article className="experiment-case-evidence" id={`candidate-current-case-${item.id}`} key={item.id}>
                 <div className="experiment-case-result" data-testid={`candidate-current-case-${item.id}`}>
                   <strong>{item.name}<code>{item.id} · seed {item.seed} · ×{item.weight}</code></strong>
                   <span>{item.currentScore.toFixed(3)} → {item.proposedScore.toFixed(3)}</span>
@@ -378,6 +379,14 @@ export function ExperimentWorkbench({
                   candidate={item.proposedMetrics.scoreBreakdown}
                   delta={item.scoreBreakdownDelta}
                   testId={`candidate-current-score-breakdown-${item.id}`}
+                />
+                <ObjectiveConstraintComparison
+                  baseline={item.currentMetrics.objectiveConstraints}
+                  candidate={item.proposedMetrics.objectiveConstraints}
+                  baselineLabel="CURRENT"
+                  candidateLabel="PROPOSED"
+                  anchorId={`candidate-current-constraints-${item.id}`}
+                  testId={`candidate-current-constraints-${item.id}`}
                 />
               </article>)}
               {candidatePreview.currentFactory.outcomeGuardrails && <section className="experiment-outcomes" data-testid="candidate-current-outcomes">
@@ -440,7 +449,7 @@ export function ExperimentWorkbench({
             <section className="experiment-cases">
               <div className="experiment-section-title"><span>CASE EVALUATION</span><b>{result.totalSimulationTicks.toLocaleString()} SIMULATED TICKS{benchmarkResult ? ` · BASELINE ${benchmarkResult.baselineCache.hits}/${result.cases.length} REUSED` : ""}</b></div>
               <div className="experiment-case-head"><span>CASE</span><span>SCORE</span><span>DELTA</span><span>CAPACITY</span><span>THROUGHPUT</span><span>CONTRACTS</span></div>
-              {result.cases.map((item) => <article className="experiment-case-evidence" key={item.id}>
+              {result.cases.map((item) => <article className="experiment-case-evidence" id={`candidate-locked-case-${item.id}`} key={item.id}>
                 <div className="experiment-case-result" data-testid={`experiment-case-${item.id}`}>
                   <strong>{item.name}<code>{item.id} · seed {item.seed} · ×{item.weight}</code></strong><span>{item.baselineScore.toFixed(3)} → {item.candidateScore.toFixed(3)}</span>
                   <b className={item.scoreDelta >= 0 ? "positive" : "negative"}>{signed(item.scoreDelta)}</b><span>{item.candidateCapacityReady ? "READY" : `${item.candidateCapacityGaps.length} GAPS`}</span>
@@ -451,6 +460,12 @@ export function ExperimentWorkbench({
                   candidate={item.candidateMetrics.scoreBreakdown}
                   delta={item.scoreBreakdownDelta}
                   testId={`experiment-score-breakdown-${item.id}`}
+                />
+                <ObjectiveConstraintComparison
+                  baseline={item.baselineMetrics.objectiveConstraints}
+                  candidate={item.candidateMetrics.objectiveConstraints}
+                  anchorId={`candidate-locked-constraints-${item.id}`}
+                  testId={`candidate-locked-constraints-${item.id}`}
                 />
                 <CadenceControlEvidence
                   baseline={item.baselineMetrics.cadenceControl}

@@ -37,6 +37,7 @@ export * from "./observation";
 export * from "./investigation";
 export * from "./artifact-schema";
 export * from "./operation";
+export * from "./objective-constraints";
 export * from "./operation-execution";
 export * from "./studio-source-identity";
 export * from "./execution-identity";

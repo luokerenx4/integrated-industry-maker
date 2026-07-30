@@ -170,6 +170,12 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
           proposedWip: expect.any(Number),
           currentOnTimeLots: expect.any(Number),
           proposedOnTimeLots: expect.any(Number),
+          currentObjectiveConstraints: expect.arrayContaining([
+            expect.objectContaining({ id: "objective:max-build-cost", passed: true }),
+          ]),
+          proposedObjectiveConstraints: expect.arrayContaining([
+            expect.objectContaining({ id: "objective:max-build-cost", passed: true }),
+          ]),
         })]),
       }),
       outcomeGuardrails: expect.objectContaining({ total: 6, passed: 6, failed: 0, evidence: expect.any(Array) }),
