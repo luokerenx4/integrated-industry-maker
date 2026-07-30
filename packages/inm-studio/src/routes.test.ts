@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, factoryRunId, overlayReturnPath, projectPath, requiresFullProjectData, studioRoute, viewPath } from "./routes";
+import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, factoryRunId, investigationPath, overlayReturnPath, projectPath, requiresFullProjectData, studioRoute, viewPath } from "./routes";
 
 test("Studio builds and parses every stable project-qualified route", () => {
   const cases = [
@@ -14,6 +14,7 @@ test("Studio builds and parses every stable project-qualified route", () => {
     { path: experimentPath("memory-fab", "energy/research", "sleep/candidate"), expected: { view: "experiments", experimentId: "energy/research", candidateId: "sleep/candidate" } },
     { path: designPath("memory-fab", "integrated/dram"), expected: { view: "designs", designProgramId: "integrated/dram" } },
     { path: designPath("memory-fab", "integrated/dram", "a/b"), expected: { view: "designs", designProgramId: "integrated/dram", designRunId: "a/b" } },
+    { path: investigationPath("memory-fab", "inspection/starvation"), expected: { view: "investigations", investigationId: "inspection/starvation" } },
   ];
   for (const item of cases) expect(studioRoute(item.path)).toEqual(expect.objectContaining(item.expected));
 });
@@ -41,10 +42,11 @@ test("reload, back, and forward reconstruct route state without browser-only aut
     viewPath("memory-fab", "runs"),
     experimentPath("memory-fab", "equipment-energy-research", "stable-furnace-sleep"),
     designPath("memory-fab", "integrated-dram-fab", "abc123"),
+    investigationPath("memory-fab", "inspection-starvation-next-step"),
   ];
   const reloaded = history.map((path) => studioRoute(path));
-  expect(reloaded.map((route) => route.view)).toEqual(["overview", "catalog", "analysis", "factory", "runs", "experiments", "designs"]);
-  expect(reloaded.at(-1)).toEqual(expect.objectContaining({ designProgramId: "integrated-dram-fab", designRunId: "abc123" }));
+  expect(reloaded.map((route) => route.view)).toEqual(["overview", "catalog", "analysis", "factory", "runs", "experiments", "designs", "investigations"]);
+  expect(reloaded.at(-1)).toEqual(expect.objectContaining({ investigationId: "inspection-starvation-next-step" }));
   expect(studioRoute(history[3]!)).toEqual(expect.objectContaining({ view: "factory", selection: { kind: "device", id: "burn-in-1" } }));
   expect(studioRoute(history[4]!)).toEqual(expect.objectContaining({ view: "runs" }));
 });
@@ -57,9 +59,10 @@ test("route-backed surfaces return only to a path owned by the same project", ()
   expect(overlayReturnPath("memory-fab", null)).toBeNull();
 });
 
-test("direct Experiment and Design routes use lightweight project surfaces", () => {
+test("direct Experiment, Design, and Investigation routes use lightweight project surfaces", () => {
   expect(requiresFullProjectData("experiments")).toBeFalse();
   expect(requiresFullProjectData("designs")).toBeFalse();
+  expect(requiresFullProjectData("investigations")).toBeFalse();
   for (const view of ["overview", "factory", "runs", "catalog", "analysis"] as const) {
     expect(requiresFullProjectData(view)).toBeTrue();
   }

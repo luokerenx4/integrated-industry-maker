@@ -1,0 +1,16 @@
+{
+  "author": "agent",
+  "entryHash": "52f3d6b52f0f31639000e53ae27b11a57c9b9951eea3fb30f3d3fd9cab7a8a13",
+  "evidence": [
+    "operating-run",
+    "diagnostic",
+    "design-lineage"
+  ],
+  "id": "inspection-path-is-supply-limited",
+  "investigation": "inspection-starvation-next-step",
+  "kind": "observation",
+  "previousEntryHash": null,
+  "sequence": 1,
+  "statement": "In Run 098-simulate, the focused Factory replay shows inspection-1 physically fed by the etch and rework lanes; inspection-1 accumulated 190.2 seconds of input wait at 20.7% utilization, while etch-to-inspection delivered 12 wafer lots at 1.3% utilization with zero blocked item-ticks, and upstream etch-l2 itself accumulated 164.0 seconds of input wait.",
+  "version": 1
+}

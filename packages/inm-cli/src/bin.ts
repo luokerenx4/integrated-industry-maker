@@ -2,7 +2,7 @@
 import { parseArgs } from "node:util";
 import { resolveProjectDirectory, type ProjectSelection } from "@inm/core";
 import {
-  analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, designCommand, formatCliError, helpCommand, inspectCommand, isCliCancellationError, isCliUsageError, observeCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
+  analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, designCommand, formatCliError, helpCommand, inspectCommand, investigateCommand, isCliCancellationError, isCliUsageError, observeCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
   researchCommand, runsCommand, schemaCommand, simulateCommand, synthesizeCommand, testCommand, validateCommand, workspaceInitCommand,
 } from "./commands";
 import { experimentSessionCommand, studioLifecycleCommand, type StudioLifecycleAction } from "./studio-lifecycle";
@@ -27,6 +27,7 @@ PROJECT COMMANDS
   validate <path>             Parse, resolve, and compile a blueprint
   inspect <path>              Show assets, topology, objective, hashes, and runs
   observe <path>              Bind exact run evidence to required Factory views
+  investigate <path>          Preserve or resume a project-local industrial inquiry
   analyze <path>              Compile nominal process rates and material balance
   plan <path>                 Size the factory for the objective target rate
   compare <path>              Diff and evaluate two Blueprint files
@@ -55,6 +56,7 @@ COMMON OPTIONS
   --candidate <id>            Project-local candidates/<id>.candidate.json
   --program <id>              Project-local design-programs/<id>.design.json
   --run-id <hash>             Reopen one immutable Design Run
+  --investigation <id>        Project-local investigations/<id>/
   --continue                  Continue --run-id with an additional Candidate budget
   --promote <candidate-id>    Promote a Design Run leader to a Candidate
   --progress <mode>           Design run progress: off, human, or ndjson
@@ -142,6 +144,40 @@ async function main(signal: AbortSignal): Promise<void> {
     const { values, positionals } = parseArgs({ args, options: { ...common, ...section, output: { type: "string", default: "synthesized" } }, allowPositionals: true });
     const projectDir = await selectedProject(positionals, "inm synthesize <project-or-workspace-dir> [--project ID] [--output ID]", values.project);
     return synthesizeCommand(projectDir, selectionOf(values), { output: values.output!, json: values.json, section: values.section });
+  }
+  if (subcommand === "investigate") {
+    const { values, positionals } = parseArgs({ args, options: {
+      ...common,
+      ...section,
+      investigation: { type: "string" },
+      create: { type: "boolean", default: false },
+      name: { type: "string" },
+      question: { type: "string" },
+      entry: { type: "string" },
+      kind: { type: "string" },
+      author: { type: "string" },
+      statement: { type: "string" },
+      "expected-effect": { type: "string" },
+      disposition: { type: "string" },
+      evidence: { type: "string" },
+    }, allowPositionals: true });
+    const projectDir = await selectedProject(positionals, "inm investigate <project-or-workspace-dir> [--project ID] [--investigation ID]", values.project);
+    return investigateCommand(projectDir, {
+      selection: selectionOf(values),
+      investigationId: values.investigation,
+      create: values.create,
+      name: values.name,
+      question: values.question,
+      entryId: values.entry,
+      kind: values.kind,
+      author: values.author,
+      statement: values.statement,
+      expectedEffect: values["expected-effect"],
+      disposition: values.disposition,
+      evidence: values.evidence,
+      json: values.json,
+      section: values.section,
+    });
   }
   if (subcommand === "compare") {
     const { values, positionals } = parseArgs({ args, options: {

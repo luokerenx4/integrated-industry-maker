@@ -34,6 +34,7 @@ export * from "./fab-loss-analysis";
 export * from "./transport-blocking";
 export * from "./workbench";
 export * from "./observation";
+export * from "./investigation";
 export * from "./artifact-schema";
 export * from "./operation";
 export * from "./operation-execution";

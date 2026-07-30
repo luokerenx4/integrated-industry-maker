@@ -8,9 +8,10 @@ import * as THREE from "three";
 import "./styles.css";
 import { connectedSceneObjects, normalizeStudioSelection, selectStudioObject, type StudioSelection } from "./selection";
 import { factoryPresentation, type FactoryLabelDensity, type FactoryPresentation as FactoryPresentationPolicy, type FactoryPresentationRequest } from "./factory-presentation";
-import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, factoryRunId, overlayReturnPath, projectPath, requiresFullProjectData, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
+import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, factoryRunId, investigationPath, overlayReturnPath, projectPath, requiresFullProjectData, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
 import { ExperimentWorkbench } from "./experiment-workbench";
 import { DesignWorkbench } from "./design-workbench";
+import { InvestigationWorkbench } from "./investigation-workbench";
 import { parseStudioWatchMessage } from "./watch-protocol";
 
 type Status = "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
@@ -1975,6 +1976,7 @@ function ProjectHeader({ indexName, data, overview, view, loading, selectedRun, 
     { view: "factory", label: "FACTORY" },
     { view: "runs", label: "RUNS", count: overview.counts.runs },
     { view: "designs", label: "DESIGN", count: overview.counts.designPrograms },
+    { view: "investigations", label: "INVESTIGATE" },
     { view: "experiments", label: "EXPERIMENTS", count: overview.counts.experiments },
     { view: "analysis", label: "ANALYSIS", count: overview.diagnostics.length },
     { view: "catalog", label: "CATALOG", count: overview.counts.resourceAssets + overview.counts.deviceAssets + overview.counts.processes + overview.counts.routes },
@@ -1983,6 +1985,7 @@ function ProjectHeader({ indexName, data, overview, view, loading, selectedRun, 
     : target === "catalog" ? catalogPath(data.projectId)
       : target === "analysis" ? analysisPath(data.projectId)
         : target === "designs" ? designPath(data.projectId)
+        : target === "investigations" ? investigationPath(data.projectId)
         : target === "experiments" ? experimentPath(data.projectId)
           : target === "factory" ? factoryObjectPath(data.projectId, null, selectedRun)
             : viewPath(data.projectId, "runs");
@@ -2377,6 +2380,7 @@ function App() {
   const [routeCandidate, setRouteCandidate] = useState<string | null>(initialRoute.candidateId);
   const [routeDesignProgram, setRouteDesignProgram] = useState<string | null>(initialRoute.designProgramId);
   const [routeDesignRun, setRouteDesignRun] = useState<string | null>(initialRoute.designRunId);
+  const [routeInvestigation, setRouteInvestigation] = useState<string | null>(initialRoute.investigationId);
   const [routeAssetKind, setRouteAssetKind] = useState<AssetKind | null>(initialRoute.assetKind);
   const [routeAssetId, setRouteAssetId] = useState<string | null>(initialRoute.assetId);
   const [routeDiagnostic, setRouteDiagnostic] = useState<string | null>(initialRoute.diagnosticId);
@@ -2486,6 +2490,7 @@ function App() {
     setRouteCandidate(null);
     setRouteDesignProgram(null);
     setRouteDesignRun(null);
+    setRouteInvestigation(null);
     setRouteAssetKind(null);
     setRouteAssetId(null);
     setRouteDiagnostic(null);
@@ -2508,18 +2513,20 @@ function App() {
     const path = view === "overview" ? projectPath(routeProject)
       : view === "experiments" ? experimentPath(routeProject)
         : view === "designs" ? designPath(routeProject)
+        : view === "investigations" ? investigationPath(routeProject)
         : view === "catalog" ? catalogPath(routeProject)
           : view === "analysis" ? analysisPath(routeProject)
             : view === "factory" ? factoryObjectPath(routeProject, null, run)
               : viewPath(routeProject, "runs");
     if (path === window.location.pathname) return;
-    const overlay = view === "catalog" || view === "analysis" || view === "experiments" || view === "designs";
-    const currentOverlay = routeView === "catalog" || routeView === "analysis" || routeView === "experiments" || routeView === "designs";
+    const overlay = view === "catalog" || view === "analysis" || view === "experiments" || view === "designs" || view === "investigations";
+    const currentOverlay = routeView === "catalog" || routeView === "analysis" || routeView === "experiments" || routeView === "designs" || routeView === "investigations";
     const state = overlay ? currentOverlay ? window.history.state : { inmOverlayFrom: window.location.pathname } : {};
     if (currentOverlay) window.history.replaceState(overlay ? state : {}, "", path);
     else window.history.pushState(state, "", path);
     setRouteView(view); setRouteExperiment(view === "experiments" ? "" : null); setRouteCandidate(null);
     setRouteDesignProgram(view === "designs" ? "" : null); setRouteDesignRun(null);
+    setRouteInvestigation(view === "investigations" ? "" : null);
     setRouteAssetKind(null); setRouteAssetId(null); setRouteDiagnostic(null); setSelection(null);
   }, [routeProject, routeView, run]);
 
@@ -2530,6 +2537,7 @@ function App() {
     window.history.replaceState({}, "", path);
     setRouteView(nextRoute.view); setRouteExperiment(nextRoute.experimentId); setRouteCandidate(nextRoute.candidateId);
     setRouteDesignProgram(nextRoute.designProgramId); setRouteDesignRun(nextRoute.designRunId);
+    setRouteInvestigation(nextRoute.investigationId);
     setRouteAssetKind(nextRoute.assetKind); setRouteAssetId(nextRoute.assetId); setRouteDiagnostic(nextRoute.diagnosticId); setSelection(nextRoute.selection);
   }, [routeProject]);
 
@@ -2579,6 +2587,25 @@ function App() {
     setRouteExperiment(null); setRouteCandidate(null);
   }, [routeProject]);
 
+  const navigateInvestigation = useCallback((investigationId: string | null) => {
+    if (!routeProject) return;
+    if (investigationId === null) { closeRouteSurface(); return; }
+    const state = routeView === "investigations"
+      ? window.history.state
+      : { inmOverlayFrom: window.location.pathname };
+    window.history.pushState(state, "", investigationPath(routeProject, investigationId || undefined));
+    setRouteView("investigations");
+    setRouteInvestigation(investigationId);
+    setRouteExperiment(null);
+    setRouteCandidate(null);
+    setRouteDesignProgram(null);
+    setRouteDesignRun(null);
+    setRouteAssetKind(null);
+    setRouteAssetId(null);
+    setRouteDiagnostic(null);
+    setSelection(null);
+  }, [closeRouteSurface, routeProject, routeView]);
+
   const navigateCatalog = useCallback((kind: AssetKind, assetId: string | null) => {
     if (!routeProject) return;
     window.history.replaceState(window.history.state, "", catalogPath(routeProject, kind, assetId));
@@ -2623,6 +2650,7 @@ function App() {
       setRouteCandidate(nextRoute.candidateId);
       setRouteDesignProgram(nextRoute.designProgramId);
       setRouteDesignRun(nextRoute.designRunId);
+      setRouteInvestigation(nextRoute.investigationId);
       setRouteAssetKind(nextRoute.assetKind);
       setRouteAssetId(nextRoute.assetId);
       setRouteDiagnostic(nextRoute.diagnosticId);
@@ -2668,6 +2696,7 @@ function App() {
         setProjectRefreshRevision((revision) => revision + 1);
         if (viewRef.current === "experiments") void loadExperimentCatalog(projectRef.current);
         else if (viewRef.current === "designs") void loadDesignCatalog(projectRef.current);
+        else if (viewRef.current === "investigations") return;
         else void loadProject(
           projectRef.current,
           viewRef.current === "factory" ? factoryRunId() : runRef.current,
@@ -2702,7 +2731,7 @@ function App() {
       if (event.key !== "Escape") return;
       if (operationStatus && (operationResult || operationError)) {
         setOperationStatus(null); setOperationResult(null); setOperationError(null);
-      } else if (routeView === "catalog" || routeView === "analysis" || routeView === "experiments" || routeView === "designs") closeRouteSurface();
+      } else if (routeView === "catalog" || routeView === "analysis" || routeView === "experiments" || routeView === "designs" || routeView === "investigations") closeRouteSurface();
       else if (routeView === "factory" && selection) clearFactorySelection();
     };
     window.addEventListener("keydown", keydown);
@@ -2758,6 +2787,17 @@ function App() {
         projectId={routeProject} programs={programs} selectedProgramId={routeDesignProgram || null} selectedRunId={routeDesignRun}
         refreshRevision={projectRefreshRevision}
         onSelectProgram={navigateDesignProgram} onSelectRun={navigateDesignRun} onCandidate={navigateCandidateDirect} onClose={closeRouteSurface}
+      />
+    </main>;
+  }
+  if (routeView === "investigations") {
+    return <main className="project-shell investigation-route-shell">
+      <InvestigationWorkbench
+        projectId={routeProject}
+        selectedId={routeInvestigation || null}
+        refreshRevision={projectRefreshRevision}
+        onSelect={navigateInvestigation}
+        onClose={closeRouteSurface}
       />
     </main>;
   }

@@ -6,6 +6,7 @@ import { parseArgs } from "node:util";
 import {
   CandidateChangeSetError,
   DesignRunError,
+  IndustrialInvestigationError,
   analyzeProduction,
   analyzeProjectOperation,
   applyCandidateOperation,
@@ -13,13 +14,16 @@ import {
   buildDesignProgramBrief,
   compileFactoryProject,
   continueDesignRun,
+  createIndustrialInvestigation,
   ENGINE_VERSION,
   evaluateBenchmarkOperation,
   inspectCandidateDecision,
   inspectDesignProgramEvidence,
+  inspectIndustrialInvestigation,
   listBlueprintBenchmarks,
   listCandidateChangeSets,
   listDesignPrograms,
+  listIndustrialInvestigations,
   loadCandidateChangeSet,
   loadDesignRun,
   listRuns,
@@ -36,6 +40,7 @@ import {
   planProductionCapacity,
   previewCandidateOperation,
   promoteDesignRun,
+  appendIndustrialInvestigationEntry,
   readJson,
   resolveProjectDirectory,
   runDesignProgram,
@@ -45,6 +50,7 @@ import {
   studioSourceHash,
   validateProjectOperation,
   type ProjectSelection,
+  type IndustrialInvestigationEntryInput,
 } from "@inm/core";
 import { StudioOperationRegistry } from "./operation-registry";
 import { completedProjectRefresh, projectRefreshProbePath } from "./evidence-watch";
@@ -501,6 +507,12 @@ function errorDetails(error: unknown): { status: number; body: { code: string; e
   const message = error instanceof Error ? error.message : String(error);
   if (error instanceof CandidateChangeSetError) return { status: error.code === "candidate.stale-base" ? 409 : 400, body: { code: error.code, error: message } };
   if (error instanceof DesignRunError) return { status: error.code.endsWith("stale") ? 409 : 400, body: { code: error.code, error: message, hashes: error.hashes } };
+  if (error instanceof IndustrialInvestigationError) {
+    const status = error.code.endsWith("exists") ? 409
+      : error.code === "investigation.missing" ? 404
+        : 400;
+    return { status, body: { code: error.code, error: message } };
+  }
   const notFound = message.startsWith("Unknown") || message.startsWith("Not an INM");
   return { status: notFound ? 404 : 400, body: { code: notFound ? "studio.not-found" : "studio.request-failed", error: message } };
 }
@@ -564,6 +576,85 @@ const server = Bun.serve({
         const projectDir = await projectDirectory(decoded(observationMatch[1]!));
         const snapshot = await openProjectWorkbenchSnapshot(projectDir, projectSelection(url));
         return Response.json(buildFactoryObservationBrief(snapshot, url.searchParams.get("run") ?? undefined));
+      }
+
+      const investigationsMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/investigations$/);
+      if (investigationsMatch) {
+        const projectDir = await projectDirectory(decoded(investigationsMatch[1]!));
+        if (request.method === "GET") {
+          return Response.json({ investigations: await listIndustrialInvestigations(projectDir) });
+        }
+        if (request.method !== "POST") {
+          return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        }
+        const body = await request.json().catch(() => ({})) as {
+          id?: unknown;
+          name?: unknown;
+          question?: unknown;
+          selection?: ProjectSelection;
+        };
+        if (typeof body.id !== "string" || typeof body.name !== "string" || typeof body.question !== "string") {
+          throw new IndustrialInvestigationError(
+            "investigation.invalid-request",
+            "Creating an Investigation requires string id, name, and question",
+          );
+        }
+        const created = await createIndustrialInvestigation(projectDir, body.id, {
+          name: body.name,
+          question: body.question,
+          selection: body.selection,
+        });
+        return Response.json(await inspectIndustrialInvestigation(projectDir, created.manifest.id), { status: 201 });
+      }
+
+      const investigationMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/investigations\/([^/]+)$/);
+      if (investigationMatch) {
+        if (request.method !== "GET") {
+          return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        }
+        const projectDir = await projectDirectory(decoded(investigationMatch[1]!));
+        return Response.json(await inspectIndustrialInvestigation(projectDir, decoded(investigationMatch[2]!)));
+      }
+
+      const investigationEntryMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/investigations\/([^/]+)\/entries$/);
+      if (investigationEntryMatch) {
+        if (request.method !== "POST") {
+          return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        }
+        const projectDir = await projectDirectory(decoded(investigationEntryMatch[1]!));
+        const investigationId = decoded(investigationEntryMatch[2]!);
+        const body = await request.json().catch(() => ({})) as Partial<IndustrialInvestigationEntryInput>;
+        if (typeof body.id !== "string"
+          || (body.author !== "human" && body.author !== "agent")
+          || (body.kind !== "observation" && body.kind !== "hypothesis" && body.kind !== "decision")
+          || typeof body.statement !== "string") {
+          throw new IndustrialInvestigationError(
+            "investigation.invalid-entry",
+            "Appending an Investigation entry requires id, author, kind, and statement",
+          );
+        }
+        if (body.kind === "hypothesis" && typeof body.expectedEffect !== "string") {
+          throw new IndustrialInvestigationError(
+            "investigation.invalid-entry",
+            "A hypothesis requires expectedEffect",
+          );
+        }
+        if (body.kind === "decision"
+          && body.disposition !== "keep"
+          && body.disposition !== "revise"
+          && body.disposition !== "defer"
+          && body.disposition !== "discard") {
+          throw new IndustrialInvestigationError(
+            "investigation.invalid-entry",
+            "A decision requires disposition",
+          );
+        }
+        await appendIndustrialInvestigationEntry(
+          projectDir,
+          investigationId,
+          body as IndustrialInvestigationEntryInput,
+        );
+        return Response.json(await inspectIndustrialInvestigation(projectDir, investigationId), { status: 201 });
       }
 
       const dataMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/data$/);
@@ -804,7 +895,7 @@ const server = Bun.serve({
       }
 
       if (url.pathname === "/" || /^\/[^/]+\/?$/.test(url.pathname)
-        || /^\/[^/]+\/(?:factory(?:\/(?:devices|connections)\/[^/]+)?|runs|catalog(?:\/(?:devices|resources|processes|routes)(?:\/[^/]+)?)?|analysis(?:\/diagnostics\/[^/]+)?|experiments(?:\/[^/]+(?:\/candidates\/[^/]+)?)?|designs(?:\/[^/]+(?:\/runs\/[^/]+)?)?)\/?$/.test(url.pathname)) {
+        || /^\/[^/]+\/(?:factory(?:\/(?:devices|connections)\/[^/]+)?|runs|catalog(?:\/(?:devices|resources|processes|routes)(?:\/[^/]+)?)?|analysis(?:\/diagnostics\/[^/]+)?|experiments(?:\/[^/]+(?:\/candidates\/[^/]+)?)?|designs(?:\/[^/]+(?:\/runs\/[^/]+)?)?|investigations(?:\/[^/]+)?)\/?$/.test(url.pathname)) {
         return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
       }
       return new Response("Not found", { status: 404 });

@@ -548,6 +548,199 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
   expect(await Bun.file(join(projectDir, "blueprints/generated-dram-fab.blueprint.json")).text()).toBe(before);
 });
 
+test("public investigate preserves and resumes exact project-local human/Agent reasoning", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-cli-investigation-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes(".inm")
+      && !source.split("/").includes("investigations"),
+  });
+  const investigationId = "inspection-starvation-next-step";
+  const created = await runCli([
+    "investigate",
+    projectDir,
+    "--investigation",
+    investigationId,
+    "--create",
+    "--name",
+    "Inspection starvation next step",
+    "--question",
+    "Which physically distinct intervention should follow the commissioned one-tick etch recovery?",
+    "--json",
+  ]);
+  expect({ exitCode: created.exitCode, stderr: created.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  const createdEnvelope = JSON.parse(created.stdout);
+  expect(createdEnvelope).toEqual(expect.objectContaining({
+    schemaVersion: 2,
+    ok: true,
+    command: "investigate",
+    context: expect.objectContaining({
+      scope: "project",
+      selection: {
+        world: "cleanroom",
+        blueprint: "generated-dram-fab",
+        scenario: "production-window",
+        objective: "dram-output",
+      },
+    }),
+    data: {
+      section: "summary",
+      result: expect.objectContaining({
+        action: "created",
+        investigation: expect.objectContaining({
+          id: investigationId,
+          authority: "human-or-agent",
+        }),
+        state: "current",
+        entryCount: 0,
+        anchors: [
+          expect.objectContaining({ id: "operating-run", state: "current" }),
+          expect.objectContaining({ id: "diagnostic", state: "current" }),
+          expect.objectContaining({ id: "design-lineage", state: "current" }),
+        ],
+      }),
+    },
+    artifacts: [expect.objectContaining({
+      kind: "investigation",
+      id: investigationId,
+      immutable: true,
+    })],
+    nextActions: [expect.objectContaining({
+      target: expect.objectContaining({
+        kind: "design-run",
+        phase: "commissioned",
+      }),
+    })],
+  }));
+  expect(await pathExists(join(
+    projectDir,
+    `investigations/${investigationId}/manifest.json`,
+  ))).toBeTrue();
+
+  const observed = await runCli([
+    "investigate",
+    projectDir,
+    "--investigation",
+    investigationId,
+    "--entry",
+    "inspection-input-is-empty",
+    "--kind",
+    "observation",
+    "--author",
+    "agent",
+    "--statement",
+    "Inspection waits with no resident wafer while its exact upstream sources are processing or waiting for input.",
+    "--evidence",
+    "operating-run,diagnostic",
+    "--json",
+  ]);
+  expect({ exitCode: observed.exitCode, stderr: observed.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(observed.stdout)).toEqual(expect.objectContaining({
+    data: {
+      section: "summary",
+      result: expect.objectContaining({
+        action: "appended",
+        entryCount: 1,
+        lastEntry: expect.objectContaining({
+          id: "inspection-input-is-empty",
+          kind: "observation",
+          sequence: 1,
+          evidence: ["operating-run", "diagnostic"],
+        }),
+      }),
+    },
+    artifacts: [expect.objectContaining({
+      kind: "investigation-entry",
+      id: "inspection-input-is-empty",
+      immutable: true,
+    })],
+  }));
+
+  const hypothesized = await runCli([
+    "investigate",
+    projectDir,
+    "--investigation",
+    investigationId,
+    "--entry",
+    "inspection-decoupling-buffer",
+    "--kind",
+    "hypothesis",
+    "--author",
+    "human",
+    "--statement",
+    "A small qualified wafer decoupling buffer may smooth final etch handoff without making etch globally faster.",
+    "--expected-effect",
+    "Reduce inspection shortage while preserving service, quality, WIP, and interruption guardrails.",
+    "--evidence",
+    "diagnostic,design-lineage",
+    "--json",
+  ]);
+  expect({ exitCode: hypothesized.exitCode, stderr: hypothesized.stderr }).toEqual({ exitCode: 0, stderr: "" });
+
+  const [inspection, entries, list, human, help, schemas] = await Promise.all([
+    runCli(["investigate", projectDir, "--investigation", investigationId, "--json"]),
+    runCli(["investigate", projectDir, "--investigation", investigationId, "--section", "entries", "--json"]),
+    runCli(["investigate", projectDir, "--json"]),
+    runCli(["investigate", projectDir, "--investigation", investigationId]),
+    runCli(["help", "--json"]),
+    runCli(["schema", "--json"]),
+  ]);
+  expect([inspection, entries, list, human, help, schemas].every((result) =>
+    result.exitCode === 0 && result.stderr === "")).toBeTrue();
+  expect(JSON.parse(inspection.stdout).data.result).toEqual(expect.objectContaining({
+    action: "inspect",
+    state: "current",
+    entryCount: 2,
+    lastEntry: expect.objectContaining({
+      id: "inspection-decoupling-buffer",
+      kind: "hypothesis",
+      sequence: 2,
+    }),
+  }));
+  expect(JSON.parse(entries.stdout).data.result.map((entry: { id: string }) => entry.id))
+    .toEqual(["inspection-input-is-empty", "inspection-decoupling-buffer"]);
+  expect(JSON.parse(list.stdout).data).toEqual({
+    action: "list",
+    investigations: [expect.objectContaining({
+      id: investigationId,
+      entryCount: 2,
+    })],
+  });
+  expect(human.stdout).toContain("Inspection starvation next step · Industrial Investigation");
+  expect(human.stdout).toContain("CURRENT    design-lineage");
+  expect(human.stdout).toContain("0002 HYPOTHESIS · human");
+  expect(human.stdout).toContain("expected: Reduce inspection shortage");
+  expect((JSON.parse(help.stdout).data.commands as Array<{ id: string }>).map((command) => command.id))
+    .toContain("investigate");
+  expect(JSON.parse(schemas.stdout).data.kinds).toEqual(expect.arrayContaining([
+    "investigation",
+    "investigation-entry",
+  ]));
+
+  const invalid = await runCli([
+    "investigate",
+    projectDir,
+    "--investigation",
+    investigationId,
+    "--entry",
+    "unfalsifiable-hypothesis",
+    "--kind",
+    "hypothesis",
+    "--author",
+    "agent",
+    "--statement",
+    "Make it better.",
+    "--json",
+  ]);
+  expect(invalid.exitCode).toBe(2);
+  expect(JSON.parse(invalid.stderr).error).toEqual(expect.objectContaining({
+    code: "cli.usage",
+    message: expect.stringContaining("requires --expected-effect"),
+  }));
+  await rm(root, { recursive: true, force: true });
+}, 30_000);
+
 test("public inspect rejects an invalid explicit selection", async () => {
   const projectDir = join(repository, "examples/ironworks");
   const { stdout, stderr, exitCode } = await runCli(["inspect", projectDir, "--blueprint", "missing-blueprint", "--json"]);

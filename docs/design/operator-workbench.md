@@ -1,6 +1,6 @@
 # Shared operator workbench
 
-Status: V13 shared decision status, explicit Design Program focus, Objective-owned Resource and physical-location score/tradeoff evidence, hash-compatible tracked-lot loss attribution with exact material-shortage supply states, direct-current and verified-commissioned Design evidence authority, evidence-backed bounded loss disposition, Objective-authoritative diagnostic boundary, Core-owned next action, persistent Candidate phase, AI-native CLI projection, Studio task-oriented project root, and browser-Agent proof implemented.
+Status: V13 shared decision status, explicit Design Program focus, Objective-owned Resource and physical-location score/tradeoff evidence, hash-compatible tracked-lot loss attribution with exact material-shortage supply states, direct-current and verified-commissioned Design evidence authority, evidence-backed bounded loss disposition, Objective-authoritative diagnostic boundary, Core-owned next action, persistent Candidate and Investigation phases, AI-native CLI projection, Studio task-oriented project root, and browser-Agent proof implemented.
 
 Related: [[docs/design/studio-debugger]], [[docs/design/experiment-workbench]], [[docs/design/observation-led-design]], [[docs/design/operation-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/blueprint-optimization]], [[docs/design/fab-loss-attribution]], [[docs/design/documentation-system]], [[docs/ARCHITECTURE]], [[docs/CLI]], [[plans/human-ai-workbench]], [[plans/operator-interaction-refinement]].
 
@@ -102,6 +102,8 @@ GET /api/projects/<project-id>/observation?world=<id>&blueprint=<id>&scenario=<i
 ```
 
 Core builds the same `FactoryObservationBrief` returned by `inm observe`. Studio renders it beside the Factory replay, while stable `?run=<id>` Factory URLs preserve evidence identity through direct open, reload, focused Device/Connection navigation, history, and the run picker. The brief adds no new diagnosis or optimizer authority; it binds current Workbench evidence to the spatial observation required before a human/Agent-authored design intervention.
+
+An [[docs/design/industrial-investigations]] manifest persists one exact Workbench inquiry beyond a transient snapshot. Creation copies only compact identities from the snapshot; it does not copy dense metrics or reinterpret the next action. Reopen recomputes currentness against authoritative Runs, diagnostics, and commissioned Design/Candidate lineage, while preserving the original question and append-only human/Agent record. `inm investigate` and Studio consume that same Core inspection result and current `ProjectWorkbenchSnapshot.nextAction`.
 
 ### Shared next action
 

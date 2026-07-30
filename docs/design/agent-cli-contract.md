@@ -6,7 +6,7 @@ Related: [[docs/CLI]], [[docs/design/development-operations]], [[docs/design/ope
 
 ## Purpose
 
-`inm` is the high-bandwidth operating surface for a Coding Agent. It exposes the same Core project, analysis, planning, simulation, Benchmark, and Candidate semantics as Studio without requiring canvas interpretation, prose scraping, hidden browser state, or source-code inspection.
+`inm` is the high-bandwidth operating surface for a Coding Agent. It exposes the same Core project, analysis, planning, simulation, Benchmark, Candidate, and persistent Investigation semantics as Studio without requiring canvas interpretation, prose scraping, hidden browser state, or source-code inspection.
 
 The contract is a presentation protocol, not a second industrial API. Commands call existing Core loaders and operations, then select and envelope their results. Project files and immutable run artifacts remain authoritative.
 
@@ -75,11 +75,13 @@ INM is pre-alpha. An envelope/schema version change replaces commands, documenta
 
 `observe` is the machine-discoverable multimodal handoff. It is read-only, accepts the ordinary exact selection plus an optional compatible immutable run id, and returns one Core-owned `FactoryObservationBrief`: hashes, evidence identity, leading diagnostic, stable run-qualified Studio views, and the required human/Agent hypothesis statements. The CLI deliberately returns visual targets rather than image pixels so browser-capable Agents, Playwright/MCP clients, and humans can use the same Harness contract without binding Core to one browser vendor. See [[docs/design/observation-led-design]].
 
+`investigate` is the persistent counterpart to that handoff. Flagless project mode lists compact project-local inquiries. Creation freezes one exact compatible operating Run, Run-backed diagnostic, selection/hashes, current Core handoff, and optional commissioned Candidate lineage. Append mode writes one explicit human/Agent observation, falsifiable hypothesis with expected effect, or keep/revise/defer/discard decision into a strict hash chain. Inspection resolves anchors without substitution and returns the same current Core next action as the Workbench. `summary`, `anchors`, `entries`, and `all` remain bounded explicit sections. No mode simulates, edits a Blueprint, or turns authored prose into automatic design authority. See [[docs/design/industrial-investigations]].
+
 Studio lifecycle discovery uses separate `studio.start`, `studio.status`, `studio.restart`, `studio.stop`, and `studio.serve` descriptors. Managed commands omit a default for `port`: without `--port` they discover the exact target's project-local service or allocate a bounded non-destructive fallback; supplying `--port` is strict. Their ordinary versioned envelopes include the selected port and its `explicit`, `managed`, `default`, or `fallback` provenance; expected, running-server, and running-manager runtime-source hashes; per-process plus aggregate `current`, `stale`, or `not-running` source states. Foreground `serve` intentionally owns the terminal, defaults to `4176`, and has no JSON mode. A same-project stale managed process may be replaced, restarted, or stopped only when its project-local state verifies the exact live ownership record. Lifecycle identity and non-destructive port behavior are defined by [[docs/design/development-operations]].
 
 `session` composes that managed lifecycle with one authored Experiment deep link. `--run` starts the Studio-owned reconnectable Benchmark and returns its exact operation snapshot and polling URL without waiting; `--no-open --json` is the Agent form. This does not replace the standalone `benchmark` command or give its local process false resumability.
 
-`inm schema --json` lists every authored project artifact kind. `inm schema <kind> --json` returns a deterministic JSON Schema Draft 7 projection of the authoritative strict Zod schema. This includes workspace/project manifests, World, Blueprint, Scenario, Objective, Resource/Device assets and visuals, Process, Product Route, Benchmark, Candidate Change Set, and Design Program.
+`inm schema --json` lists every authored project artifact kind. `inm schema <kind> --json` returns a deterministic JSON Schema Draft 7 projection of the authoritative strict Zod schema. This includes workspace/project manifests, World, Blueprint, Scenario, Objective, Resource/Device assets and visuals, Process, Product Route, Benchmark, Candidate Change Set, Design Program, Investigation manifest, and Investigation entry.
 
 The generated schema is authoring/discovery material. Core still performs path confinement, cross-reference resolution, geometry, runtime, and other semantic compilation checks that JSON Schema alone cannot express.
 

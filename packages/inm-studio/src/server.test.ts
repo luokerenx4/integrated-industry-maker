@@ -1,4 +1,4 @@
-import { cp, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
@@ -87,6 +87,109 @@ test("Studio defaults to current compatible evidence instead of the newest unrel
   } finally {
     child.kill();
     await child.exited;
+  }
+}, 30_000);
+
+test("Studio exposes one project-local Investigation through stable HTTP and browser routes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-studio-investigation-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes(".inm")
+      && !source.split("/").includes("investigations"),
+  });
+  const port = 46_500 + process.pid % 400;
+  const child = Bun.spawn([
+    process.execPath, join(repository, "packages/inm-studio/src/server.ts"), projectDir,
+    "--port", String(port), "--no-open",
+  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
+
+  try {
+    const reader = child.stdout.getReader();
+    let output = "";
+    while (!output.includes("INM Studio:")) {
+      const chunk = await reader.read();
+      if (chunk.done) throw new Error(`Studio stopped before startup: ${output}`);
+      output += new TextDecoder().decode(chunk.value);
+    }
+    reader.releaseLock();
+
+    const empty = await fetch(`http://localhost:${port}/api/projects/memory-fab/investigations`);
+    expect({ status: empty.status, body: await empty.json() }).toEqual({
+      status: 200,
+      body: { investigations: [] },
+    });
+
+    const created = await fetch(`http://localhost:${port}/api/projects/memory-fab/investigations`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id: "inspection-starvation-next-step",
+        name: "Inspection starvation next step",
+        question: "Which physically distinct intervention should follow the commissioned recovery?",
+      }),
+    });
+    expect(created.status).toBe(201);
+    expect(await created.json()).toEqual(expect.objectContaining({
+      state: "current",
+      manifest: expect.objectContaining({
+        id: "inspection-starvation-next-step",
+        authority: "human-or-agent",
+      }),
+      entries: [],
+      anchors: [
+        expect.objectContaining({ state: "current", anchor: expect.objectContaining({ id: "operating-run" }) }),
+        expect.objectContaining({ state: "current", anchor: expect.objectContaining({ id: "diagnostic" }) }),
+        expect.objectContaining({ state: "current", anchor: expect.objectContaining({ id: "design-lineage" }) }),
+      ],
+    }));
+
+    const appended = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/investigations/inspection-starvation-next-step/entries`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: "inspection-input-is-empty",
+          author: "agent",
+          kind: "observation",
+          statement: "Inspection has no resident wafer at the selected operating evidence.",
+          evidence: ["operating-run", "diagnostic"],
+        }),
+      },
+    );
+    expect(appended.status).toBe(201);
+    expect(await appended.json()).toEqual(expect.objectContaining({
+      state: "current",
+      entries: [expect.objectContaining({
+        id: "inspection-input-is-empty",
+        author: "agent",
+        kind: "observation",
+        sequence: 1,
+      })],
+    }));
+
+    const listed = await fetch(`http://localhost:${port}/api/projects/memory-fab/investigations`);
+    expect(await listed.json()).toEqual({
+      investigations: [expect.objectContaining({
+        id: "inspection-starvation-next-step",
+        entryCount: 1,
+      })],
+    });
+    const detail = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/investigations/inspection-starvation-next-step`,
+    );
+    expect(detail.status).toBe(200);
+    expect((await detail.json() as { entries: unknown[] }).entries).toHaveLength(1);
+    const deepLink = await fetch(
+      `http://localhost:${port}/memory-fab/investigations/inspection-starvation-next-step`,
+    );
+    expect(deepLink.status).toBe(200);
+    expect(deepLink.headers.get("content-type")).toContain("text/html");
+  } finally {
+    child.kill();
+    await child.exited;
+    await rm(root, { recursive: true, force: true });
   }
 }, 30_000);
 

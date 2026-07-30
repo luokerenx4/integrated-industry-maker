@@ -1,16 +1,16 @@
 # Studio visual debugger
 
-Status: task-oriented project Overview, stable workbench/experiment/candidate/object routes, shared Benchmark and candidate-review workbench, searchable asset catalog and diagnostics, direct factory-object inspection, and immutable run replay implemented.
+Status: task-oriented project Overview, stable workbench/experiment/candidate/investigation/object routes, shared Benchmark, Candidate, Design, and persistent Investigation workbenches, searchable asset catalog and diagnostics, direct factory-object inspection, and immutable run replay implemented.
 
-Related: [[docs/design/project-boundaries]], [[docs/design/development-operations]], [[docs/design/operator-workbench]], [[docs/design/operation-workbench]], [[docs/design/experiment-workbench]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/CLI]], [[plans/operator-interaction-refinement]].
+Related: [[docs/design/project-boundaries]], [[docs/design/development-operations]], [[docs/design/operator-workbench]], [[docs/design/operation-workbench]], [[docs/design/experiment-workbench]], [[docs/design/industrial-investigations]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/CLI]], [[plans/operator-interaction-refinement]].
 
 ## Scope
 
-Studio is a debugger for compiled industrial systems and completed runs plus an explicit projection of the shared locked Benchmark evaluator. Its only authoring operation is guarded application of a reviewed project-local Candidate Change Set to that Benchmark's candidate Blueprint. It is not a free-form Blueprint editor, an independent simulator authority, or a project switcher embedded in a runtime sidebar.
+Studio is a debugger for compiled industrial systems and completed runs plus an explicit projection of the shared locked Benchmark evaluator. Its industrial authoring operation is guarded application of a reviewed project-local Candidate Change Set to that Benchmark's candidate Blueprint. It may also append explicit human/Agent prose to a project-local Investigation; that reasoning write has no Blueprint, simulation, evaluation, or commissioning authority. Studio is not a free-form Blueprint editor, an independent simulator authority, or a project switcher embedded in a runtime sidebar.
 
 ## Navigation
 
-The root route presents available projects. Selecting one follows its real `/<project-id>` link and initializes that project as a fresh document boundary before opening its task-oriented Overview. Stable project-qualified routes cover `factory`, `runs`, `catalog`, `analysis`, and `experiments`; catalog assets, diagnostics, Factory devices/connections, Benchmarks, Candidate Change Sets, Design Programs, and Design Run hashes retain their subject identity in the URL. Navigation inside one project uses real stable destinations while preserving client-side transitions. Catalog, Analysis, Experiments, and Design are route-backed surfaces over the underlying view: browser back/reload reconstructs them, while their close button or Escape replaces the surface with its recorded same-project origin (or the project Overview after a direct deep link). A strict valid Design Run hash that no longer satisfies current evidence identity remains readable in its copied URL with exact historical reasons, but it cannot own default selection, continuation, or promotion. Invalid deep links retain their URL and strict error notice. The current Core authority, when present, is the ordinary default route transition. Switching primary destinations replaces an open surface instead of leaving it immediately behind in history. Clearing a Factory object by toggle, empty-scene click, inspector close, or Escape also clears its object URL. The back button returns to the launcher; there is no in-project project switcher. Every data, experiment, candidate, and asset request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
+The root route presents available projects. Selecting one follows its real `/<project-id>` link and initializes that project as a fresh document boundary before opening its task-oriented Overview. Stable project-qualified routes cover `factory`, `runs`, `catalog`, `analysis`, `experiments`, `designs`, and `investigations`; catalog assets, diagnostics, Factory devices/connections, Benchmarks, Candidate Change Sets, Design Programs, Design Run hashes, and Investigation ids retain their subject identity in the URL. Navigation inside one project uses real stable destinations while preserving client-side transitions. Catalog, Analysis, Experiments, Design, and Investigation are route-backed surfaces over the underlying view: browser back/reload reconstructs them, while their close button or Escape replaces the surface with its recorded same-project origin (or the project Overview after a direct deep link). A strict valid Design Run hash that no longer satisfies current evidence identity remains readable in its copied URL with exact historical reasons, but it cannot own default selection, continuation, or promotion. Invalid deep links retain their URL and strict error notice. The current Core authority, when present, is the ordinary default route transition. Switching primary destinations replaces an open surface instead of leaving it immediately behind in history. Clearing a Factory object by toggle, empty-scene click, inspector close, or Escape also clears its object URL. The back button returns to the launcher; there is no in-project project switcher. Every data, investigation, experiment, candidate, and asset request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
 
 ## Project orientation API
 
@@ -25,6 +25,12 @@ Every content refresh names its owning project and publication reason. Run and D
 ## Experiment workbench
 
 The workbench lists project-local locked Benchmarks and Candidate Change Sets, displays fixed cases and acceptance gates, and uses the same Core preview as `inm candidate --json`. It presents the hypothesis, authored patch, reviewed hashes, aggregate verdict, per-case score/capacity/throughput/service, gate reasons, and semantic Blueprint changes. Opening the page never runs a hidden simulation. Evaluation is read-only. A KEEP proposal exposes a two-step arm/confirm control; confirm re-evaluates, verifies both reviewed hashes, atomically writes only the candidate Blueprint, and leaves the proposal stale. Studio never changes locks, fixed inputs, assets, runs, or Git.
+
+## Investigation workbench
+
+`/<project>/investigations` lists compact project-local inquiries; `/<project>/investigations/<id>` reopens one exact [[docs/design/industrial-investigations]] chain without loading dense Factory replay data. The workbench shows the question and selection, manifest identity, current Core handoff, current/historical/missing/invalid evidence anchors, exact CLI and Studio evidence navigation, immutable observation/hypothesis/decision entries, and explicit create/append forms.
+
+Creating freezes current compatible evidence. Appending requires a chosen human/Agent author and kind; hypothesis and decision fields enforce their additional expected-effect or disposition boundary. The server delegates every write and currentness check to Core, then returns the complete shared inspection projection. Opening, reloading, selecting, or following an evidence link never manufactures prose or edits industrial state.
 
 ## Project-local catalog
 
@@ -81,8 +87,10 @@ Inspectors are navigation and debugging surfaces only. They contain no Blueprint
 - Renderer-independent projection: `packages/inm-core/src/frontend.ts`
 - Shared project orientation projection: `packages/inm-core/src/workbench.ts`
 - Shared Design evidence authority: `packages/inm-core/src/design-evidence.ts`
+- Shared Investigation storage/currentness: `packages/inm-core/src/investigation.ts`
 - Project/run data server: `packages/inm-studio/src/server.ts`
 - React/Three UI: `packages/inm-studio/src/main.tsx`
+- Investigation UI: `packages/inm-studio/src/investigation-workbench.tsx`
 - Factory presentation policy: `packages/inm-studio/src/factory-presentation.ts`
 - Project-scoped selection state: `packages/inm-studio/src/selection.ts`
 - Styling: `packages/inm-studio/src/styles.css`
@@ -94,7 +102,7 @@ bun test packages/inm-studio
 bun run inm studio serve examples/ironworks --port 4178 --no-open
 ```
 
-Browser QA should verify `/`, the project Overview, direct/reloaded/back-forward `factory`, `runs`, `catalog`, `analysis`, experiment and Candidate routes, diagnostic/asset/factory-object deep links, proposal preview/verdict/patch, two-step write confirmation without triggering it on checked-in examples, catalog/diagnostic filtering, run selection, timeline controls, direct Device/belt-cell selection, Device-to-connection and connection-to-Device navigation, replay-tick telemetry, physical port contracts, buffer partitions, responsive inspector layout, and console errors. API tests on a temporary project must cover actual apply, stale rejection, and no preview writes. Merely confirming that the HTTP server responds does not prove the UI.
+Browser QA should verify `/`, the project Overview, direct/reloaded/back-forward `factory`, `runs`, `catalog`, `analysis`, experiment, Candidate, Design, and Investigation routes, diagnostic/asset/factory-object/evidence-anchor deep links, Investigation currentness and reasoning layout, proposal preview/verdict/patch, two-step write confirmation without triggering it on checked-in examples, catalog/diagnostic filtering, run selection, timeline controls, direct Device/belt-cell selection, Device-to-connection and connection-to-Device navigation, replay-tick telemetry, physical port contracts, buffer partitions, responsive inspector layout, and console errors. API tests on temporary projects must cover Investigation create/append/reopen, actual Candidate apply, stale rejection, and no preview writes. Merely confirming that the HTTP server responds does not prove the UI.
 
 ## Change checklist
 

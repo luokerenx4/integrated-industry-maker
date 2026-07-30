@@ -2,11 +2,11 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, DesignRunError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, describeWipInventoryLocation, evaluateBenchmarkOperation, inspectCandidateDecision, inspectDesignProgramEvidence, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadBlueprintBenchmark, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, recommendedDesignProgramEvidenceAction, runDesignProgram, simulateProjectOperation, validateProjectOperation,
+  CandidateChangeSetError, DesignRunError, IndustrialInvestigationError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, appendIndustrialInvestigationEntry, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, createIndustrialInvestigation, describeWipInventoryLocation, evaluateBenchmarkOperation, inspectCandidateDecision, inspectDesignProgramEvidence, inspectIndustrialInvestigation, listDesignPrograms, listIndustrialInvestigations, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadBlueprintBenchmark, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, recommendedDesignProgramEvidenceAction, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
   TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals,
-  type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type CandidateChangeSetPreview, type CandidateCurrentFactoryComparison, type CandidateRevisionBrief, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FabLossContributorMechanism, type FactoryEvent, type FactoryMetrics, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
+  type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type CandidateChangeSetPreview, type CandidateCurrentFactoryComparison, type CandidateRevisionBrief, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FabLossContributorMechanism, type FactoryEvent, type FactoryMetrics, type IndustrialInvestigationEntryInput, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
@@ -840,6 +840,182 @@ export async function observeCommand(
     "Observation handoff:",
     ...brief.handoff.requiredStatements.map((statement, index) => `  ${index + 1}. ${statement}`),
     `Next: ${brief.handoff.nextStep}`,
+    "",
+  ].join("\n"), false);
+}
+
+export async function investigateCommand(
+  projectDir: string,
+  options: {
+    selection: ProjectSelection;
+    investigationId?: string;
+    create: boolean;
+    name?: string;
+    question?: string;
+    entryId?: string;
+    kind?: string;
+    author?: string;
+    statement?: string;
+    expectedEffect?: string;
+    disposition?: string;
+    evidence?: string;
+    json: boolean;
+    section?: string;
+  },
+): Promise<void> {
+  const usage = "Usage: inm investigate <project-or-workspace-dir> [--investigation ID [--create | --entry ID]] [options]";
+  if (options.create && options.entryId) throw new Error(`${usage}\n--create and --entry are mutually exclusive.`);
+  if (!options.investigationId && (options.create || options.entryId
+    || options.name || options.question || options.kind || options.author || options.statement
+    || options.expectedEffect || options.disposition || options.evidence)) {
+    throw new Error(`${usage}\nInvestigation mutation requires --investigation ID.`);
+  }
+  if (!options.investigationId) {
+    rejectSection("investigate", options);
+    const investigations = await listIndustrialInvestigations(projectDir);
+    const context = await projectDirectoryContext(projectDir);
+    if (options.json) writeSuccess("investigate", {
+      action: "list",
+      investigations,
+    }, { context });
+    else write([
+      "Industrial Investigations",
+      ...(investigations.length
+        ? investigations.map((item) =>
+          `${item.id} · ${item.entryCount} entr${item.entryCount === 1 ? "y" : "ies"} · ${item.name}\n  ${item.question}`)
+        : ["No project-local investigations."]),
+      "",
+    ].join("\n"), false);
+    return;
+  }
+
+  let artifact: { kind: "investigation" | "investigation-entry"; id: string; path: string; immutable: true } | null = null;
+  if (options.create) {
+    if (!options.name?.trim() || !options.question?.trim()) {
+      throw new Error(`${usage}\n--create requires --name and --question.`);
+    }
+    if (options.kind || options.author || options.statement || options.expectedEffect || options.disposition || options.evidence) {
+      throw new Error(`${usage}\nEntry fields require --entry ID.`);
+    }
+    const created = await createIndustrialInvestigation(projectDir, options.investigationId, {
+      name: options.name,
+      question: options.question,
+      selection: options.selection,
+    });
+    artifact = {
+      kind: "investigation",
+      id: created.manifest.id,
+      path: created.path,
+      immutable: true,
+    };
+  } else if (options.entryId) {
+    if (!options.kind || !["observation", "hypothesis", "decision"].includes(options.kind)
+      || !options.author || !["human", "agent"].includes(options.author)
+      || !options.statement?.trim()) {
+      throw new Error(`${usage}\n--entry requires --kind observation|hypothesis|decision, --author human|agent, and --statement.`);
+    }
+    if (options.kind === "hypothesis" && !options.expectedEffect?.trim()) {
+      throw new Error(`${usage}\nA hypothesis entry requires --expected-effect.`);
+    }
+    if (options.kind === "decision" && (!options.disposition
+      || !["keep", "revise", "defer", "discard"].includes(options.disposition))) {
+      throw new Error(`${usage}\nA decision entry requires --disposition keep|revise|defer|discard.`);
+    }
+    if (options.kind !== "hypothesis" && options.expectedEffect) {
+      throw new Error(`${usage}\n--expected-effect belongs only to a hypothesis entry.`);
+    }
+    if (options.kind !== "decision" && options.disposition) {
+      throw new Error(`${usage}\n--disposition belongs only to a decision entry.`);
+    }
+    const common = {
+      id: options.entryId,
+      author: options.author as "human" | "agent",
+      statement: options.statement,
+      evidence: options.evidence
+        ? options.evidence.split(",").map((item) => item.trim()).filter(Boolean)
+        : [],
+    };
+    const input: IndustrialInvestigationEntryInput = options.kind === "hypothesis"
+      ? { ...common, kind: "hypothesis", expectedEffect: options.expectedEffect! }
+      : options.kind === "decision"
+        ? {
+          ...common,
+          kind: "decision",
+          disposition: options.disposition as "keep" | "revise" | "defer" | "discard",
+        }
+        : { ...common, kind: "observation" };
+    const appended = await appendIndustrialInvestigationEntry(
+      projectDir,
+      options.investigationId,
+      input,
+    );
+    artifact = {
+      kind: "investigation-entry",
+      id: appended.entry.id,
+      path: appended.path,
+      immutable: true,
+    };
+  } else if (options.name || options.question || options.kind || options.author
+    || options.statement || options.expectedEffect || options.disposition || options.evidence) {
+    throw new Error(`${usage}\nMutation fields require --create or --entry ID.`);
+  }
+
+  const inspection = await inspectIndustrialInvestigation(projectDir, options.investigationId);
+  const snapshot = await openProjectWorkbenchSnapshot(projectDir, inspection.manifest.selection);
+  const data = sectionResult("investigate", options, {
+    summary: () => ({
+      action: artifact?.kind === "investigation"
+        ? "created"
+        : artifact?.kind === "investigation-entry"
+          ? "appended"
+          : "inspect",
+      investigation: {
+        id: inspection.manifest.id,
+        name: inspection.manifest.name,
+        question: inspection.manifest.question,
+        authority: inspection.manifest.authority,
+        project: inspection.manifest.project,
+        selection: inspection.manifest.selection,
+        manifestHash: inspection.manifestHash,
+      },
+      state: inspection.state,
+      anchors: inspection.anchors.map((item) => ({
+        id: item.anchor.id,
+        kind: item.anchor.kind,
+        state: item.state,
+        message: item.message,
+      })),
+      entryCount: inspection.entries.length,
+      lastEntry: inspection.entries.at(-1) ?? null,
+      currentNextAction: inspection.currentNextAction,
+    }),
+    anchors: () => inspection.anchors,
+    entries: () => inspection.entries,
+    all: () => inspection,
+  });
+  if (options.json) {
+    writeSuccess("investigate", data, {
+      context: workbenchContext(snapshot),
+      artifacts: artifact ? [artifact] : [],
+      nextActions: [inspection.currentNextAction],
+    });
+    return;
+  }
+  write([
+    `${inspection.manifest.name} · Industrial Investigation`,
+    `${inspection.manifest.id} · ${inspection.state.toUpperCase()} · ${inspection.entries.length} entr${inspection.entries.length === 1 ? "y" : "ies"}`,
+    `Question: ${inspection.manifest.question}`,
+    `Selection: ${Object.values(inspection.manifest.selection).join(" / ")} · ${inspection.manifest.hashes.executionHash.slice(0, 12)}`,
+    "Evidence anchors:",
+    ...inspection.anchors.map((item) =>
+      `  ${item.state.toUpperCase().padEnd(10)} ${item.anchor.id} · ${item.message}`),
+    ...(inspection.entries.length ? [
+      "Reasoning log:",
+      ...inspection.entries.map((entry) =>
+        `  ${String(entry.sequence).padStart(4, "0")} ${entry.kind.toUpperCase()} · ${entry.author} · ${entry.statement}${entry.kind === "hypothesis" ? `\n       expected: ${entry.expectedEffect}` : entry.kind === "decision" ? ` · ${entry.disposition.toUpperCase()}` : ""}${entry.evidence.length ? `\n       evidence: ${entry.evidence.join(" + ")}` : ""}`),
+    ] : ["Reasoning log: empty"]),
+    `Next: ${inspection.currentNextAction.title}`,
+    `  ${inspection.currentNextAction.reason}`,
     "",
   ].join("\n"), false);
 }
@@ -1896,6 +2072,9 @@ export function formatCliError(
   if (error instanceof DesignRunError) return json
     ? `${stableStringify(cliError(command, error.code, error.message, { hashes: error.hashes, execution }))}\n`
     : `Design error [${error.code}]: ${error.message}\n`;
+  if (error instanceof IndustrialInvestigationError) return json
+    ? `${stableStringify(cliError(command, error.code, error.message, { execution }))}\n`
+    : `Investigation error [${error.code}]: ${error.message}\n`;
   if (error instanceof InmValidationError) return json
     ? `${stableStringify(cliError(command, "validation.failed", "Project validation failed.", { issues: error.issues, execution }))}\n`
     : `Validation failed:\n${error.issues.map((issue) => `  ${issue.path} [${issue.code}] ${issue.message}`).join("\n")}\n`;

@@ -74,6 +74,7 @@ Read the relevant linked document before changing a subsystem:
 - Deterministic state, events, failures, metrics, and immutable runs: [[docs/design/simulation-runtime]]
 - Blueprint synthesis, capacity planning, research, and the file/CLI/evaluate loop: [[docs/design/blueprint-optimization]]
 - Human/Agent design authority, multimodal factory observation, and the required closed loop: [[docs/design/observation-led-design]]
+- Persistent project-local questions, evidence anchors, observations, hypotheses, and decisions: [[docs/design/industrial-investigations]]
 - Project-local Design Programs, bounded robust search, and immutable design-run evidence: [[docs/design/design-programs]]
 - Hash-compatible tracked-lot loss ranking and workbench priority: [[docs/design/fab-loss-attribution]]
 - Locked multi-case benchmarks and the Coding Agent keep/discard loop: [[docs/design/coding-agent-optimization]]

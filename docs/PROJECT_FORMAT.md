@@ -57,6 +57,9 @@ factory/
   design-runs/<program-id>/<result-hash>/
   candidates/<id>.candidate.json
   candidate-reviews/<candidate-id>/<proposal-hash>.review.json
+  investigations/<investigation-id>/
+    manifest.json
+    entries/<sequence>-<entry-id>.entry.json
   AUTORESEARCH.md
   scenarios/<id>.scenario.json
   objectives/<id>.objective.json
@@ -68,6 +71,8 @@ factory/
 The project manifest has a required kebab-case `id` matching its containing directory in a workspace and selects `defaultWorld`, `defaultBlueprint`, `defaultScenario`, and `defaultObjective`. It may select one project-owned TypeScript synthesis entry with `"synthesis": { "strategy": "strategies/<id>.ts" }`; the relative path cannot escape the project and must end in `.ts`. It may also declare renderer-only Factory scenery under `presentation.environment`: `floor` owns the slab/grid/aisle palette, margin, and a project-local PBR surface, while `backdrop` names one project-confined raster image plus its scene height, rear distance, and opacity. This presentation metadata never changes Blueprint geometry or industrial execution.
 
 Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors. `design-programs/` contains authored project-local design orchestration; `design-runs/`, `candidate-reviews/`, and `runs/` contain generated immutable evidence and may be checked in when another operator must reconstruct the same decision.
+
+`investigations/` contains durable human/Agent reasoning rather than generated simulator evidence. Each strict V1 manifest is created once from an exact current operating Run, diagnostic, selection/hashes, and optional verified commissioned Design lineage. Its `entries/` files are append-only observations, falsifiable hypotheses with expected effects, or explicit decisions. Sequence, filename, evidence references, previous-entry hash, and content hash form one verified chain. These files are ordinary committed project data: they are not stored in `.inm`, a workspace, browser storage, or a shared asset library, and they reference dense immutable evidence rather than copying it. See [[docs/design/industrial-investigations]].
 
 A self-contained environment can be declared directly in `inm.json`:
 
