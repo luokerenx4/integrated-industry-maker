@@ -1,0 +1,16 @@
+{
+  "author": "agent",
+  "entryHash": "c06db27f8f55da64b49f8b7737a1b98aab035cec0bff606b67a6ff20c3fd39a4",
+  "evidence": [
+    "compact-shipping-factory",
+    "compact-finished-goods-shipping-review"
+  ],
+  "id": "correct-compact-shipping-transport-observation",
+  "introducedAnchors": [],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "observation",
+  "previousEntryHash": "be2ea71f230bcde5333c4ce1de7d3995bb96d448fc59e8ca4e7455ed2aece76a",
+  "sequence": 11,
+  "statement": "Correction to the preceding visual shorthand: immutable Run 099-simulate confirms all three customer paths are two cells and all 88 devices are delivered with 12/12 lots on time, but full-run telemetry does not show zero blockage on every terminal lane. commercial-to-customer records 600 blocked item-ticks (300 endpoint-capacity and 300 endpoint-power), performance-to-customer records 99,801 (65,101 line-contention, 6,200 endpoint-capacity, and 28,500 endpoint-power), and automotive-to-customer is absent from the positive-blocking contributors. The compact layout remains a strict five-case KEEP because service, constraints, capacity, and every current-factory score guard pass; the event-phase transport and shipping-power ripple is retained as separate operating evidence for later design.",
+  "version": 1
+}

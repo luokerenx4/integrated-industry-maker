@@ -1,0 +1,17 @@
+{
+  "author": "agent",
+  "entryHash": "4aff4fe334c461e70dd26378e605ed59e452e79e47b077bed73832a0e9238281",
+  "evidence": [
+    "post-standby-factory",
+    "compact-shipping-metrology-standby-review"
+  ],
+  "expectedEffect": "Keep the installed inspection asset and every industrial contract unchanged; reduce total build cost from 229,950 to 229,790, occupied area from 285 to 269, and unique transport cells from 109 to 93; keep capacity READY, all Objective constraints and hard outcomes passing, and every locked current-factory case score non-regressing.",
+  "id": "isolate-compact-shipping-geometry",
+  "introducedAnchors": [],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "hypothesis",
+  "previousEntryHash": "a16879789c676069650c49529ce139c4dc08d1546130b5f89e132d22b445cbee",
+  "sequence": 8,
+  "statement": "Isolate the retained compact finished-goods geometry from the rejected low-power metrology substitution: move only the three terminal customers and their unloaders, and shorten their outbound paths from 22 to 6 cells, so the exact review can reveal whether the 160 capital and 16-area recovery is independently neutral or beneficial to current service.",
+  "version": 1
+}

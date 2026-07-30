@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/isolated-compact-shipping-trial]] | Determine the independent causal effect of the retained compact finished-goods layout. | 2026-07-30 |
 | [[plans/capital-neutral-metrology-standby-trial]] | Decide whether a compact shipping layout can fund low-power metrology standby without weakening interruption service. | 2026-07-30 |
 | [[plans/continuous-investigation-evidence]] | Keep one Investigation current across factory revisions through append-only operating evidence checkpoints. | 2026-07-30 |
 | [[plans/causal-objective-constraint-evidence]] | Turn Objective constraint penalties into exact evaluator-owned evidence shared by humans and Agents. | 2026-07-30 |

@@ -9,6 +9,16 @@ import { parseStudioWatchMessage, type StudioWatchEvent } from "./watch-protocol
 const repository = resolve(import.meta.dir, "../../..");
 const ironworks = join(repository, "examples/ironworks");
 
+async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
+  await writeFile(
+    join(projectDir, "blueprints/generated-dram-fab.blueprint.json"),
+    await readFile(join(projectDir, "runs/098-simulate/blueprint.json"), "utf8"),
+  );
+  await rm(join(projectDir, "candidates/compact-finished-goods-shipping.candidate.json"), { force: true });
+  await rm(join(projectDir, "candidate-reviews/compact-finished-goods-shipping"), { recursive: true, force: true });
+  await rm(join(projectDir, "runs/099-simulate"), { recursive: true, force: true });
+}
+
 async function terminalStudioOperation<TResult>(
   port: number,
   projectId: string,
@@ -98,6 +108,7 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
     filter: (source) => !source.split("/").includes(".inm")
       && !source.split("/").includes("investigations"),
   });
+  await restorePreCompactMemoryFabBlueprint(projectDir);
   const port = 46_500 + process.pid % 400;
   const child = Bun.spawn([
     process.execPath, join(repository, "packages/inm-studio/src/server.ts"), projectDir,
@@ -365,7 +376,7 @@ test("Studio keeps a recorded memory-fab revision handoff visible after its base
   }
 });
 
-test("Studio exposes verified commissioned Design lineage as read-only authority", async () => {
+test("Studio retains superseded commissioned Design lineage as historical evidence", async () => {
   const projectDir = join(repository, "examples/memory-fab");
   const port = 48_100 + process.pid % 300;
   const child = Bun.spawn([
@@ -403,25 +414,29 @@ test("Studio exposes verified commissioned Design lineage as read-only authority
       action: { kind: string; effect: string; runId: string | null };
     };
     expect(result.evidence).toEqual(expect.objectContaining({
-      state: "commissioned",
-      authorityRunId: "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06",
+      state: "missing",
+      authorityRunId: null,
       currentRuns: 0,
-      commissionedRuns: 1,
-      historicalRuns: 4,
+      commissionedRuns: 0,
+      historicalRuns: 5,
     }));
-    expect(result.evidence.runs.find((run) => run.id === result.evidence.authorityRunId))
+    expect(result.evidence.runs.find((run) =>
+      run.id === "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06"))
       .toEqual(expect.objectContaining({
         currentness: expect.objectContaining({
-          state: "commissioned",
-          commissioning: expect.objectContaining({
-            candidateId: "inspection-supply-path-966127dd",
-          }),
+          state: "historical",
+          reasons: expect.arrayContaining([
+            "seed-source-hash-mismatch",
+            "seed-blueprint-hash-mismatch",
+            "driver-hashes-mismatch",
+            "promotion-base-mismatch",
+          ]),
         }),
       }));
     expect(result.action).toEqual({
-      kind: "open",
-      effect: "read-only",
-      runId: result.evidence.authorityRunId,
+      kind: "run",
+      effect: "creates-artifact",
+      runId: null,
     });
   } finally {
     child.kill();

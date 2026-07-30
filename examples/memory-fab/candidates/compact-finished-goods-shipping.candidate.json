@@ -1,0 +1,129 @@
+{
+  "baseCandidateHash": "8281c50706c578b823b7d8cc3f5d4f94cef230fefbee210c8a3756a6a9a9563a",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Keep the installed inspection asset and every industrial contract unchanged; reduce total build cost from 229,950 to 229,790, occupied area from 285 to 269, and unique transport cells from 109 to 93; keep capacity READY, all Objective constraints and hard outcomes passing, and every locked current-factory case score non-regressing.",
+  "hypothesis": "Isolate the retained compact finished-goods geometry from the rejected low-power metrology substitution: move only the three terminal customers and their unloaders, and shorten their outbound paths from 22 to 6 cells, so the exact review can reveal whether the 160 capital and 16-area recovery is independently neutral or beneficial to current service.",
+  "id": "compact-finished-goods-shipping",
+  "name": "Compact finished-goods shipping edge",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/11/position",
+      "value": {
+        "x": 4,
+        "y": 27
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/11/rotation",
+      "value": 180
+    },
+    {
+      "op": "replace",
+      "path": "/devices/12/position",
+      "value": {
+        "x": 10,
+        "y": 30
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/12/rotation",
+      "value": 90
+    },
+    {
+      "op": "replace",
+      "path": "/devices/13/position",
+      "value": {
+        "x": 13,
+        "y": 27
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/45/position",
+      "value": {
+        "x": 6,
+        "y": 27
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/45/rotation",
+      "value": 180
+    },
+    {
+      "op": "replace",
+      "path": "/devices/47/position",
+      "value": {
+        "x": 10,
+        "y": 29
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/47/rotation",
+      "value": 90
+    },
+    {
+      "op": "replace",
+      "path": "/devices/49/position",
+      "value": {
+        "x": 12,
+        "y": 27
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/connections/10/path",
+      "value": [
+        {
+          "x": 7,
+          "y": 27
+        },
+        {
+          "x": 6,
+          "y": 27
+        }
+      ]
+    },
+    {
+      "op": "replace",
+      "path": "/connections/11/path",
+      "value": [
+        {
+          "x": 9,
+          "y": 29
+        },
+        {
+          "x": 10,
+          "y": 29
+        }
+      ]
+    },
+    {
+      "op": "replace",
+      "path": "/connections/12/path",
+      "value": [
+        {
+          "x": 11,
+          "y": 27
+        },
+        {
+          "x": 12,
+          "y": 27
+        }
+      ]
+    }
+  ],
+  "source": {
+    "entry": "isolate-compact-shipping-geometry",
+    "entryHash": "4aff4fe334c461e70dd26378e605ed59e452e79e47b077bed73832a0e9238281",
+    "investigation": "inspection-starvation-next-step",
+    "kind": "investigation-hypothesis",
+    "manifestHash": "a9fe64f1e50a57a712a659ef0b3d5c92dd28fd7e56cf91cab197699b186cf41a",
+    "project": "memory-fab"
+  },
+  "version": 1
+}

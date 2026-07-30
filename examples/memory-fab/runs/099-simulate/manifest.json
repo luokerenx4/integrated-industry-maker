@@ -1,0 +1,24 @@
+{
+  "createdAt": "2026-07-30T10:49:35.085Z",
+  "decision": "BASELINE",
+  "engineVersion": "inm-sim/0.90.0",
+  "hashes": {
+    "blueprintHash": "d08a187303263dfcefb54f4b60e3109a623d9e64c918d3c57bd8b8a4e47007d7",
+    "engineVersion": "inm-sim/0.90.0",
+    "executionHash": "8d6c5b121d4ba7503c2dc50f6ffe6d4fdc67671d75d4bbb0653234ddd06e5aa8",
+    "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+    "scenarioHash": "b6cfa14ecff26487e959f7f1b38230f2e003a3eaf04bd8b587ed268c9fc8eafe",
+    "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+  },
+  "resultHash": "c43d94a6594744869e1ec25784b08689eb74eafa8ce9fac8e8ced0c17f6206da",
+  "runKey": "22c8a889d44c3202d8ee871a242757556a345d990ec52c64af560888dc496f7c",
+  "seed": 42,
+  "selection": {
+    "blueprint": "generated-dram-fab",
+    "objective": "dram-output",
+    "scenario": "production-window",
+    "world": "cleanroom"
+  },
+  "status": "completed",
+  "version": 1
+}

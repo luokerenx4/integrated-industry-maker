@@ -1,0 +1,30 @@
+{
+  "author": "agent",
+  "disposition": "keep",
+  "entryHash": "bd3078506ecd34de43404a53ae92538b2953a48c67fb4217787bc4def6f40cc2",
+  "evidence": [
+    "post-standby-factory",
+    "compact-shipping-metrology-standby-review",
+    "compact-finished-goods-shipping-review"
+  ],
+  "id": "keep-compact-finished-goods-shipping",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "compact-finished-goods-shipping",
+      "currentCandidateHash": "8281c50706c578b823b7d8cc3f5d4f94cef230fefbee210c8a3756a6a9a9563a",
+      "id": "compact-finished-goods-shipping-review",
+      "kind": "candidate-review",
+      "proposalHash": "55c08df7cea56b049f4bcbc08da92f8b01c00d0f5c9805a8db58005f1c51602e",
+      "proposedCandidateHash": "d08a187303263dfcefb54f4b60e3109a623d9e64c918d3c57bd8b8a4e47007d7",
+      "reviewResultHash": "0576396fcb7b02663b4352c57b567c3a7dfe446eb5b8c63be0ac413d6e687aab",
+      "verdict": "KEEP"
+    }
+  ],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "decision",
+  "previousEntryHash": "4aff4fe334c461e70dd26378e605ed59e452e79e47b077bed73832a0e9238281",
+  "sequence": 9,
+  "statement": "Keep the isolated compact finished-goods layout: every current-factory case improves by approximately 0.808 score with unchanged delivery, completion, on-time service, yield, scrap, escapes, and release outcomes; the only physical/economic change is sixteen fewer transport cells, reducing line capital by 160 and occupied area by 16 while preserving all equipment, sorter endpoints, capacity, and Objective constraints.",
+  "version": 1
+}

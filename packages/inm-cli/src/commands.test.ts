@@ -17,6 +17,16 @@ async function runCli(args: string[]) {
   return { stdout, stderr, exitCode };
 }
 
+async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
+  await writeFile(
+    join(projectDir, "blueprints/generated-dram-fab.blueprint.json"),
+    await readFile(join(projectDir, "runs/098-simulate/blueprint.json"), "utf8"),
+  );
+  await rm(join(projectDir, "candidates/compact-finished-goods-shipping.candidate.json"), { force: true });
+  await rm(join(projectDir, "candidate-reviews/compact-finished-goods-shipping"), { recursive: true, force: true });
+  await rm(join(projectDir, "runs/099-simulate"), { recursive: true, force: true });
+}
+
 test("one workspace creates, selects, and isolates multiple self-contained projects", async () => {
   const parent = await mkdtemp(join(tmpdir(), "inm-workspace-")); const workspace = join(parent, "engine");
   await workspaceInitCommand(workspace, { name: "Test Engine", json: false });
@@ -506,8 +516,8 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
   const projectDir = join(repository, "examples/memory-fab");
   const before = await Bun.file(join(projectDir, "blueprints/generated-dram-fab.blueprint.json")).text();
   const [machine, human, help] = await Promise.all([
-    runCli(["observe", projectDir, "--run", "098-simulate", "--json"]),
-    runCli(["observe", projectDir, "--run", "098-simulate"]),
+    runCli(["observe", projectDir, "--run", "099-simulate", "--json"]),
+    runCli(["observe", projectDir, "--run", "099-simulate"]),
     runCli(["help", "--json"]),
   ]);
   expect({ machine: machine.exitCode, human: human.exitCode, machineStderr: machine.stderr, humanStderr: human.stderr })
@@ -529,28 +539,28 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
     data: expect.objectContaining({
       status: "ready",
       authority: "human-or-agent",
-      evidence: { state: "compatible", run: expect.objectContaining({ id: "098-simulate" }) },
+      evidence: { state: "compatible", run: expect.objectContaining({ id: "099-simulate" }) },
       leadingObjectiveTradeoff: expect.objectContaining({
         component: "wip",
         contribution: -73.93575,
-        runId: "098-simulate",
+        runId: "099-simulate",
         interpretation: "objective-accounting-not-causal-loss",
       }),
       views: expect.arrayContaining([
-        expect.objectContaining({ studioRoute: "/memory-fab/factory?run=098-simulate" }),
-        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/burn-in-1?run=098-simulate" }),
-        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/packaging-1?run=098-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory?run=099-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/burn-in-1?run=099-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/packaging-1?run=099-simulate" }),
       ]),
     }),
   }));
   expect(envelope.nextActions[0]).toEqual(expect.objectContaining({
     id: "author-observation-hypothesis",
     effect: "read-only",
-    studioRoute: "/memory-fab/factory?run=098-simulate",
+    studioRoute: "/memory-fab/factory?run=099-simulate",
     argv: expect.arrayContaining(["--section", "objective"]),
   }));
   expect(human.stdout).toContain("observation brief");
-  expect(human.stdout).toContain("/memory-fab/factory?run=098-simulate");
+  expect(human.stdout).toContain("/memory-fab/factory?run=099-simulate");
   expect(human.stdout).toContain("Leading Objective tradeoff: wip -73.936");
   expect(human.stdout).not.toContain("analysis.material-deficit");
   const observeCapability = JSON.parse(help.stdout).data.commands.find((command: { id: string }) => command.id === "observe");
@@ -572,6 +582,7 @@ test("public investigate preserves and resumes exact project-local human/Agent r
     filter: (source) => !source.split("/").includes(".inm")
       && !source.split("/").includes("investigations"),
   });
+  await restorePreCompactMemoryFabBlueprint(projectDir);
   const investigationId = "inspection-starvation-next-step";
   const created = await runCli([
     "investigate",
@@ -1530,9 +1541,9 @@ test("public inspect gives Agents and humans the same current loss contributors"
     ],
     evidence: {
       rawWaitingInputTicks: 1_596_215,
-      boundaryWaitingInputTicks: 1_115_939,
+      boundaryWaitingInputTicks: 1_114_389,
       exceptionWaitingInputTicks: 232_000,
-      starvationTicks: 248_276,
+      starvationTicks: 249_826,
     },
   });
   expect(inputStarvation.contributors.find((contributor: { id: string }) =>
@@ -1561,12 +1572,12 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(transportBlocking).toMatchObject({
     label: "Local transport blocking by cause",
     evidence: {
-      blockedConnections: 2,
-      blockedItemTicks: 61_200,
+      blockedConnections: 3,
+      blockedItemTicks: 207_901,
       connections: 17,
-      lineContentionTicks: 35_100,
-      endpointCapacityTicks: 16_100,
-      endpointPowerTicks: 10_000,
+      lineContentionTicks: 133_401,
+      endpointCapacityTicks: 37_400,
+      endpointPowerTicks: 37_100,
       endpointFailureTicks: 0,
     },
     subjects: [{ kind: "connection", id: "probe-to-packaging" }],
@@ -1575,10 +1586,10 @@ test("public inspect gives Agents and humans the same current loss contributors"
     id: "connection:probe-to-packaging:transport-line-contention",
     mechanism: "transport-line-contention",
     evidence: {
-      blockedItemTicks: 50_000,
-      lineContentionTicks: 29_100,
-      endpointCapacityTicks: 14_800,
-      endpointPowerTicks: 6_100,
+      blockedItemTicks: 107_500,
+      lineContentionTicks: 68_300,
+      endpointCapacityTicks: 30_900,
+      endpointPowerTicks: 8_300,
       endpointFailureTicks: 0,
     },
   });
@@ -1591,7 +1602,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).toContain("furnace-1 · material-input-shortage · 39.5s attributed shortage / 111.5s opportunity · 0.0s unattributed · dielectric-stack-lot · 22.7s dielectric-stack-lot@batch-input 0/1 via deposition-to-batch-furnace:source-processing←deposition-1");
   expect(human.stdout).toContain("[fab-loss.transport-blocking]");
   expect(human.stdout).toContain("Transport-blocking contributors:");
-  expect(human.stdout).toContain("probe-to-packaging · dominant immediate cause: line contention · 50.0 blocked item-s · line contention 29.1 item-s · endpoint capacity 14.8 item-s · endpoint power 6.1 item-s · endpoint failure 0.0 item-s · 24.0/240.0 items/min · known-good-dram-die");
+  expect(human.stdout).toContain("probe-to-packaging · dominant immediate cause: line contention · 107.5 blocked item-s · line contention 68.3 item-s · endpoint capacity 30.9 item-s · endpoint power 8.3 item-s · endpoint failure 0.0 item-s · 24.0/240.0 items/min · known-good-dram-die");
   expect(human.stdout).toContain("Setup, changeover, and campaign contributors:");
   expect(human.stdout).toContain("burn-in-1 · reliability-screen → commercial-screen · equipment-production-changeover · 8.0s · screen-commercial-dram · commercial-dram-device+packaged-dram-device · 180000mW / 1440000mJ");
   expect(human.stdout).not.toContain("Q-time contributors:");
@@ -1601,7 +1612,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).toContain("Maintenance and qualification contributors:");
   expect(human.stdout).toContain("lithography-1 · 34.0s total = 26.0s service + 8.0s qualification + 0.0s input wait + 0.0s crew wait · 0 asset / 2 planned / 0 opportunistic · 2 usage / 0 calendar · service 2 chamber-clean-kit · qualification 2 tool-qualification-wafer · lithography-1 → maintenance-service-1");
   expect(human.stdout).toContain("Power-interruption contributors:");
-  expect(human.stdout).toContain("substrate-receiving-to-packaging-loader · grid-cleanroom-shipping-power / loader · 164.8s / 29.4% · 1 shortages / 0 restores · device peak 500mW · grid 144994mJ unserved / 7000mW peak / 21225mJ envelope");
+  expect(human.stdout).toContain("substrate-receiving-to-packaging-loader · grid-cleanroom-shipping-power / loader · 164.8s / 26.5% · 1 shortages / 0 restores · device peak 500mW · grid 253801mJ unserved / 10000mW peak / 113825mJ envelope");
 });
 
 test("public inspect gives Agents and humans the same current WIP and Design evidence boundary", async () => {
@@ -1625,6 +1636,39 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
 
   const result = JSON.parse(machine.stdout).data.result;
   const currentInspection = result.designPrograms.find((item: { id: string }) => item.id === "inspection-supply-path");
+  if (currentInspection?.evidence.state === "missing"
+    && currentInspection.evidence.historicalRuns === 5
+    && result.objectiveEvidence?.runId === "099-simulate") {
+    expect(currentInspection).toEqual(expect.objectContaining({
+      alignment: { state: "aligned", reasons: [] },
+      evidence: expect.objectContaining({
+        state: "missing",
+        authorityRunId: null,
+        authorityAddressedLosses: [],
+        currentRuns: 0,
+        commissionedRuns: 0,
+        historicalRuns: 5,
+        invalidRuns: 4,
+      }),
+    }));
+    expect(result.lossDispositions).toHaveLength(0);
+    expect(result.nextAction).toEqual(expect.objectContaining({
+      id: expect.stringMatching(/^design\.inspect:inspection-supply-path:fab-loss\.input-starvation:.*:6fa5414a2b$/),
+      title: "Investigate the leading loss with Inspection Supply Path Convergence",
+      actionLabel: "OPEN DESIGN LOOP",
+      target: expect.objectContaining({
+        kind: "design-program",
+        programId: "inspection-supply-path",
+      }),
+    }));
+    expect(JSON.parse(objective.stdout).data.result).toEqual(expect.objectContaining({
+      runId: "099-simulate",
+      dominantPenalty: { id: "wip", contribution: -73.93575, role: "penalty" },
+    }));
+    expect(JSON.parse(dispositions.stdout).data.result).toHaveLength(0);
+    expect(human.stdout).toContain("Next action: Investigate the leading loss with Inspection Supply Path Convergence");
+    return;
+  }
   if (currentInspection?.evidence.authorityRunId === "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06") {
     expect(currentInspection.evidence).toEqual(expect.objectContaining({
       state: "commissioned",

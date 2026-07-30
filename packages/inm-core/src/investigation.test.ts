@@ -17,6 +17,16 @@ import { hashValue } from "./utils";
 
 const repository = resolve(import.meta.dir, "../../..");
 
+async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
+  await writeFile(
+    join(projectDir, "blueprints/generated-dram-fab.blueprint.json"),
+    await readFile(join(projectDir, "runs/098-simulate/blueprint.json"), "utf8"),
+  );
+  await rm(join(projectDir, "candidates/compact-finished-goods-shipping.candidate.json"), { force: true });
+  await rm(join(projectDir, "candidate-reviews/compact-finished-goods-shipping"), { recursive: true, force: true });
+  await rm(join(projectDir, "runs/099-simulate"), { recursive: true, force: true });
+}
+
 test("a project-local Investigation preserves exact evidence and append-only human/Agent reasoning", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-investigation-"));
   const projectDir = join(root, "memory-fab");
@@ -27,6 +37,7 @@ test("a project-local Investigation preserves exact evidence and append-only hum
       return !segments.includes(".inm") && !segments.includes("investigations");
     },
   });
+  await restorePreCompactMemoryFabBlueprint(projectDir);
   try {
     const created = await createIndustrialInvestigation(
       projectDir,
@@ -250,6 +261,7 @@ test("an Investigation advances to a new exact factory observation without erasi
       return !segments.includes(".inm") && !segments.includes("investigations");
     },
   });
+  await restorePreCompactMemoryFabBlueprint(projectDir);
   try {
     const created = await createIndustrialInvestigation(
       projectDir,
@@ -383,6 +395,7 @@ test("an Investigation hypothesis creates a strictly sourced Candidate without c
     recursive: true,
     filter: (source) => !source.split("/").includes(".inm"),
   });
+  await restorePreCompactMemoryFabBlueprint(projectDir);
   try {
     const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
     const blueprint = JSON.parse(await readFile(blueprintPath, "utf8"));
