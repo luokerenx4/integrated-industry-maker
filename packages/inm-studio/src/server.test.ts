@@ -137,6 +137,70 @@ test("Studio keeps a recorded memory-fab revision handoff visible after its base
   }
 });
 
+test("Studio exposes verified commissioned Design lineage as read-only authority", async () => {
+  const projectDir = join(repository, "examples/memory-fab");
+  const port = 48_100 + process.pid % 300;
+  const child = Bun.spawn([
+    process.execPath, join(repository, "packages/inm-studio/src/server.ts"), projectDir,
+    "--port", String(port), "--no-open",
+  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
+  try {
+    const reader = child.stdout.getReader();
+    let output = "";
+    while (!output.includes("INM Studio:")) {
+      const chunk = await reader.read();
+      if (chunk.done) throw new Error(`Studio stopped before startup: ${output}`);
+      output += new TextDecoder().decode(chunk.value);
+    }
+    reader.releaseLock();
+    const response = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/designs/inspection-supply-path`,
+    );
+    expect(response.status).toBe(200);
+    const result = await response.json() as {
+      evidence: {
+        state: string;
+        authorityRunId: string | null;
+        currentRuns: number;
+        commissionedRuns: number;
+        historicalRuns: number;
+        runs: Array<{
+          id: string;
+          currentness: {
+            state: string;
+            commissioning?: { candidateId: string };
+          };
+        }>;
+      };
+      action: { kind: string; effect: string; runId: string | null };
+    };
+    expect(result.evidence).toEqual(expect.objectContaining({
+      state: "commissioned",
+      authorityRunId: "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06",
+      currentRuns: 0,
+      commissionedRuns: 1,
+      historicalRuns: 4,
+    }));
+    expect(result.evidence.runs.find((run) => run.id === result.evidence.authorityRunId))
+      .toEqual(expect.objectContaining({
+        currentness: expect.objectContaining({
+          state: "commissioned",
+          commissioning: expect.objectContaining({
+            candidateId: "inspection-supply-path-966127dd",
+          }),
+        }),
+      }));
+    expect(result.action).toEqual({
+      kind: "open",
+      effect: "read-only",
+      runId: result.evidence.authorityRunId,
+    });
+  } finally {
+    child.kill();
+    await child.exited;
+  }
+}, 30_000);
+
 test("Studio projects authored adaptive cadence control and measured mode use from one run", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-studio-cadence-"));
   const projectDir = join(root, "memory-fab");

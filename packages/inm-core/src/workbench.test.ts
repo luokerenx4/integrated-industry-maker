@@ -1,4 +1,4 @@
-import { cp, mkdtemp, rm } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
@@ -19,7 +19,7 @@ const repository = resolve(import.meta.dir, "../../..");
 
 test("shared workbench snapshot orients an operator with stable diagnostics and operations", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/ironworks"));
-  expect(snapshot.version).toBe(12);
+  expect(snapshot.version).toBe(13);
   expect(snapshot.project.id).toBe("ironworks");
   expect(snapshot.selection).toEqual(expect.objectContaining({
     world: expect.objectContaining({ id: "main" }),
@@ -483,6 +483,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       authorityRunId: exhaustedId,
       authorityAddressedLosses: ["input-starvation" as const],
       currentRuns: 1,
+      commissionedRuns: 0,
       historicalRuns: 0,
       invalidRuns: 0,
       runs: [{
@@ -618,11 +619,12 @@ test("shared handoff keeps stale Objective evidence behind the current physical 
     .find((program) => program.id === "back-end-wip-convergence")?.evidence.authorityRunId;
   expect(objectiveAuthority).toBeNull();
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    title: "Expand Inspection Supply Path Convergence's intervention portfolio",
+    title: "Continue from the commissioned Inspection Supply Path Convergence lineage",
+    actionLabel: "REVIEW COMMISSIONED LINEAGE",
     target: expect.objectContaining({
       kind: "design-run",
       programId: "inspection-supply-path",
-      phase: "exhausted",
+      phase: "commissioned",
     }),
   }));
 });
@@ -633,18 +635,23 @@ test("an active physical loss still outranks current Objective Design evidence",
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true });
   await rm(join(projectDir, "design-runs/front-end-queue-convergence"), { recursive: true, force: true });
   const snapshot = await openProjectWorkbenchSnapshot(projectDir);
-  expect(snapshot.version).toBe(12);
+  expect(snapshot.version).toBe(13);
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.input-starvation")).toBeTrue();
   const currentInspection = snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")?.evidence;
-  if (currentInspection?.authorityRunId === "6f1f260672f18ae77d72dfb4425a3c9ddd5870f4f50a41cd84d95c0984730bde") {
+  if (currentInspection?.authorityRunId === "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06") {
     expect(snapshot.lossDispositions).toHaveLength(0);
-    expect(currentInspection).toEqual(expect.objectContaining({ state: "exhausted", currentRuns: 1 }));
+    expect(currentInspection).toEqual(expect.objectContaining({
+      state: "commissioned",
+      currentRuns: 0,
+      commissionedRuns: 1,
+      historicalRuns: 4,
+    }));
     expect(snapshot.nextAction).toEqual(expect.objectContaining({
-      title: "Expand Inspection Supply Path Convergence's intervention portfolio",
+      title: "Continue from the commissioned Inspection Supply Path Convergence lineage",
       target: expect.objectContaining({
         kind: "design-run",
         programId: "inspection-supply-path",
-        phase: "exhausted",
+        phase: "commissioned",
         diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
       }),
     }));
@@ -1088,7 +1095,7 @@ test("Design evidence classification chooses current leaf authority without time
   const exhausted = run("3", { budget: { maximum: 7, evaluated: 4 }, stopReason: "frontier-exhausted" });
   const promotable = run("4", {
     budget: { maximum: 3, evaluated: 3 },
-    best: { ...source.best, iteration: 3, promotionPatchOperations: 2, candidateScore: 4 },
+    best: { ...source.best, iteration: 3, blueprintHash: hash("p"), promotionPatchOperations: 2, candidateScore: 4 },
     stopReason: "frontier-exhausted",
   });
   const historical = run("5", { programHash: hash("e") });
@@ -1128,6 +1135,75 @@ test("Design evidence classification chooses current leaf authority without time
   expect(recommendedDesignProgramEvidenceAction(missingEvidence)).toEqual({
     kind: "run", effect: "creates-artifact", runId: null,
   });
+
+  const commissionedIdentity: WorkbenchDesignEvidenceIdentity = {
+    ...structuredClone(identity),
+    seed: {
+      ...structuredClone(identity.seed),
+      sourceBlueprintHash: promotable.best.blueprintHash,
+      blueprintHash: hash("n"),
+    },
+    driver: {
+      ...structuredClone(identity.driver),
+      hashes: {
+        ...identity.driver.hashes,
+        executionHash: hash("z"),
+        blueprintHash: hash("n"),
+      },
+    },
+    promotionBase: { ...identity.promotionBase, hash: promotable.best.blueprintHash },
+  };
+  const commissioning = {
+    candidateId: "commissioned-design",
+    benchmark: identity.benchmark.id,
+    program: identity.program.id,
+    runId: promotable.id,
+    sourceBlueprintHash: promotable.best.blueprintHash,
+    baseBlueprintHash: promotable.promotionBase.hash,
+    appliedBlueprintHash: promotable.best.blueprintHash,
+    proposalHash: hash("q"),
+    reviewResultHash: hash("r"),
+  };
+  const commissionedEvidence = classifyDesignProgramEvidence(
+    commissionedIdentity,
+    [promotable],
+    [],
+    [commissioning],
+  );
+  expect(commissionedEvidence).toEqual(expect.objectContaining({
+    state: "commissioned",
+    authorityRunId: promotable.id,
+    currentRuns: 0,
+    commissionedRuns: 1,
+    historicalRuns: 0,
+  }));
+  expect(commissionedEvidence.runs[0]).toEqual(expect.objectContaining({
+    currentness: {
+      state: "commissioned",
+      reasons: [
+        "seed-source-hash-mismatch",
+        "seed-blueprint-hash-mismatch",
+        "driver-hashes-mismatch",
+        "promotion-base-mismatch",
+      ],
+      commissioning,
+    },
+  }));
+  expect(recommendedDesignProgramEvidenceAction(commissionedEvidence)).toEqual({
+    kind: "open", effect: "read-only", runId: promotable.id,
+  });
+  for (const mutate of [
+    (value: typeof commissioning) => { value.program = "other"; },
+    (value: typeof commissioning) => { value.runId = hash("8"); },
+    (value: typeof commissioning) => { value.benchmark = "other"; },
+    (value: typeof commissioning) => { value.sourceBlueprintHash = hash("8"); },
+    (value: typeof commissioning) => { value.baseBlueprintHash = hash("8"); },
+    (value: typeof commissioning) => { value.appliedBlueprintHash = hash("8"); },
+  ]) {
+    const broken = structuredClone(commissioning);
+    mutate(broken);
+    expect(classifyDesignProgramEvidence(commissionedIdentity, [promotable], [], [broken]).state).toBe("missing");
+  }
 });
 
 test("a historical run with a different selected execution cannot supply current fab loss authority", async () => {
@@ -1138,6 +1214,80 @@ test("a historical run with a different selected execution cannot supply current
   expect(snapshot.lossAttribution).toBeNull();
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code.startsWith("fab-loss."))).toBeFalse();
 });
+
+test("a verified Candidate keeps its source Design lineage authoritative after apply without fabricating current driver evidence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-workbench-commissioned-lineage-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes(".inm"),
+  });
+  await rm(join(
+    projectDir,
+    "design-runs/inspection-supply-path/6f1f260672f18ae77d72dfb4425a3c9ddd5870f4f50a41cd84d95c0984730bde",
+  ), { recursive: true, force: true });
+
+  const snapshot = await openProjectWorkbenchSnapshot(projectDir);
+  const evidence = snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")!.evidence;
+  expect(evidence).toEqual(expect.objectContaining({
+    state: "commissioned",
+    authorityRunId: "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06",
+    currentRuns: 0,
+    commissionedRuns: 1,
+    historicalRuns: 4,
+    invalidRuns: 4,
+  }));
+  expect(evidence.runs.find((run) => run.id === evidence.authorityRunId)).toEqual(expect.objectContaining({
+    outcome: "promotable",
+    currentness: expect.objectContaining({
+      state: "commissioned",
+      commissioning: {
+        candidateId: "inspection-supply-path-966127dd",
+        benchmark: "greenfield-dram-design",
+        program: "inspection-supply-path",
+        runId: "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06",
+        sourceBlueprintHash: "8281c50706c578b823b7d8cc3f5d4f94cef230fefbee210c8a3756a6a9a9563a",
+        baseBlueprintHash: "35ef45f0eb537a5e2f7a94b40b1e41bf74fb5f13fb21d067ed996443785ed144",
+        appliedBlueprintHash: "8281c50706c578b823b7d8cc3f5d4f94cef230fefbee210c8a3756a6a9a9563a",
+        proposalHash: "18c8ebc898254d30a5e428dbd93412f947da062a1c20779656728237640c9832",
+        reviewResultHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      },
+    }),
+  }));
+  expect(snapshot.lossDispositions.some((disposition) =>
+    disposition.source.programId === "inspection-supply-path")).toBeFalse();
+  expect(snapshot.nextAction).toEqual(expect.objectContaining({
+    title: "Continue from the commissioned Inspection Supply Path Convergence lineage",
+    actionLabel: "REVIEW COMMISSIONED LINEAGE",
+    effect: "read-only",
+    target: expect.objectContaining({
+      kind: "design-run",
+      programId: "inspection-supply-path",
+      runId: evidence.authorityRunId,
+      phase: "commissioned",
+    }),
+  }));
+  const candidatePath = join(
+    projectDir,
+    "candidates/inspection-supply-path-966127dd.candidate.json",
+  );
+  const candidate = JSON.parse(await readFile(candidatePath, "utf8"));
+  candidate.hypothesis = `${candidate.hypothesis} Changed after review.`;
+  await writeFile(candidatePath, `${JSON.stringify(candidate, null, 2)}\n`);
+  const brokenSnapshot = await openProjectWorkbenchSnapshot(projectDir);
+  const brokenEvidence = brokenSnapshot.designPrograms
+    .find((program) => program.id === "inspection-supply-path")!.evidence;
+  expect(brokenEvidence).toEqual(expect.objectContaining({
+    state: "missing",
+    authorityRunId: null,
+    currentRuns: 0,
+    commissionedRuns: 0,
+    historicalRuns: 5,
+  }));
+  expect(brokenSnapshot.lossDispositions.some((disposition) =>
+    disposition.source.programId === "inspection-supply-path")).toBeFalse();
+  await rm(root, { recursive: true, force: true });
+}, 20_000);
 
 test("a non-KEEP Candidate receipt resolves review work without displacing current fab evidence", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-workbench-candidate-"));

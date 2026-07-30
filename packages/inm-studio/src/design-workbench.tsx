@@ -191,12 +191,13 @@ export function DesignWorkbench({
   const runEvidenceById = useMemo(() => new Map(evidence?.runs.map((run) => [run.id, run]) ?? []), [evidence]);
   const selectedRunEvidence = selectedRun ? runEvidenceById.get(selectedRun.manifest.resultHash) ?? null : null;
   const selectedRunCurrent = selectedRunEvidence?.currentness.state === "current";
+  const selectedRunCommissioning = selectedRunEvidence?.currentness.state === "commissioned"
+    ? selectedRunEvidence.currentness.commissioning!
+    : null;
   const selectedRunBaseCurrent = Boolean(selectedRunCurrent && brief && selectedRun
     && brief.promotionBase.blueprint === selectedRun.manifest.promotionBase.blueprint
     && brief.promotionBase.hash === selectedRun.manifest.promotionBase.hash);
-  const selectedRunAlreadyCommissioned = Boolean(selectedRunCurrent && brief && selectedRun && selectedRunAccepted
-    && brief.promotionBase.blueprint === selectedRun.manifest.promotionBase.blueprint
-    && brief.promotionBase.hash === selectedRun.manifest.best.blueprintHash);
+  const selectedRunAlreadyCommissioned = Boolean(selectedRunCommissioning);
   const selectedRunPromotable = selectedRunAccepted && selectedRunBaseCurrent;
   const selectedRunContinuable = selectedRun?.manifest.stopReason === "budget-exhausted"
     && selectedRun.manifest.frontier.scheduler.searchOrder.length > 0
@@ -216,6 +217,7 @@ export function DesignWorkbench({
     setRuns(value.runs.sort((left, right) =>
       Number(right.id === value.evidence.authorityRunId) - Number(left.id === value.evidence.authorityRunId)
       || Number(projectedById.get(right.id)?.currentness.state === "current") - Number(projectedById.get(left.id)?.currentness.state === "current")
+      || Number(projectedById.get(right.id)?.currentness.state === "commissioned") - Number(projectedById.get(left.id)?.currentness.state === "commissioned")
       || right.best.candidateScore - left.best.candidateScore
       || right.budget.evaluated - left.budget.evaluated
       || left.id.localeCompare(right.id)));
@@ -250,9 +252,10 @@ export function DesignWorkbench({
           `/api/projects/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(selectedProgram.benchmark)}/candidates`,
         ));
         if (!active) return;
-        setCommissionedCandidate(candidates.candidates.find((candidate) => candidate.source?.program === selectedProgramId
-          && candidate.source.resultHash === selectedRunId
-          && candidate.source.blueprintHash === value.manifest.best.blueprintHash) ?? null);
+        const commissioning = runEvidenceById.get(selectedRunId)?.currentness;
+        setCommissionedCandidate(commissioning?.state === "commissioned"
+          ? candidates.candidates.find((candidate) => candidate.id === commissioning.commissioning?.candidateId) ?? null
+          : null);
       } catch (nextError) {
         if (!active) return;
         const message = nextError instanceof Error ? nextError.message : String(nextError);
@@ -266,7 +269,7 @@ export function DesignWorkbench({
       }
     })();
     return () => { active = false; };
-  }, [projectId, refreshRevision, selectedProgram, selectedProgramId, selectedRunId]);
+  }, [projectId, refreshRevision, runEvidenceById, selectedProgram, selectedProgramId, selectedRunId]);
 
   const recordRunProgress = (progress: DesignRunProgress) => {
     setRunProgress(progress);
@@ -326,7 +329,7 @@ export function DesignWorkbench({
   useEffect(() => () => pollAbort.current?.abort(), []);
 
   const run = async () => {
-    if (!selectedProgram || running || !evidence || evidence.currentRuns > 0) return;
+    if (!selectedProgram || running || !evidence || evidence.currentRuns + evidence.commissionedRuns > 0) return;
     setRunning(true); setRunProgress(null); setLastCompletedCase(null); setError(null); setPromoted(null);
     try {
       const started = await startStudioOperation<DesignRunResult>(
@@ -398,7 +401,7 @@ export function DesignWorkbench({
           <section className="design-contract">
             <div><span className="eyebrow">DESIGN CONTRACT</span><h3>{selectedProgram.name}</h3><p>{selectedProgram.description}</p><code>{selectedProgram.id} · {shortHash(selectedProgram.programHash)}</code></div>
             <div className="design-seed"><small>LOCKED BENCHMARK</small><strong>{brief.benchmark.id}</strong><span>{brief.benchmark.cases} operating cases</span><i>PROGRAM FOCUS</i><strong>{focusDetail(selectedProgram).title}</strong><span>{focusDetail(selectedProgram).detail}</span><i>HARD INDUSTRIAL OUTCOMES</i><strong>{brief.benchmark.acceptance.outcomeGuardrails?.length ?? 0} ABSOLUTE GUARDRAILS</strong><span>{brief.benchmark.acceptance.outcomeGuardrails?.reduce((total, guardrail) => total + Object.keys(guardrail.thresholds).length, 0) ?? 0} case thresholds · Benchmark-owned</span><i>CURRENT-BEST GUARDRAIL</i><strong>{guardrailDetail(selectedProgram).title}</strong><span>{guardrailDetail(selectedProgram).detail}</span><i>PARETO FRONTIER</i><strong>1 LEADER + {selectedProgram.frontier.maximumAlternativeBranches} ALTERNATIVE</strong><span>only the policy-compliant leader is promotable</span><i>{selectedProgram.seed.kind === "synthesis" ? "GENERATED FROM" : "AUTHORED SEED"}</i><strong>{selectedProgram.seed.kind === "synthesis" ? selectedProgram.seed.inputBlueprint : selectedProgram.seed.blueprint}</strong><span>{brief.seed.synthesis?.method ?? "Blueprint"} · {shortHash(brief.seed.blueprintHash)}</span><i>CURRENT PROMOTION TARGET</i><strong>{brief.promotionBase.blueprint}</strong><span>{shortHash(brief.promotionBase.hash)} · driver {brief.driver.case.id}</span></div>
-            <div className="design-run-control"><label>NEW / ADDITIONAL BUDGET <b>{budget}</b></label><input type="range" min="1" max={selectedProgram.budget.maxCandidates} value={budget} onChange={(event) => setBudget(Number(event.target.value))}/><button data-testid="run-design" disabled={running || !selectedProgram.locked || !evidence || evidence.currentRuns > 0} onClick={() => void run()}>{running && runProgress ? `RUNNING ${runProgress.work.completedCases}/${runProgress.work.plannedCases}` : running ? "STARTING…" : evidence && evidence.currentRuns > 0 ? `CURRENT ${evidence.state.toUpperCase()}` : `NEW RUN · ${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>
+            <div className="design-run-control"><label>NEW / ADDITIONAL BUDGET <b>{budget}</b></label><input type="range" min="1" max={selectedProgram.budget.maxCandidates} value={budget} onChange={(event) => setBudget(Number(event.target.value))}/><button data-testid="run-design" disabled={running || !selectedProgram.locked || !evidence || evidence.currentRuns + evidence.commissionedRuns > 0} onClick={() => void run()}>{running && runProgress ? `RUNNING ${runProgress.work.completedCases}/${runProgress.work.plannedCases}` : running ? "STARTING…" : evidence && evidence.currentRuns + evidence.commissionedRuns > 0 ? `CURRENT ${evidence.state.toUpperCase()}` : `NEW RUN · ${budget} CANDIDATE${budget === 1 ? "" : "S"}`}</button></div>
           </section>
           {activeOperation && <section className={`design-live-progress ${activeOperation.status}`} aria-live="polite" data-testid="design-progress"><div><span>RECONNECTABLE OPERATION · {activeOperation.status.toUpperCase()}</span><strong>{runProgress ? progressLabel(runProgress).title : activeOperation.status === "completed" ? "IMMUTABLE RESULT RETAINED" : "PREPARING DESIGN CONTRACT"}</strong><code>OP {shortHash(activeOperation.id)} · {runProgress ? progressLabel(runProgress).detail : selectedProgram.id}</code>{lastCompletedCase && runProgress?.phase !== "case-completed" && <code data-testid="design-last-completed-case">{completedCaseLabel(lastCompletedCase)}</code>}{activeOperation.error && <code>{activeOperation.error.code} · {activeOperation.error.message}</code>}</div><div><b>{runProgress ? `${runProgress.work.completedCases}/${runProgress.work.plannedCases}` : "0/—"}</b><small>CASES</small><progress value={runProgress?.work.completedCases ?? 0} max={runProgress?.work.plannedCases ?? 1}/></div>{!isTerminalOperationExecution(activeOperation.status) && <button onClick={() => void cancelRun()} disabled={activeOperation.cancelRequestedAt !== null} data-testid="cancel-design">{activeOperation.cancelRequestedAt ? "CANCELLING…" : "CANCEL"}</button>}</section>}
           <section className="design-families"><span>PROPOSAL PROVIDER</span><div><code>{selectedProgram.proposal.kind}</code>{selectedProgram.proposal.kind === "project-strategy" && <code>{selectedProgram.proposal.entry}</code>}</div></section>
@@ -411,12 +414,12 @@ export function DesignWorkbench({
           <section className="design-families"><span>ALLOWED DECISIONS</span><div>{selectedProgram.proposal.decisionFamilies.map((family) => <code key={family}>{family}</code>)}</div></section>
           {error && <div className="design-error" role="alert"><strong>DESIGN OPERATION FAILED</strong><span>{error}</span></div>}
           <section className="design-ranking">
-            <div className="design-section-title"><span>IMMUTABLE RESULT AUTHORITY</span><b>{evidence?.currentRuns ?? 0} CURRENT · {evidence?.historicalRuns ?? 0} HISTORICAL · {invalidRuns.length} EXCLUDED</b></div>
+            <div className="design-section-title"><span>IMMUTABLE RESULT AUTHORITY</span><b>{evidence?.currentRuns ?? 0} CURRENT · {evidence?.commissionedRuns ?? 0} COMMISSIONED · {evidence?.historicalRuns ?? 0} HISTORICAL · {invalidRuns.length} EXCLUDED</b></div>
             {runs.length ? runs.map((runSummary, index) => {
               const projected = runEvidenceById.get(runSummary.id);
               const currentness = projected?.currentness.state ?? "historical";
               return <button key={runSummary.id} className={`${runSummary.id === selectedRunId ? "selected " : ""}${currentness}`} data-testid={`design-run-${runSummary.id}`} onClick={() => onSelectRun(runSummary.id)}>
-              <em>{runSummary.id === evidence?.authorityRunId ? "A" : `#${index + 1}`}</em><span><strong>{shortHash(runSummary.id)}</strong><code>{currentness.toUpperCase()} · {projected?.outcome.toUpperCase() ?? "UNKNOWN"} · {currentness === "historical" ? projected?.currentness.reasons.join(" + ") : `${runSummary.budget.evaluated}/${runSummary.budget.maximum} evaluated · ${runSummary.stopReason}`}{runSummary.continuation ? ` · from ${shortHash(runSummary.continuation.sourceResultHash)}` : ""}</code></span><b>{runSummary.best.candidateScore.toFixed(6)}<small>{signed(runSummary.best.scoreDelta)} VS BASELINE</small></b><i className={runSummary.best.iteration > 0 ? "leading" : "seed"}>{runSummary.continuation ? `CONTINUED · +${runSummary.continuation.additionalCandidateBudget}` : runSummary.best.iteration > 0 ? `ITERATION ${runSummary.best.iteration}` : runSummary.seed.source.kind === "synthesis" ? "GENERATED SEED" : "SEED LEADS"}</i>
+              <em>{runSummary.id === evidence?.authorityRunId ? "A" : `#${index + 1}`}</em><span><strong>{shortHash(runSummary.id)}</strong><code>{currentness.toUpperCase()} · {projected?.outcome.toUpperCase() ?? "UNKNOWN"} · {currentness === "historical" ? projected?.currentness.reasons.join(" + ") : currentness === "commissioned" ? `Candidate ${projected?.currentness.commissioning?.candidateId} · ${runSummary.stopReason}` : `${runSummary.budget.evaluated}/${runSummary.budget.maximum} evaluated · ${runSummary.stopReason}`}{runSummary.continuation ? ` · from ${shortHash(runSummary.continuation.sourceResultHash)}` : ""}</code></span><b>{runSummary.best.candidateScore.toFixed(6)}<small>{signed(runSummary.best.scoreDelta)} VS BASELINE</small></b><i className={runSummary.best.iteration > 0 ? "leading" : "seed"}>{runSummary.continuation ? `CONTINUED · +${runSummary.continuation.additionalCandidateBudget}` : runSummary.best.iteration > 0 ? `ITERATION ${runSummary.best.iteration}` : runSummary.seed.source.kind === "synthesis" ? "GENERATED SEED" : "SEED LEADS"}</i>
             </button>;
             }) : <div className="design-empty compact">NO DESIGN EVIDENCE YET · RUN A BOUNDED SEARCH</div>}
           </section>
@@ -485,7 +488,7 @@ export function DesignWorkbench({
               testId={`design-iteration-${iteration.iteration}-cadence-${item.id}`}
             />)}</>}<small>{iteration.hypothesis}</small></div><em>{!iteration.decisionEvidence ? "INVALID" : signed(iteration.decisionEvidence.aggregate.scoreDelta)}</em></div>)}</div>
             {selectedRunAlreadyCommissioned ? <div className="design-commissioned" data-testid="design-commissioned">
-              <div><small>COMMISSIONING COMPLETE</small><strong>THIS DESIGN IS THE CURRENT FACTORY</strong><span>{selectedRun.manifest.promotionBase.blueprint} matches immutable leader {shortHash(selectedRun.manifest.best.blueprintHash)}. Re-promotion and continuation are intentionally unavailable after the target moved.</span></div>
+              <div><small>VERIFIED CANDIDATE LINEAGE</small><strong>THIS DESIGN LEADER IS THE CURRENT FACTORY</strong><span>Candidate {selectedRunCommissioning!.candidateId} applied {shortHash(selectedRunCommissioning!.baseBlueprintHash)} → {shortHash(selectedRunCommissioning!.appliedBlueprintHash)} from immutable Run {shortHash(selectedRunCommissioning!.runId)}. Its design reasoning remains authority; operating measurements still require a compatible Run.</span></div>
               {commissionedCandidate
                 ? <button onClick={() => onCandidate(commissionedCandidate.benchmark, commissionedCandidate.id)}>OPEN VERIFIED CANDIDATE →</button>
                 : <code>NO MATCHING PROJECT-LOCAL CANDIDATE RECORD</code>}

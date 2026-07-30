@@ -37,6 +37,7 @@ import {
 } from "./execution-identity";
 import {
   classifyDesignProgramEvidence,
+  verifiedDesignCommissioningIdentity,
   type WorkbenchDesignProgramEvidence,
 } from "./design-evidence";
 
@@ -51,6 +52,8 @@ export type {
   InspectedDesignProgramEvidence,
   WorkbenchDesignEvidenceIdentity,
   WorkbenchDesignEvidenceState,
+  WorkbenchDesignCommissioningEvidence,
+  WorkbenchDesignCommissioningIdentity,
   WorkbenchDesignProgramEvidence,
   WorkbenchDesignRunCurrentnessReason,
   WorkbenchDesignRunEvidence,
@@ -111,8 +114,8 @@ export type WorkbenchNextActionTarget =
   | { kind: "candidate"; benchmarkId: string; candidateId: string; phase: CandidateDecisionState }
   | { kind: "design-program"; programId: string; diagnosticId: string }
   | { kind: "design-program"; programId: string; objectiveComponent: ScoreBreakdownComponent; runId: string }
-  | { kind: "design-run"; programId: string; runId: string; phase: "promotable" | "continuable" | "exhausted"; diagnosticId: string }
-  | { kind: "design-run"; programId: string; runId: string; phase: "promotable" | "continuable" | "exhausted"; objectiveComponent: ScoreBreakdownComponent; evidenceRunId: string }
+  | { kind: "design-run"; programId: string; runId: string; phase: "commissioned" | "promotable" | "continuable" | "exhausted"; diagnosticId: string }
+  | { kind: "design-run"; programId: string; runId: string; phase: "commissioned" | "promotable" | "continuable" | "exhausted"; objectiveComponent: ScoreBreakdownComponent; evidenceRunId: string }
   | { kind: "objective-component"; component: ScoreBreakdownComponent; runId: string }
   | { kind: "operation"; operationId: "analyze" | "simulate" }
   | { kind: "run"; runId: string };
@@ -229,7 +232,7 @@ export interface WorkbenchObjectiveEvidence {
 }
 
 export interface ProjectWorkbenchSnapshot {
-  version: 12;
+  version: 13;
   project: {
     id: string;
     name: string;
@@ -613,6 +616,8 @@ function operationDescriptors(
       ? { state: "conditional", reasons: ["The aligned Design Program already has a current promotable leader; review that immutable run before starting another."] }
       : alignedDesign?.evidence.state === "continuable"
         ? { state: "conditional", reasons: ["The aligned Design Program has a current searchable frontier; continue that immutable run instead of restarting it."] }
+        : alignedDesign?.evidence.state === "commissioned"
+          ? { state: "conditional", reasons: ["The aligned Design Program's accepted leader is already the current Blueprint through a verified Candidate; review that lineage before authoring additional interventions."] }
         : alignedDesign?.evidence.state === "exhausted"
           ? { state: "conditional", reasons: ["The aligned Design Program has exhausted its current intervention portfolio; change its Program inputs before rerunning."] }
           : { state: "available", reasons: [] };
@@ -764,13 +769,15 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
       && program.focus.kind === "losses"
       && program.focus.losses.includes(selectedLoss);
     if (addressesSelectedLoss && program.evidence.state === "continuable") return 1;
-    if (addressesSelectedLoss && program.evidence.state === "exhausted") return 2;
-    if (focusesSelectedLoss && program.evidence.state === "missing") return 3;
-    if (program.focus.kind === "broad" && program.evidence.state === "missing") return 4;
-    if (program.evidence.state === "continuable") return 5;
-    if (program.evidence.state === "exhausted") return 6;
-    if (program.evidence.state === "missing") return 7;
-    return 8;
+    if (addressesSelectedLoss && program.evidence.state === "commissioned") return 2;
+    if (addressesSelectedLoss && program.evidence.state === "exhausted") return 3;
+    if (focusesSelectedLoss && program.evidence.state === "missing") return 4;
+    if (program.focus.kind === "broad" && program.evidence.state === "missing") return 5;
+    if (program.evidence.state === "continuable") return 6;
+    if (program.evidence.state === "commissioned") return 7;
+    if (program.evidence.state === "exhausted") return 8;
+    if (program.evidence.state === "missing") return 9;
+    return 10;
   };
   const alignedProgram = context.designPrograms
     .filter((program) => program.alignment.state === "aligned")
@@ -781,13 +788,18 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
     ? alignedProgram.evidence.runs.find((run) => run.id === alignedProgram.evidence.authorityRunId)
     : null;
   if (warning?.evidence.source === "compatible-run" && alignedProgram && designAuthority) {
-    const phase = designAuthority.outcome;
-    const title = phase === "promotable"
+    const phase = designAuthority.currentness.state === "commissioned" ? "commissioned" : designAuthority.outcome;
+    const commissioning = designAuthority.currentness.commissioning;
+    const title = phase === "commissioned"
+      ? `Continue from the commissioned ${alignedProgram.name} lineage`
+      : phase === "promotable"
       ? `Review the current Design leader from ${alignedProgram.name}`
       : phase === "continuable"
         ? `Continue the current ${alignedProgram.name} frontier`
         : `Expand ${alignedProgram.name}'s intervention portfolio`;
-    const next = phase === "promotable"
+    const next = phase === "commissioned"
+      ? `Design Run ${designAuthority.id} produced the current Blueprint through verified Candidate ${commissioning!.candidateId}; reopen its complete accepted and rejected evidence before adding a physically distinct intervention.`
+      : phase === "promotable"
       ? `Current Design Run ${designAuthority.id} has a guarded leader with ${designAuthority.best.promotionPatchOperations} promotion operations. Review its immutable evidence before creating a Candidate.`
       : phase === "continuable"
         ? `Current Design Run ${designAuthority.id} stopped at its ${designAuthority.budget.evaluated}/${designAuthority.budget.maximum} Candidate budget with searchable frontier evidence. Reopen that exact result before choosing an additional bounded budget.`
@@ -797,7 +809,7 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
       tone: phase === "promotable" ? "review" : "attention",
       title,
       reason: `${warning.message} ${next}`,
-      actionLabel: phase === "promotable" ? "REVIEW DESIGN LEADER" : phase === "continuable" ? "REVIEW CONTINUATION" : "REVIEW EXHAUSTED DESIGN",
+      actionLabel: phase === "commissioned" ? "REVIEW COMMISSIONED LINEAGE" : phase === "promotable" ? "REVIEW DESIGN LEADER" : phase === "continuable" ? "REVIEW CONTINUATION" : "REVIEW EXHAUSTED DESIGN",
       effect: "read-only",
       requiresConfirmation: false,
       argv: ["inm", "design", context.project.rootDir, "--program", alignedProgram.id, "--run-id", designAuthority.id, "--json"],
@@ -845,22 +857,28 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
         const priority = (program: ProjectWorkbenchSnapshot["designPrograms"][number]): number =>
           program.evidence.state === "promotable" ? 0
             : program.evidence.state === "continuable" ? 1
-              : program.evidence.state === "exhausted" ? 2
-                : program.evidence.state === "missing" ? 3
-                  : 4;
+              : program.evidence.state === "commissioned" ? 2
+                : program.evidence.state === "exhausted" ? 3
+                  : program.evidence.state === "missing" ? 4
+                    : 5;
         return priority(left) - priority(right) || left.id.localeCompare(right.id);
       })[0];
     const objectiveAuthority = objectiveProgram?.evidence.authorityRunId
       ? objectiveProgram.evidence.runs.find((item) => item.id === objectiveProgram.evidence.authorityRunId)
       : null;
     if (objectiveProgram && objectiveAuthority) {
-      const phase = objectiveAuthority.outcome;
-      const title = phase === "promotable"
+      const phase = objectiveAuthority.currentness.state === "commissioned" ? "commissioned" : objectiveAuthority.outcome;
+      const commissioning = objectiveAuthority.currentness.commissioning;
+      const title = phase === "commissioned"
+        ? `Continue from the commissioned ${objectiveProgram.name} lineage`
+        : phase === "promotable"
         ? `Review the current Objective Design leader from ${objectiveProgram.name}`
         : phase === "continuable"
           ? `Continue the current ${objectiveProgram.name} frontier`
           : `Expand ${objectiveProgram.name}'s intervention portfolio`;
-      const next = phase === "promotable"
+      const next = phase === "commissioned"
+        ? `Design Run ${objectiveAuthority.id} produced the current Blueprint through verified Candidate ${commissioning!.candidateId}; its exact Objective evidence remains the accumulated design handoff.`
+        : phase === "promotable"
         ? `Current Design Run ${objectiveAuthority.id} has a guarded leader with ${objectiveAuthority.best.promotionPatchOperations} promotion operations. Review its exact Objective target evidence before creating a Candidate.`
         : phase === "continuable"
           ? `Current Design Run ${objectiveAuthority.id} stopped at its ${objectiveAuthority.budget.evaluated}/${objectiveAuthority.budget.maximum} Candidate budget with searchable frontier evidence.`
@@ -870,7 +888,7 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
         tone: phase === "promotable" ? "review" : "attention",
         title,
         reason: `${objectivePenalty.id} contributes ${objectivePenalty.contribution.toFixed(3)} to Run ${runId}. ${next}`,
-        actionLabel: phase === "promotable" ? "REVIEW DESIGN LEADER" : phase === "continuable" ? "REVIEW CONTINUATION" : "REVIEW OBJECTIVE DESIGN",
+        actionLabel: phase === "commissioned" ? "REVIEW COMMISSIONED LINEAGE" : phase === "promotable" ? "REVIEW DESIGN LEADER" : phase === "continuable" ? "REVIEW CONTINUATION" : "REVIEW OBJECTIVE DESIGN",
         effect: "read-only",
         requiresConfirmation: false,
         argv: ["inm", "design", context.project.rootDir, "--program", objectiveProgram.id, "--run-id", objectiveAuthority.id, "--json"],
@@ -1080,6 +1098,10 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
       },
     };
   });
+  const designCommissionings = candidates.flatMap((candidate, index) => {
+    const commissioning = verifiedDesignCommissioningIdentity(candidate, decisions[index]!);
+    return commissioning ? [commissioning] : [];
+  });
   const experimentsById = new Map(experiments.map((experiment) => [experiment.id, experiment]));
   const classifiedDesignPrograms: ProjectWorkbenchSnapshot["designPrograms"] = await Promise.all(programs.map(async (program) => {
     const benchmark = experimentsById.get(program.benchmark)!;
@@ -1094,6 +1116,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
       authorityRunId: null,
       authorityAddressedLosses: [],
       currentRuns: 0,
+      commissionedRuns: 0,
       historicalRuns: 0,
       invalidRuns: 0,
       runs: [],
@@ -1132,7 +1155,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
           }),
         },
         promotionBase: { blueprint: promotionTarget, hash: project.hashes.blueprintHash },
-      }, indexed.runs, indexed.invalidRuns);
+      }, indexed.runs, indexed.invalidRuns, designCommissionings);
     }
     return {
       id: program.id,
@@ -1210,7 +1233,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const snapshot = {
-    version: 12 as const,
+    version: 13 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },

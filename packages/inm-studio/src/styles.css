@@ -918,6 +918,9 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .design-ranking > button.historical { background: #101413; opacity: .72; }
 .design-ranking > button.historical:hover, .design-ranking > button.historical.selected { background: #1b1c17; opacity: 1; }
 .design-ranking > button.historical.selected { box-shadow: inset 3px 0 #b99c59; }
+.design-ranking > button.commissioned { background: linear-gradient(90deg, #102a23, #101b18); }
+.design-ranking > button.commissioned:hover, .design-ranking > button.commissioned.selected { background: linear-gradient(90deg, #173a30, #11241f); }
+.design-ranking > button.commissioned.selected { box-shadow: inset 3px 0 #55d4ac; }
 .design-ranking em { color: #4d7167; font: normal 9px var(--mono); }
 .design-ranking span { display: grid; gap: 4px; }
 .design-ranking strong { color: #b8d4cd; font: 10px var(--mono); }

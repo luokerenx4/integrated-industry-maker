@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, DesignRunError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, classifyDesignProgramEvidence, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, describeWipInventoryLocation, designProgramEvidenceIdentity, evaluateBenchmarkOperation, indexDesignRuns, inspectCandidateDecision, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadBlueprintBenchmark, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, recommendedDesignProgramEvidenceAction, runDesignProgram, simulateProjectOperation, validateProjectOperation,
+  CandidateChangeSetError, DesignRunError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, describeWipInventoryLocation, evaluateBenchmarkOperation, inspectCandidateDecision, inspectDesignProgramEvidence, listDesignPrograms, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadBlueprintBenchmark, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, recommendedDesignProgramEvidenceAction, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
   TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals,
@@ -611,8 +611,11 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
           evidence: {
             state: program.evidence.state,
             authorityRunId: program.evidence.authorityRunId,
+            authorityCommissioning: program.evidence.runs.find((run) =>
+              run.id === program.evidence.authorityRunId)?.currentness.commissioning ?? null,
             authorityAddressedLosses: program.evidence.authorityAddressedLosses,
             currentRuns: program.evidence.currentRuns,
+            commissionedRuns: program.evidence.commissionedRuns,
             historicalRuns: program.evidence.historicalRuns,
             invalidRuns: program.evidence.invalidRuns,
           },
@@ -1707,8 +1710,14 @@ export async function designCommand(projectDir: string, programId: string | unde
       ].join("\n"), false);
       return;
     }
+    const inspected = await inspectDesignProgramEvidence(projectDir, programId);
+    const selectedEvidence = inspected.evidence.runs.find((run) => run.id === options.runId) ?? null;
+    const commissioned = selectedEvidence?.currentness.state === "commissioned"
+      ? selectedEvidence.currentness.commissioning!
+      : null;
+    const directlyCurrent = selectedEvidence?.currentness.state === "current";
     const data = sectionResult("design", options, {
-      summary: () => ({ action: "open", program: result.manifest.program, benchmark: result.manifest.benchmark, seed: result.manifest.seed, promotionBase: result.manifest.promotionBase, continuation: result.manifest.continuation, budget: result.manifest.budget, best: result.manifest.best, stopReason: result.manifest.stopReason, resultHash: result.manifest.resultHash }),
+      summary: () => ({ action: "open", program: result.manifest.program, benchmark: result.manifest.benchmark, seed: result.manifest.seed, promotionBase: result.manifest.promotionBase, continuation: result.manifest.continuation, budget: result.manifest.budget, best: result.manifest.best, stopReason: result.manifest.stopReason, resultHash: result.manifest.resultHash, evidence: selectedEvidence }),
       static: () => brief.staticEvidence,
       iterations: () => result.manifest.iterations,
       frontier: () => ({ ...result.manifest.frontier, exhaustions: result.manifest.exhaustions }),
@@ -1718,13 +1727,19 @@ export async function designCommand(projectDir: string, programId: string | unde
     });
     const candidateId = `${programId}-${options.runId.slice(0, 8)}`;
     const nextActions: CliNextAction[] = [];
-    if (result.manifest.stopReason === "budget-exhausted" && result.manifest.frontier.scheduler.searchOrder.length) nextActions.push(nextAction(
+    if (commissioned) nextActions.push(nextAction(
+      `candidate.inspect:${commissioned.candidateId}`,
+      "Open the exact verified Candidate that commissioned this Design leader into the current Blueprint.",
+      ["inm", "candidate", brief.project.rootDir, "--candidate", commissioned.candidateId, "--json"],
+      "read-only",
+    ));
+    if (directlyCurrent && result.manifest.stopReason === "budget-exhausted" && result.manifest.frontier.scheduler.searchOrder.length) nextActions.push(nextAction(
       `design.continue:${options.runId}`,
       `Continue this exact frontier with up to ${brief.program.budget.maxCandidates} additional Candidate evaluations.`,
       ["inm", "design", brief.project.rootDir, "--program", programId, "--run-id", options.runId, "--continue", "--max-candidates", String(brief.program.budget.maxCandidates), "--json"],
       "creates-artifact",
     ));
-    if (result.manifest.best.verdict === "KEEP" && result.manifest.best.promotionPatchOperations > 0) nextActions.push(nextAction(
+    if (directlyCurrent && result.manifest.best.verdict === "KEEP" && result.manifest.best.promotionPatchOperations > 0) nextActions.push(nextAction(
       `design.promote:${options.runId}`,
       "Create an immutable Candidate Change Set reproducing this accepted design from the current promotion base.",
       ["inm", "design", brief.project.rootDir, "--program", programId, "--run-id", options.runId, "--promote", candidateId, "--json"],
@@ -1738,6 +1753,7 @@ export async function designCommand(projectDir: string, programId: string | unde
     else write([
       `${brief.program.name} · Design Run`,
       `Result: ${result.manifest.resultHash}`,
+      ...(commissioned ? [`Commissioned: Candidate ${commissioned.candidateId} · Blueprint ${commissioned.appliedBlueprintHash}`] : []),
       ...(result.manifest.continuation ? [`Continued from: ${result.manifest.continuation.sourceResultHash} · reused ${result.manifest.continuation.reusedIterations} iterations · +${result.manifest.continuation.additionalCandidateBudget} candidate budget`] : []),
       `Evaluated: ${result.manifest.budget.evaluated}/${result.manifest.budget.maximum} · ${result.manifest.stopReason}`,
       `Best: iteration ${result.manifest.best.iteration} · score ${result.manifest.best.candidateScore.toFixed(6)} · Δ ${signed(result.manifest.best.scoreDelta, 6)} · ${result.manifest.best.verdict}`,
@@ -1745,19 +1761,22 @@ export async function designCommand(projectDir: string, programId: string | unde
       ...result.manifest.exhaustions.map(designExhaustionLine),
       ...result.manifest.iterations.flatMap(designIterationLines),
       `Artifact: ${result.artifact.path}`,
-      ...(result.manifest.stopReason === "budget-exhausted" && result.manifest.frontier.scheduler.searchOrder.length ? ["", `Continue: inm design <path> --program ${programId} --run-id ${options.runId} --continue --max-candidates ${brief.program.budget.maxCandidates}`] : []),
-      ...(result.manifest.best.verdict === "KEEP" && result.manifest.best.promotionPatchOperations > 0 ? ["", `Promote: inm design <path> --program ${programId} --run-id ${options.runId} --promote ${candidateId}`] : []),
+      ...(commissioned ? ["", `Verified Candidate: inm candidate <path> --candidate ${commissioned.candidateId}`] : []),
+      ...(directlyCurrent && result.manifest.stopReason === "budget-exhausted" && result.manifest.frontier.scheduler.searchOrder.length ? ["", `Continue: inm design <path> --program ${programId} --run-id ${options.runId} --continue --max-candidates ${brief.program.budget.maxCandidates}`] : []),
+      ...(directlyCurrent && result.manifest.best.verdict === "KEEP" && result.manifest.best.promotionPatchOperations > 0 ? ["", `Promote: inm design <path> --program ${programId} --run-id ${options.runId} --promote ${candidateId}`] : []),
       "",
     ].join("\n"), false);
     return;
   }
   if (!options.run) {
-    const { runs, invalidRuns } = await indexDesignRuns(projectDir, programId);
-    const evidence = classifyDesignProgramEvidence(designProgramEvidenceIdentity(brief), runs, invalidRuns);
+    const { runs, invalidRuns, evidence } = await inspectDesignProgramEvidence(projectDir, programId);
     const evidenceSummary = {
       state: evidence.state,
       authorityRunId: evidence.authorityRunId,
+      authorityCommissioning: evidence.runs.find((run) =>
+        run.id === evidence.authorityRunId)?.currentness.commissioning ?? null,
       currentRuns: evidence.currentRuns,
+      commissionedRuns: evidence.commissionedRuns,
       historicalRuns: evidence.historicalRuns,
       invalidRuns: evidence.invalidRuns,
     };
@@ -1786,7 +1805,9 @@ export async function designCommand(projectDir: string, programId: string | unde
           }
           : {
             id: `design.open:${action.runId}`,
-            description: "Reopen the exact current exhausted Design authority and its bounded decision evidence.",
+            description: evidence.state === "commissioned"
+              ? "Reopen the exact Design Run and verified Candidate lineage that produced the current Blueprint."
+              : "Reopen the exact current exhausted Design authority and its bounded decision evidence.",
             argv: ["inm", "design", brief.project.rootDir, "--program", programId, "--run-id", action.runId, "--json"],
             effect: "read-only" as const,
           };
@@ -1819,7 +1840,9 @@ export async function designCommand(projectDir: string, programId: string | unde
       `Frontier: 1 leader + up to ${brief.program.frontier.maximumAlternativeBranches} alternative branch${brief.program.frontier.maximumAlternativeBranches === 1 ? "" : "es"}`,
       `Budget: ${brief.program.budget.maxCandidates} candidates · ${brief.program.proposal.decisionFamilies.join(" + ")}`,
       `Static: capacity ${brief.staticEvidence.capacity.state.toUpperCase()} · ${brief.staticEvidence.flow.warningCount} warnings · ${brief.staticEvidence.devices.declarative}/${brief.staticEvidence.devices.total} declarative Devices`,
-      `Evidence: ${evidence.currentRuns} current · ${evidence.historicalRuns} historical · ${evidence.invalidRuns} invalid excluded · authority ${evidence.authorityRunId?.slice(0, 12) ?? "none"} (${evidence.state})`,
+      `Evidence: ${evidence.currentRuns} current · ${evidence.commissionedRuns} commissioned · ${evidence.historicalRuns} historical · ${evidence.invalidRuns} invalid excluded · authority ${evidence.authorityRunId?.slice(0, 12) ?? "none"} (${evidence.state})`,
+      ...evidence.runs.filter((run) => run.currentness.state === "commissioned")
+        .map((run) => `  commissioned ${run.id.slice(0, 12)} · Candidate ${run.currentness.commissioning!.candidateId} · ${run.currentness.commissioning!.appliedBlueprintHash.slice(0, 12)}`),
       ...evidence.runs.filter((run) => run.currentness.state === "historical").slice(0, 5)
         .map((run) => `  historical ${run.id.slice(0, 12)} · ${run.currentness.reasons.join(" + ")}`),
       ...(evidence.historicalRuns > 5 ? [`  … ${evidence.historicalRuns - 5} more historical runs in --section runs --json`] : []),

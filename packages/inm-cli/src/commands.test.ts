@@ -458,28 +458,28 @@ test("public inspect summary exposes bounded current Design evidence to Agents a
     expect.objectContaining({
       id: "commissioned-dram-fab",
       alignment: { state: "aligned", reasons: [] },
-      evidence: { state: "missing", authorityRunId: null, authorityAddressedLosses: [], currentRuns: 0, historicalRuns: 0, invalidRuns: 0 },
+      evidence: { state: "missing", authorityRunId: null, authorityCommissioning: null, authorityAddressedLosses: [], currentRuns: 0, commissionedRuns: 0, historicalRuns: 0, invalidRuns: 0 },
     }),
     expect.objectContaining({
       id: "back-end-die-handoff",
       alignment: { state: "aligned", reasons: [] },
-      evidence: { state: "missing", authorityRunId: null, authorityAddressedLosses: [], currentRuns: 0, historicalRuns: 0, invalidRuns: 0 },
+      evidence: { state: "missing", authorityRunId: null, authorityCommissioning: null, authorityAddressedLosses: [], currentRuns: 0, commissionedRuns: 0, historicalRuns: 0, invalidRuns: 0 },
     }),
     expect.objectContaining({
       id: "greenfield-dram-fab",
-      evidence: { state: "not-applicable", authorityRunId: null, authorityAddressedLosses: [], currentRuns: 0, historicalRuns: 0, invalidRuns: 0 },
+      evidence: { state: "not-applicable", authorityRunId: null, authorityCommissioning: null, authorityAddressedLosses: [], currentRuns: 0, commissionedRuns: 0, historicalRuns: 0, invalidRuns: 0 },
     }),
     expect.objectContaining({
       id: "lithography-maintenance-convergence",
       focus: { kind: "losses", losses: ["maintenance-qualification"] },
       alignment: { state: "aligned", reasons: [] },
-      evidence: { state: "missing", authorityRunId: null, authorityAddressedLosses: [], currentRuns: 0, historicalRuns: 0, invalidRuns: 0 },
+      evidence: { state: "missing", authorityRunId: null, authorityCommissioning: null, authorityAddressedLosses: [], currentRuns: 0, commissionedRuns: 0, historicalRuns: 0, invalidRuns: 0 },
     }),
     expect.objectContaining({
       id: "release-admission-convergence",
       focus: { kind: "losses", losses: ["release-admission"] },
       alignment: { state: "aligned", reasons: [] },
-      evidence: { state: "missing", authorityRunId: null, authorityAddressedLosses: [], currentRuns: 0, historicalRuns: 0, invalidRuns: 0 },
+      evidence: { state: "missing", authorityRunId: null, authorityCommissioning: null, authorityAddressedLosses: [], currentRuns: 0, commissionedRuns: 0, historicalRuns: 0, invalidRuns: 0 },
     }),
   ]));
   expect(programs[0].evidence.runs).toBeUndefined();
@@ -645,7 +645,9 @@ test("public Design Program workflow discovers, inspects, and executes without m
       evidence: {
         state: "missing",
         authorityRunId: null,
+        authorityCommissioning: null,
         currentRuns: 0,
+        commissionedRuns: 0,
         historicalRuns: 0,
         invalidRuns: 1,
       },
@@ -657,7 +659,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
   expect(humanInspection.stdout).toContain("Focus: broad industrial search");
   expect(humanInspection.stdout).toContain("Current-best guardrail: uniform · max 0.000000 regression/case");
   expect(humanInspection.stdout).toContain("Frontier: 1 leader + up to 1 alternative branch");
-  expect(humanInspection.stdout).toContain("Evidence: 0 current · 0 historical · 1 invalid excluded · authority none (missing)");
+  expect(humanInspection.stdout).toContain("Evidence: 0 current · 0 commissioned · 0 historical · 1 invalid excluded · authority none (missing)");
   expect(humanInspection.stdout).toContain(`excluded ${invalidRunId.slice(0, 12)} · design.invalid-run`);
 
   const generated = await runCli(["design", projectDir, "--program", "greenfield-dram-fab", "--json"]);
@@ -850,7 +852,9 @@ test("public Design Program workflow discovers, inspects, and executes without m
         evidence: {
           state: "promotable",
           authorityRunId: continuedHash,
+          authorityCommissioning: null,
           currentRuns: 2,
+          commissionedRuns: 0,
           historicalRuns: 0,
           invalidRuns: 1,
         },
@@ -1149,22 +1153,29 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
 
   const result = JSON.parse(machine.stdout).data.result;
   const currentInspection = result.designPrograms.find((item: { id: string }) => item.id === "inspection-supply-path");
-  if (currentInspection?.evidence.authorityRunId === "6f1f260672f18ae77d72dfb4425a3c9ddd5870f4f50a41cd84d95c0984730bde") {
+  if (currentInspection?.evidence.authorityRunId === "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06") {
     expect(currentInspection.evidence).toEqual(expect.objectContaining({
-      state: "exhausted",
-      currentRuns: 1,
-      historicalRuns: 5,
+      state: "commissioned",
+      currentRuns: 0,
+      commissionedRuns: 1,
+      historicalRuns: 4,
       invalidRuns: 4,
       authorityAddressedLosses: ["input-starvation"],
+      authorityCommissioning: expect.objectContaining({
+        candidateId: "inspection-supply-path-966127dd",
+        runId: "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06",
+        proposalHash: "18c8ebc898254d30a5e428dbd93412f947da062a1c20779656728237640c9832",
+        appliedBlueprintHash: "8281c50706c578b823b7d8cc3f5d4f94cef230fefbee210c8a3756a6a9a9563a",
+      }),
     }));
     expect(result.lossDispositions).toHaveLength(0);
     expect(result.nextAction).toEqual(expect.objectContaining({
-      title: "Expand Inspection Supply Path Convergence's intervention portfolio",
-      actionLabel: "REVIEW EXHAUSTED DESIGN",
+      title: "Continue from the commissioned Inspection Supply Path Convergence lineage",
+      actionLabel: "REVIEW COMMISSIONED LINEAGE",
       target: expect.objectContaining({
         kind: "design-run",
         programId: "inspection-supply-path",
-        phase: "exhausted",
+        phase: "commissioned",
       }),
     }));
     expect(JSON.parse(objective.stdout).data.result).toEqual(expect.objectContaining({
@@ -1172,7 +1183,51 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
       dominantPenalty: { id: "wip", contribution: -73.93575, role: "penalty" },
     }));
     expect(JSON.parse(dispositions.stdout).data.result).toHaveLength(0);
-    expect(human.stdout).toContain("Next action: Expand Inspection Supply Path Convergence's intervention portfolio");
+    expect(human.stdout).toContain("Next action: Continue from the commissioned Inspection Supply Path Convergence lineage");
+    const commissioned = await runCli([
+      "design",
+      projectDir,
+      "--program",
+      "inspection-supply-path",
+      "--json",
+    ]);
+    expect({ exitCode: commissioned.exitCode, stderr: commissioned.stderr }).toEqual({ exitCode: 0, stderr: "" });
+    const commissionedEnvelope = JSON.parse(commissioned.stdout);
+    expect(commissionedEnvelope.data.result.evidence).toEqual(expect.objectContaining({
+      state: "commissioned",
+      authorityRunId: currentInspection.evidence.authorityRunId,
+      authorityCommissioning: expect.objectContaining({
+        candidateId: "inspection-supply-path-966127dd",
+        proposalHash: "18c8ebc898254d30a5e428dbd93412f947da062a1c20779656728237640c9832",
+      }),
+    }));
+    expect(commissionedEnvelope.nextActions).toEqual([expect.objectContaining({
+      id: `design.open:${currentInspection.evidence.authorityRunId}`,
+      effect: "read-only",
+    })]);
+    const exact = await runCli([
+      "design",
+      projectDir,
+      "--program",
+      "inspection-supply-path",
+      "--run-id",
+      currentInspection.evidence.authorityRunId,
+      "--json",
+    ]);
+    const exactEnvelope = JSON.parse(exact.stdout);
+    expect({ exitCode: exact.exitCode, stderr: exact.stderr }).toEqual({ exitCode: 0, stderr: "" });
+    expect(exactEnvelope.data.result.evidence).toEqual(expect.objectContaining({
+      currentness: expect.objectContaining({
+        state: "commissioned",
+        commissioning: expect.objectContaining({ candidateId: "inspection-supply-path-966127dd" }),
+      }),
+    }));
+    expect(exactEnvelope.nextActions).toEqual([expect.objectContaining({
+      id: "candidate.inspect:inspection-supply-path-966127dd",
+      effect: "read-only",
+    })]);
+    expect(exactEnvelope.nextActions.some((action: { id: string }) =>
+      action.id.startsWith("design.promote:") || action.id.startsWith("design.continue:"))).toBeFalse();
     return;
   }
   const objectiveProgram = result.designPrograms.find((item: { id: string }) => item.id === "back-end-wip-convergence");
@@ -1305,7 +1360,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
   expect(human.stdout).toContain("Next action: Investigate the leading loss with Layer-two Particle Control");
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(brief.stdout).toContain("Evidence: 0 current · 0 historical · 32 invalid excluded · authority none (missing)");
+  expect(brief.stdout).toContain("Evidence: 0 current · 0 commissioned · 0 historical · 32 invalid excluded · authority none (missing)");
   const invalidated = await runCli([
     "design",
     projectDir,
