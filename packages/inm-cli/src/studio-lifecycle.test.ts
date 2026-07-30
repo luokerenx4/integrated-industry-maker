@@ -376,24 +376,26 @@ test("one command enters the exact phase-aware Investigation Design Session", as
           kind: "investigation",
           investigation: expect.objectContaining({
             id: "source-lot-back-end-service",
-            state: "current",
-            entryCount: 2,
+            state: "historical",
+            entryCount: 4,
           }),
           handoff: expect.objectContaining({
-            phase: "author-candidate",
+            phase: "observe-current-factory",
             sourceEntry: expect.objectContaining({
-              id: "parallel-burn-in-overflow",
-              sequence: 2,
-              kind: "hypothesis",
+              id: "parallel-burn-in-overflow-revise",
+              sequence: 4,
+              kind: "decision",
             }),
             evidenceIds: [
               "operating-run",
               "diagnostic",
               "source-lot-tail-run-105",
+              "parallel-burn-in-overflow-comparison",
+              "parallel-burn-in-overflow-review",
             ],
             authorship: expect.objectContaining({
-              kind: "candidate",
-              hypothesisEntryId: "parallel-burn-in-overflow",
+              kind: "investigation-entry",
+              entryKind: "observation",
             }),
           }),
         },
@@ -403,12 +405,12 @@ test("one command enters the exact phase-aware Investigation Design Session", as
       }),
       nextActions: [
         expect.objectContaining({
-          actionLabel: "AUTHOR CANDIDATE",
+          actionLabel: "AUTHOR OBSERVATION",
           target: expect.objectContaining({
             kind: "investigation",
             investigationId: "source-lot-back-end-service",
-            phase: "author-candidate",
-            sourceEntryId: "parallel-burn-in-overflow",
+            phase: "observe-current-factory",
+            sourceEntryId: "parallel-burn-in-overflow-revise",
           }),
         }),
       ],

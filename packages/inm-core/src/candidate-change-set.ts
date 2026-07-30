@@ -20,7 +20,7 @@ import { subtractScoreBreakdown, type BlueprintMetricSnapshot } from "./blueprin
 import { compileFactoryProject } from "./compiler";
 import { applyResearchPatch, validateResearchPatch } from "./research";
 import { blueprintSchema } from "./schema";
-import { loadFactoryProject } from "./loader";
+import { loadFactoryProject, type ProjectSelection } from "./loader";
 import {
   SCORE_BREAKDOWN_COMPONENTS,
   type Blueprint,
@@ -125,6 +125,17 @@ export interface CandidateChangeSetPreview {
   currentFactory: CandidateCurrentFactoryComparison;
   revisionBrief: CandidateRevisionBrief | null;
   result: BlueprintBenchmarkResult;
+}
+
+export interface MaterializedCandidateChangeSet {
+  candidate: CandidateChangeSet;
+  sourceEvidence: CandidateInvestigationSourceEvidence | null;
+  proposalHash: string;
+  currentCandidateHash: string;
+  proposedCandidateHash: string;
+  proposedBlueprint: Blueprint;
+  operationProject: CompiledFactoryProject;
+  blueprintPath: string;
 }
 
 export interface CandidateCurrentFactoryCaseComparison {
@@ -677,6 +688,68 @@ export async function prepareCandidateChangeSet(
     proposedBlueprint,
     operationProject,
     result,
+    blueprintPath: join(loaded.rootDir, "blueprints", `${benchmark.candidateBlueprint}.blueprint.json`),
+  };
+}
+
+/**
+ * Replays one Candidate against its pinned base for an explicitly selected
+ * operating case without evaluating or applying it. This is the strict
+ * materialization boundary used by immutable Candidate trial Runs.
+ */
+export async function materializeCandidateChangeSet(
+  projectDir: string,
+  candidateId: string,
+  selection: ProjectSelection = {},
+): Promise<MaterializedCandidateChangeSet> {
+  const candidate = await loadCandidateChangeSet(projectDir, candidateId);
+  const sourceEvidence = await resolveCandidateInvestigationSource(projectDir, candidate);
+  const benchmark = await loadBlueprintBenchmark(projectDir, candidate.benchmark);
+  const firstCase = benchmark.cases[0]!;
+  const sourceSelection = sourceEvidence?.operatingContext.selection;
+  const selected: ProjectSelection = {
+    world: selection.world ?? sourceSelection?.world ?? firstCase.world,
+    blueprint: benchmark.candidateBlueprint,
+    productionPlan: selection.productionPlan ?? sourceSelection?.productionPlan ?? firstCase.productionPlan,
+    scenario: selection.scenario ?? sourceSelection?.scenario ?? firstCase.scenario,
+    objective: selection.objective ?? sourceSelection?.objective ?? firstCase.objective,
+  };
+  if (selection.blueprint !== undefined && selection.blueprint !== benchmark.candidateBlueprint) throw new CandidateChangeSetError(
+    "candidate.selection-blueprint-mismatch",
+    `Candidate '${candidate.id}' is pinned to Blueprint '${benchmark.candidateBlueprint}', not '${selection.blueprint}'`,
+  );
+  const loaded = await loadFactoryProject(projectDir, selected);
+  const currentCandidateHash = hashValue(loaded.blueprint);
+  if (candidate.baseCandidateHash !== currentCandidateHash) throw new CandidateChangeSetError(
+    "candidate.stale-base",
+    `Candidate change set '${candidate.id}' targets ${candidate.baseCandidateHash}, but Blueprint '${benchmark.candidateBlueprint}' is ${currentCandidateHash}`,
+    { expectedBaseHash: candidate.baseCandidateHash, currentCandidateHash },
+  );
+  let patched: Blueprint;
+  try { patched = applyResearchPatch(loaded.blueprint, candidate.patch); }
+  catch (error) {
+    throw new CandidateChangeSetError("candidate.invalid-patch", `Candidate change set '${candidate.id}' has an invalid patch: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  patched.revision = currentCandidateHash;
+  const parsedBlueprint = blueprintSchema.safeParse(patched);
+  if (!parsedBlueprint.success) throw new CandidateChangeSetError(
+    "candidate.invalid-blueprint",
+    `Candidate change set '${candidate.id}' produces an invalid Blueprint: ${parsedBlueprint.error.issues.map((issue) => `${issue.path.join("/") || "root"} ${issue.message}`).join("; ")}`,
+  );
+  const proposedBlueprint = parsedBlueprint.data;
+  let operationProject: CompiledFactoryProject;
+  try { operationProject = compileFactoryProject({ ...loaded, blueprint: proposedBlueprint }); }
+  catch (error) {
+    throw new CandidateChangeSetError("candidate.evaluation-failed", `Candidate change set '${candidate.id}' could not be compiled for the selected trial: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return {
+    candidate,
+    sourceEvidence,
+    proposalHash: hashValue(candidate),
+    currentCandidateHash,
+    proposedCandidateHash: hashValue(proposedBlueprint),
+    proposedBlueprint,
+    operationProject,
     blueprintPath: join(loaded.rootDir, "blueprints", `${benchmark.candidateBlueprint}.blueprint.json`),
   };
 }

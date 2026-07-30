@@ -32,7 +32,7 @@ PROJECT COMMANDS
   plan <path>                 Size the factory for the objective target rate
   compare <path>              Diff and evaluate two Blueprint files
   benchmark <path>            Score one editable Blueprint on a locked case suite
-  candidate <path>            Preview or explicitly apply a project-local change set
+  candidate <path>            Review, trial-run, or explicitly apply a change set
   design <path>               Inspect or run a bounded project-local Design Program
   synthesize <path>           Generate a complete blueprint from the objective
   simulate <path>             Run deterministic discrete-event simulation
@@ -57,6 +57,7 @@ COMMON OPTIONS
   --agent-command <command>   External proposal process; receives JSON on stdin
   --benchmark <id>            Locked Blueprint benchmark id (default autoresearch)
   --candidate <id>            Project-local candidates/<id>.candidate.json
+  --run                       Execute a reviewed Candidate trial or a Design Program
   --program <id>              Project-local design-programs/<id>.design.json
   --run-id <hash>             Reopen one immutable Design Run
   --investigation <id>        Project-local investigations/<id>/
@@ -252,12 +253,24 @@ async function main(signal: AbortSignal): Promise<void> {
   }
   if (subcommand === "candidate") {
     const { values, positionals } = parseArgs({ args, options: {
-      ...projectOption, candidate: { type: "string" }, review: { type: "boolean", default: false }, apply: { type: "boolean", default: false }, progress: { type: "string" }, json: common.json, ...section,
+      ...common, candidate: { type: "string" }, review: { type: "boolean", default: false }, apply: { type: "boolean", default: false }, run: { type: "boolean", default: false }, seed: { type: "string", default: "42" }, "until-tick": { type: "string" }, "max-events": { type: "string" }, progress: { type: "string" }, ...section,
     }, allowPositionals: true });
-    if (!values.candidate) throw new Error("Usage: inm candidate <project-or-workspace-dir> --candidate ID [--review | --apply] [--json]");
-    if (values.review && values.apply) throw new Error("Candidate --review and --apply are mutually exclusive");
-    const projectDir = await selectedProject(positionals, "inm candidate <project-or-workspace-dir> --candidate ID [--review | --apply]", values.project);
-    return candidateCommand(projectDir, values.candidate, { json: values.json, review: values.review, apply: values.apply, progress: values.progress, section: values.section, signal });
+    if (!values.candidate) throw new Error("Usage: inm candidate <project-or-workspace-dir> --candidate ID [--review | --run | --apply] [--json]");
+    if ([values.review, values.run, values.apply].filter(Boolean).length > 1) throw new Error("Candidate --review, --run, and --apply are mutually exclusive");
+    const projectDir = await selectedProject(positionals, "inm candidate <project-or-workspace-dir> --candidate ID [--review | --run | --apply]", values.project);
+    return candidateCommand(projectDir, values.candidate, {
+      json: values.json,
+      review: values.review,
+      run: values.run,
+      apply: values.apply,
+      selection: selectionOf(values),
+      seed: Number(values.seed),
+      untilTick: values["until-tick"] ? Number(values["until-tick"]) : undefined,
+      maxEvents: values["max-events"] ? Number(values["max-events"]) : undefined,
+      progress: values.progress,
+      section: values.section,
+      signal,
+    });
   }
   if (subcommand === "design") {
     const { values, positionals } = parseArgs({ args, options: {

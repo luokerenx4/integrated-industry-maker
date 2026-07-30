@@ -83,6 +83,8 @@ Before extending or invoking a Design Program for substantive factory changes, a
 
 Candidate review and apply remain separate guarded steps. No observation, proposal provider, score improvement, or visual impression may bypass exact patch review, Benchmark gates, hash checks, or explicit apply.
 
+Between review and disposition, a human or Agent may run the exact reviewed Candidate as an immutable `TRIAL` without applying it. That Run must retain Candidate proposal/review identity, the frozen proposed Blueprint and patch, exact operating selection, and source parent Run. It is evidence for quantitative comparison and Factory observation, never current editable-factory authority; a `TRIAL` score cannot commission the proposal.
+
 A Production Plan hypothesis is a different branch of the same human/Agent loop. The author explicitly declares `production-plan` as the controlled intervention, writes a new self-contained plan without replacing the project default, simulates that selection, and compares its immutable Run with the control. Plans are selected alternatives, not Blueprint Candidates: they have no apply receipt, and a better Objective score cannot silently promote one. The comparison must expose scheduled, released, completed, on-time, delivered, WIP, service, and quality outcomes before the author records a decision.
 
 Rejected Candidate evidence returns to this loop instead of ending at a verdict. Its deterministic revision brief names measured benefits, costs, gate regressions, and patch paths but leaves `revise-or-retire` to the human or Agent. The next executable action reopens the exact current Factory observation; no failed proposal can silently generate or apply its own replacement.

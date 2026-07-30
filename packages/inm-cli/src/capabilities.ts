@@ -33,7 +33,7 @@ const project: CliArgumentDescriptor = {
   name: "project", form: "option", value: "string", required: false,
   description: "Project id inside a workspace.", default: "workspace default",
 };
-const selection: CliArgumentDescriptor[] = ["world", "blueprint", "scenario", "objective"].map((name) => ({
+const selection: CliArgumentDescriptor[] = ["world", "blueprint", "production-plan", "scenario", "objective"].map((name) => ({
   name, form: "option", value: "string", required: false,
   description: `Explicit ${name} id.`, default: `project default ${name}`,
 }));
@@ -167,14 +167,18 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
     outputSections: ["summary", "cases", "changes", "all"],
   },
   {
-    id: "candidate", usage: "inm candidate <path> --candidate ID [--review | --apply] [--progress MODE] [--json]", description: "Inspect, explicitly review, or guardedly apply a Candidate Change Set.",
-    effect: "mode-dependent", supportsJson: true, arguments: [path, project,
+    id: "candidate", usage: "inm candidate <path> --candidate ID [--review | --run | --apply] [selection] [--seed N] [--progress MODE] [--json]", description: "Inspect, review, freeze an unapplied trial Run, or guardedly apply a Candidate Change Set.",
+    effect: "mode-dependent", supportsJson: true, arguments: [path, project, ...selection,
       { name: "candidate", form: "option", value: "string", required: true, description: "Candidate Change Set id." },
       { name: "review", form: "option", value: "boolean", required: false, description: "Explicitly evaluate and record this exact proposal.", default: false },
+      { name: "run", form: "option", value: "boolean", required: false, description: "Simulate a current reviewed proposal as an immutable TRIAL Run without applying it.", default: false },
       { name: "apply", form: "option", value: "boolean", required: false, description: "Re-evaluate and apply an exact reviewed KEEP proposal.", default: false },
+      { name: "seed", form: "option", value: "integer", required: false, description: "Deterministic trial seed.", default: 42 },
+      { name: "until-tick", form: "option", value: "integer", required: false, description: "Optional trial simulation stop tick." },
+      { name: "max-events", form: "option", value: "integer", required: false, description: "Optional trial event safety limit." },
       { name: "progress", form: "option", value: "string", required: false, description: "Evaluation progress on stderr: off, human, or one machine-readable NDJSON envelope per Core event." },
-      sectionArgument(["summary", "proposal", "revision", "evaluation", "all"]), json],
-    outputSections: ["summary", "proposal", "revision", "evaluation", "all"],
+      sectionArgument(["summary", "proposal", "revision", "evaluation", "artifact", "metrics", "all"]), json],
+    outputSections: ["summary", "proposal", "revision", "evaluation", "artifact", "metrics", "all"],
   },
   {
     id: "design", usage: "inm design <path> [--program ID] [--run | --run-id HASH [--continue | --promote ID]] [--max-candidates N] [--progress MODE] [--json]", description: "Discover, inspect, execute, continue, reopen, or promote a bounded project-local Design Program.",

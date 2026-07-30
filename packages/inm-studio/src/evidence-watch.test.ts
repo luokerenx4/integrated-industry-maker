@@ -31,6 +31,17 @@ test("Studio refreshes only complete immutable evidence at exact project boundar
   expect(await completedProjectRefresh(
     memoryFab,
     "memory-fab",
+    "runs/106-candidate-trial-parallel-burn-in-overflow/manifest.json",
+  )).toEqual({
+    version: 1,
+    type: "project-refresh",
+    projectId: "memory-fab",
+    reason: "run",
+    artifactId: "106-candidate-trial-parallel-burn-in-overflow",
+  });
+  expect(await completedProjectRefresh(
+    memoryFab,
+    "memory-fab",
     "design-runs/back-end-wip-convergence/803e348a6c6d13ffa1d5e28b9e67a7470a0079d906bb3d124cba4302c25b768b/manifest.json",
   )).toEqual({
     version: 1,

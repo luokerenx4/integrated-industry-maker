@@ -1,0 +1,32 @@
+{
+  "author": "agent",
+  "disposition": "revise",
+  "entryHash": "ba2c03d8534e6e0c5972b24f3be12c469b52a849c9d570a83c7b4254ab98a67d",
+  "evidence": [
+    "operating-run",
+    "diagnostic",
+    "source-lot-tail-run-105",
+    "parallel-burn-in-overflow-comparison",
+    "parallel-burn-in-overflow-review"
+  ],
+  "id": "parallel-burn-in-overflow-revise",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "parallel-burn-in-overflow",
+      "currentCandidateHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+      "id": "parallel-burn-in-overflow-review",
+      "kind": "candidate-review",
+      "proposalHash": "5b43f0820696400f2d60ca093c6faf3f4d01ce6e45dec3adc94d7a3c3f572f13",
+      "proposedCandidateHash": "178dac4be6ade037d34b54c203ecdfde0fd9b6e9f37ee3e319993acc195a09e6",
+      "reviewResultHash": "66d35a80d2b14f585ea44df35bc449e18a4fc3f5343eb2127516bb33d3ebd96c",
+      "verdict": "DISCARD"
+    }
+  ],
+  "investigation": "source-lot-back-end-service",
+  "kind": "decision",
+  "previousEntryHash": "e61efad1cb398c8a9b27c90604064789d8d7a95bc1699277e4f40c5d100b5935",
+  "sequence": 4,
+  "statement": "REVISE the parallel Burn-in proposal rather than applying it. Preserve the explicit second rack and physical topology as evidence, but replace item-level round-robin with a batch-coherent equipment dispatch contract before reevaluation; the revision must also remove or explicitly justify the 15,310 currency capital-limit deficit. Run 106 remains a rejected trial, not current factory authority.",
+  "version": 1
+}

@@ -235,6 +235,7 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .decision.keep { color: #68f4ca; background: #164436; }
 .decision.revert { color: #ff9a8e; background: #45221f; }
 .decision.baseline { color: #83d5ff; background: #17374a; }
+.decision.trial { color: #e5bd66; background: #423517; }
 .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .metric { min-width: 0; padding: 9px; border: 1px solid #142b32; border-radius: 6px; background: #071115; }
 .metric span { display: block; color: #5f7b84; font: 7px var(--mono); letter-spacing: .08em; margin-bottom: 5px; }
@@ -549,6 +550,7 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .runs-table b { width: max-content; padding: 4px 6px; border-radius: 3px; color: #6ec8e0; background: #10303a; font: 7px var(--mono); }
 .runs-table b.keep { color: #66dbb8; background: #12372c; }
 .runs-table b.revert { color: #f29688; background: #3b211d; }
+.runs-table b.trial { color: #e5bd66; background: #423517; }
 .runs-table em { color: #62d9b9; font: normal 13px var(--mono); }
 .runs-table code { color: #4d6e75; font: 7px var(--mono); }
 .runs-empty { padding: 90px 20px; color: #5b747b; border: 1px dashed #24434b; border-radius: 10px; text-align: center; }

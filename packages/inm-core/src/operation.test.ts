@@ -8,6 +8,7 @@ import {
   evaluateBenchmarkOperation,
   planProjectOperation,
   previewCandidateOperation,
+  simulateCandidateOperation,
   simulateProjectOperation,
   validateProjectOperation,
 } from "./operation";
@@ -257,4 +258,46 @@ test("Candidate apply requires project-local immutable review evidence", async (
   const unrecorded = await previewCandidateChangeSet(projectDir, "stable-furnace-sleep");
   await expect(applyCandidateOperation(projectDir, "stable-furnace-sleep", unrecorded)).rejects.toMatchObject({ code: "candidate.review-required" });
   expect(await readFile(blueprintPath, "utf8")).toBe(before);
+}, 15_000);
+
+test("a reviewed Candidate freezes one reusable TRIAL Run without applying its Blueprint", async () => {
+  const projectDir = await temporaryProject("memory-fab");
+  const blueprintPath = join(projectDir, "blueprints/equipment-energy-sleep.blueprint.json");
+  const before = await readFile(blueprintPath, "utf8");
+  const operation = await simulateCandidateOperation(projectDir, "stable-furnace-sleep", {}, { seed: 42 });
+
+  expect(operation).toEqual(expect.objectContaining({
+    operation: "candidate.simulate",
+    effect: "creates-artifact",
+    writeSet: [expect.stringContaining("runs/")],
+    artifacts: [expect.objectContaining({ kind: "run", immutable: true })],
+    data: expect.objectContaining({
+      cached: false,
+      candidate: expect.objectContaining({
+        id: "stable-furnace-sleep",
+        reviewVerdict: "DISCARD",
+        proposalHash: expect.any(String),
+        reviewResultHash: expect.any(String),
+        parentRun: null,
+      }),
+    }),
+  }));
+  const manifest = JSON.parse(await readFile(join(operation.data.run.path, "manifest.json"), "utf8"));
+  expect(manifest).toEqual(expect.objectContaining({
+    decision: "TRIAL",
+    candidate: {
+      id: "stable-furnace-sleep",
+      proposalHash: operation.data.candidate.proposalHash,
+      reviewResultHash: operation.data.candidate.reviewResultHash,
+      reviewVerdict: "DISCARD",
+    },
+  }));
+  expect(await readFile(join(operation.data.run.path, "hypothesis.md"), "utf8")).toContain("sleep threshold");
+  expect(JSON.parse(await readFile(join(operation.data.run.path, "patch.json"), "utf8"))).toBeArray();
+  expect(await readFile(blueprintPath, "utf8")).toBe(before);
+
+  const replay = await simulateCandidateOperation(projectDir, "stable-furnace-sleep", {}, { seed: 42 });
+  expect(replay.data.cached).toBeTrue();
+  expect(replay.data.run.id).toBe(operation.data.run.id);
+  expect(replay.writeSet).toEqual([]);
 }, 15_000);

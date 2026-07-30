@@ -13,8 +13,18 @@ export interface RunArtifactOptions {
   blueprint?: Blueprint;
   hypothesis?: string;
   patch?: JsonPatchOperation[];
-  decision?: "BASELINE" | "KEEP" | "REVERT";
+  decision?: RunDecision;
   parentRun?: string;
+  candidate?: RunCandidateEvidence;
+}
+
+export type RunDecision = "BASELINE" | "TRIAL" | "KEEP" | "REVERT";
+
+export interface RunCandidateEvidence {
+  id: string;
+  proposalHash: string;
+  reviewResultHash: string;
+  reviewVerdict: "KEEP" | "DISCARD" | "UNCHANGED";
 }
 
 export interface JsonPatchOperation {
@@ -33,8 +43,9 @@ export interface RunManifest {
   hashes: ProjectEvidenceHashes;
   selection: { world: string; blueprint: string; productionPlan?: string; scenario: string; objective: string };
   seed: number;
-  decision: "BASELINE" | "KEEP" | "REVERT";
+  decision: RunDecision;
   parentRun?: string;
+  candidate?: RunCandidateEvidence;
 }
 
 export interface RunSummary {
@@ -116,6 +127,11 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
   const capacityPlan = planProductionCapacity(project);
   const report = [
     `# INM Run ${name}`, "", `- Decision: **${options.decision ?? "BASELINE"}**`,
+    ...(options.candidate ? [
+      `- Candidate: \`${options.candidate.id}\``,
+      `- Candidate proposal: \`${options.candidate.proposalHash}\``,
+      `- Locked review: **${options.candidate.reviewVerdict}** · \`${options.candidate.reviewResultHash}\``,
+    ] : []),
     `- Blueprint: \`${project.selection.blueprint}\``,
     `- Score: **${result.metrics.finalScore.toFixed(3)}**`, `- Result hash: \`${result.resultHash}\``,
     `- Bottleneck: ${result.metrics.bottleneckEntity ?? "none"}`, `- Throughput/min: ${result.metrics.throughputPerMinute.toFixed(3)}`,
@@ -185,6 +201,7 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     resultHash: result.resultHash, engineVersion: project.hashes.engineVersion, hashes: projectEvidenceHashes(project.hashes),
     selection: { ...project.selection },
     seed: options.seed, decision: options.decision ?? "BASELINE", ...(options.parentRun ? { parentRun: basename(options.parentRun) } : {}),
+    ...(options.candidate ? { candidate: options.candidate } : {}),
   };
   await atomicWriteJson(join(runDir, "manifest.json"), manifest);
   return { name, path: runDir, manifest, score: result.metrics.finalScore };

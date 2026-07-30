@@ -531,6 +531,58 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
   }));
 }, 90_000);
 
+test("CLI freezes a reviewed Candidate as an immutable TRIAL without applying it", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "inm-candidate-trial-cli-"));
+  const projectDir = join(parent, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm"),
+  });
+  const blueprintPath = join(projectDir, "blueprints/equipment-energy-sleep.blueprint.json");
+  const before = await readFile(blueprintPath, "utf8");
+  try {
+    const trial = await runCli([
+      "candidate", projectDir,
+      "--candidate", "stable-furnace-sleep",
+      "--run",
+      "--seed", "42",
+      "--json",
+    ]);
+    expect({ exitCode: trial.exitCode, stderr: trial.stderr }).toEqual({ exitCode: 0, stderr: "" });
+    const envelope = JSON.parse(trial.stdout);
+    expect(envelope).toEqual(expect.objectContaining({
+      schemaVersion: 3,
+      ok: true,
+      command: "candidate",
+      artifacts: [expect.objectContaining({ kind: "run", immutable: true })],
+      data: expect.objectContaining({
+        result: expect.objectContaining({
+          action: "simulate",
+          cached: false,
+          candidate: expect.objectContaining({
+            id: "stable-furnace-sleep",
+            reviewVerdict: "DISCARD",
+            proposalHash: expect.any(String),
+            reviewResultHash: expect.any(String),
+            parentRun: null,
+          }),
+        }),
+        operation: expect.objectContaining({
+          operation: "candidate.simulate",
+          effect: "creates-artifact",
+          writeSet: [expect.stringContaining("runs/")],
+        }),
+      }),
+    }));
+    const runPath = envelope.artifacts[0].path;
+    expect(JSON.parse(await readFile(join(runPath, "manifest.json"), "utf8")))
+      .toEqual(expect.objectContaining({ decision: "TRIAL", candidate: expect.objectContaining({ id: "stable-furnace-sleep" }) }));
+    expect(await readFile(blueprintPath, "utf8")).toBe(before);
+  } finally {
+    await rm(parent, { recursive: true, force: true });
+  }
+}, 20_000);
+
 test("current memory-fab Benchmark exposes the explicit on-time service contract", async () => {
   const result = await runCli([
     "benchmark",

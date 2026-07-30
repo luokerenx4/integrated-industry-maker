@@ -313,7 +313,7 @@ export interface ProjectWorkbenchSnapshot {
   runs: Array<{
     id: string;
     score: number;
-    decision: "BASELINE" | "KEEP" | "REVERT";
+    decision: "BASELINE" | "TRIAL" | "KEEP" | "REVERT";
     resultHash: string;
     engineVersion: string;
     compatible: boolean;

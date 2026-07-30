@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, DesignRunError, IndustrialInvestigationError, InmValidationError, RunComparisonError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, appendIndustrialInvestigationEntry, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compareFactoryRuns, compileFactoryProject, continueDesignRun, createIndustrialInvestigation, createInvestigationCandidate, createInvestigationProductionPlanRevision, describeWipInventoryLocation, evaluateBenchmarkOperation, inspectCandidateDecision, inspectDesignProgramEvidence, inspectIndustrialInvestigation, listDesignPrograms, listIndustrialInvestigations, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadBlueprintBenchmark, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, recommendedDesignProgramEvidenceAction, runDesignProgram, simulateProjectOperation, validateProjectOperation,
+  CandidateChangeSetError, DesignRunError, IndustrialInvestigationError, InmValidationError, RunComparisonError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, appendIndustrialInvestigationEntry, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compareFactoryRuns, compileFactoryProject, continueDesignRun, createIndustrialInvestigation, createInvestigationCandidate, createInvestigationProductionPlanRevision, describeWipInventoryLocation, evaluateBenchmarkOperation, inspectCandidateDecision, inspectDesignProgramEvidence, inspectIndustrialInvestigation, listDesignPrograms, listIndustrialInvestigations, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadBlueprintBenchmark, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, recommendedDesignProgramEvidenceAction, runDesignProgram, simulateCandidateOperation, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
   TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals,
@@ -543,6 +543,20 @@ async function candidateDecisionNextActions(
   projectDir: string,
   preview: CandidateChangeSetPreview,
 ): Promise<CliNextAction[]> {
+  const trialRun = preview.sourceEvidence
+    ? [nextAction(
+      "candidate.simulate",
+      "Freeze this reviewed Candidate under its exact source operating selection without applying it.",
+      [
+        "inm", "candidate", resolve(projectDir),
+        "--candidate", preview.candidate.id,
+        "--run",
+        "--seed", "42",
+        "--json",
+      ],
+      "creates-artifact",
+    )]
+    : [];
   const returnToInvestigation = preview.sourceEvidence
     ? [nextAction(
       "candidate.record-investigation-decision",
@@ -555,6 +569,7 @@ async function candidateDecisionNextActions(
     )]
     : [];
   if (preview.result.verdict === "KEEP") return [
+    ...trialRun,
     ...returnToInvestigation,
     nextAction(
     "candidate.apply",
@@ -566,6 +581,7 @@ async function candidateDecisionNextActions(
   const benchmark = await loadBlueprintBenchmark(projectDir, preview.candidate.benchmark);
   const current = await loadFactoryProject(projectDir, { blueprint: benchmark.candidateBlueprint });
   return [
+    ...trialRun,
     ...returnToInvestigation,
     nextAction(
     "candidate.observe-current",
@@ -2064,14 +2080,26 @@ export async function benchmarkCommand(projectDir: string, benchmarkId: string, 
   ].join("\n"), false);
 }
 
-export async function candidateCommand(projectDir: string, candidateId: string, options: { json: boolean; review: boolean; apply: boolean; progress?: string; section?: string; signal?: AbortSignal }): Promise<void> {
+export async function candidateCommand(projectDir: string, candidateId: string, options: {
+  json: boolean;
+  review: boolean;
+  apply: boolean;
+  run: boolean;
+  selection?: ProjectSelection;
+  seed?: number;
+  untilTick?: number;
+  maxEvents?: number;
+  progress?: string;
+  section?: string;
+  signal?: AbortSignal;
+}): Promise<void> {
   requireJsonSection("candidate", options);
   const [candidate, projectContext] = await Promise.all([
     loadCandidateChangeSet(projectDir, candidateId),
     projectDirectoryContext(projectDir),
   ]);
   if (projectContext.scope !== "project") throw new Error("Candidate execution requires a project context");
-  if (!options.review && !options.apply) {
+  if (!options.review && !options.apply && !options.run) {
     const decision = await inspectCandidateDecision(projectDir, candidateId);
     const preview = decision.preview;
     if (options.json) {
@@ -2140,6 +2168,77 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
       ...revisionBriefLines(preview.revisionBrief),
       "",
       `Re-evaluate explicitly: inm candidate <path> --candidate ${candidate.id} --review`,
+      "",
+    ].join("\n"), false);
+    return;
+  }
+  if (options.run) {
+    const operation = await simulateCandidateOperation(projectDir, candidateId, options.selection, {
+      seed: options.seed,
+      ...(options.untilTick === undefined ? {} : { untilTick: options.untilTick }),
+      ...(options.maxEvents === undefined ? {} : { maxEvents: options.maxEvents }),
+    });
+    const result = operation.data;
+    const summary = {
+      action: "simulate",
+      cached: result.cached,
+      candidate: result.candidate,
+      run: result.run,
+      resultHash: result.resultHash,
+      runKey: result.runKey,
+      metrics: result.metrics,
+    };
+    if (options.json) {
+      const data = sectionResult("candidate", options, {
+        summary: () => ({
+          action: summary.action,
+          cached: summary.cached,
+          candidate: summary.candidate,
+          run: summary.run,
+          resultHash: summary.resultHash,
+          runKey: summary.runKey,
+          metrics: {
+            finalScore: result.metrics.finalScore,
+            throughputPerMinute: result.metrics.throughputPerMinute,
+            demandAttainment: result.metrics.deliveryPortfolio.fulfillment,
+            deliveryPortfolio: result.metrics.deliveryPortfolio,
+            energyConsumedMilliJoules: result.metrics.energyConsumedMilliJoules,
+            totalBuildCost: result.metrics.totalBuildCost,
+            occupiedArea: result.metrics.occupiedArea,
+            lotFlow: result.metrics.lotFlow,
+            sourceLotLineage: result.metrics.sourceLotLineage,
+          },
+        }),
+        artifact: () => ({
+          action: summary.action,
+          cached: summary.cached,
+          candidate: summary.candidate,
+          run: summary.run,
+          resultHash: summary.resultHash,
+          runKey: summary.runKey,
+        }),
+        metrics: () => summary.metrics,
+        all: () => summary,
+      });
+      writeSuccess("candidate", { ...data, operation: operationMetadata(operation) }, {
+        context: operationProjectContext(operation.context),
+        artifacts: operation.artifacts.map((artifact) => ({ kind: "run" as const, id: artifact.id, path: artifact.path, immutable: artifact.immutable })),
+        nextActions: result.candidate.parentRun
+          ? [nextAction(
+            "compare.runs",
+            "Compare the reviewed Candidate trial with its exact source Run.",
+            ["inm", "compare", operation.context.project.rootDir, "--from-run", result.candidate.parentRun, "--to-run", result.run.id, "--json"],
+          )]
+          : [nextAction("runs", "List completed immutable Runs.", ["inm", "runs", operation.context.project.rootDir, "--json"])],
+      });
+      return;
+    }
+    write([
+      `Candidate trial ${result.cached ? "reproduced" : "completed"} without applying '${candidateId}'`,
+      `Run: ${result.run.path}`,
+      `Review: ${result.candidate.reviewVerdict} · ${result.candidate.reviewResultHash.slice(0, 12)}`,
+      `Source Run: ${result.candidate.parentRun ?? "none"}`,
+      `Score: ${result.metrics.finalScore.toFixed(3)} · delivery ${(result.metrics.deliveryPortfolio.fulfillment * 100).toFixed(1)}% · build ${result.metrics.totalBuildCost} · area ${result.metrics.occupiedArea}`,
       "",
     ].join("\n"), false);
     return;

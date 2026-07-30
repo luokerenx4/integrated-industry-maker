@@ -14,6 +14,8 @@ The same command has a distinct immutable-evidence mode. `--from-run` and `--to-
 
 Candidate review reuses the same comparison invariant across every locked Benchmark case. Its immutable baseline-to-proposed result answers compliance; when the Candidate artifact's hash-pinned current Blueprint is operational, its `currentFactory` record compares that Blueprint with the proposed Blueprint and answers the incremental design question. That record also separates equipment/facility, sorter-endpoint, and unique transport-line capital plus occupied area and transport-cell count into one exact physical-economics ledger. Total cost and area reconcile against every evaluator-owned case metric before the result can be published. A non-operational greenfield shell is explicitly not comparable. Neither reference is relabeled or substituted for the other.
 
+A current immutable Candidate review may additionally be frozen as an unapplied operating `TRIAL` Run. Core replays the reviewed patch against the same pinned base in memory, selects the exact Investigation source operating context by default, and refuses a missing, stale, or hash-mismatched receipt. The Run freezes the proposed Blueprint, patch, hypothesis, Candidate proposal hash, review-result hash/verdict, and source parent Run. It does not edit or materialize the Benchmark candidate Blueprint. This boundary exists so a rejected or not-yet-commissioned proposal can participate in exact Run comparison and spatial review without impersonating current factory authority.
+
 ## Comparison invariant
 
 The only allowed independent variable is the Blueprint. Before evaluation, both compiled projects must have identical hashes for:
@@ -49,7 +51,7 @@ Metric snapshots and deltas keep scheduled, released, completed, and on-time lot
 
 ## Read-only boundary
 
-Comparison never writes either Blueprint, never updates a revision, and never creates a run artifact. Blueprint mode performs an ephemeral pair of evaluations and does not reuse historical Runs. Run mode reads and verifies two existing immutable artifacts and never replays them. A user explicitly persists new evidence with `inm simulate`, or enters the guarded Candidate/Design workflow.
+Comparison never writes either Blueprint, never updates a revision, and never creates a run artifact. Blueprint mode performs an ephemeral pair of evaluations and does not reuse historical Runs. Run mode reads and verifies two existing immutable artifacts and never replays them. A user explicitly persists current-factory evidence with `inm simulate`, freezes a reviewed unapplied proposal with `inm candidate --run`, or enters another guarded Candidate/Design workflow.
 
 This separation prevents exploratory comparisons from polluting immutable experiment history and makes filesystem mutation visible at the command boundary.
 

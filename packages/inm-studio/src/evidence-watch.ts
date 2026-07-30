@@ -58,7 +58,7 @@ async function completedRunIsReadable(projectDir: string, id: string): Promise<b
       && typeof selection.scenario === "string"
       && typeof selection.objective === "string"
       && typeof manifest.seed === "number"
-      && (manifest.decision === "BASELINE" || manifest.decision === "KEEP" || manifest.decision === "REVERT")
+      && (manifest.decision === "BASELINE" || manifest.decision === "TRIAL" || manifest.decision === "KEEP" || manifest.decision === "REVERT")
       && typeof metrics.finalScore === "number";
   } catch {
     return false;

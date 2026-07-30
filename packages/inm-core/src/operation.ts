@@ -12,6 +12,7 @@ import { inspectCandidateDecision, recordCandidateReview } from "./candidate-rev
 import {
   applyCandidateChangeSet,
   CandidateChangeSetError,
+  materializeCandidateChangeSet,
   prepareCandidateChangeSet,
   type AppliedCandidateChangeSet,
   type CandidateChangeSetPreview,
@@ -23,7 +24,7 @@ import { analyzeProduction, type ProductionAnalysis } from "./production-analysi
 import { runUntil } from "./simulator";
 import type { CompiledFactoryProject, FactoryMetrics, ProjectHashes } from "./types";
 
-export type ProjectOperationId = "validate" | "analyze" | "plan" | "simulate" | "benchmark.evaluate" | "candidate.preview" | "candidate.apply";
+export type ProjectOperationId = "validate" | "analyze" | "plan" | "simulate" | "benchmark.evaluate" | "candidate.preview" | "candidate.simulate" | "candidate.apply";
 export type ProjectOperationEffect = "read-only" | "creates-artifact" | "mutates-blueprint";
 
 export interface ProjectOperationContext {
@@ -76,6 +77,16 @@ export interface ProjectSimulationOperationData {
   resultHash: string;
   runKey: string;
   metrics: FactoryMetrics;
+}
+
+export interface CandidateSimulationOperationData extends ProjectSimulationOperationData {
+  candidate: {
+    id: string;
+    proposalHash: string;
+    reviewResultHash: string;
+    reviewVerdict: "KEEP" | "DISCARD" | "UNCHANGED";
+    parentRun: string | null;
+  };
 }
 
 export interface CandidateApplyReview {
@@ -181,6 +192,78 @@ export async function simulateProjectOperation(
       writeSet: cached ? [] : [`runs/${run.name}/`],
       verification: [{ id: "runs", description: "Open the immutable run and verify its result hash and measured evidence." }],
       data: { cached: Boolean(cached), run: { id: run.name, path: run.path }, resultHash: result.resultHash, runKey: result.runKey, metrics: result.metrics },
+    };
+  });
+}
+
+export async function simulateCandidateOperation(
+  projectDir: string,
+  candidateId: string,
+  selection: ProjectSelection = {},
+  options: { seed?: number; untilTick?: number; maxEvents?: number } = {},
+): Promise<ProjectOperationResult<CandidateSimulationOperationData>> {
+  const startedAt = performance.now();
+  const decision = await inspectCandidateDecision(projectDir, candidateId);
+  if (!decision.preview || !decision.proposedCandidateHash || !decision.resultHash || !decision.verdict
+    || !["reviewed-keep", "reviewed-discard", "reviewed-unchanged"].includes(decision.state)) throw new CandidateChangeSetError(
+    "candidate.review-required",
+    `Candidate '${candidateId}' requires one current immutable review before a trial Run`,
+  );
+  const materialized = await materializeCandidateChangeSet(projectDir, candidateId, selection);
+  if (materialized.proposalHash !== decision.proposalHash
+    || materialized.currentCandidateHash !== decision.currentCandidateHash
+    || materialized.proposedCandidateHash !== decision.proposedCandidateHash) throw new CandidateChangeSetError(
+    "candidate.review-receipt-mismatch",
+    `Candidate '${candidateId}' no longer matches its immutable review`,
+  );
+  const project = materialized.operationProject;
+  return timed("candidate.simulate", "creates-artifact", project, startedAt, async () => {
+    const seed = options.seed ?? 42;
+    const result = runUntil(project, undefined, {
+      seed,
+      ...(options.untilTick === undefined ? {} : { untilTick: options.untilTick }),
+      ...(options.maxEvents === undefined ? {} : { maxEvents: options.maxEvents }),
+    });
+    const candidateEvidence = {
+      id: candidateId,
+      proposalHash: decision.proposalHash,
+      reviewResultHash: decision.resultHash!,
+      reviewVerdict: decision.verdict!,
+    };
+    const cachedRun = await findCachedRun(project.rootDir, result.runKey);
+    const cached = cachedRun?.manifest.candidate?.proposalHash === candidateEvidence.proposalHash
+      && cachedRun.manifest.candidate.reviewResultHash === candidateEvidence.reviewResultHash
+      ? cachedRun
+      : undefined;
+    const parentRun = materialized.sourceEvidence?.operatingContext.run.id ?? null;
+    const run = cached ?? await writeRunArtifact(project, result, {
+      label: `candidate-trial-${candidateId}`,
+      seed,
+      decision: "TRIAL",
+      blueprint: materialized.proposedBlueprint,
+      hypothesis: materialized.candidate.hypothesis,
+      patch: materialized.candidate.patch,
+      ...(parentRun ? { parentRun } : {}),
+      candidate: candidateEvidence,
+    });
+    return {
+      diagnostics: [],
+      artifacts: [{ kind: "run", id: run.name, path: run.path, immutable: true }],
+      writeSet: cached ? [] : [`runs/${run.name}/`],
+      verification: [
+        { id: "compare", description: "Compare this reviewed Candidate trial with its exact source Run before recording a human/Agent disposition." },
+      ],
+      data: {
+        cached: Boolean(cached),
+        run: { id: run.name, path: run.path },
+        resultHash: result.resultHash,
+        runKey: result.runKey,
+        metrics: result.metrics,
+        candidate: {
+          ...candidateEvidence,
+          parentRun,
+        },
+      },
     };
   });
 }

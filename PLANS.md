@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/parallel-burn-in-overflow-trial]] | Carry Run 105's exact source-lot tail through one costed parallel Burn-in Candidate, immutable comparison, spatial review, and explicit disposition. | 2026-07-31 |
 | [[plans/verified-studio-duplicate-convergence]] | Converge redundant fully verified Studio managers for one exact target without port archaeology or unsafe process ownership. | 2026-07-31 |
 | [[plans/source-lot-product-lineage]] | Preserve exact source-lot ancestry through downstream fungible products so terminal memory-fab WIP becomes causally inspectable before intervention. | 2026-07-31 |
 | [[plans/investigation-production-plan-revision-session]] | Turn a current Production Plan hypothesis into a source-pinned plan revision, immutable Run comparison, and explicit decision without reconstructing identity by hand. | 2026-07-31 |

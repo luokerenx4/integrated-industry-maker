@@ -1,0 +1,33 @@
+{
+  "candidate": {
+    "id": "parallel-burn-in-overflow",
+    "proposalHash": "5b43f0820696400f2d60ca093c6faf3f4d01ce6e45dec3adc94d7a3c3f572f13",
+    "reviewResultHash": "66d35a80d2b14f585ea44df35bc449e18a4fc3f5343eb2127516bb33d3ebd96c",
+    "reviewVerdict": "DISCARD"
+  },
+  "createdAt": "2026-07-30T20:34:44.056Z",
+  "decision": "TRIAL",
+  "engineVersion": "inm-sim/0.92.0",
+  "hashes": {
+    "blueprintHash": "178dac4be6ade037d34b54c203ecdfde0fd9b6e9f37ee3e319993acc195a09e6",
+    "engineVersion": "inm-sim/0.92.0",
+    "executionHash": "6b6f32c50ebbaa311bb54d3f8e7617933c6d3492f5e3996ffafac095547c45f9",
+    "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+    "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+    "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+    "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+  },
+  "parentRun": "105-simulate",
+  "resultHash": "9d2680cc170cc4ea756ce8c0fe20cbb1ff86eaefce68303026c5d3c40f89eb42",
+  "runKey": "fd78b283a3aa2311bb4499f423fd63e97c813318f6c06daf344a21b732c58524",
+  "seed": 42,
+  "selection": {
+    "blueprint": "generated-dram-fab",
+    "objective": "dram-output",
+    "productionPlan": "production-window",
+    "scenario": "production-window",
+    "world": "cleanroom"
+  },
+  "status": "completed",
+  "version": 1
+}

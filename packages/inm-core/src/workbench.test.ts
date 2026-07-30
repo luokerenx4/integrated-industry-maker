@@ -499,6 +499,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     { id: "lithography-l2-edd", benchmark: "greenfield-dram-design", patchOperations: 1, state: "stale", verdict: undefined },
     { id: "metrology-low-power-standby", benchmark: "greenfield-dram-design", patchOperations: 2, state: "stale", verdict: "DISCARD" },
     { id: "metrology-low-power-standby-sourced", benchmark: "greenfield-dram-design", patchOperations: 2, state: "stale", verdict: "DISCARD" },
+    { id: "parallel-burn-in-overflow", benchmark: "greenfield-dram-design", patchOperations: 19, state: "reviewed-discard", verdict: "DISCARD" },
     { id: "planned-lithography-maintenance", benchmark: "greenfield-dram-design", patchOperations: 2, state: "stale", verdict: undefined },
     { id: "portfolio-aware-dram-dispatch", benchmark: "greenfield-dram-design", patchOperations: 1, state: "stale", verdict: undefined },
     { id: "recovered-output-high-throughput", benchmark: "greenfield-dram-design", patchOperations: 7, state: "stale", verdict: undefined },
