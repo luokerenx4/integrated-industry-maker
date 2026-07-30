@@ -1,0 +1,72 @@
+{
+  "author": "agent",
+  "entryHash": "3d80a280f0a6725956b719623f2d5993145dd09da8931af904201cfda3fc9d44",
+  "evidence": [
+    "upstream-handoff-factory",
+    "vacuum-lithography-etch-handoff-review",
+    "vacuum-handoff-factory"
+  ],
+  "id": "vacuum-handoff-current-factory",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:816290a387",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:inspection-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 100-simulate (signal 0.2096). 9/10 active flow Devices accumulated 245.0 explicit material-shortage device-s inside 1168.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1119.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "inspection-1",
+            "kind": "device"
+          },
+          {
+            "id": "etch-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "etch-l2",
+            "kind": "device"
+          },
+          {
+            "id": "rework-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "rework-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/10 active flow Devices accumulated 245.0 explicit material-shortage device-s inside 1168.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1119.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
+      },
+      "hashes": {
+        "blueprintHash": "6b8b0ce24a75de511162b1d090c4c15fedd0e976dd1764d173e918d76a5832fe",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "23ce908064c24c57bff72e2fdb6b30f85a3928cc39f5a99f317ec25b789f7e16",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "scenarioHash": "b6cfa14ecff26487e959f7f1b38230f2e003a3eaf04bd8b587ed268c9fc8eafe",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "vacuum-handoff-factory",
+      "kind": "factory-observation",
+      "resultHash": "5302c842062cb8f5785dff1387f89a26439f3b510ca86126b621ac3fca013a06",
+      "runId": "100-simulate",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      }
+    }
+  ],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "observation",
+  "previousEntryHash": "db4f00d02d9f26e3626d45b2d0b187d94ccb61f9eb192b35cb75b6e989a5ab03",
+  "sequence": 15,
+  "statement": "After applying the reviewed upstream handoff, immutable Run 100-simulate keeps the same seven-cell raised route but now shows vacuum-wafer-sorter → vacuum-wafer-conveyor → vacuum-wafer-sorter, 600 ms total travel, 480 lots/min rated capacity, 12 delivered lots, and zero blocked item-ticks. Relative to Run 099, total attributed input starvation falls 249.826 → 245.026 s, etch-l2 falls 29.456 → 28.856 s, inspection-1 falls 58.584 → 57.984 s, mean lot movement falls 9.000 → 8.433 s, average WIP falls 49.2905 → 49.1905 dram-device-equivalent, and score improves -0.462856 → -0.306590. All 88 devices are delivered, 12/12 lots complete on time, quality remains 100% good yield with two repaired lots and zero scrap or escapes, build cost is 229,940, area remains 269, and every Objective constraint passes. The modest 0.6 s downstream causal reduction—not the theoretical full 5.7 s transport-state envelope—is the retained measured effect.",
+  "version": 1
+}

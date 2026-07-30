@@ -1,0 +1,17 @@
+{
+  "author": "agent",
+  "entryHash": "c867520030c45593b79961fbf2e532a3eff3f8e085542115cea56bbbdcb2a4cf",
+  "evidence": [
+    "upstream-handoff-factory",
+    "design-lineage"
+  ],
+  "expectedEffect": "Reduce the 5.7 s transport-in-flight portion of etch-l2's current shortage and reduce inspection-1's 58.584 s attributed shortage; change the lane latency from 1.2 s to 0.6 s and build cost from 229,790 to 229,940 while remaining below the 230,000 cap; keep capacity READY, all five current-factory case scores non-regressing, 12/12 lots on time, delivery, quality prevention, Q-time, yield, scrap, escapes, and all hard outcomes unchanged or improved.",
+  "id": "vacuum-lithography-etch-handoff",
+  "introducedAnchors": [],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "hypothesis",
+  "previousEntryHash": "b6657e5c3fcd4ae685bd6eee43e6b4fdbca1f121523412903e19baf995a3df89",
+  "sequence": 13,
+  "statement": "Upgrade only lithography-to-etch-lithography-l2 from the ordinary conveyor and two sorter endpoints to the already qualified vacuum wafer conveyor and vacuum sorters, preserving the seven-cell raised route, every Device position, every process mode, and the downstream inspection and rework lanes. Halving this upstream physical handoff should reduce etch-l2 transport starvation and the subsequent inspection source-waiting interval without globally accelerating lithography or etch.",
+  "version": 1
+}

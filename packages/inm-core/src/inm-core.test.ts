@@ -1623,7 +1623,7 @@ describe("blueprint compiler", () => {
     expect(deliveryWindowBurnInStarts).toHaveLength(11);
     expect(deliveryWindowBurnInStarts.at(-1)).toEqual(expect.objectContaining({
       operation: "screen-performance-mix",
-      tick: 217_473,
+      tick: 216_873,
     }));
     expect(deliveryWindowPortfolio.events.some((event) =>
       event.type === "device.start" && event.device === "burn-in-1" && event.tick === 237_223)).toBeFalse();

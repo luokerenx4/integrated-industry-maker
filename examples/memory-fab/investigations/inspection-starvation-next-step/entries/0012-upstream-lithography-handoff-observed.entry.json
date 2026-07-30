@@ -1,0 +1,72 @@
+{
+  "author": "agent",
+  "entryHash": "b6657e5c3fcd4ae685bd6eee43e6b4fdbca1f121523412903e19baf995a3df89",
+  "evidence": [
+    "compact-shipping-factory",
+    "design-lineage",
+    "upstream-handoff-factory"
+  ],
+  "id": "upstream-lithography-handoff-observed",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:6fa5414a2b",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:inspection-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 099-simulate (signal 0.2129). 9/10 active flow Devices accumulated 249.8 explicit material-shortage device-s inside 1173.6 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1114.4 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "inspection-1",
+            "kind": "device"
+          },
+          {
+            "id": "etch-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "etch-l2",
+            "kind": "device"
+          },
+          {
+            "id": "rework-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "rework-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/10 active flow Devices accumulated 249.8 explicit material-shortage device-s inside 1173.6 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1114.4 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
+      },
+      "hashes": {
+        "blueprintHash": "d08a187303263dfcefb54f4b60e3109a623d9e64c918d3c57bd8b8a4e47007d7",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "8d6c5b121d4ba7503c2dc50f6ffe6d4fdc67671d75d4bbb0653234ddd06e5aa8",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "scenarioHash": "b6cfa14ecff26487e959f7f1b38230f2e003a3eaf04bd8b587ed268c9fc8eafe",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "upstream-handoff-factory",
+      "kind": "factory-observation",
+      "resultHash": "c43d94a6594744869e1ec25784b08689eb74eafa8ce9fac8e8ced0c17f6206da",
+      "runId": "099-simulate",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      }
+    }
+  ],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "observation",
+  "previousEntryHash": "c06db27f8f55da64b49f8b7737a1b98aab035cec0bff606b67a6ff20c3fd39a4",
+  "sequence": 12,
+  "statement": "Run 099-simulate shows inspection-1 is supply-limited rather than capacity-limited: the deep-metrology cell can process 16.87 jobs/min but ran at 20.7% utilization, while etch-to-inspection delivered 12 lots through a four-cell 0.9 s lane at 1.3% utilization with zero blocked item-ticks. Upstream, etch-l2 accumulated 29.456 s of eligible input starvation; its seven-cell raised lithography-to-etch-lithography-l2 handoff takes 1.2 s per lot and accounts for 5.7 s of transport-in-flight shortage states. The same etch-l2 source-waiting state overlaps 7.544 s of inspection starvation, so the physically distinct observation target is the upstream patterned-wafer handoff, not inspection capacity or its ordinary downstream lane.",
+  "version": 1
+}

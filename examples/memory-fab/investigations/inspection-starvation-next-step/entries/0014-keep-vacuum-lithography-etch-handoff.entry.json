@@ -1,0 +1,30 @@
+{
+  "author": "agent",
+  "disposition": "keep",
+  "entryHash": "db4f00d02d9f26e3626d45b2d0b187d94ccb61f9eb192b35cb75b6e989a5ab03",
+  "evidence": [
+    "upstream-handoff-factory",
+    "design-lineage",
+    "vacuum-lithography-etch-handoff-review"
+  ],
+  "id": "keep-vacuum-lithography-etch-handoff",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "vacuum-lithography-etch-handoff",
+      "currentCandidateHash": "d08a187303263dfcefb54f4b60e3109a623d9e64c918d3c57bd8b8a4e47007d7",
+      "id": "vacuum-lithography-etch-handoff-review",
+      "kind": "candidate-review",
+      "proposalHash": "02c473999aa908b862af588f29ec3d8b389c643fafae21fdb9abf91f846ea039",
+      "proposedCandidateHash": "6b8b0ce24a75de511162b1d090c4c15fedd0e976dd1764d173e918d76a5832fe",
+      "reviewResultHash": "f797035acbb3bb79cd82bd9544652965da6480a05bb7ebd720b132492bc5d685",
+      "verdict": "KEEP"
+    }
+  ],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "decision",
+  "previousEntryHash": "c867520030c45593b79961fbf2e532a3eff3f8e085542115cea56bbbdcb2a4cf",
+  "sequence": 14,
+  "statement": "Keep the vacuum lithography-to-etch handoff for commissioning. Exact review 02c473999aa9 improves every current-factory case by +0.156266 to +0.187909, reduces average WIP by 0.10 to 0.12 dram-device-equivalent, and preserves delivery, completed and on-time lots, quality prevention, yield, scrap, escapes, capacity readiness, and every hard outcome. The three-asset substitution raises build cost by 150 to 229,940, leaving 60 below the capital cap, with no area increase. Apply under the exact hash guards, then require a compatible operating Run to confirm that the measured etch-l2 and inspection shortage mechanism—not an unrelated timing artifact—moved in the expected direction.",
+  "version": 1
+}
