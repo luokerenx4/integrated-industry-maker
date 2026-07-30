@@ -12,7 +12,9 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/investigation-sourced-candidate-cycle]] | Carry one exact Investigation hypothesis through Candidate authoring, retained review, and explicit disposition without reconstructing provenance. | 2026-07-30 |
 
 ## Proposed plans
 
