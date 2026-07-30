@@ -101,6 +101,7 @@ export function verifiedDesignCommissioningIdentity(
   decision: CandidateDecision,
 ): WorkbenchDesignCommissioningIdentity | null {
   if (!candidate.source
+    || candidate.source.kind !== "design-run"
     || decision.state !== "verified"
     || decision.verdict !== "KEEP"
     || !decision.proposedCandidateHash
@@ -125,7 +126,9 @@ export async function listVerifiedDesignCommissionings(
   programId?: string,
 ): Promise<WorkbenchDesignCommissioningIdentity[]> {
   const candidates = await listCandidateChangeSets(projectDir);
-  const relevant = candidates.filter((candidate) => candidate.source && (!programId || candidate.source.program === programId));
+  const relevant = candidates.filter((candidate) =>
+    candidate.source?.kind === "design-run"
+    && (!programId || candidate.source.program === programId));
   const decisions = await Promise.all(relevant.map((candidate) => inspectCandidateDecision(projectDir, candidate.id)));
   return relevant.flatMap((candidate, index) => {
     const identity = verifiedDesignCommissioningIdentity(candidate, decisions[index]!);

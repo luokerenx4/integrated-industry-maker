@@ -2600,6 +2600,28 @@ function App() {
     setRouteExperiment(null); setRouteCandidate(null);
   }, [routeProject]);
 
+  const navigateInvestigationSource = useCallback((
+    investigationId: string,
+    returnCandidateId?: string,
+    disposition?: "keep" | "revise" | "discard",
+  ) => {
+    if (!routeProject) return;
+    const query = returnCandidateId
+      ? `?candidate=${encodeURIComponent(returnCandidateId)}${disposition ? `&disposition=${encodeURIComponent(disposition)}` : ""}`
+      : "";
+    window.history.pushState(
+      window.history.state,
+      "",
+      `${investigationPath(routeProject, investigationId)}${query}`,
+    );
+    setRouteView("investigations");
+    setRouteInvestigation(investigationId);
+    setRouteExperiment(null);
+    setRouteCandidate(null);
+    setRouteDesignProgram(null);
+    setRouteDesignRun(null);
+  }, [routeProject]);
+
   const navigateInvestigation = useCallback((investigationId: string | null) => {
     if (!routeProject) return;
     if (investigationId === null) { closeRouteSurface(); return; }
@@ -2785,7 +2807,8 @@ function App() {
       <ExperimentWorkbench
         projectId={routeProject} experiments={experiments} selectedId={routeExperiment || null} selectedCandidateId={routeCandidate}
         refreshRevision={projectRefreshRevision}
-        onSelect={(experimentId) => navigateExperiment(experimentId)} onSelectCandidate={navigateCandidate} onDesignSource={navigateDesignSource} onClose={closeRouteSurface}
+        onSelect={(experimentId) => navigateExperiment(experimentId)} onSelectCandidate={navigateCandidate} onDesignSource={navigateDesignSource}
+        onInvestigationSource={navigateInvestigationSource} onClose={closeRouteSurface}
       />
     </main>;
   }

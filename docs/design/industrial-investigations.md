@@ -1,6 +1,6 @@
 # Industrial investigations
 
-Status: V1 persistent project-local investigation contract implemented in Core, `inm`, Studio, and the memory-fab north-star fixture.
+Status: V2 persistent reasoning plus exact Investigation-hypothesis Candidate handoff implemented in Core, `inm`, Studio, and the memory-fab north-star fixture.
 
 Related: [[docs/design/observation-led-design]], [[docs/design/operator-workbench]], [[docs/design/design-programs]], [[docs/design/experiment-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/studio-debugger]], [[docs/design/project-boundaries]], [[plans/persistent-industrial-investigation-workspace]], and [[plans/evidence-backed-metrology-standby-investigation]].
 
@@ -64,13 +64,23 @@ V1 entry kinds are:
 
 The engine validates references and order but does not assess the truth or quality of prose. Adding an entry creates a project artifact; it does not edit a Blueprint, run a simulation, evaluate a Benchmark, or commission a Candidate.
 
+## Hypothesis-to-Candidate handoff
+
+One Candidate may name an exact `investigation-hypothesis` source: owning project, Investigation id and manifest hash, plus hypothesis entry id and entry hash. Core resolves that chain before creation, inspection, review, or apply. The Candidate's hypothesis and expected effect must exactly equal the pinned entry; a missing, corrupt, cross-project, non-hypothesis, or text-mismatched source fails closed.
+
+`createInvestigationCandidate()` accepts only a caller-authored RFC 6902 patch and ordinary Candidate name/id, Benchmark id, Investigation id, and hypothesis entry id. Core derives the source identity, prose, and current Benchmark Candidate-Blueprint base hash before validating and writing the new artifact. It does not invent the patch or decide whether the intervention is good.
+
 ## Human and Agent surfaces
 
 `inm investigate` and Studio project the same Core inspection result. Both show the question, pinned target, currentness of every manifest or introduced anchor, ordered reasoning entries, and exact existing routes/argv for referenced evidence.
 
 CLI is the primary structured surface for text-only Agents. Studio is the primary spatial surface for humans and browser-capable Agents. Studio may provide forms for explicit entry creation, but it cannot manufacture an observation, hypothesis, or decision on the user's behalf.
 
+`inm investigate --create-candidate` is the high-bandwidth authoring path. It consumes an Agent- or human-authored JSON patch file and returns the exact `inm candidate --review` next action without requiring generated hashes. After review, CLI exposes an exact return-to-Investigation action; `--attach-candidate` resolves the receipt, derives `<candidate>-review` when no anchor id is supplied, and adds that introduced evidence to the decision automatically.
+
 The stable Studio routes are `/<project>/investigations` and `/<project>/investigations/<id>`. The project-qualified API lists or creates at `GET|POST /api/projects/<project>/investigations`, inspects at `GET /api/projects/<project>/investigations/<id>`, and appends at `POST /api/projects/<project>/investigations/<id>/entries`. The Studio workbench shows the current Core handoff, every anchor's exact evidence navigation, the ordered hash chain, explicit author/kind inputs, and required hypothesis or decision fields. Opening the route is read-only; only an explicit submitted create/append form writes Investigation data.
+
+Candidate review shows the resolved Investigation name, exact hypothesis entry, hash, and current/historical state. A recorded review can return to a stable query-qualified Investigation route that preselects decision kind, Candidate id, derived anchor id, and suggested disposition, but leaves author, entry id, and statement unowned and never submits. Once that exact review is already present in the hash chain, both surfaces show a completed state and suppress conflicting duplicate evidence prefill.
 
 ## Memory-fab north star
 
@@ -79,3 +89,5 @@ The first checked-in Investigation resumes the current inspection starvation inq
 Its first observation binds the focused replay to typed evidence: `inspection-1` accumulated 190.2 seconds of input wait at 20.7% utilization; `etch-to-inspection` delivered 12 lots at 1.3% utilization with zero blocked item-ticks; and upstream `etch-l2` itself waited 164.0 seconds for input. That evidence contradicts another local line-capacity, buffer-capacity, or parallel-etch guess. The next physically distinct hypothesis was therefore a qualified low-power standby state for the continuous deep-metrology cell after a ten-second empty interval.
 
 Candidate `metrology-low-power-standby` tested exactly that asset/policy change. Its strict review found a small `+0.031858992142857145` energy-component benefit, but every current-factory case acquired an approximately one-million-point constraint penalty and `facility-interruption` on-time lots fell from nine to seven. The Candidate was not applied. Entry `metrology-standby-rejected` introduces the exact DISCARD review anchor and preserves that negative industrial result beside the original observation.
+
+The V2 end-to-end fixture repeats the proposal as `metrology-low-power-standby-sourced`, now with the exact Investigation-hypothesis identity embedded in the Candidate. Its 15 locked/current/proposed case evaluations complete through the bounded parallel runtime, reproduce the same `DISCARD` evidence, and entry `discard-sourced-metrology-standby` appends the new exact receipt using the derived `metrology-low-power-standby-sourced-review` anchor without copying a hash.

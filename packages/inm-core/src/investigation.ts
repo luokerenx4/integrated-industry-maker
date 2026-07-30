@@ -2,7 +2,15 @@ import { readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import { listRuns } from "./artifacts";
-import { loadCandidateChangeSet } from "./candidate-change-set";
+import { loadBlueprintBenchmark } from "./benchmark";
+import {
+  loadCandidateChangeSet,
+  writeCandidateChangeSet,
+  type CandidateChangeSet,
+  type CandidateInvestigationSourceEvidence,
+  type CandidatePatch,
+  type CandidateSource,
+} from "./candidate-change-set";
 import {
   inspectCandidateDecision,
   loadCandidateReviewReceipt,
@@ -197,6 +205,20 @@ export interface IndustrialInvestigationSummary {
   lastEntry: null | Pick<IndustrialInvestigationEntry, "id" | "sequence" | "kind" | "author" | "statement">;
 }
 
+export type InvestigationHypothesisCandidateSource = Extract<
+  CandidateSource,
+  { kind: "investigation-hypothesis" }
+>;
+
+export interface CreateInvestigationCandidateInput {
+  id: string;
+  name: string;
+  benchmark: string;
+  investigation: string;
+  hypothesisEntry: string;
+  patch: CandidatePatch;
+}
+
 export class IndustrialInvestigationError extends Error {
   constructor(public readonly code: string, message: string) {
     super(message);
@@ -323,6 +345,155 @@ export async function listIndustrialInvestigationEntries(
     previousEntryHash = entry.entryHash;
   }
   return entries;
+}
+
+export async function resolveIndustrialInvestigationHypothesisSource(
+  projectDir: string,
+  source: InvestigationHypothesisCandidateSource,
+  expected?: { hypothesis: string; expectedEffect?: string },
+): Promise<CandidateInvestigationSourceEvidence> {
+  const manifest = await loadIndustrialInvestigationManifest(projectDir, source.investigation);
+  if (manifest.project !== source.project) {
+    throw new IndustrialInvestigationError(
+      "investigation.project-mismatch",
+      `Investigation '${source.investigation}' belongs to project '${manifest.project}', not '${source.project}'`,
+    );
+  }
+  if (manifest.manifestHash !== source.manifestHash) {
+    throw new IndustrialInvestigationError(
+      "investigation.source-manifest-mismatch",
+      `Investigation '${source.investigation}' no longer matches Candidate manifest hash '${source.manifestHash}'`,
+    );
+  }
+  const entries = await listIndustrialInvestigationEntries(projectDir, source.investigation);
+  const entry = entries.find((item) => item.id === source.entry);
+  if (!entry) {
+    throw new IndustrialInvestigationError(
+      "investigation.source-entry-missing",
+      `Investigation '${source.investigation}' has no entry '${source.entry}'`,
+    );
+  }
+  if (entry.entryHash !== source.entryHash) {
+    throw new IndustrialInvestigationError(
+      "investigation.source-entry-mismatch",
+      `Investigation entry '${source.entry}' no longer matches Candidate entry hash '${source.entryHash}'`,
+    );
+  }
+  if (entry.kind !== "hypothesis") {
+    throw new IndustrialInvestigationError(
+      "investigation.source-not-hypothesis",
+      `Investigation entry '${source.entry}' is '${entry.kind}', not a hypothesis`,
+    );
+  }
+  if (expected && (
+    expected.hypothesis.trim() !== entry.statement
+    || expected.expectedEffect?.trim() !== entry.expectedEffect
+  )) {
+    throw new IndustrialInvestigationError(
+      "investigation.source-text-mismatch",
+      `Candidate hypothesis text must exactly match Investigation entry '${source.entry}'`,
+    );
+  }
+  const project = compileFactoryProject(await loadFactoryProject(projectDir, manifest.selection));
+  if (project.manifest.id !== manifest.project) {
+    throw new IndustrialInvestigationError(
+      "investigation.project-mismatch",
+      `Investigation '${source.investigation}' belongs to project '${manifest.project}', not '${project.manifest.id}'`,
+    );
+  }
+  const currentHashes = projectEvidenceHashes(project.hashes);
+  return {
+    kind: "investigation-hypothesis",
+    state: stableStringify(currentHashes) === stableStringify(manifest.hashes)
+      ? "current"
+      : "historical",
+    project: manifest.project,
+    investigation: manifest.id,
+    investigationName: manifest.name,
+    question: manifest.question,
+    manifestHash: manifest.manifestHash,
+    entry: entry.id,
+    entryHash: entry.entryHash,
+    sequence: entry.sequence,
+    author: entry.author,
+    statement: entry.statement,
+    expectedEffect: entry.expectedEffect,
+    evidence: [...entry.evidence],
+    navigation: {
+      argv: ["inm", "investigate", projectDir, "--investigation", manifest.id, "--json"],
+      studioRoute: `/${encodeURIComponent(manifest.project)}/investigations/${encodeURIComponent(manifest.id)}`,
+    },
+  };
+}
+
+export async function createInvestigationCandidate(
+  projectDir: string,
+  input: CreateInvestigationCandidateInput,
+): Promise<{
+  candidate: CandidateChangeSet;
+  sourceEvidence: CandidateInvestigationSourceEvidence;
+  path: string;
+}> {
+  const manifest = await loadIndustrialInvestigationManifest(projectDir, input.investigation);
+  const entries = await listIndustrialInvestigationEntries(projectDir, input.investigation);
+  const hypothesis = entries.find((entry) => entry.id === input.hypothesisEntry);
+  if (!hypothesis) {
+    throw new IndustrialInvestigationError(
+      "investigation.source-entry-missing",
+      `Investigation '${input.investigation}' has no entry '${input.hypothesisEntry}'`,
+    );
+  }
+  if (hypothesis.kind !== "hypothesis") {
+    throw new IndustrialInvestigationError(
+      "investigation.source-not-hypothesis",
+      `Investigation entry '${input.hypothesisEntry}' is '${hypothesis.kind}', not a hypothesis`,
+    );
+  }
+  const source: InvestigationHypothesisCandidateSource = {
+    kind: "investigation-hypothesis",
+    project: manifest.project,
+    investigation: manifest.id,
+    manifestHash: manifest.manifestHash,
+    entry: hypothesis.id,
+    entryHash: hypothesis.entryHash,
+  };
+  const sourceEvidence = await resolveIndustrialInvestigationHypothesisSource(projectDir, source, {
+    hypothesis: hypothesis.statement,
+    expectedEffect: hypothesis.expectedEffect,
+  });
+  const benchmark = await loadBlueprintBenchmark(projectDir, input.benchmark);
+  const firstCase = benchmark.cases[0];
+  if (!firstCase) {
+    throw new IndustrialInvestigationError(
+      "investigation.candidate-benchmark-empty",
+      `Benchmark '${input.benchmark}' has no cases`,
+    );
+  }
+  const loaded = await loadFactoryProject(projectDir, {
+    world: firstCase.world,
+    blueprint: benchmark.candidateBlueprint,
+    scenario: firstCase.scenario,
+    objective: firstCase.objective,
+  });
+  if (loaded.manifest.id !== manifest.project) {
+    throw new IndustrialInvestigationError(
+      "investigation.project-mismatch",
+      `Benchmark '${benchmark.id}' belongs to project '${loaded.manifest.id}', not Investigation project '${manifest.project}'`,
+    );
+  }
+  const candidate: CandidateChangeSet = {
+    version: 1,
+    id: input.id,
+    name: input.name.trim(),
+    benchmark: benchmark.id,
+    hypothesis: hypothesis.statement,
+    expectedEffect: hypothesis.expectedEffect,
+    source,
+    baseCandidateHash: hashValue(loaded.blueprint),
+    patch: input.patch,
+  };
+  const path = await writeCandidateChangeSet(projectDir, candidate);
+  return { candidate, sourceEvidence, path };
 }
 
 function recordedNextAction(action: WorkbenchNextAction): z.infer<typeof recordedNextActionSchema> {

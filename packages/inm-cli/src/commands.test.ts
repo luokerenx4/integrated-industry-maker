@@ -678,6 +678,86 @@ test("public investigate preserves and resumes exact project-local human/Agent r
   ]);
   expect({ exitCode: hypothesized.exitCode, stderr: hypothesized.stderr }).toEqual({ exitCode: 0, stderr: "" });
 
+  const patchFile = join(root, "inspection-decoupling-buffer.patch.json");
+  await writeFile(patchFile, `${JSON.stringify([{
+    op: "replace",
+    path: "/devices/0/position/x",
+    value: 3,
+  }], null, 2)}\n`);
+  const candidateCreated = await runCli([
+    "investigate",
+    projectDir,
+    "--investigation",
+    investigationId,
+    "--create-candidate",
+    "inspection-decoupling-buffer",
+    "--hypothesis-entry",
+    "inspection-decoupling-buffer",
+    "--benchmark",
+    "greenfield-dram-design",
+    "--candidate-name",
+    "Inspection decoupling buffer",
+    "--patch-file",
+    patchFile,
+    "--json",
+  ]);
+  expect({ exitCode: candidateCreated.exitCode, stderr: candidateCreated.stderr })
+    .toEqual({ exitCode: 0, stderr: "" });
+  const candidateEnvelope = JSON.parse(candidateCreated.stdout);
+  expect(candidateEnvelope).toEqual(expect.objectContaining({
+    data: {
+      section: "summary",
+      result: expect.objectContaining({
+        action: "candidate-created",
+        candidate: expect.objectContaining({
+          id: "inspection-decoupling-buffer",
+          hypothesis: "A small qualified wafer decoupling buffer may smooth final etch handoff without making etch globally faster.",
+          expectedEffect: "Reduce inspection shortage while preserving service, quality, WIP, and interruption guardrails.",
+          source: expect.objectContaining({
+            kind: "investigation-hypothesis",
+            investigation: investigationId,
+            entry: "inspection-decoupling-buffer",
+          }),
+          sourceEvidence: expect.objectContaining({
+            state: "current",
+            author: "human",
+          }),
+        }),
+      }),
+    },
+    artifacts: [expect.objectContaining({
+      kind: "candidate",
+      id: "inspection-decoupling-buffer",
+      immutable: true,
+    })],
+    nextActions: [expect.objectContaining({
+      id: "candidate.review",
+      effect: "creates-artifact",
+      argv: expect.arrayContaining([
+        "--candidate",
+        "inspection-decoupling-buffer",
+        "--review",
+      ]),
+    })],
+  }));
+  const candidateInspected = await runCli([
+    "candidate",
+    projectDir,
+    "--candidate",
+    "inspection-decoupling-buffer",
+    "--json",
+  ]);
+  expect({ exitCode: candidateInspected.exitCode, stderr: candidateInspected.stderr })
+    .toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(candidateInspected.stdout).data.result).toEqual(expect.objectContaining({
+    decisionState: "proposed",
+    sourceEvidence: expect.objectContaining({
+      investigation: investigationId,
+      entry: "inspection-decoupling-buffer",
+      state: "current",
+    }),
+  }));
+
   const decided = await runCli([
     "investigate",
     projectDir,

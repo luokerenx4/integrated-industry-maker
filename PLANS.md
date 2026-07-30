@@ -12,9 +12,7 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/investigation-sourced-candidate-cycle]] | Carry one exact Investigation hypothesis through Candidate authoring, retained review, and explicit disposition without reconstructing provenance. | 2026-07-30 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -28,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/investigation-sourced-candidate-cycle]] | Carry one exact Investigation hypothesis through Candidate authoring, retained review, and explicit disposition without reconstructing provenance. | 2026-07-30 |
 | [[plans/resilient-studio-source-adoption]] | Keep Studio supervised, observable, and automatically recoverable across a source-adopted child compile failure. | 2026-07-30 |
 | [[plans/evidence-backed-metrology-standby-investigation]] | Carry the first persistent memory-fab hypothesis through exact Candidate evidence and an append-only Investigation decision. | 2026-07-30 |
 | [[plans/persistent-industrial-investigation-workspace]] | Preserve project-local human/Agent factory inquiries as exact evidence anchors plus append-only reasoning entries. | 2026-07-30 |

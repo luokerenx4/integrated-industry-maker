@@ -1,6 +1,6 @@
 # Shared experiment workbench
 
-Status: V1 shared evaluation, V2 project-local change-set application, V3 persistent decision loop, V4 immutable Design continuation, V5 commissioned Design provenance, V6 Objective score causality, V7 control activation causality, and V8 rejected-Candidate revision handoff implemented.
+Status: V1 shared evaluation, V2 project-local change-set application, V3 persistent decision loop, V4 immutable Design continuation, V5 commissioned Design provenance, V6 Objective score causality, V7 control activation causality, V8 rejected-Candidate revision handoff, and V9 Investigation provenance implemented.
 
 Related: [[docs/design/coding-agent-optimization]], [[docs/design/observation-led-design]], [[docs/design/blueprint-comparison]], [[docs/design/operation-workbench]], [[docs/design/studio-debugger]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
@@ -88,6 +88,12 @@ Recorded evidence is reopened without evaluation. CLI default Candidate mode and
 
 The proposal does not own worlds, assets, scenarios, objectives, locks, evaluator weights, or Git. It may edit only Blueprint-owned `/devices`, `/connections`, `/logisticsNetworks`, and `/policies`; revision lineage is written by Core. Studio never accepts an arbitrary server path.
 
+## V9 — Investigation provenance and explicit return
+
+A Candidate may originate from an immutable Design Run or an exact Investigation hypothesis. The latter source pins project, manifest, and entry identities; Core requires Candidate hypothesis/expected-effect text to reproduce that entry before inspection, review, or apply. Studio shows the resolved Investigation and exact hypothesis currentness beside the patch and offers a stable reasoning deep link.
+
+After a recorded review, Studio offers a separate return action. The target Investigation form prepares the Candidate, derived review-anchor id, decision kind, and a verdict-informed disposition, but it never prepares authorship, entry id, rationale, or submission. The review remains immutable evidence rather than a decision. If the exact proposal receipt already appears in that Investigation, the Candidate page shows `HASH-CHAIN EVIDENCE RETAINED` and the return route becomes a non-conflicting completed state.
+
 ## V8 — rejected-Candidate revision handoff
 
 A `DISCARD` or `UNCHANGED` result may contain the most useful industrial evidence in the loop. Core derives a `CandidateRevisionBrief` without adding authority to the receipt: locked blocking reasons, exact current-pass-to-proposed-fail outcome rows, negative current-to-proposed cases, weighted positive and negative Objective-component deltas, and the unique authored patch paths. The disposition is explicitly `revise-or-retire`; a human or reasoning Agent owns the next hypothesis.
@@ -153,6 +159,7 @@ Immutable Design Run V3 requires the field in the seed and every successful Cand
 - [x] Shared Objective-component causality across Core, CLI, Studio, and project-local Design providers.
 - [x] Exact current-factory incremental evidence beside immutable locked-baseline compliance for every Candidate review.
 - [x] Cheap recorded-review inspection and shared rejected-Candidate revision handoff.
+- [x] Exact Investigation-hypothesis Candidate provenance, CLI authoring, Studio source/return flow, duplicate-decision detection, and checked-in memory-fab DISCARD evidence.
 
 ### V2 acceptance
 

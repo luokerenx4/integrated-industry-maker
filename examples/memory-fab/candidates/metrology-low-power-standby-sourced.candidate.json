@@ -1,0 +1,31 @@
+{
+  "baseCandidateHash": "8281c50706c578b823b7d8cc3f5d4f94cef230fefbee210c8a3756a6a9a9563a",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reduce total energy and electricity across every locked operating case while preserving completion, on-time service, first-pass yield, zero quality escapes, final-inspection Q-time, and the current inspection-starvation target; the replay should show sleep and bounded wake work only inside long empty intervals.",
+  "hypothesis": "Give the continuous deep-metrology cell an explicit qualified low-power standby state and let inspection-1 sleep after ten seconds without a resident wafer, exploiting long supply gaps instead of forcing more wafer release or local transport capacity.",
+  "id": "metrology-low-power-standby-sourced",
+  "name": "Investigation-sourced metrology standby",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/6/asset",
+      "value": "low-power-continuous-deep-metrology-cell"
+    },
+    {
+      "op": "add",
+      "path": "/devices/6/policy/idleEnergy",
+      "value": {
+        "sleepAfterTicks": 10000
+      }
+    }
+  ],
+  "source": {
+    "entry": "metrology-low-power-standby",
+    "entryHash": "fe0a8d067272f1edbb7a76e27dc86c24a877b44fa0a6fb32860c3967dd2d2ceb",
+    "investigation": "inspection-starvation-next-step",
+    "kind": "investigation-hypothesis",
+    "manifestHash": "b233943b95bd8e6ad4c0e8f118aab550f749b04e9704dac53759890ae8da0cc9",
+    "project": "memory-fab"
+  },
+  "version": 1
+}

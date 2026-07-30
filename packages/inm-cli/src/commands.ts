@@ -2,11 +2,11 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, DesignRunError, IndustrialInvestigationError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, appendIndustrialInvestigationEntry, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, createIndustrialInvestigation, describeWipInventoryLocation, evaluateBenchmarkOperation, inspectCandidateDecision, inspectDesignProgramEvidence, inspectIndustrialInvestigation, listDesignPrograms, listIndustrialInvestigations, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadBlueprintBenchmark, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, recommendedDesignProgramEvidenceAction, runDesignProgram, simulateProjectOperation, validateProjectOperation,
+  CandidateChangeSetError, DesignRunError, IndustrialInvestigationError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, appendIndustrialInvestigationEntry, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, createIndustrialInvestigation, createInvestigationCandidate, describeWipInventoryLocation, evaluateBenchmarkOperation, inspectCandidateDecision, inspectDesignProgramEvidence, inspectIndustrialInvestigation, listDesignPrograms, listIndustrialInvestigations, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadBlueprintBenchmark, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, recommendedDesignProgramEvidenceAction, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
   TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals,
-  type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type CandidateChangeSetPreview, type CandidateCurrentFactoryComparison, type CandidateRevisionBrief, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FabLossContributorMechanism, type FactoryEvent, type FactoryMetrics, type IndustrialInvestigationEntryInput, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
+  type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type CandidateChangeSetPreview, type CandidateCurrentFactoryComparison, type CandidatePatch, type CandidateRevisionBrief, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FabLossContributorMechanism, type FactoryEvent, type FactoryMetrics, type IndustrialInvestigationEntryInput, type InmManifest, type InmWorkspaceManifest, type ProjectSelection, type ScoreBreakdown,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
@@ -421,6 +421,7 @@ function candidateSummary(action: "inspect" | "preview" | "apply", preview: Cand
     candidate: preview.candidate.id,
     benchmark: preview.candidate.benchmark,
     hypothesis: preview.candidate.hypothesis,
+    sourceEvidence: preview.sourceEvidence,
     proposalHash: preview.proposalHash,
     currentCandidateHash: preview.currentCandidateHash,
     proposedCandidateHash: preview.proposedCandidateHash,
@@ -439,15 +440,31 @@ async function candidateDecisionNextActions(
   projectDir: string,
   preview: CandidateChangeSetPreview,
 ): Promise<CliNextAction[]> {
-  if (preview.result.verdict === "KEEP") return [nextAction(
+  const returnToInvestigation = preview.sourceEvidence
+    ? [nextAction(
+      "candidate.record-investigation-decision",
+      "Return this immutable review to its source Investigation and append an explicit human/Agent disposition.",
+      [
+        "inm", "investigate", resolve(projectDir),
+        "--investigation", preview.sourceEvidence.investigation,
+        "--json",
+      ],
+    )]
+    : [];
+  if (preview.result.verdict === "KEEP") return [
+    ...returnToInvestigation,
+    nextAction(
     "candidate.apply",
     "Re-evaluate and apply this exact Candidate under all hash guards.",
     ["inm", "candidate", resolve(projectDir), "--candidate", preview.candidate.id, "--apply", "--json"],
     "mutates-project",
-  )];
+    ),
+  ];
   const benchmark = await loadBlueprintBenchmark(projectDir, preview.candidate.benchmark);
   const current = await loadFactoryProject(projectDir, { blueprint: benchmark.candidateBlueprint });
-  return [nextAction(
+  return [
+    ...returnToInvestigation,
+    nextAction(
     "candidate.observe-current",
     "Observe the exact current factory before authoring a revised immutable Candidate.",
     [
@@ -458,7 +475,8 @@ async function candidateDecisionNextActions(
       "--objective", current.selection.objective,
       "--json",
     ],
-  )];
+    ),
+  ];
 }
 
 function outcomeGuardrailLines(result: BlueprintBenchmarkResult): string[] {
@@ -861,16 +879,24 @@ export async function investigateCommand(
     evidence?: string;
     attachCandidate?: string;
     anchorId?: string;
+    createCandidate?: string;
+    hypothesisEntry?: string;
+    benchmark?: string;
+    candidateName?: string;
+    patchFile?: string;
     json: boolean;
     section?: string;
   },
 ): Promise<void> {
   const usage = "Usage: inm investigate <project-or-workspace-dir> [--investigation ID [--create | --entry ID]] [options]";
-  if (options.create && options.entryId) throw new Error(`${usage}\n--create and --entry are mutually exclusive.`);
-  if (!options.investigationId && (options.create || options.entryId
+  const mutationModes = [options.create, Boolean(options.entryId), Boolean(options.createCandidate)]
+    .filter(Boolean).length;
+  if (mutationModes > 1) throw new Error(`${usage}\n--create, --entry, and --create-candidate are mutually exclusive.`);
+  if (!options.investigationId && (options.create || options.entryId || options.createCandidate
     || options.name || options.question || options.kind || options.author || options.statement
     || options.expectedEffect || options.disposition || options.evidence
-    || options.attachCandidate || options.anchorId)) {
+    || options.attachCandidate || options.anchorId || options.hypothesisEntry || options.benchmark
+    || options.candidateName || options.patchFile)) {
     throw new Error(`${usage}\nInvestigation mutation requires --investigation ID.`);
   }
   if (!options.investigationId) {
@@ -892,13 +918,15 @@ export async function investigateCommand(
     return;
   }
 
-  let artifact: { kind: "investigation" | "investigation-entry"; id: string; path: string; immutable: true } | null = null;
+  let artifact: { kind: "investigation" | "investigation-entry" | "candidate"; id: string; path: string; immutable: true } | null = null;
+  let candidateCreation: Awaited<ReturnType<typeof createInvestigationCandidate>> | null = null;
   if (options.create) {
     if (!options.name?.trim() || !options.question?.trim()) {
       throw new Error(`${usage}\n--create requires --name and --question.`);
     }
     if (options.kind || options.author || options.statement || options.expectedEffect || options.disposition
-      || options.evidence || options.attachCandidate || options.anchorId) {
+      || options.evidence || options.attachCandidate || options.anchorId || options.createCandidate
+      || options.hypothesisEntry || options.benchmark || options.candidateName || options.patchFile) {
       throw new Error(`${usage}\nEntry fields require --entry ID.`);
     }
     const created = await createIndustrialInvestigation(projectDir, options.investigationId, {
@@ -931,19 +959,24 @@ export async function investigateCommand(
     if (options.kind !== "decision" && options.disposition) {
       throw new Error(`${usage}\n--disposition belongs only to a decision entry.`);
     }
-    if (Boolean(options.attachCandidate) !== Boolean(options.anchorId)) {
-      throw new Error(`${usage}\n--attach-candidate and --anchor-id must be provided together.`);
+    if (options.anchorId && !options.attachCandidate) {
+      throw new Error(`${usage}\n--anchor-id requires --attach-candidate.`);
     }
+    const introducedAnchorId = options.attachCandidate
+      ? options.anchorId ?? `${options.attachCandidate}-review`
+      : undefined;
+    const evidence = options.evidence
+      ? options.evidence.split(",").map((item) => item.trim()).filter(Boolean)
+      : [];
+    if (introducedAnchorId && !evidence.includes(introducedAnchorId)) evidence.push(introducedAnchorId);
     const common = {
       id: options.entryId,
       author: options.author as "human" | "agent",
       statement: options.statement,
-      evidence: options.evidence
-        ? options.evidence.split(",").map((item) => item.trim()).filter(Boolean)
-        : [],
-      introduceEvidence: options.attachCandidate && options.anchorId
+      evidence,
+      introduceEvidence: options.attachCandidate && introducedAnchorId
         ? {
-          id: options.anchorId,
+          id: introducedAnchorId,
           kind: "candidate-review" as const,
           candidateId: options.attachCandidate,
         }
@@ -969,10 +1002,40 @@ export async function investigateCommand(
       path: appended.path,
       immutable: true,
     };
+  } else if (options.createCandidate) {
+    if (!options.hypothesisEntry || !options.benchmark || !options.candidateName?.trim() || !options.patchFile) {
+      throw new Error(`${usage}\n--create-candidate requires --hypothesis-entry, --benchmark, --candidate-name, and --patch-file.`);
+    }
+    if (options.name || options.question || options.kind || options.author || options.statement
+      || options.expectedEffect || options.disposition || options.evidence
+      || options.attachCandidate || options.anchorId) {
+      throw new Error(`${usage}\nInvestigation and entry fields cannot be combined with --create-candidate.`);
+    }
+    let patch: unknown;
+    try {
+      patch = JSON.parse(await readFile(resolve(options.patchFile), "utf8"));
+    } catch (error) {
+      throw new Error(`${usage}\nCannot read Candidate patch '${options.patchFile}': ${error instanceof Error ? error.message : String(error)}`);
+    }
+    candidateCreation = await createInvestigationCandidate(projectDir, {
+      id: options.createCandidate,
+      name: options.candidateName,
+      benchmark: options.benchmark,
+      investigation: options.investigationId,
+      hypothesisEntry: options.hypothesisEntry,
+      patch: patch as CandidatePatch,
+    });
+    artifact = {
+      kind: "candidate",
+      id: candidateCreation.candidate.id,
+      path: candidateCreation.path,
+      immutable: true,
+    };
   } else if (options.name || options.question || options.kind || options.author
     || options.statement || options.expectedEffect || options.disposition || options.evidence
-    || options.attachCandidate || options.anchorId) {
-    throw new Error(`${usage}\nMutation fields require --create or --entry ID.`);
+    || options.attachCandidate || options.anchorId || options.hypothesisEntry || options.benchmark
+    || options.candidateName || options.patchFile) {
+    throw new Error(`${usage}\nMutation fields require --create, --entry ID, or --create-candidate ID.`);
   }
 
   const inspection = await inspectIndustrialInvestigation(projectDir, options.investigationId);
@@ -983,6 +1046,8 @@ export async function investigateCommand(
         ? "created"
         : artifact?.kind === "investigation-entry"
           ? "appended"
+          : artifact?.kind === "candidate"
+            ? "candidate-created"
           : "inspect",
       investigation: {
         id: inspection.manifest.id,
@@ -1003,6 +1068,13 @@ export async function investigateCommand(
       entryCount: inspection.entries.length,
       lastEntry: inspection.entries.at(-1) ?? null,
       currentNextAction: inspection.currentNextAction,
+      candidate: candidateCreation
+        ? {
+          ...candidateCreation.candidate,
+          sourceEvidence: candidateCreation.sourceEvidence,
+          path: candidateCreation.path,
+        }
+        : null,
     }),
     anchors: () => inspection.anchors,
     entries: () => inspection.entries,
@@ -1012,7 +1084,14 @@ export async function investigateCommand(
     writeSuccess("investigate", data, {
       context: workbenchContext(snapshot),
       artifacts: artifact ? [artifact] : [],
-      nextActions: [inspection.currentNextAction],
+      nextActions: candidateCreation
+        ? [nextAction(
+          "candidate.review",
+          "Evaluate and record this exact Investigation-sourced Candidate.",
+          ["inm", "candidate", resolve(projectDir), "--candidate", candidateCreation.candidate.id, "--review", "--json"],
+          "creates-artifact",
+        )]
+        : [inspection.currentNextAction],
     });
     return;
   }
@@ -1029,6 +1108,11 @@ export async function investigateCommand(
       ...inspection.entries.map((entry) =>
         `  ${String(entry.sequence).padStart(4, "0")} ${entry.kind.toUpperCase()} · ${entry.author} · ${entry.statement}${entry.kind === "hypothesis" ? `\n       expected: ${entry.expectedEffect}` : entry.kind === "decision" ? ` · ${entry.disposition.toUpperCase()}` : ""}${entry.introducedAnchors.length ? `\n       introduced: ${entry.introducedAnchors.map((anchor) => `${anchor.id}:${anchor.kind}`).join(" + ")}` : ""}${entry.evidence.length ? `\n       evidence: ${entry.evidence.join(" + ")}` : ""}`),
     ] : ["Reasoning log: empty"]),
+    ...(candidateCreation ? [
+      `Candidate: ${candidateCreation.candidate.id} · ${candidateCreation.candidate.benchmark}`,
+      `  Source: hypothesis ${candidateCreation.sourceEvidence.entry} · ${candidateCreation.sourceEvidence.entryHash.slice(0, 12)} · ${candidateCreation.sourceEvidence.state.toUpperCase()}`,
+      `  Review: inm candidate <path> --candidate ${candidateCreation.candidate.id} --review`,
+    ] : []),
     `Next: ${inspection.currentNextAction.title}`,
     `  ${inspection.currentNextAction.reason}`,
     "",
@@ -1592,12 +1676,14 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
               candidate: candidate.id,
               benchmark: candidate.benchmark,
               hypothesis: candidate.hypothesis,
+              sourceEvidence: decision.sourceEvidence,
               proposalHash: decision.proposalHash,
               currentCandidateHash: decision.currentCandidateHash,
               decisionState: decision.state,
+              error: decision.error ?? null,
               review: null,
             },
-        proposal: () => ({ action: "inspect", candidate, proposalHash: decision.proposalHash, currentCandidateHash: decision.currentCandidateHash }),
+        proposal: () => ({ action: "inspect", candidate, sourceEvidence: decision.sourceEvidence, proposalHash: decision.proposalHash, currentCandidateHash: decision.currentCandidateHash }),
         revision: () => preview?.revisionBrief ?? null,
         evaluation: () => preview ? { lockedCompliance: preview.result, currentFactory: preview.currentFactory } : null,
         all: () => ({ action: "inspect", decisionState: decision.state, decision }),
@@ -1607,7 +1693,9 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
         diagnostics: preview?.result.reasons ?? [],
         nextActions: preview
           ? await candidateDecisionNextActions(projectDir, preview)
-          : [nextAction(
+          : decision.state === "invalid"
+            ? []
+            : [nextAction(
               "candidate.review",
               "Evaluate and record this exact proposed Candidate.",
               ["inm", "candidate", resolve(projectDir), "--candidate", candidate.id, "--review", "--json"],
@@ -1619,8 +1707,12 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     if (!preview) {
       write([
         `${candidate.name} · ${decision.state.toUpperCase()}`,
+        ...(decision.sourceEvidence
+          ? [`Source: Investigation ${decision.sourceEvidence.investigation} / ${decision.sourceEvidence.entry} · ${decision.sourceEvidence.state.toUpperCase()}`]
+          : []),
+        ...(decision.error ? [`Invalid source: [${decision.error.code}] ${decision.error.message}`] : []),
         `No recorded review for proposal ${decision.proposalHash.slice(0, 12)}.`,
-        `Review explicitly: inm candidate <path> --candidate ${candidate.id} --review`,
+        ...(decision.state === "invalid" ? [] : [`Review explicitly: inm candidate <path> --candidate ${candidate.id} --review`]),
         "",
       ].join("\n"), false);
       return;
@@ -1628,6 +1720,9 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     write([
       `${preview.candidate.name} · recorded candidate review`,
       `${decision.state.toUpperCase()} · ${preview.result.verdict} · proposal ${preview.proposalHash.slice(0, 12)}`,
+      ...(preview.sourceEvidence
+        ? [`Source: Investigation ${preview.sourceEvidence.investigation} / ${preview.sourceEvidence.entry} · ${preview.sourceEvidence.state.toUpperCase()}`]
+        : []),
       `Locked compliance Δ ${signed(preview.result.scoreDelta, 6)}`,
       ...(preview.currentFactory.status === "evaluated"
         ? [`Current factory Δ ${signed(preview.currentFactory.scoreDelta, 6)} · ${preview.currentFactory.verdict}`]
@@ -1706,7 +1801,7 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
   const executionState = execution.complete(previewOperation.artifacts);
   if (options.json) { const data = sectionResult("candidate", options, {
     summary: () => candidateSummary("preview", preview),
-    proposal: () => ({ action: "preview", candidate: preview.candidate, proposalHash: preview.proposalHash, currentCandidateHash: preview.currentCandidateHash, proposedCandidateHash: preview.proposedCandidateHash }),
+    proposal: () => ({ action: "preview", candidate: preview.candidate, sourceEvidence: preview.sourceEvidence, proposalHash: preview.proposalHash, currentCandidateHash: preview.currentCandidateHash, proposedCandidateHash: preview.proposedCandidateHash }),
     revision: () => preview.revisionBrief,
     evaluation: () => ({ lockedCompliance: preview.result, currentFactory: preview.currentFactory }),
     all: () => ({ action: "preview", ...preview }),
@@ -1720,6 +1815,9 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     `${preview.candidate.name} · candidate change set`,
     `${preview.candidate.benchmark} · ${preview.currentCandidateHash.slice(0, 12)} → ${preview.proposedCandidateHash.slice(0, 12)}`,
     `Hypothesis: ${preview.candidate.hypothesis}`,
+    ...(preview.sourceEvidence
+      ? [`Source: Investigation ${preview.sourceEvidence.investigation} / ${preview.sourceEvidence.entry} · ${preview.sourceEvidence.state.toUpperCase()}`]
+      : []),
     `Patch: ${preview.candidate.patch.length} authored ops · ${preview.result.changes.length} semantic changes`,
     `Locked compliance: ${preview.result.baselineScore.toFixed(6)} → ${preview.result.candidateScore.toFixed(6)} · Δ ${signed(preview.result.scoreDelta, 6)} · ${preview.result.verdict}`,
     ...(preview.currentFactory.status === "evaluated"

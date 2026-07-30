@@ -39,6 +39,24 @@ const patchOperationSchema = z.object({
   if (operation.op !== "remove" && !("value" in operation)) context.addIssue({ code: "custom", message: `${operation.op} requires value`, path: ["value"] });
 });
 
+export const candidateSourceSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("design-run"),
+    program: id,
+    resultHash: hash,
+    blueprintHash: hash,
+  }).strict(),
+  z.object({
+    kind: z.literal("investigation-hypothesis"),
+    project: id,
+    investigation: id,
+    manifestHash: hash,
+    entry: id,
+    entryHash: hash,
+  }).strict(),
+]);
+export type CandidateSource = z.infer<typeof candidateSourceSchema>;
+
 export const candidateChangeSetSchema = z.object({
   version: z.literal(1),
   id,
@@ -46,22 +64,40 @@ export const candidateChangeSetSchema = z.object({
   benchmark: id,
   hypothesis: z.string().min(1),
   expectedEffect: z.string().min(1).optional(),
-  source: z.object({
-    kind: z.literal("design-run"),
-    program: id,
-    resultHash: hash,
-    blueprintHash: hash,
-  }).strict().optional(),
+  source: candidateSourceSchema.optional(),
   baseCandidateHash: hash,
   patch: z.array(patchOperationSchema).min(1),
 }).strict();
 
 export type CandidateChangeSet = z.infer<typeof candidateChangeSetSchema>;
+export type CandidatePatch = CandidateChangeSet["patch"];
 
 export interface CandidateChangeSetSummary extends CandidateChangeSet {}
 
+export interface CandidateInvestigationSourceEvidence {
+  kind: "investigation-hypothesis";
+  state: "current" | "historical";
+  project: string;
+  investigation: string;
+  investigationName: string;
+  question: string;
+  manifestHash: string;
+  entry: string;
+  entryHash: string;
+  sequence: number;
+  author: "human" | "agent";
+  statement: string;
+  expectedEffect: string;
+  evidence: string[];
+  navigation: {
+    argv: string[];
+    studioRoute: string;
+  };
+}
+
 export interface CandidateChangeSetPreview {
   candidate: CandidateChangeSet;
+  sourceEvidence: CandidateInvestigationSourceEvidence | null;
   proposalHash: string;
   currentCandidateHash: string;
   proposedCandidateHash: string;
@@ -183,6 +219,29 @@ export class CandidateChangeSetError extends Error {
   constructor(public readonly code: string, message: string, public readonly hashes: Record<string, string> = {}) {
     super(message);
     this.name = "CandidateChangeSetError";
+  }
+}
+
+export async function resolveCandidateInvestigationSource(
+  projectDir: string,
+  candidate: CandidateChangeSet,
+): Promise<CandidateInvestigationSourceEvidence | null> {
+  if (candidate.source?.kind !== "investigation-hypothesis") return null;
+  try {
+    const { resolveIndustrialInvestigationHypothesisSource } = await import("./investigation");
+    return await resolveIndustrialInvestigationHypothesisSource(projectDir, candidate.source, {
+      hypothesis: candidate.hypothesis,
+      expectedEffect: candidate.expectedEffect,
+    });
+  } catch (error) {
+    if (error instanceof CandidateChangeSetError) throw error;
+    const code = error && typeof error === "object" && "code" in error && typeof error.code === "string"
+      ? error.code
+      : "investigation.source-unavailable";
+    throw new CandidateChangeSetError(
+      "candidate.investigation-source-invalid",
+      `Candidate '${candidate.id}' cannot resolve its Investigation hypothesis: [${code}] ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -422,6 +481,7 @@ export async function prepareCandidateChangeSet(
   operationProject: CompiledFactoryProject;
 }> {
   const candidate = await loadCandidateChangeSet(projectDir, candidateId);
+  const sourceEvidence = await resolveCandidateInvestigationSource(projectDir, candidate);
   const benchmark = await loadBlueprintBenchmark(projectDir, candidate.benchmark);
   const firstCase = benchmark.cases[0]!;
   const loaded = await loadFactoryProject(projectDir, {
@@ -511,6 +571,7 @@ export async function prepareCandidateChangeSet(
   }
   return {
     candidate,
+    sourceEvidence,
     proposalHash: hashValue(candidate),
     currentCandidateHash,
     proposedCandidateHash,

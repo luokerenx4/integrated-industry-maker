@@ -53,12 +53,30 @@ export function InvestigationWorkbench({
   onSelect: (investigationId: string | null) => void;
   onClose: () => void;
 }) {
+  const returnCandidateId = new URLSearchParams(window.location.search).get("candidate")?.trim() || null;
+  const requestedDisposition = new URLSearchParams(window.location.search).get("disposition");
+  const suggestedDisposition = requestedDisposition === "keep"
+    || requestedDisposition === "revise"
+    || requestedDisposition === "discard"
+    ? requestedDisposition
+    : "revise";
   const [summaries, setSummaries] = useState<IndustrialInvestigationSummary[] | null>(null);
   const [inspection, setInspection] = useState<IndustrialInvestigationInspection | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-  const [entryKind, setEntryKind] = useState<IndustrialInvestigationEntry["kind"]>("observation");
+  const [entryKind, setEntryKind] = useState<IndustrialInvestigationEntry["kind"]>(
+    returnCandidateId ? "decision" : "observation",
+  );
+  const returnAlreadyRecorded = Boolean(returnCandidateId && inspection?.anchors.some(({ anchor }) =>
+    anchor.kind === "candidate-review" && anchor.candidateId === returnCandidateId));
+  const prefillCandidateId = returnAlreadyRecorded ? null : returnCandidateId;
+  const suggestedAnchorId = prefillCandidateId ? `${prefillCandidateId}-review` : "";
+
+  useEffect(() => {
+    if (prefillCandidateId) setEntryKind("decision");
+    else if (returnAlreadyRecorded) setEntryKind("observation");
+  }, [prefillCandidateId, returnAlreadyRecorded]);
 
   const loadList = useCallback(async () => {
     const value = await responseJson<{ investigations: IndustrialInvestigationSummary[] }>(
@@ -168,6 +186,9 @@ export function InvestigationWorkbench({
       )));
       form.reset();
       setEntryKind("observation");
+      if (window.location.search) {
+        window.history.replaceState(window.history.state, "", window.location.pathname);
+      }
       await loadList();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : String(nextError));
@@ -272,7 +293,18 @@ export function InvestigationWorkbench({
           </li>)}</ol> : <div className="investigation-empty-log">No reasoning entry yet. Begin with a visible or measured observation.</div>}
         </section>
 
-        <form className="investigation-entry-form" onSubmit={(event) => { void append(event); }}>
+        {returnCandidateId && <section className="investigation-return-context" data-testid="investigation-return-context">
+          <div><span className="eyebrow">{returnAlreadyRecorded ? "REVIEW ALREADY RECORDED" : "REVIEW RETURNED · EXPLICIT DECISION REQUIRED"}</span><strong>{returnCandidateId}</strong></div>
+          <p>{returnAlreadyRecorded
+            ? "This exact Candidate already has retained review evidence in the Investigation hash chain. The ordinary reasoning form remains available without duplicate evidence prefill."
+            : "The Candidate review is immutable evidence. Candidate id, evidence anchor, and suggested disposition are prepared below; authorship and the decision statement remain yours."}</p>
+        </section>}
+
+        <form
+          className="investigation-entry-form"
+          key={`${returnCandidateId ?? "ordinary-entry"}:${returnAlreadyRecorded ? "recorded" : "new"}`}
+          onSubmit={(event) => { void append(event); }}
+        >
           <header><span>APPEND REASONING</span><b>EXPLICIT AUTHORSHIP</b></header>
           <div className="investigation-entry-grid">
             <label>ID<input name="id" required pattern="[a-z0-9][a-z0-9-]*" placeholder="inspection-input-is-empty" /></label>
@@ -280,9 +312,9 @@ export function InvestigationWorkbench({
             <label>KIND<select value={entryKind} onChange={(event) => setEntryKind(event.target.value as IndustrialInvestigationEntry["kind"])}><option value="observation">OBSERVATION</option><option value="hypothesis">HYPOTHESIS</option><option value="decision">DECISION</option></select></label>
             <label className="wide">STATEMENT<textarea name="statement" required placeholder="State one observable fact, testable causal claim, or explicit decision." /></label>
             {entryKind === "hypothesis" && <label className="wide">EXPECTED EFFECT<textarea name="expectedEffect" required placeholder="What exact measured behavior should change if this is true?" /></label>}
-            {entryKind === "decision" && <label>DISPOSITION<select name="disposition" defaultValue="keep"><option value="keep">KEEP</option><option value="revise">REVISE</option><option value="defer">DEFER</option><option value="discard">DISCARD</option></select></label>}
-            <label>INTRODUCE REVIEW AS<input name="introducedAnchorId" placeholder="metrology-standby-review" /></label>
-            <label>REVIEWED CANDIDATE<input name="introducedCandidateId" placeholder="metrology-low-power-standby" /></label>
+            {entryKind === "decision" && <label>DISPOSITION<select name="disposition" defaultValue={prefillCandidateId ? suggestedDisposition : "keep"}><option value="keep">KEEP</option><option value="revise">REVISE</option><option value="defer">DEFER</option><option value="discard">DISCARD</option></select></label>}
+            <label>INTRODUCE REVIEW AS<input name="introducedAnchorId" defaultValue={suggestedAnchorId} placeholder="metrology-standby-review" /></label>
+            <label>REVIEWED CANDIDATE<input name="introducedCandidateId" defaultValue={prefillCandidateId ?? ""} placeholder="metrology-low-power-standby" /></label>
           </div>
           <fieldset><legend>EVIDENCE REFERENCES</legend>{inspection.anchors.map(({ anchor }) => <label key={anchor.id}><input type="checkbox" name="evidence" value={anchor.id} defaultChecked />{anchor.id}</label>)}</fieldset>
           <button disabled={loading} type="submit">{loading ? "VERIFYING…" : "APPEND TO HASH CHAIN"}</button>

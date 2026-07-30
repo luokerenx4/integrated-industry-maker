@@ -2,7 +2,7 @@ import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/pr
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
-import { evaluateBlueprintBenchmark, hashValue, lockBlueprintBenchmark, openFactoryObservationBrief, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
+import { createInvestigationCandidate, evaluateBlueprintBenchmark, hashValue, lockBlueprintBenchmark, openFactoryObservationBrief, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
 import { isTerminalOperationExecution, type OperationExecutionSnapshot, type OperationExecutionStartResponse } from "@inm/core";
 import { parseStudioWatchMessage, type StudioWatchEvent } from "./watch-protocol";
 
@@ -213,18 +213,58 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
       ]),
     }));
 
+    const hypothesized = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/investigations/inspection-starvation-next-step/entries`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: "inspection-decoupling-buffer",
+          author: "human",
+          kind: "hypothesis",
+          statement: "A qualified wafer buffer may decouple inspection from the final etch handoff.",
+          expectedEffect: "Reduce inspection input shortage without increasing service, quality, WIP, or Q-time losses.",
+          evidence: ["diagnostic", "design-lineage"],
+        }),
+      },
+    );
+    expect(hypothesized.status).toBe(201);
+    const sourcedCandidate = await createInvestigationCandidate(projectDir, {
+      id: "inspection-decoupling-buffer",
+      name: "Inspection decoupling buffer",
+      benchmark: "greenfield-dram-design",
+      investigation: "inspection-starvation-next-step",
+      hypothesisEntry: "inspection-decoupling-buffer",
+      patch: [{ op: "replace", path: "/devices/0/position/x", value: 3 }],
+    });
+    const sourceReview = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/experiments/greenfield-dram-design/candidates/${sourcedCandidate.candidate.id}/review`,
+    );
+    expect(sourceReview.status).toBe(200);
+    expect(await sourceReview.json()).toEqual(expect.objectContaining({
+      state: "proposed",
+      error: null,
+      review: null,
+      sourceEvidence: expect.objectContaining({
+        state: "current",
+        investigation: "inspection-starvation-next-step",
+        entry: "inspection-decoupling-buffer",
+        statement: "A qualified wafer buffer may decouple inspection from the final etch handoff.",
+      }),
+    }));
+
     const listed = await fetch(`http://localhost:${port}/api/projects/memory-fab/investigations`);
     expect(await listed.json()).toEqual({
       investigations: [expect.objectContaining({
         id: "inspection-starvation-next-step",
-        entryCount: 2,
+        entryCount: 3,
       })],
     });
     const detail = await fetch(
       `http://localhost:${port}/api/projects/memory-fab/investigations/inspection-starvation-next-step`,
     );
     expect(detail.status).toBe(200);
-    expect((await detail.json() as { entries: unknown[] }).entries).toHaveLength(2);
+    expect((await detail.json() as { entries: unknown[] }).entries).toHaveLength(3);
     const deepLink = await fetch(
       `http://localhost:${port}/memory-fab/investigations/inspection-starvation-next-step`,
     );
@@ -741,7 +781,12 @@ test("opening a project without runs does not write a Studio baseline", async ()
     expect(candidatesResponse.status).toBe(200);
     expect((await candidatesResponse.json() as { candidates: Array<{ id: string }> }).candidates.map((item) => item.id)).toEqual(["protect-critical-line"]);
     const proposedReview = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/candidates/protect-critical-line/review`);
-    expect(await proposedReview.json()).toEqual({ state: "proposed", review: null });
+    expect(await proposedReview.json()).toEqual({
+      state: "proposed",
+      sourceEvidence: null,
+      error: null,
+      review: null,
+    });
 
     const expected = await evaluateBlueprintBenchmark(projectDir, "power-priority");
     const runResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/experiments/power-priority/run`, { method: "POST" });

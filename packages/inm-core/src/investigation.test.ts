@@ -4,11 +4,15 @@ import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
 import {
   appendIndustrialInvestigationEntry,
+  createInvestigationCandidate,
   createIndustrialInvestigation,
   inspectIndustrialInvestigation,
   listIndustrialInvestigationEntries,
   listIndustrialInvestigations,
+  resolveIndustrialInvestigationHypothesisSource,
 } from "./investigation";
+import { inspectCandidateDecision } from "./candidate-review";
+import { hashValue } from "./utils";
 
 const repository = resolve(import.meta.dir, "../../..");
 
@@ -230,6 +234,100 @@ test("a project-local Investigation preserves exact evidence and append-only hum
       .rejects.toEqual(expect.objectContaining({
         code: "investigation.invalid-entry-chain",
       }));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}, 30_000);
+
+test("an Investigation hypothesis creates a strictly sourced Candidate without caller-authored hashes or prose", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-investigation-candidate-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes(".inm"),
+  });
+  try {
+    const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
+    const blueprint = JSON.parse(await readFile(blueprintPath, "utf8"));
+    const created = await createInvestigationCandidate(projectDir, {
+      id: "inspection-standby-followup",
+      name: "Inspection standby follow-up",
+      benchmark: "greenfield-dram-design",
+      investigation: "inspection-starvation-next-step",
+      hypothesisEntry: "metrology-low-power-standby",
+      patch: [{
+        op: "replace",
+        path: "/devices/0/position/x",
+        value: 3,
+      }],
+    });
+
+    expect(created.path).toBe(join(
+      projectDir,
+      "candidates/inspection-standby-followup.candidate.json",
+    ));
+    expect(created.candidate).toEqual(expect.objectContaining({
+      hypothesis: "Give the continuous deep-metrology cell an explicit qualified low-power standby state and let inspection-1 sleep after ten seconds without a resident wafer, exploiting long supply gaps instead of forcing more wafer release or local transport capacity.",
+      expectedEffect: "Reduce total energy and electricity across every locked operating case while preserving completion, on-time service, first-pass yield, zero quality escapes, final-inspection Q-time, and the current inspection-starvation target; the replay should show sleep and bounded wake work only inside long empty intervals.",
+      baseCandidateHash: hashValue(blueprint),
+      source: {
+        kind: "investigation-hypothesis",
+        project: "memory-fab",
+        investigation: "inspection-starvation-next-step",
+        manifestHash: "b233943b95bd8e6ad4c0e8f118aab550f749b04e9704dac53759890ae8da0cc9",
+        entry: "metrology-low-power-standby",
+        entryHash: "fe0a8d067272f1edbb7a76e27dc86c24a877b44fa0a6fb32860c3967dd2d2ceb",
+      },
+    }));
+    expect(created.sourceEvidence).toEqual(expect.objectContaining({
+      state: "current",
+      author: "agent",
+      sequence: 2,
+      investigationName: "Inspection starvation next step",
+      navigation: expect.objectContaining({
+        studioRoute: "/memory-fab/investigations/inspection-starvation-next-step",
+      }),
+    }));
+    expect((await inspectCandidateDecision(projectDir, created.candidate.id))).toEqual(
+      expect.objectContaining({
+        state: "proposed",
+        sourceEvidence: expect.objectContaining({
+          entry: "metrology-low-power-standby",
+          state: "current",
+        }),
+      }),
+    );
+
+    await expect(createInvestigationCandidate(projectDir, {
+      id: "observation-is-not-a-candidate-source",
+      name: "Invalid observation source",
+      benchmark: "greenfield-dram-design",
+      investigation: "inspection-starvation-next-step",
+      hypothesisEntry: "inspection-path-is-supply-limited",
+      patch: [{ op: "replace", path: "/devices/0/position/x", value: 3 }],
+    })).rejects.toEqual(expect.objectContaining({
+      code: "investigation.source-not-hypothesis",
+    }));
+
+    await expect(resolveIndustrialInvestigationHypothesisSource(projectDir, {
+      ...created.candidate.source as Extract<NonNullable<typeof created.candidate.source>, { kind: "investigation-hypothesis" }>,
+      project: "other-project",
+    })).rejects.toEqual(expect.objectContaining({
+      code: "investigation.project-mismatch",
+    }));
+
+    const candidate = JSON.parse(await readFile(created.path, "utf8"));
+    candidate.hypothesis = "Silently replaced Candidate prose";
+    await writeFile(created.path, `${JSON.stringify(candidate, null, 2)}\n`);
+    expect(await inspectCandidateDecision(projectDir, created.candidate.id)).toEqual(
+      expect.objectContaining({
+        state: "invalid",
+        sourceEvidence: null,
+        error: expect.objectContaining({
+          code: "candidate.investigation-source-invalid",
+        }),
+      }),
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

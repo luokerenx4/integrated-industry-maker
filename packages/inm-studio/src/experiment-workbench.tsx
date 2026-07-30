@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type {
-  AppliedCandidateChangeSet, BlueprintBenchmarkProgress, BlueprintBenchmarkResult, BlueprintBenchmarkSummary, CandidateChangeSet, CandidateChangeSetPreview, CandidateDecisionState,
+  AppliedCandidateChangeSet, BlueprintBenchmarkProgress, BlueprintBenchmarkResult, BlueprintBenchmarkSummary, CandidateChangeSet, CandidateChangeSetPreview, CandidateDecisionState, CandidateInvestigationSourceEvidence, IndustrialInvestigationInspection,
 } from "@inm/core";
 import { CadenceControlEvidence } from "./cadence-control-evidence";
 import { ScoreBreakdownDetails } from "./score-breakdown";
@@ -10,7 +10,12 @@ import { isTerminalOperationExecution, type OperationExecutionSnapshot } from "@
 interface BenchmarkResponse extends BlueprintBenchmarkResult { command: "benchmark"; baselineCache: { hits: number; misses: number } }
 interface CandidatePreviewResponse extends CandidateChangeSetPreview { command: "candidate"; action: "preview"; decisionState?: CandidateDecisionState }
 interface CandidateApplyResponse extends AppliedCandidateChangeSet { command: "candidate"; action: "apply"; decisionState?: CandidateDecisionState }
-interface CandidateReviewResponse { state: CandidateDecisionState; review: CandidatePreviewResponse | null }
+interface CandidateReviewResponse {
+  state: CandidateDecisionState;
+  sourceEvidence: CandidateInvestigationSourceEvidence | null;
+  error: { code: string; message: string } | null;
+  review: CandidatePreviewResponse | null;
+}
 
 async function responseJson<T>(response: Response): Promise<T> {
   const value = await response.json() as T & { code?: string; error?: string };
@@ -26,7 +31,7 @@ const outcomeValue = (metric: string, value: number) => metric === "contractFulf
   : Number.isInteger(value) ? String(value) : value.toFixed(3);
 
 export function ExperimentWorkbench({
-  projectId, experiments, selectedId, selectedCandidateId, refreshRevision, onSelect, onSelectCandidate, onDesignSource, onClose,
+  projectId, experiments, selectedId, selectedCandidateId, refreshRevision, onSelect, onSelectCandidate, onDesignSource, onInvestigationSource, onClose,
 }: {
   projectId: string;
   experiments: BlueprintBenchmarkSummary[];
@@ -36,14 +41,21 @@ export function ExperimentWorkbench({
   onSelect: (id: string) => void;
   onSelectCandidate: (id: string | null) => void;
   onDesignSource: (programId: string, runId: string) => void;
+  onInvestigationSource: (investigationId: string, returnCandidateId?: string, disposition?: "keep" | "revise" | "discard") => void;
   onClose: () => void;
 }) {
   const selected = useMemo(() => experiments.find((item) => item.id === selectedId) ?? null, [experiments, selectedId]);
   const [candidates, setCandidates] = useState<CandidateChangeSet[]>([]);
   const activeCandidate = useMemo(() => candidates.find((item) => item.id === selectedCandidateId) ?? null, [candidates, selectedCandidateId]);
+  const designSource = activeCandidate?.source?.kind === "design-run" ? activeCandidate.source : null;
+  const investigationSource = activeCandidate?.source?.kind === "investigation-hypothesis"
+    ? activeCandidate.source
+    : null;
   const [benchmarkResult, setBenchmarkResult] = useState<BenchmarkResponse | null>(null);
   const [candidatePreview, setCandidatePreview] = useState<CandidatePreviewResponse | null>(null);
   const [decisionState, setDecisionState] = useState<CandidateDecisionState | null>(null);
+  const [sourceEvidence, setSourceEvidence] = useState<CandidateInvestigationSourceEvidence | null>(null);
+  const [recordedInvestigationAnchor, setRecordedInvestigationAnchor] = useState<string | null | false>(null);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<BlueprintBenchmarkProgress | null>(null);
   const [activeOperation, setActiveOperation] = useState<OperationExecutionSnapshot<BenchmarkResponse | CandidatePreviewResponse | CandidateApplyResponse> | null>(null);
@@ -60,7 +72,7 @@ export function ExperimentWorkbench({
   }, [experiments, onSelect, selectedId]);
   useEffect(() => {
     pollAbort.current?.abort();
-    setRunning(false); setActiveOperation(null); setCandidates([]); setBenchmarkResult(null); setCandidatePreview(null); setDecisionState(null); setApplied(null); setApplyArmed(false); setProgress(null); setError(null);
+    setRunning(false); setActiveOperation(null); setCandidates([]); setBenchmarkResult(null); setCandidatePreview(null); setDecisionState(null); setSourceEvidence(null); setApplied(null); setApplyArmed(false); setProgress(null); setError(null);
     if (!selectedId) return;
     let active = true;
     void fetch(`/api/projects/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(selectedId)}/candidates`)
@@ -71,20 +83,40 @@ export function ExperimentWorkbench({
     return () => { active = false; };
   }, [projectId, refreshRevision, selectedId]);
   useEffect(() => {
-    setBenchmarkResult(null); setCandidatePreview(null); setDecisionState(null); setApplied(null); setApplyArmed(false); setProgress(null); setError(null);
+    setBenchmarkResult(null); setCandidatePreview(null); setDecisionState(null); setSourceEvidence(null); setRecordedInvestigationAnchor(null); setApplied(null); setApplyArmed(false); setProgress(null); setError(null);
     if (!selectedId || !selectedCandidateId) return;
     let active = true;
     void fetch(`/api/projects/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(selectedId)}/candidates/${encodeURIComponent(selectedCandidateId)}/review`)
       .then((response) => responseJson<CandidateReviewResponse>(response)).then((value) => {
         if (!active) return;
         setDecisionState(value.state);
+        setSourceEvidence(value.sourceEvidence);
         setCandidatePreview(value.review);
+        if (value.error) setError(`[${value.error.code}] ${value.error.message}`);
       }).catch((nextError) => { if (active) setError(nextError instanceof Error ? nextError.message : String(nextError)); });
     return () => { active = false; };
   }, [projectId, refreshRevision, selectedCandidateId, selectedId]);
   useEffect(() => {
+    setRecordedInvestigationAnchor(null);
+    if (!candidatePreview?.sourceEvidence) return;
+    let active = true;
+    void fetch(`/api/projects/${encodeURIComponent(projectId)}/investigations/${encodeURIComponent(candidatePreview.sourceEvidence.investigation)}`)
+      .then((response) => responseJson<IndustrialInvestigationInspection>(response))
+      .then((investigation) => {
+        if (!active) return;
+        const exact = investigation.entries
+          .flatMap((entry) => entry.introducedAnchors)
+          .find((anchor) =>
+            anchor.candidateId === candidatePreview.candidate.id
+            && anchor.proposalHash === candidatePreview.proposalHash);
+        setRecordedInvestigationAnchor(exact?.id ?? false);
+      })
+      .catch(() => { if (active) setRecordedInvestigationAnchor(false); });
+    return () => { active = false; };
+  }, [candidatePreview, projectId, refreshRevision]);
+  useEffect(() => {
     setSourceAvailable(null);
-    if (!activeCandidate?.source) return;
+    if (activeCandidate?.source?.kind !== "design-run") return;
     let active = true;
     const source = activeCandidate.source;
     void fetch(`/api/projects/${encodeURIComponent(projectId)}/designs/${encodeURIComponent(source.program)}/runs/${encodeURIComponent(source.resultHash)}`)
@@ -105,10 +137,10 @@ export function ExperimentWorkbench({
         setApplied(appliedResult);
         setDecisionState(appliedResult.decisionState ?? "verified");
         setApplyArmed(false);
-      }
-      else {
+      } else {
         const reviewed = snapshot.result as CandidatePreviewResponse;
         setCandidatePreview(reviewed);
+        setSourceEvidence(reviewed.sourceEvidence);
         setDecisionState(reviewed.decisionState ?? `reviewed-${reviewed.result.verdict.toLowerCase()}` as CandidateDecisionState);
       }
     } else if (snapshot.status === "failed" || snapshot.status === "interrupted") {
@@ -246,16 +278,51 @@ export function ExperimentWorkbench({
               <code>BASE {shortHash(activeCandidate.baseCandidateHash)}</code>
               <b>{decisionState ? decisionState.toUpperCase() : "LOADING STATE"} · {activeCandidate.patch.length} PATCH OPS</b>
             </div>}
-            {activeCandidate?.source && <button
+            {designSource && <button
               className="candidate-source"
               data-testid="candidate-design-source"
               disabled={!sourceAvailable}
-              onClick={() => onDesignSource(activeCandidate.source!.program, activeCandidate.source!.resultHash)}
+              onClick={() => onDesignSource(designSource.program, designSource.resultHash)}
             >
-              <span><small>IMMUTABLE DESIGN SOURCE</small><strong>{activeCandidate.source.program}</strong></span>
-              <code>RUN {shortHash(activeCandidate.source.resultHash)} · BLUEPRINT {shortHash(activeCandidate.source.blueprintHash)}</code>
+              <span><small>IMMUTABLE DESIGN SOURCE</small><strong>{designSource.program}</strong></span>
+              <code>RUN {shortHash(designSource.resultHash)} · BLUEPRINT {shortHash(designSource.blueprintHash)}</code>
               <b>{sourceAvailable === null ? "CHECKING LOCAL EVIDENCE…" : sourceAvailable ? "OPEN DESIGN EVIDENCE →" : "IDENTITY RETAINED · RUN CACHE NOT LOCAL"}</b>
             </button>}
+            {investigationSource && <button
+              className="candidate-source investigation-candidate-source"
+              data-testid="candidate-investigation-source"
+              disabled={!sourceEvidence}
+              onClick={() => onInvestigationSource(investigationSource.investigation)}
+            >
+              <span><small>IMMUTABLE INVESTIGATION SOURCE</small><strong>{sourceEvidence?.investigationName ?? investigationSource.investigation}</strong></span>
+              <code>HYPOTHESIS {investigationSource.entry} · {shortHash(investigationSource.entryHash)}</code>
+              <b>{sourceEvidence ? `${sourceEvidence.state.toUpperCase()} · OPEN REASONING →` : decisionState === "invalid" ? "SOURCE INVALID" : "VERIFYING HASH CHAIN…"}</b>
+            </button>}
+            {candidatePreview?.sourceEvidence && recordedInvestigationAnchor === false && <button
+              className="candidate-source candidate-return-source"
+              data-testid="candidate-return-investigation"
+              onClick={() => onInvestigationSource(
+                candidatePreview.sourceEvidence!.investigation,
+                candidatePreview.candidate.id,
+                candidatePreview.result.verdict === "KEEP"
+                  ? "keep"
+                  : candidatePreview.result.verdict === "DISCARD"
+                    ? "discard"
+                    : "revise",
+              )}
+            >
+              <span><small>EXPLICIT DISPOSITION REQUIRED</small><strong>Return immutable review to Investigation</strong></span>
+              <code>{candidatePreview.candidate.id} · {candidatePreview.result.verdict}</code>
+              <b>RECORD HUMAN / AGENT DECISION →</b>
+            </button>}
+            {candidatePreview?.sourceEvidence && typeof recordedInvestigationAnchor === "string" && <div
+              className="candidate-source candidate-return-source candidate-return-recorded"
+              data-testid="candidate-investigation-recorded"
+            >
+              <span><small>INVESTIGATION DISPOSITION</small><strong>Exact review already recorded</strong></span>
+              <code>{recordedInvestigationAnchor}</code>
+              <b>HASH-CHAIN EVIDENCE RETAINED</b>
+            </div>}
           </section>
           <section className="experiment-gates" aria-label="Acceptance gates">
             <span><small>AGGREGATE DELTA</small><b>≥ {signed(selected.acceptance.minimumAggregateScoreDelta, 6)}</b></span>

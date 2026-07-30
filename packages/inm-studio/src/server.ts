@@ -908,6 +908,8 @@ const server = Bun.serve({
         const decision = await inspectCandidateDecision(projectDir, candidateId);
         return Response.json({
           state: decision.state,
+          sourceEvidence: decision.sourceEvidence,
+          error: decision.error ?? null,
           review: decision.preview ? { command: "candidate", action: "preview", ...decision.preview } : null,
         });
       }

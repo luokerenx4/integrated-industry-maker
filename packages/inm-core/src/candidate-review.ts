@@ -5,7 +5,9 @@ import {
   CandidateChangeSetError,
   deriveCandidateRevisionBrief,
   loadCandidateChangeSet,
+  resolveCandidateInvestigationSource,
   type CandidateChangeSetPreview,
+  type CandidateInvestigationSourceEvidence,
 } from "./candidate-change-set";
 import { atomicWriteJson, hashValue, pathExists, readJson, stableStringify } from "./utils";
 
@@ -57,6 +59,7 @@ export type CandidateDecisionState = "proposed" | "reviewed-keep" | "reviewed-di
 
 export interface CandidateDecision {
   state: CandidateDecisionState;
+  sourceEvidence: CandidateInvestigationSourceEvidence | null;
   proposalHash: string;
   currentCandidateHash: string;
   proposedCandidateHash?: string;
@@ -137,6 +140,19 @@ export async function inspectCandidateDecision(projectDir: string, candidateId: 
   const benchmark = await loadBlueprintBenchmark(projectDir, candidate.benchmark);
   const currentCandidateHash = hashValue(await readJson(join(resolve(projectDir), "blueprints", `${benchmark.candidateBlueprint}.blueprint.json`)));
   const proposalHash = hashValue(candidate);
+  let sourceEvidence: CandidateInvestigationSourceEvidence | null;
+  try {
+    sourceEvidence = await resolveCandidateInvestigationSource(projectDir, candidate);
+  } catch (error) {
+    if (!(error instanceof CandidateChangeSetError)) throw error;
+    return {
+      state: "invalid",
+      sourceEvidence: null,
+      proposalHash,
+      currentCandidateHash,
+      error: { code: error.code, message: error.message },
+    };
+  }
   let receipt: CandidateReviewReceipt | null;
   try {
     receipt = await loadCandidateReviewReceipt(projectDir, candidateId, proposalHash);
@@ -144,6 +160,7 @@ export async function inspectCandidateDecision(projectDir: string, candidateId: 
     if (!(error instanceof CandidateChangeSetError)) throw error;
     return {
       state: "invalid",
+      sourceEvidence,
       proposalHash,
       currentCandidateHash,
       error: { code: error.code, message: error.message },
@@ -151,6 +168,7 @@ export async function inspectCandidateDecision(projectDir: string, candidateId: 
   }
   if (!receipt) return {
     state: currentCandidateHash === candidate.baseCandidateHash ? "proposed" : "stale",
+    sourceEvidence,
     proposalHash,
     currentCandidateHash,
   };
@@ -160,6 +178,7 @@ export async function inspectCandidateDecision(projectDir: string, candidateId: 
   );
   const preview: CandidateChangeSetPreview = {
     candidate,
+    sourceEvidence,
     proposalHash: receipt.proposalHash,
     currentCandidateHash: receipt.currentCandidateHash,
     proposedCandidateHash: receipt.proposedCandidateHash,
@@ -170,6 +189,7 @@ export async function inspectCandidateDecision(projectDir: string, candidateId: 
   preview.revisionBrief = deriveCandidateRevisionBrief(preview.candidate, preview.result, preview.currentFactory);
   if (currentCandidateHash === receipt.proposedCandidateHash && receipt.verdict === "KEEP") return {
     state: "verified",
+    sourceEvidence,
     proposalHash,
     currentCandidateHash,
     proposedCandidateHash: receipt.proposedCandidateHash,
@@ -179,6 +199,7 @@ export async function inspectCandidateDecision(projectDir: string, candidateId: 
   };
   if (currentCandidateHash !== candidate.baseCandidateHash) return {
     state: "stale",
+    sourceEvidence,
     proposalHash,
     currentCandidateHash,
     proposedCandidateHash: receipt.proposedCandidateHash,
@@ -188,6 +209,7 @@ export async function inspectCandidateDecision(projectDir: string, candidateId: 
   };
   return {
     state: `reviewed-${receipt.verdict.toLowerCase()}` as CandidateDecisionState,
+    sourceEvidence,
     proposalHash,
     currentCandidateHash,
     proposedCandidateHash: receipt.proposedCandidateHash,
