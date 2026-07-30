@@ -25,7 +25,7 @@ For every substantive factory-design intervention:
 1. Bind the exact project selection, hashes, and compatible immutable run with `inm observe`.
 2. Inspect both typed evidence and the spatial Factory replay. Browser-capable Agents use the stable Studio routes directly; CLI-only Agents may open them through Playwright, MCP, or an equivalent screenshot-capable browser.
 3. State what was visible, the concrete industrial hypothesis, the smallest exact intervention, and the expected measured and visual effect.
-4. Author the Blueprint or Candidate change, then simulate and evaluate it through the locked Benchmark.
+4. Author the exact Blueprint/Candidate or separately selected Production Plan intervention, then simulate and evaluate it through the applicable locked evidence boundary.
 5. Compare quantitative and visual before/after evidence. A human or Agent explicitly decides KEEP, revise, defer, or discard.
 
 Deterministic tools may compile, simulate, attribute loss, compare, and rank explicitly bounded alternatives. They supply evidence; they do not replace observation or subjective judgment. Project-local Design Programs are bounded proposal/evaluation instruments, not autonomous design authority. The complete contract is defined in [[docs/design/observation-led-design]].

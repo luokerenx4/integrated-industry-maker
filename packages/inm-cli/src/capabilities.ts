@@ -111,7 +111,7 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
   {
     id: "investigate",
     usage: "inm investigate <path> [--investigation ID [--create | --entry ID | --create-candidate ID]] [options] [--json]",
-    description: "Create, inspect, append to, or author a Candidate from one persistent project-local industrial Investigation.",
+    description: "Create, inspect, append to, or hand off a Blueprint Candidate or Production Plan from one persistent project-local industrial Investigation.",
     effect: "mode-dependent",
     supportsJson: true,
     arguments: [
@@ -126,6 +126,7 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
       { name: "kind", form: "option", value: "string", required: false, description: "Entry kind.", choices: ["observation", "hypothesis", "decision"] },
       { name: "author", form: "option", value: "string", required: false, description: "Entry author kind.", choices: ["human", "agent"] },
       { name: "statement", form: "option", value: "string", required: false, description: "Authored observation, hypothesis, or decision statement." },
+      { name: "intervention", form: "option", value: "string", required: false, description: "Required controlled artifact for a hypothesis; never inferred from prose.", choices: ["blueprint", "production-plan"] },
       { name: "expected-effect", form: "option", value: "string", required: false, description: "Required falsifiable measured/visual effect for a hypothesis." },
       { name: "disposition", form: "option", value: "string", required: false, description: "Required explicit judgment for a decision.", choices: ["keep", "revise", "defer", "discard"] },
       { name: "evidence", form: "option", value: "string", required: false, description: "Comma-separated available evidence-anchor ids, including one introduced by this entry." },
@@ -146,7 +147,7 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
     outputSections: ["summary", "anchors", "entries", "all"],
   },
   {
-    id: "compare", usage: "inm compare <path> (--from-blueprint ID --to-blueprint ID [selection] [--seed N] | --from-run ID --to-run ID) [--json]", description: "Compare two Blueprints by fresh controlled evaluation or explain two compatible immutable Runs without writing.",
+    id: "compare", usage: "inm compare <path> (--from-blueprint ID --to-blueprint ID [selection] [--seed N] | --from-run ID --to-run ID) [--json]", description: "Compare two Blueprints by fresh controlled evaluation or explain one exact Blueprint/Production Plan intervention between immutable Runs without writing.",
     effect: "read-only", supportsJson: true, arguments: [path, project, ...selection.filter((item) => item.name !== "blueprint"),
       { name: "from-blueprint", form: "option", value: "string", required: false, description: "Baseline Blueprint id; requires --to-blueprint and excludes Run mode." },
       { name: "to-blueprint", form: "option", value: "string", required: false, description: "Candidate Blueprint id; requires --from-blueprint and excludes Run mode." },

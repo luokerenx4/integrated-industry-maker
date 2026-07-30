@@ -1,0 +1,87 @@
+{
+  "author": "agent",
+  "entryHash": "de0bd1a58554c320e0f94313c5347b9d3cd44ef2831b350e0eb216736442b3ac",
+  "evidence": [
+    "production-plan-run-102",
+    "eleven-lot-burn-in-horizon-comparison"
+  ],
+  "id": "compare-eleven-lot-burn-in-horizon",
+  "introducedAnchors": [
+    {
+      "comparisonHash": "52539f2ab3ee0aeae47df18ee0776fc13d9896bb669660f34408e137312c7a64",
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:furnace-1+connection:deposition-to-batch-furnace+device:deposition-1:2db1364051",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:furnace-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 103-simulate (signal 0.2091). 9/10 active flow Devices accumulated 229.1 explicit material-shortage device-s inside 1095.3 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1218.7 of 1447.8 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "furnace-1",
+            "kind": "device"
+          },
+          {
+            "id": "deposition-to-batch-furnace",
+            "kind": "connection"
+          },
+          {
+            "id": "deposition-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/10 active flow Devices accumulated 229.1 explicit material-shortage device-s inside 1095.3 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1218.7 of 1447.8 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
+      },
+      "from": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "60df0d91986f0cd609845cf6566df2990ce5a9e4601f5d7c1ddce85d6bec7d31",
+        "runId": "102-simulate"
+      },
+      "hashes": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "engineVersion": "inm-sim/0.91.0",
+        "executionHash": "df2f85460afbe89ac4ea2361aab12d7accb3dc51a911674626782a0531e0a614",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "0eda922e399ddf00254b6d77ce0c790767659334a1c0f07bb4dc872b756e9b5a",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "eleven-lot-burn-in-horizon-comparison",
+      "intervention": {
+        "from": {
+          "hash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+          "id": "production-window"
+        },
+        "kind": "production-plan",
+        "to": {
+          "hash": "0eda922e399ddf00254b6d77ce0c790767659334a1c0f07bb4dc872b756e9b5a",
+          "id": "eleven-lot-burn-in-horizon"
+        }
+      },
+      "kind": "run-comparison",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "eleven-lot-burn-in-horizon",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "to": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "productionPlanHash": "0eda922e399ddf00254b6d77ce0c790767659334a1c0f07bb4dc872b756e9b5a",
+        "resultHash": "4fc1aff10fc33281efa46fb0ec07b6a6f1a796dd6acef594c8061f3e5cc12427",
+        "runId": "103-simulate"
+      }
+    }
+  ],
+  "investigation": "back-end-wip-next-step",
+  "kind": "observation",
+  "previousEntryHash": "a842a64b655faf3ba13932a988f44fbbcb74acce2d307753ad4b648c35ade11d",
+  "sequence": 4,
+  "statement": "Exact Run 102→103 comparison changes only the selected Production Plan. Removing dram-lot-12 and substrate-delivery-12 raises Objective score by 7.193077, lowers average WIP by 4.732567 equivalent units, and preserves 88 delivered devices, but schedules, releases, completes, and delivers on time one fewer wafer lot; first-pass yield also falls by 0.015152.",
+  "version": 1
+}

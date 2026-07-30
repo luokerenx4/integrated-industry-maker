@@ -125,6 +125,13 @@ const runComparisonSideSchema = z.object({
   runId: z.string().min(1),
   resultHash: hashSchema,
   blueprintHash: hashSchema,
+  productionPlanHash: hashSchema.optional(),
+}).strict();
+
+const runComparisonInterventionSchema = z.object({
+  kind: z.enum(["blueprint", "production-plan"]),
+  from: z.object({ id: idSchema, hash: hashSchema }).strict(),
+  to: z.object({ id: idSchema, hash: hashSchema }).strict(),
 }).strict();
 
 const runComparisonAnchorSchema = z.object({
@@ -133,6 +140,7 @@ const runComparisonAnchorSchema = z.object({
   from: runComparisonSideSchema,
   to: runComparisonSideSchema,
   comparisonHash: hashSchema,
+  intervention: runComparisonInterventionSchema.optional(),
   selection: selectionSchema,
   hashes: evidenceHashesSchema,
   diagnostic: diagnosticAnchorSchema.omit({
@@ -199,6 +207,7 @@ export const industrialInvestigationEntrySchema = z.discriminatedUnion("kind", [
   }).strict(),
   entryBaseSchema.extend({
     kind: z.literal("hypothesis"),
+    intervention: z.enum(["blueprint", "production-plan"]).optional(),
     expectedEffect: z.string().min(1),
     entryHash: hashSchema,
   }).strict(),
@@ -234,7 +243,11 @@ type EntryInputCommon = {
 };
 export type IndustrialInvestigationEntryInput =
   | EntryInputCommon & { kind: "observation" }
-  | EntryInputCommon & { kind: "hypothesis"; expectedEffect: string }
+  | EntryInputCommon & {
+      kind: "hypothesis";
+      intervention: "blueprint" | "production-plan";
+      expectedEffect: string;
+    }
   | EntryInputCommon & { kind: "decision"; disposition: "keep" | "revise" | "defer" | "discard" };
 
 export type InvestigationAnchorState = "current" | "historical" | "missing" | "invalid";
@@ -264,6 +277,7 @@ export type IndustrialInvestigationPhase =
   | "observe-current-factory"
   | "form-hypothesis"
   | "author-candidate"
+  | "author-production-plan"
   | "resume-project";
 
 export interface IndustrialInvestigationHandoff {
@@ -276,12 +290,17 @@ export interface IndustrialInvestigationHandoff {
   authorship: null | {
     kind: "investigation-entry";
     entryKind: "observation" | "hypothesis";
-    requiredFields: Array<"entry-id" | "author" | "statement" | "expected-effect">;
+    requiredFields: Array<"entry-id" | "author" | "statement" | "intervention" | "expected-effect">;
   } | {
     kind: "candidate";
     hypothesisEntryId: string;
     hypothesisEntryHash: string;
     requiredFields: Array<"candidate-id" | "candidate-name" | "benchmark" | "patch-file">;
+  } | {
+    kind: "production-plan";
+    hypothesisEntryId: string;
+    hypothesisEntryHash: string;
+    requiredFields: Array<"production-plan-id" | "production-plan-file">;
   };
   nextAction: WorkbenchNextAction;
 }
@@ -493,9 +512,15 @@ function sameRunComparisonEvidence(
   return comparison.from.run.id === anchor.from.runId
     && comparison.from.run.resultHash === anchor.from.resultHash
     && comparison.from.hashes.blueprintHash === anchor.from.blueprintHash
+    && (anchor.from.productionPlanHash === undefined
+      || comparison.from.hashes.productionPlanHash === anchor.from.productionPlanHash)
     && comparison.to.run.id === anchor.to.runId
     && comparison.to.run.resultHash === anchor.to.resultHash
     && comparison.to.hashes.blueprintHash === anchor.to.blueprintHash
+    && (anchor.to.productionPlanHash === undefined
+      || comparison.to.hashes.productionPlanHash === anchor.to.productionPlanHash)
+    && (anchor.intervention === undefined
+      || stableStringify(comparison.intervention) === stableStringify(anchor.intervention))
     && stableStringify(comparison.to.selection) === stableStringify(anchor.selection)
     && stableStringify(comparison.to.hashes) === stableStringify(anchor.hashes)
     && factoryRunComparisonEvidenceHash(comparison) === anchor.comparisonHash;
@@ -550,6 +575,12 @@ export async function resolveIndustrialInvestigationHypothesisSource(
     throw new IndustrialInvestigationError(
       "investigation.source-not-hypothesis",
       `Investigation entry '${source.entry}' is '${entry.kind}', not a hypothesis`,
+    );
+  }
+  if (entry.intervention === "production-plan") {
+    throw new IndustrialInvestigationError(
+      "investigation.source-not-blueprint-hypothesis",
+      `Investigation hypothesis '${source.entry}' controls a Production Plan and cannot source a Blueprint Candidate`,
     );
   }
   if (expected && (
@@ -668,6 +699,12 @@ export async function createInvestigationCandidate(
     throw new IndustrialInvestigationError(
       "investigation.source-not-hypothesis",
       `Investigation entry '${input.hypothesisEntry}' is '${hypothesis.kind}', not a hypothesis`,
+    );
+  }
+  if (hypothesis.intervention === "production-plan") {
+    throw new IndustrialInvestigationError(
+      "investigation.source-not-blueprint-hypothesis",
+      `Investigation entry '${input.hypothesisEntry}' controls a Production Plan and cannot source a Blueprint Candidate`,
     );
   }
   const source: InvestigationHypothesisCandidateSource = {
@@ -906,7 +943,12 @@ export async function appendIndustrialInvestigationEntry(
     previousEntryHash: entries.at(-1)?.entryHash ?? null,
   };
   const withoutHash = input.kind === "hypothesis"
-    ? { ...common, kind: input.kind, expectedEffect: input.expectedEffect.trim() }
+    ? {
+        ...common,
+        kind: input.kind,
+        intervention: input.intervention,
+        expectedEffect: input.expectedEffect.trim(),
+      }
     : input.kind === "decision"
       ? { ...common, kind: input.kind, disposition: input.disposition }
       : { ...common, kind: input.kind };
@@ -1025,13 +1067,16 @@ async function resolveIntroducedEvidenceAnchor(
         runId: comparison.from.run.id,
         resultHash: comparison.from.run.resultHash,
         blueprintHash: comparison.from.hashes.blueprintHash,
+        productionPlanHash: comparison.from.hashes.productionPlanHash,
       },
       to: {
         runId: comparison.to.run.id,
         resultHash: comparison.to.run.resultHash,
         blueprintHash: comparison.to.hashes.blueprintHash,
+        productionPlanHash: comparison.to.hashes.productionPlanHash,
       },
       comparisonHash: factoryRunComparisonEvidenceHash(comparison),
+      intervention: structuredClone(comparison.intervention),
       selection: { ...comparison.to.selection },
       hashes: { ...comparison.to.hashes },
       diagnostic: {
@@ -1619,13 +1664,33 @@ function buildIndustrialInvestigationHandoff(input: {
       authorship: {
         kind: "investigation-entry",
         entryKind: "hypothesis",
-        requiredFields: ["entry-id", "author", "statement", "expected-effect"],
+        requiredFields: ["entry-id", "author", "statement", "intervention", "expected-effect"],
       },
       nextAction,
     };
   }
 
   if (latest.kind === "hypothesis") {
+    if (latest.intervention === "production-plan") {
+      const nextAction = action(
+        "author-production-plan",
+        `Author a Production Plan for hypothesis ${String(latest.sequence).padStart(4, "0")}`,
+        `Hypothesis '${latest.id}' is current and pinned by ${latest.entryHash.slice(0, 12)}. Author one new self-contained Production Plan without replacing the project default, simulate it through an explicit selection, and compare its immutable Run with the cited control.`,
+        "AUTHOR PRODUCTION PLAN",
+      );
+      return {
+        phase: "author-production-plan",
+        sourceEntry,
+        evidenceIds,
+        authorship: {
+          kind: "production-plan",
+          hypothesisEntryId: latest.id,
+          hypothesisEntryHash: latest.entryHash,
+          requiredFields: ["production-plan-id", "production-plan-file"],
+        },
+        nextAction,
+      };
+    }
     const nextAction = action(
       "author-candidate",
       `Author a Candidate for hypothesis ${String(latest.sequence).padStart(4, "0")}`,

@@ -360,20 +360,18 @@ test("one command enters the exact phase-aware Investigation Design Session", as
           investigation: expect.objectContaining({
             id: "back-end-wip-next-step",
             state: "current",
-            entryCount: 2,
+            entryCount: 6,
           }),
           handoff: expect.objectContaining({
             phase: "form-hypothesis",
             sourceEntry: expect.objectContaining({
-              id: "run-102-explicit-production-plan",
-              sequence: 2,
+              id: "resume-twelve-lot-production-window",
+              sequence: 6,
               kind: "observation",
             }),
             evidenceIds: [
-              "operating-run",
-              "diagnostic",
-              "conwip-5-4-review",
-              "production-plan-run-102",
+              "eleven-lot-burn-in-horizon-comparison",
+              "post-plan-discard-current-factory",
             ],
             authorship: expect.objectContaining({
               kind: "investigation-entry",
@@ -392,7 +390,7 @@ test("one command enters the exact phase-aware Investigation Design Session", as
             kind: "investigation",
             investigationId: "back-end-wip-next-step",
             phase: "form-hypothesis",
-            sourceEntryId: "run-102-explicit-production-plan",
+            sourceEntryId: "resume-twelve-lot-production-window",
           }),
         }),
       ],

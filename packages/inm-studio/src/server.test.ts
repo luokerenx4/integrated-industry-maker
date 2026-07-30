@@ -150,7 +150,18 @@ test("Studio exposes the shared immutable Run comparison and reopens each Run's 
     const coreComparison = await compareFactoryRuns(projectDir, fromRunId, toRunId);
     expect(stableStringify(apiComparison)).toBe(stableStringify(coreComparison));
     expect(apiComparison).toEqual(expect.objectContaining({
-      version: 1,
+      version: 2,
+      intervention: {
+        kind: "blueprint",
+        from: {
+          id: "generated-dram-fab",
+          hash: fromRun.context.hashes.blueprintHash,
+        },
+        to: {
+          id: "generated-dram-fab",
+          hash: toRun.context.hashes.blueprintHash,
+        },
+      },
       verdict: "IMPROVED",
       delta: expect.objectContaining({
         score: 0.5049999999999955,
@@ -419,6 +430,7 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
           id: "inspection-decoupling-buffer",
           author: "human",
           kind: "hypothesis",
+          intervention: "blueprint",
           statement: "A qualified wafer buffer may decouple inspection from the final etch handoff.",
           expectedEffect: "Reduce inspection input shortage without increasing service, quality, WIP, or Q-time losses.",
           evidence: ["post-hypothesis-factory"],

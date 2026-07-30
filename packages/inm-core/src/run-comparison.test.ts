@@ -24,13 +24,18 @@ test("immutable Run comparison explains the commissioned compact inspection-rewo
     const toRunId = toOperation.data.run.id;
     const comparison = await compareFactoryRuns(projectDir, fromRunId, toRunId);
 
-    expect(comparison).toMatchObject({
-    version: 1,
+  expect(comparison).toMatchObject({
+    version: 2,
     project: { id: "memory-fab" },
     context: {
       engineVersion: "inm-sim/0.91.0",
       seed: 42,
       durationTicks: 240_000,
+    },
+    intervention: {
+      kind: "blueprint",
+      from: { hash: "6b8b0ce24a75de511162b1d090c4c15fedd0e976dd1764d173e918d76a5832fe" },
+      to: { hash: "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7" },
     },
     from: {
       run: { id: fromRunId },
@@ -121,6 +126,96 @@ test("immutable Run comparison explains the commissioned compact inspection-rewo
     ...comparison,
     delta: { ...comparison.delta, score: comparison.delta.score + 1 },
   })).not.toBe(evidenceHash);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("immutable Run comparison isolates one Production Plan intervention and exposes removed production", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-plan-run-comparison-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(memoryFab, projectDir, { recursive: true });
+  try {
+    const control = await simulateProjectOperation(
+      projectDir,
+      { productionPlan: "production-window" },
+      { seed: 42 },
+    );
+    const source = JSON.parse(await readFile(
+      join(projectDir, "production-plans/production-window.production-plan.json"),
+      "utf8",
+    )) as {
+      id: string;
+      name: string;
+      lotReleases: Array<{ id: string }>;
+      materialDeliveries: Array<{ id: string }>;
+    };
+    const intervention = {
+      ...source,
+      id: "eleven-lot-burn-in-horizon",
+      name: "Eleven-lot burn-in horizon alignment",
+      lotReleases: source.lotReleases.filter((item) => item.id !== "dram-lot-12"),
+      materialDeliveries: source.materialDeliveries.filter((item) => item.id !== "substrate-delivery-12"),
+    };
+    await writeFile(
+      join(projectDir, "production-plans/eleven-lot-burn-in-horizon.production-plan.json"),
+      `${JSON.stringify(intervention, null, 2)}\n`,
+    );
+    const proposed = await simulateProjectOperation(
+      projectDir,
+      { productionPlan: intervention.id },
+      { seed: 42 },
+    );
+    const comparison = await compareFactoryRuns(
+      projectDir,
+      control.data.run.id,
+      proposed.data.run.id,
+    );
+
+    expect(comparison.intervention).toEqual({
+      kind: "production-plan",
+      from: {
+        id: "production-window",
+        hash: control.context.hashes.productionPlanHash,
+      },
+      to: {
+        id: intervention.id,
+        hash: proposed.context.hashes.productionPlanHash,
+      },
+    });
+    expect(comparison.context.blueprintHash).toBe(control.context.hashes.blueprintHash);
+    expect(comparison.context.productionPlanHash).toBeNull();
+    expect(comparison.changes.map((change) => [change.kind, change.id, change.action])).toEqual([
+      ["lot-release", "dram-lot-12", "removed"],
+      ["material-delivery", "substrate-delivery-12", "removed"],
+      ["production-plan", intervention.id, "changed"],
+    ]);
+    expect(comparison.patch.map((operation) => [operation.op, operation.path])).toEqual([
+      ["replace", "/id"],
+      ["remove", "/lotReleases/11"],
+      ["remove", "/materialDeliveries/11"],
+      ["replace", "/name"],
+    ]);
+    expect(comparison.from.metrics.scheduledLots).toBe(12);
+    expect(comparison.to.metrics.scheduledLots).toBe(11);
+    expect(comparison.delta.scheduledLots).toBe(-1);
+    expect(comparison.navigation.changedSubjects).toEqual([]);
+
+    const duplicateId = "999-identical-evidence";
+    await cp(control.data.run.path, join(projectDir, "runs", duplicateId), { recursive: true });
+    await expect(compareFactoryRuns(projectDir, control.data.run.id, duplicateId))
+      .rejects.toMatchObject({ code: "run-comparison.incompatible" });
+
+    const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
+    const blueprint = JSON.parse(await readFile(blueprintPath, "utf8")) as Record<string, unknown>;
+    await writeFile(blueprintPath, `${JSON.stringify({ ...blueprint, revision: "multiple-controlled-variables" }, null, 2)}\n`);
+    const multiple = await simulateProjectOperation(
+      projectDir,
+      { productionPlan: intervention.id },
+      { seed: 42 },
+    );
+    await expect(compareFactoryRuns(projectDir, control.data.run.id, multiple.data.run.id))
+      .rejects.toMatchObject({ code: "run-comparison.incompatible" });
   } finally {
     await rm(root, { recursive: true, force: true });
   }

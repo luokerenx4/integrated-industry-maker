@@ -2396,6 +2396,14 @@ function RunsOverview({
   const canCompare = Boolean(fromRunId && toRunId && fromRunId !== toRunId);
   const fromMetrics = comparison?.from.metrics;
   const toMetrics = comparison?.to.metrics;
+  const productionIntentReduced = comparison?.intervention.kind === "production-plan"
+    && [
+      comparison.delta.scheduledLots,
+      comparison.delta.releasedLots,
+      comparison.delta.completedLots,
+      comparison.delta.onTimeLots,
+      comparison.delta.deliveredItems,
+    ].some((delta) => delta < 0);
   const passed = (side: FactoryRunComparison["from"]) =>
     `${side.metrics.objectiveConstraints.filter((constraint) => constraint.passed).length}/${side.metrics.objectiveConstraints.length}`;
 
@@ -2412,22 +2420,29 @@ function RunsOverview({
       {comparisonError && <div className="run-comparison-error" role="alert"><b>COMPARISON REJECTED</b><span>{comparisonError}</span></div>}
       {comparison && fromMetrics && toMetrics && <div className="run-comparison-result" data-testid="run-comparison-result">
         <header>
-          <div><span>EXACT EVIDENCE DELTA · {comparison.context.engineVersion}</span><h3>{comparison.from.run.id} <i>→</i> {comparison.to.run.id}</h3><code>{comparison.from.run.resultHash.slice(0, 16)} → {comparison.to.run.resultHash.slice(0, 16)}</code></div>
-          <b className={comparison.verdict.toLowerCase()}>{comparison.verdict}<small>{signedRunDelta(comparison.delta.score, 6)} SCORE</small></b>
+          <div><span>EXACT EVIDENCE DELTA · {comparison.context.engineVersion}</span><h3>{comparison.from.run.id} <i>→</i> {comparison.to.run.id}</h3><code>{comparison.intervention.kind.toUpperCase()} · {comparison.intervention.from.id} {comparison.intervention.from.hash.slice(0, 12)} → {comparison.intervention.to.id} {comparison.intervention.to.hash.slice(0, 12)}</code></div>
+          <b className={`${comparison.verdict.toLowerCase()}${productionIntentReduced ? " production-tradeoff" : ""}`}>{comparison.verdict === "IMPROVED" ? "SCORE IMPROVED" : comparison.verdict}<small>{signedRunDelta(comparison.delta.score, 6)} SCORE</small></b>
         </header>
+        {productionIntentReduced && <div className="run-production-tradeoff" role="status"><b>PRODUCTION INTENT REDUCED</b><span>The selected plan schedules {Math.abs(comparison.delta.scheduledLots)} fewer lot{Math.abs(comparison.delta.scheduledLots) === 1 ? "" : "s"} and completes {Math.abs(comparison.delta.completedLots)} fewer. Score classification is not approval; inspect delivered output and record an explicit industrial decision.</span></div>}
         <div className="run-delta-grid">
           <article><small>OBJECTIVE SCORE</small><strong>{fromMetrics.score.toFixed(6)} <i>→</i> {toMetrics.score.toFixed(6)}</strong><b>{signedRunDelta(comparison.delta.score, 6)}</b></article>
-          <article><small>BUILD COST</small><strong>{fromMetrics.totalBuildCost.toFixed(0)} <i>→</i> {toMetrics.totalBuildCost.toFixed(0)}</strong><b>{signedRunDelta(comparison.delta.totalBuildCost, 0)}</b></article>
-          <article><small>OCCUPIED AREA</small><strong>{fromMetrics.occupiedArea.toFixed(0)} <i>→</i> {toMetrics.occupiedArea.toFixed(0)}</strong><b>{signedRunDelta(comparison.delta.occupiedArea, 0)} CELLS</b></article>
-          <article><small>MEAN MOVEMENT</small><strong>{(fromMetrics.meanTransportTimeTicks / 1000).toFixed(3)} <i>→</i> {(toMetrics.meanTransportTimeTicks / 1000).toFixed(3)} s</strong><b>{signedRunDelta(comparison.delta.meanTransportTimeTicks / 1000)} s</b></article>
+          {comparison.intervention.kind === "production-plan" ? <>
+            <article><small>SCHEDULED / RELEASED</small><strong>{fromMetrics.scheduledLots}/{fromMetrics.releasedLots} <i>→</i> {toMetrics.scheduledLots}/{toMetrics.releasedLots}</strong><b>{signedRunDelta(comparison.delta.scheduledLots, 0)} LOTS</b></article>
+            <article><small>DELIVERED ITEMS</small><strong>{fromMetrics.deliveredItems} <i>→</i> {toMetrics.deliveredItems}</strong><b>{signedRunDelta(comparison.delta.deliveredItems, 0)}</b></article>
+            <article><small>WIP EQUIVALENTS</small><strong>{fromMetrics.averageWipEquivalentUnits.toFixed(3)} <i>→</i> {toMetrics.averageWipEquivalentUnits.toFixed(3)}</strong><b>{signedRunDelta(comparison.delta.averageWipEquivalentUnits)}</b></article>
+          </> : <>
+            <article><small>BUILD COST</small><strong>{fromMetrics.totalBuildCost.toFixed(0)} <i>→</i> {toMetrics.totalBuildCost.toFixed(0)}</strong><b>{signedRunDelta(comparison.delta.totalBuildCost, 0)}</b></article>
+            <article><small>OCCUPIED AREA</small><strong>{fromMetrics.occupiedArea.toFixed(0)} <i>→</i> {toMetrics.occupiedArea.toFixed(0)}</strong><b>{signedRunDelta(comparison.delta.occupiedArea, 0)} CELLS</b></article>
+            <article><small>MEAN MOVEMENT</small><strong>{(fromMetrics.meanTransportTimeTicks / 1000).toFixed(3)} <i>→</i> {(toMetrics.meanTransportTimeTicks / 1000).toFixed(3)} s</strong><b>{signedRunDelta(comparison.delta.meanTransportTimeTicks / 1000)} s</b></article>
+          </>}
         </div>
         <section className="run-guardrails">
           <header><span>UNCHANGED OUTCOME GUARDRAILS</span><b>DO NOT HIDE TRADEOFFS</b></header>
-          <div><span><small>COMPLETED / ON TIME</small><strong>{fromMetrics.completedLots}/{fromMetrics.onTimeLots} → {toMetrics.completedLots}/{toMetrics.onTimeLots}</strong></span><span><small>GOOD / FIRST-PASS YIELD</small><strong>{(fromMetrics.goodYield * 100).toFixed(1)}%/{(fromMetrics.firstPassYield * 100).toFixed(1)}% → {(toMetrics.goodYield * 100).toFixed(1)}%/{(toMetrics.firstPassYield * 100).toFixed(1)}%</strong></span><span><small>REWORK / SCRAP / ESCAPE</small><strong>{fromMetrics.reworkCycles}/{fromMetrics.scrappedLots}/{fromMetrics.qualityEscapes} → {toMetrics.reworkCycles}/{toMetrics.scrappedLots}/{toMetrics.qualityEscapes}</strong></span><span><small>CAPACITY / OBJECTIVE GUARDS</small><strong>{comparison.from.capacityPlan.ready ? "READY" : "BLOCKED"} {passed(comparison.from)} → {comparison.to.capacityPlan.ready ? "READY" : "BLOCKED"} {passed(comparison.to)}</strong></span></div>
+          <div><span><small>SCHEDULED / COMPLETED / ON TIME</small><strong>{fromMetrics.scheduledLots}/{fromMetrics.completedLots}/{fromMetrics.onTimeLots} → {toMetrics.scheduledLots}/{toMetrics.completedLots}/{toMetrics.onTimeLots}</strong></span><span><small>GOOD / FIRST-PASS YIELD</small><strong>{(fromMetrics.goodYield * 100).toFixed(1)}%/{(fromMetrics.firstPassYield * 100).toFixed(1)}% → {(toMetrics.goodYield * 100).toFixed(1)}%/{(toMetrics.firstPassYield * 100).toFixed(1)}%</strong></span><span><small>REWORK / SCRAP / ESCAPE</small><strong>{fromMetrics.reworkCycles}/{fromMetrics.scrappedLots}/{fromMetrics.qualityEscapes} → {toMetrics.reworkCycles}/{toMetrics.scrappedLots}/{toMetrics.qualityEscapes}</strong></span><span><small>CAPACITY / OBJECTIVE GUARDS</small><strong>{comparison.from.capacityPlan.ready ? "READY" : "BLOCKED"} {passed(comparison.from)} → {comparison.to.capacityPlan.ready ? "READY" : "BLOCKED"} {passed(comparison.to)}</strong></span></div>
         </section>
         <div className="run-evidence-columns">
           <section>
-            <header><span>PHYSICAL & SEMANTIC CHANGE</span><b>{comparison.changes.length} CHANGES · {comparison.patch.length} PATCH OPS</b></header>
+            <header><span>{comparison.intervention.kind === "blueprint" ? "PHYSICAL & SEMANTIC CHANGE" : "PRODUCTION PLAN CHANGE"}</span><b>{comparison.changes.length} CHANGES · {comparison.patch.length} PATCH OPS</b></header>
             <div className="run-change-list">{comparison.changes.map((change) => {
               const subject = comparison.navigation.changedSubjects.find((item) => item.kind === change.kind && item.id === change.id);
               return <article key={`${change.kind}:${change.id}`}><b>{change.action.toUpperCase()} · {change.kind.toUpperCase()}</b><strong>{change.id}</strong><span>{change.fields.join(" · ") || "whole object"}</span>{subject && <nav>{subject.fromFactoryRoute && <a href={subject.fromFactoryRoute}>SEE FROM</a>}{subject.toFactoryRoute && <a href={subject.toFactoryRoute}>SEE TO</a>}</nav>}</article>;

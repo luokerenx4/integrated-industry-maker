@@ -1,0 +1,17 @@
+{
+  "author": "agent",
+  "entryHash": "a842a64b655faf3ba13932a988f44fbbcb74acce2d307753ad4b648c35ade11d",
+  "evidence": [
+    "production-plan-run-102"
+  ],
+  "expectedEffect": "Preserve the observed 88 delivered devices, contract fulfillment, on-time service for every scheduled lot, yield, scrap, escapes, build cost, area, and capacity readiness while reducing scheduled, released, and completed lots from 12 to 11, removing the final eight packaged-device queue, and lowering average Objective-equivalent WIP. Any score gain must remain subordinate to the explicit loss of one scheduled future lot.",
+  "id": "align-eleven-lots-to-burn-in-horizon",
+  "intervention": "production-plan",
+  "introducedAnchors": [],
+  "investigation": "back-end-wip-next-step",
+  "kind": "hypothesis",
+  "previousEntryHash": "995a4fa38922d01b64eb4be35e884d00e963394db07f4bb918fdf0b17a85cb79",
+  "sequence": 3,
+  "statement": "Schedule eleven wafer lots and eleven substrate deliveries instead of twelve, leaving the current Blueprint, Scenario, Objective, release cadence, due-date ordering, and every process mode unchanged. This tests whether the twelfth lot is present-horizon overproduction that only becomes eight terminal packaged devices behind an already occupied burn-in rack, rather than paid memory output.",
+  "version": 1
+}

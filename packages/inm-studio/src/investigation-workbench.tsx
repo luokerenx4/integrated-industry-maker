@@ -37,7 +37,7 @@ function anchorTitle(anchor: InvestigationEvidenceAnchor): string {
 }
 
 function entryDetail(entry: IndustrialInvestigationEntry): string | null {
-  if (entry.kind === "hypothesis") return `EXPECTED · ${entry.expectedEffect}`;
+  if (entry.kind === "hypothesis") return `INTERVENTION · ${(entry.intervention ?? "blueprint").toUpperCase()} · EXPECTED · ${entry.expectedEffect}`;
   if (entry.kind === "decision") return `DISPOSITION · ${entry.disposition.toUpperCase()}`;
   return null;
 }
@@ -227,7 +227,11 @@ export function InvestigationWorkbench({
           : undefined,
     };
     const body = entryKind === "hypothesis"
-      ? { ...common, expectedEffect: fields.get("expectedEffect") }
+      ? {
+          ...common,
+          intervention: fields.get("intervention"),
+          expectedEffect: fields.get("expectedEffect"),
+        }
       : entryKind === "decision"
         ? { ...common, disposition: fields.get("disposition") }
         : common;
@@ -385,6 +389,7 @@ export function InvestigationWorkbench({
             <label>AUTHOR<select name="author" defaultValue="human"><option value="human">HUMAN</option><option value="agent">AGENT</option></select></label>
             <label>KIND<select value={entryKind} onChange={(event) => setEntryKind(event.target.value as IndustrialInvestigationEntry["kind"])}><option value="observation">OBSERVATION</option><option value="hypothesis">HYPOTHESIS</option><option value="decision">DECISION</option></select></label>
             <label className="wide">STATEMENT<textarea name="statement" required placeholder="State one observable fact, testable causal claim, or explicit decision." /></label>
+            {entryKind === "hypothesis" && <label>CONTROLLED INTERVENTION<select name="intervention" defaultValue="blueprint"><option value="blueprint">BLUEPRINT</option><option value="production-plan">PRODUCTION PLAN</option></select></label>}
             {entryKind === "hypothesis" && <label className="wide">EXPECTED EFFECT<textarea name="expectedEffect" required placeholder="What exact measured behavior should change if this is true?" /></label>}
             {entryKind === "decision" && <label>DISPOSITION<select name="disposition" defaultValue={prefillCandidateId ? suggestedDisposition : "keep"}><option value="keep">KEEP</option><option value="revise">REVISE</option><option value="defer">DEFER</option><option value="discard">DISCARD</option></select></label>}
             {entryKind === "observation" && <label>CAPTURE CURRENT FACTORY AS<input name="introducedObservationId" pattern="[a-z0-9][a-z0-9-]*" placeholder="post-change-factory" /></label>}

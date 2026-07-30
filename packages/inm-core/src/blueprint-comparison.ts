@@ -29,6 +29,7 @@ export interface BlueprintMetricSnapshot {
   scoreBreakdown: ScoreBreakdown;
   throughputPerMinute: number;
   contractFulfillment: number;
+  deliveredItems: number;
   deliveryNetValuePerMinute: number;
   deliveryOverflow: number;
   objectiveAttainment: number;
@@ -147,6 +148,7 @@ export interface BlueprintMetricDelta {
   scoreBreakdown: ScoreBreakdown;
   throughputPerMinute: number;
   contractFulfillment: number;
+  deliveredItems: number;
   deliveryNetValuePerMinute: number;
   deliveryOverflow: number;
   objectiveAttainment: number;
@@ -328,10 +330,14 @@ function diffValue(before: unknown, after: unknown, path: string, patch: JsonPat
   patch.push({ op: "replace", path, value: structuredClone(after) });
 }
 
-export function createBlueprintPatch(before: Blueprint, after: Blueprint): JsonPatchOperation[] {
+export function createJsonPatch(before: unknown, after: unknown): JsonPatchOperation[] {
   const patch: JsonPatchOperation[] = [];
   diffValue(before, after, "", patch);
   return patch;
+}
+
+export function createBlueprintPatch(before: Blueprint, after: Blueprint): JsonPatchOperation[] {
+  return createJsonPatch(before, after);
 }
 
 function decodePointer(value: string): string {
@@ -418,6 +424,7 @@ export function factoryMetricSnapshot(metrics: FactoryMetrics): BlueprintMetricS
     scoreBreakdown,
     throughputPerMinute: metrics.throughputPerMinute,
     contractFulfillment: metrics.deliveryPortfolio.fulfillment,
+    deliveredItems: metrics.deliveryPortfolio.delivered,
     deliveryNetValuePerMinute: metrics.deliveryPortfolio.netValuePerMinute,
     deliveryOverflow: metrics.deliveryPortfolio.overflow,
     objectiveAttainment: metrics.onTimeDelivery,
@@ -588,6 +595,7 @@ export function factoryMetricDelta(before: BlueprintMetricSnapshot, after: Bluep
     scoreBreakdown,
     throughputPerMinute: after.throughputPerMinute - before.throughputPerMinute,
     contractFulfillment: after.contractFulfillment - before.contractFulfillment,
+    deliveredItems: after.deliveredItems - before.deliveredItems,
     deliveryNetValuePerMinute: after.deliveryNetValuePerMinute - before.deliveryNetValuePerMinute,
     deliveryOverflow: after.deliveryOverflow - before.deliveryOverflow,
     objectiveAttainment: after.objectiveAttainment - before.objectiveAttainment,

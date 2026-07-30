@@ -20,7 +20,7 @@ Every substantive factory-design intervention follows this loop:
 orient exact project state
   → observe compatible run data and the spatial Factory replay
   → state a concrete industrial hypothesis
-  → author an exact Blueprint/Candidate intervention
+  → author an exact Blueprint/Candidate or Production Plan intervention
   → simulate and evaluate through the locked Benchmark
   → compare quantitative and visual before/after evidence
   → human or Agent decides KEEP, revise, defer, or discard
@@ -82,6 +82,8 @@ Project-local Design Programs are bounded proposal and evaluation instruments. T
 Before extending or invoking a Design Program for substantive factory changes, a contributor must use the observation brief, inspect the relevant Factory evidence, and state the human/Agent-authored hypothesis that justifies the bounded portfolio. A Program may calculate and rank explicit alternatives; it may not be presented as an RL agent, a general factory generator, or a replacement for observation and judgment.
 
 Candidate review and apply remain separate guarded steps. No observation, proposal provider, score improvement, or visual impression may bypass exact patch review, Benchmark gates, hash checks, or explicit apply.
+
+A Production Plan hypothesis is a different branch of the same human/Agent loop. The author explicitly declares `production-plan` as the controlled intervention, writes a new self-contained plan without replacing the project default, simulates that selection, and compares its immutable Run with the control. Plans are selected alternatives, not Blueprint Candidates: they have no apply receipt, and a better Objective score cannot silently promote one. The comparison must expose scheduled, released, completed, on-time, delivered, WIP, service, and quality outcomes before the author records a decision.
 
 Rejected Candidate evidence returns to this loop instead of ending at a verdict. Its deterministic revision brief names measured benefits, costs, gate regressions, and patch paths but leaves `revise-or-retire` to the human or Agent. The next executable action reopens the exact current Factory observation; no failed proposal can silently generate or apply its own replacement.
 

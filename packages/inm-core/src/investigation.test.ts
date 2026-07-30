@@ -109,6 +109,7 @@ test("a project-local Investigation preserves exact evidence and append-only hum
         id: "inspection-decoupling-buffer",
         author: "human",
         kind: "hypothesis",
+        intervention: "blueprint",
         statement: "A small qualified wafer decoupling buffer may smooth the final etch-to-inspection handoff without making etch globally faster.",
         expectedEffect: "Reduce inspection material-shortage ticks while preserving all locked service, quality, WIP, and interruption outcomes.",
         evidence: ["diagnostic"],
@@ -298,7 +299,7 @@ test("an Investigation advances to a new exact factory observation without erasi
       authorship: {
         kind: "investigation-entry",
         entryKind: "hypothesis",
-        requiredFields: ["entry-id", "author", "statement", "expected-effect"],
+        requiredFields: ["entry-id", "author", "statement", "intervention", "expected-effect"],
       },
       nextAction: expect.objectContaining({
         target: {
@@ -317,6 +318,7 @@ test("an Investigation advances to a new exact factory observation without erasi
         id: "checkpoint-bound-hypothesis",
         author: "human",
         kind: "hypothesis",
+        intervention: "blueprint",
         statement: "A small spatial change should preserve the revised factory outcomes.",
         expectedEffect: "The exact revised operating context remains feasible after the bounded change.",
         evidence: ["revised-factory"],
@@ -390,6 +392,75 @@ test("an Investigation advances to a new exact factory observation without erasi
     expect(movedAgain.handoff.phase).toBe("observe-current-factory");
     expect(movedAgain.anchors.find((item) => item.anchor.id === "revised-factory")?.state)
       .toBe("historical");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}, 30_000);
+
+test("a Production Plan hypothesis hands off to plan authoring and cannot source a Blueprint Candidate", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-investigation-production-plan-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => {
+      const segments = source.split("/");
+      return !segments.includes(".inm") && !segments.includes("investigations");
+    },
+  });
+  try {
+    const created = await createIndustrialInvestigation(
+      projectDir,
+      "production-plan-next-step",
+      {
+        name: "Production Plan next step",
+        question: "Can a different release plan reduce back-end WIP without surrendering planned supply?",
+      },
+    );
+    const hypothesis = await appendIndustrialInvestigationEntry(
+      projectDir,
+      created.manifest.id,
+      {
+        id: "align-release-plan",
+        author: "agent",
+        kind: "hypothesis",
+        intervention: "production-plan",
+        statement: "Test one separately selected release plan without changing the installed factory.",
+        expectedEffect: "Reduce back-end WIP while preserving scheduled, completed, on-time, and delivered production.",
+        evidence: ["operating-run", "diagnostic"],
+      },
+    );
+
+    const inspected = await inspectIndustrialInvestigation(projectDir, created.manifest.id);
+    expect(inspected.handoff).toEqual(expect.objectContaining({
+      phase: "author-production-plan",
+      sourceEntry: expect.objectContaining({
+        id: hypothesis.entry.id,
+        entryHash: hypothesis.entry.entryHash,
+      }),
+      authorship: {
+        kind: "production-plan",
+        hypothesisEntryId: hypothesis.entry.id,
+        hypothesisEntryHash: hypothesis.entry.entryHash,
+        requiredFields: ["production-plan-id", "production-plan-file"],
+      },
+      nextAction: expect.objectContaining({
+        actionLabel: "AUTHOR PRODUCTION PLAN",
+        target: expect.objectContaining({
+          kind: "investigation",
+          phase: "author-production-plan",
+        }),
+      }),
+    }));
+    await expect(createInvestigationCandidate(projectDir, {
+      id: "wrong-artifact-kind",
+      name: "Wrong artifact kind",
+      benchmark: "greenfield-dram-design",
+      investigation: created.manifest.id,
+      hypothesisEntry: hypothesis.entry.id,
+      patch: [{ op: "replace", path: "/devices/0/position/x", value: 3 }],
+    })).rejects.toEqual(expect.objectContaining({
+      code: "investigation.source-not-blueprint-hypothesis",
+    }));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

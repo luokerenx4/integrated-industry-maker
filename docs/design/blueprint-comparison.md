@@ -1,6 +1,6 @@
-# Blueprint comparison and controlled evaluation
+# Blueprint and immutable Run comparison
 
-Status: exact patching, industrial semantic diff, capacity comparison, deterministic before/after evaluation, and immutable Run delta explanation implemented.
+Status: exact Blueprint evaluation plus one-variable immutable Blueprint or Production Plan Run comparison implemented.
 
 Related: [[docs/design/blueprint-optimization]], [[docs/design/simulation-runtime]], [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
 
@@ -10,7 +10,7 @@ A factory edit needs two answers: what changed, and whether that change improved
 
 `inm compare` treats two complete Blueprint files as a controlled experiment. It compiles, plans, simulates, and scores both while holding every benchmark input constant. The result is suitable for a human review or the next coding-agent iteration.
 
-The same command has a distinct immutable-evidence mode. `--from-run` and `--to-run` reopen two exact completed Runs, verify their stored identities, and explain what the already-observed intervention changed without replaying simulation. Blueprint mode answers “what would these authored alternatives do under one fresh controlled evaluation?” Run mode answers “what did these two persisted executions prove?” The modes are mutually exclusive and are never silently substituted.
+The same command has a distinct immutable-evidence mode. `--from-run` and `--to-run` reopen two exact completed Runs, verify their stored identities, and explain what the already-observed intervention changed without replaying simulation. Exactly one selected Blueprint or Production Plan must differ. Blueprint mode answers “what would these authored Blueprint alternatives do under one fresh controlled evaluation?” Run mode answers “what did these two persisted executions prove about this one named intervention?” The modes are mutually exclusive and are never silently substituted.
 
 Candidate review reuses the same comparison invariant across every locked Benchmark case. Its immutable baseline-to-proposed result answers compliance; when the Candidate artifact's hash-pinned current Blueprint is operational, its `currentFactory` record compares that Blueprint with the proposed Blueprint and answers the incremental design question. That record also separates equipment/facility, sorter-endpoint, and unique transport-line capital plus occupied area and transport-cell count into one exact physical-economics ledger. Total cost and area reconcile against every evaluator-owned case metric before the result can be published. A non-operational greenfield shell is explicitly not comparable. Neither reference is relabeled or substituted for the other.
 
@@ -27,7 +27,7 @@ The only allowed independent variable is the Blueprint. Before evaluation, both 
 
 Both simulations use the same non-negative integer seed. A mismatch is an error rather than an annotated delta because the result would no longer isolate the Blueprint. Each Blueprint must compile and execute under the selected Scenario; runtime failure identifies the failing Blueprint label.
 
-Immutable Run comparison applies the same non-Blueprint invariant to persisted evidence. Each Run must reproduce its own execution hash by compiling its frozen `blueprint.json` against its selected current project inputs, and its `resultHash` must reproduce from the Run key, ordered events, final state, and metrics. The pair must share engine, World, Production Plan, Scenario, Objective, seed, complete Scenario duration, and every non-Blueprint compiled input. Adjacent timestamps, matching Blueprint ids, or a current editable Blueprint are not compatibility evidence.
+Immutable Run comparison applies a stricter exactly-one-variable invariant to persisted evidence. Each Run must reproduce its own execution hash by compiling its frozen `blueprint.json` against its selected current project inputs, and its `resultHash` must reproduce from the Run key, ordered events, final state, and metrics. The pair must share engine, every catalog, World, Scenario, Objective, seed, and complete Scenario duration. Then either Blueprint id/hash differs while Production Plan id/hash is identical, or Production Plan id/hash differs while Blueprint id/hash is identical. Zero changes and two simultaneous changes are both errors. Adjacent timestamps, matching filenames, or a current editable artifact are not compatibility evidence.
 
 ## Result contract
 
@@ -41,7 +41,9 @@ One comparison contains five coordinated views:
 
 Patch generation walks object keys in lexical order and arrays in index order. Applying the patch to the source and comparing canonical serialization with the candidate is a required test invariant.
 
-Run comparison adds the complete exact FROM/TO Run, result, execution, and Blueprint identities; the same semantic/spatial changes and replayable patch; persisted metric and capacity snapshots; full fab-loss attribution on both sides; per-bucket score and leading-contributor changes; and stable URLs for both complete factories plus every changed Device or Connection. Zero deltas, unchanged delivery/quality outcomes, capacity state, and Objective constraints remain present so a higher score cannot hide a surrendered industrial guardrail. `verdict` is evidence classification only: neither Core nor either projection chooses the next intervention.
+Run comparison adds a typed `intervention` naming the controlled artifact kind plus exact FROM/TO ids and hashes. A Blueprint intervention carries its Blueprint semantic/spatial changes, replayable patch, and stable changed-Device/Connection routes. A Production Plan intervention instead carries a patch over the complete plan and stable-id `lot-release`, `material-delivery`, and plan-metadata changes; its physical subject list is empty because a removed release is not a Device. Both branches retain complete FROM/TO Run/result/execution identities, capacity snapshots, full fab-loss attribution, per-bucket score and leading-contributor changes, and stable Factory routes.
+
+Metric snapshots and deltas keep scheduled, released, completed, and on-time lots, delivered items, Objective-scoped WIP, delivery/service outcomes, quality, cost, area, and every Objective constraint. Zero deltas remain present so a higher score cannot hide surrendered production intent. `verdict` is score classification only: neither Core nor either projection chooses the next intervention or industrial disposition.
 
 `factoryRunComparisonEvidenceHash()` is the compact persistence identity for this object. It commits every industrial evidence field and the project id while excluding the local project root, display name, and navigation. An explicit Investigation observation can retain that hash plus exact FROM/TO and TO-context identities without copying the dense comparison. Reopening the Investigation recomputes the comparison from both Runs; missing, corrupt, or incompatible evidence fails closed. See [[docs/design/industrial-investigations]].
 
@@ -73,9 +75,13 @@ bun run inm compare examples/ironworks \
 bun run inm compare examples/memory-fab \
   --from-run 100-simulate \
   --to-run 101-simulate
+
+bun run inm compare examples/memory-fab \
+  --from-run 102-simulate \
+  --to-run 103-simulate
 ```
 
-Tests must prove exact patch replay, stable-id semantic classification, deterministic equal-seed deltas, exact Objective-component reconciliation, capacity-plan visibility, changed-benchmark rejection, seed validation, Run result/execution identity reconstruction, explicit incompatible-evidence rejection, loss-leader transitions, stable changed-subject navigation, and the absence of run artifacts or Blueprint writes.
+Tests must prove exact patch replay for both artifact kinds, stable-id semantic classification, deterministic equal-seed deltas, exact Objective-component reconciliation, complete planned-versus-delivered metrics, capacity-plan visibility, changed-benchmark rejection, seed validation, Run result/execution identity reconstruction, rejection of zero or multiple controlled variables, loss-leader transitions, stable changed-subject navigation, and the absence of implicit writes.
 
 ## Change checklist
 
@@ -83,7 +89,7 @@ When comparison semantics change:
 
 1. update the result types and both human/JSON output together;
 2. preserve exact patch replay and deterministic ordering;
-3. preserve the equal-benchmark and equal-seed invariant;
+3. preserve the exactly-one-controlled-variable, equal-context, and equal-seed invariant;
 4. update this document, [[docs/CLI]], and affected architecture/format text;
 5. exercise both a small single-field edit and a structurally different Blueprint through the public CLI;
 6. reopen one real immutable Run pair through Core, CLI, Studio API, copied comparison URL, and both historical Factory views.

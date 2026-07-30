@@ -979,6 +979,7 @@ export async function investigateCommand(
     kind?: string;
     author?: string;
     statement?: string;
+    intervention?: string;
     expectedEffect?: string;
     disposition?: string;
     evidence?: string;
@@ -1003,6 +1004,7 @@ export async function investigateCommand(
   if (mutationModes > 1) throw new Error(`${usage}\n--create, --entry, and --create-candidate are mutually exclusive.`);
   if (!options.investigationId && (options.create || options.entryId || options.createCandidate
     || options.name || options.question || options.kind || options.author || options.statement
+    || options.intervention
     || options.expectedEffect || options.disposition || options.evidence
     || options.attachCandidate || options.captureObservation || options.captureComparison
     || options.fromRun || options.toRun || options.anchorId
@@ -1035,7 +1037,7 @@ export async function investigateCommand(
     if (!options.name?.trim() || !options.question?.trim()) {
       throw new Error(`${usage}\n--create requires --name and --question.`);
     }
-    if (options.kind || options.author || options.statement || options.expectedEffect || options.disposition
+    if (options.kind || options.author || options.statement || options.intervention || options.expectedEffect || options.disposition
       || options.evidence || options.attachCandidate || options.captureObservation
       || options.captureComparison || options.fromRun || options.toRun
       || options.anchorId || options.createCandidate
@@ -1062,12 +1064,20 @@ export async function investigateCommand(
     if (options.kind === "hypothesis" && !options.expectedEffect?.trim()) {
       throw new Error(`${usage}\nA hypothesis entry requires --expected-effect.`);
     }
+    if (options.kind === "hypothesis"
+      && options.intervention !== "blueprint"
+      && options.intervention !== "production-plan") {
+      throw new Error(`${usage}\nA hypothesis entry requires --intervention blueprint|production-plan.`);
+    }
     if (options.kind === "decision" && (!options.disposition
       || !["keep", "revise", "defer", "discard"].includes(options.disposition))) {
       throw new Error(`${usage}\nA decision entry requires --disposition keep|revise|defer|discard.`);
     }
     if (options.kind !== "hypothesis" && options.expectedEffect) {
       throw new Error(`${usage}\n--expected-effect belongs only to a hypothesis entry.`);
+    }
+    if (options.kind !== "hypothesis" && options.intervention) {
+      throw new Error(`${usage}\n--intervention belongs only to a hypothesis entry.`);
     }
     if (options.kind !== "decision" && options.disposition) {
       throw new Error(`${usage}\n--disposition belongs only to a decision entry.`);
@@ -1130,7 +1140,12 @@ export async function investigateCommand(
           : undefined,
     };
     const input: IndustrialInvestigationEntryInput = options.kind === "hypothesis"
-      ? { ...common, kind: "hypothesis", expectedEffect: options.expectedEffect! }
+      ? {
+          ...common,
+          kind: "hypothesis",
+          intervention: options.intervention as "blueprint" | "production-plan",
+          expectedEffect: options.expectedEffect!,
+        }
       : options.kind === "decision"
         ? {
           ...common,
@@ -1154,7 +1169,7 @@ export async function investigateCommand(
       throw new Error(`${usage}\n--create-candidate requires --hypothesis-entry, --benchmark, --candidate-name, and --patch-file.`);
     }
     if (options.name || options.question || options.kind || options.author || options.statement
-      || options.expectedEffect || options.disposition || options.evidence
+      || options.intervention || options.expectedEffect || options.disposition || options.evidence
       || options.attachCandidate || options.captureObservation || options.captureComparison
       || options.fromRun || options.toRun || options.anchorId) {
       throw new Error(`${usage}\nInvestigation and entry fields cannot be combined with --create-candidate.`);
@@ -1180,7 +1195,7 @@ export async function investigateCommand(
       immutable: true,
     };
   } else if (options.name || options.question || options.kind || options.author
-    || options.statement || options.expectedEffect || options.disposition || options.evidence
+    || options.statement || options.intervention || options.expectedEffect || options.disposition || options.evidence
     || options.attachCandidate || options.captureObservation || options.captureComparison
     || options.fromRun || options.toRun || options.anchorId
     || options.hypothesisEntry || options.benchmark
@@ -1257,7 +1272,7 @@ export async function investigateCommand(
     ...(inspection.entries.length ? [
       "Reasoning log:",
       ...inspection.entries.map((entry) =>
-        `  ${String(entry.sequence).padStart(4, "0")} ${entry.kind.toUpperCase()} · ${entry.author} · ${entry.statement}${entry.kind === "hypothesis" ? `\n       expected: ${entry.expectedEffect}` : entry.kind === "decision" ? ` · ${entry.disposition.toUpperCase()}` : ""}${entry.introducedAnchors.length ? `\n       introduced: ${entry.introducedAnchors.map((anchor) => `${anchor.id}:${anchor.kind}`).join(" + ")}` : ""}${entry.evidence.length ? `\n       evidence: ${entry.evidence.join(" + ")}` : ""}`),
+        `  ${String(entry.sequence).padStart(4, "0")} ${entry.kind.toUpperCase()} · ${entry.author} · ${entry.statement}${entry.kind === "hypothesis" ? `\n       intervention: ${(entry.intervention ?? "blueprint").toUpperCase()}\n       expected: ${entry.expectedEffect}` : entry.kind === "decision" ? ` · ${entry.disposition.toUpperCase()}` : ""}${entry.introducedAnchors.length ? `\n       introduced: ${entry.introducedAnchors.map((anchor) => `${anchor.id}:${anchor.kind}`).join(" + ")}` : ""}${entry.evidence.length ? `\n       evidence: ${entry.evidence.join(" + ")}` : ""}`),
     ] : ["Reasoning log: empty"]),
     ...(candidateCreation ? [
       `Candidate: ${candidateCreation.candidate.id} · ${candidateCreation.candidate.benchmark}`,
@@ -1520,6 +1535,7 @@ export async function compareRunsCommand(
         kind: "immutable-runs",
         verdict: comparison.verdict,
         context: comparison.context,
+        intervention: comparison.intervention,
         from: {
           run: comparison.from.run,
           selection: comparison.from.selection,
@@ -1539,8 +1555,12 @@ export async function compareRunsCommand(
           totalBuildCost: comparison.delta.totalBuildCost,
           occupiedArea: comparison.delta.occupiedArea,
           meanTransportTimeTicks: comparison.delta.meanTransportTimeTicks,
+          scheduledLots: comparison.delta.scheduledLots,
+          releasedLots: comparison.delta.releasedLots,
           completedLots: comparison.delta.completedLots,
           onTimeLots: comparison.delta.onTimeLots,
+          deliveredItems: comparison.delta.deliveredItems,
+          averageWipEquivalentUnits: comparison.delta.averageWipEquivalentUnits,
           goodYield: comparison.delta.goodYield,
           firstPassYield: comparison.delta.firstPassYield,
           reworkCycles: comparison.delta.reworkCycles,
@@ -1610,15 +1630,19 @@ export async function compareRunsCommand(
   write([
     `${comparison.project.name} · immutable Run comparison`,
     `FROM ${comparison.from.run.id} ${comparison.from.run.resultHash.slice(0, 12)} → TO ${comparison.to.run.id} ${comparison.to.run.resultHash.slice(0, 12)}`,
-    `Evidence: ${comparison.context.engineVersion} · ${comparison.from.selection.world} / ${comparison.from.selection.productionPlan ?? "legacy-scenario-workload"} / ${comparison.from.selection.scenario} / ${comparison.from.selection.objective} · seed ${comparison.context.seed} · ${(comparison.context.durationTicks / 1000).toFixed(1)} s`, "",
-    `Physical and semantic changes (${comparison.changes.length})`,
+    `Controlled intervention: ${comparison.intervention.kind.toUpperCase()} · ${comparison.intervention.from.id} ${comparison.intervention.from.hash.slice(0, 12)} → ${comparison.intervention.to.id} ${comparison.intervention.to.hash.slice(0, 12)}`,
+    `Evidence: ${comparison.context.engineVersion} · ${comparison.from.selection.world} / ${comparison.from.selection.scenario} / ${comparison.from.selection.objective} · seed ${comparison.context.seed} · ${(comparison.context.durationTicks / 1000).toFixed(1)} s`, "",
+    `Controlled artifact changes (${comparison.changes.length})`,
     ...(changeLines.length ? changeLines : ["  none"]), "",
     "Observed industrial delta",
     `  score              ${from.score.toFixed(6).padStart(12)} → ${to.score.toFixed(6).padStart(12)}  Δ ${signed(comparison.delta.score, 6)}`,
     `  build cost         ${from.totalBuildCost.toFixed(0).padStart(12)} → ${to.totalBuildCost.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.totalBuildCost, 0)}`,
     `  occupied area      ${from.occupiedArea.toFixed(0).padStart(12)} → ${to.occupiedArea.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.occupiedArea, 0)}`,
     `  mean movement      ${(from.meanTransportTimeTicks / 1000).toFixed(3).padStart(12)} → ${(to.meanTransportTimeTicks / 1000).toFixed(3).padStart(12)} s  Δ ${signed(comparison.delta.meanTransportTimeTicks / 1000)} s`,
+    `  scheduled/released ${`${from.scheduledLots}/${from.releasedLots}`.padStart(12)} → ${`${to.scheduledLots}/${to.releasedLots}`.padStart(12)}`,
     `  completed / ontime ${`${from.completedLots}/${from.onTimeLots}`.padStart(12)} → ${`${to.completedLots}/${to.onTimeLots}`.padStart(12)}`,
+    `  delivered items    ${from.deliveredItems.toFixed(0).padStart(12)} → ${to.deliveredItems.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.deliveredItems, 0)}`,
+    `  WIP equivalents    ${from.averageWipEquivalentUnits.toFixed(3).padStart(12)} → ${to.averageWipEquivalentUnits.toFixed(3).padStart(12)}  Δ ${signed(comparison.delta.averageWipEquivalentUnits)}`,
     `  good / FP yield    ${(from.goodYield * 100).toFixed(1).padStart(5)}%/${(from.firstPassYield * 100).toFixed(1)}% → ${(to.goodYield * 100).toFixed(1).padStart(5)}%/${(to.firstPassYield * 100).toFixed(1)}%`,
     `  rework/scrap/escape ${`${from.reworkCycles}/${from.scrappedLots}/${from.qualityEscapes}`.padStart(11)} → ${`${to.reworkCycles}/${to.scrappedLots}/${to.qualityEscapes}`.padStart(11)}`,
     `  capacity           ${comparison.from.capacityPlan.ready ? "READY" : "BLOCKED"} → ${comparison.to.capacityPlan.ready ? "READY" : "BLOCKED"}`,

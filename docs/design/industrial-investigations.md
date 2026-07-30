@@ -1,8 +1,8 @@
 # Industrial investigations
 
-Status: V5 phase-aware Investigation Design Session over continuous factory-observation and immutable Run-comparison checkpoints plus exact hypothesis-to-Candidate handoff, implemented in Core, `inm`, Studio, and the memory-fab north-star fixture.
+Status: V6 phase-aware Investigation Design Session over continuous factory-observation and one-variable immutable Run-comparison checkpoints, with explicit Blueprint-Candidate versus Production-Plan hypothesis handoff implemented in Core, `inm`, Studio, and the memory-fab north-star fixture.
 
-Related: [[docs/design/observation-led-design]], [[docs/design/operator-workbench]], [[docs/design/design-programs]], [[docs/design/experiment-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/studio-debugger]], [[docs/design/project-boundaries]], [[plans/persistent-industrial-investigation-workspace]], [[plans/evidence-backed-metrology-standby-investigation]], [[plans/continuous-investigation-evidence]], and [[plans/persistent-run-comparison-evidence]].
+Related: [[docs/design/observation-led-design]], [[docs/design/operator-workbench]], [[docs/design/design-programs]], [[docs/design/experiment-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/studio-debugger]], [[docs/design/project-boundaries]], [[docs/design/production-plans]], [[plans/persistent-industrial-investigation-workspace]], [[plans/evidence-backed-metrology-standby-investigation]], [[plans/continuous-investigation-evidence]], [[plans/persistent-run-comparison-evidence]], and [[plans/production-plan-run-comparison-loop]].
 
 ## Purpose
 
@@ -54,7 +54,7 @@ A Candidate-review anchor pins the Candidate id, locked Benchmark, proposal hash
 
 A factory-observation anchor is one indivisible operating checkpoint. It pins the effective World/Blueprint/Production Plan/Scenario/Objective selection, all selection-scoped execution hashes, one compatible Run id/result hash, and the selected Run-backed diagnostic's exact code, severity, priority, prose, subjects, and loss contributor. Core derives every field from the current Workbench; callers provide only the new anchor id. It is current only while the exact selected execution, Run, and deterministic diagnostic still agree. After another factory revision it remains valid history rather than being rewritten.
 
-A Run-comparison anchor is a compact, recomputable bridge between two immutable operating checkpoints. It pins the exact FROM and TO Run/result/Blueprint identities, TO selection and execution hashes, deterministic comparison hash, and TO Run-backed diagnostic. The comparison hash commits the semantic and spatial patch, evaluator and capacity evidence, fab-loss changes, unchanged guardrails, and verdict while excluding local filesystem roots and presentation-only navigation. Core derives it only from `compareFactoryRuns`; callers provide an anchor id plus FROM/TO Run ids, never hashes, deltas, or a verdict. Inspection reopens both immutable Runs, verifies their strict compatibility and identities, recomputes the comparison and TO diagnostic, and fails closed on absent or corrupted evidence. The anchor is current only while its TO Run is the exact current selected factory; otherwise it remains exact history.
+A Run-comparison anchor is a compact, recomputable bridge between two immutable operating checkpoints. It pins the exact FROM and TO Run/result/Blueprint/Production-Plan identities, the typed controlled intervention and FROM/TO artifact ids/hashes, TO selection and execution hashes, deterministic comparison hash, and TO Run-backed diagnostic. The comparison hash commits the intervention-specific semantic patch, evaluator and capacity evidence, fab-loss changes, unchanged guardrails, and verdict while excluding local filesystem roots and presentation-only navigation. Core derives it only from `compareFactoryRuns`; callers provide an anchor id plus FROM/TO Run ids, never hashes, deltas, intervention kind, or a verdict. Inspection reopens both immutable Runs, verifies their strict exactly-one-variable compatibility and identities, recomputes the comparison and TO diagnostic, and fails closed on absent or corrupted evidence. The anchor is current only while its TO Run is the exact current selected factory; a rejected alternative remains exact history and may be followed by a Core-resolved current factory checkpoint.
 
 Investigation-level currentness follows the newest factory-observation or Run-comparison checkpoint, or the creation-time operating Run/diagnostic when no checkpoint exists. Earlier valid anchors may naturally become historical without making a newer exact inquiry historical. Any missing or invalid anchor still degrades the whole chain, because accumulated knowledge cannot silently discard broken evidence.
 
@@ -65,18 +65,20 @@ Each entry has one stable kebab-case id, a positive sequence matching its filena
 V1 entry kinds are:
 
 - `observation`: a visible or typed fact noticed by the author;
-- `hypothesis`: a falsifiable industrial proposal plus its expected measured or visual effect;
+- `hypothesis`: a falsifiable industrial proposal, explicit `blueprint` or `production-plan` controlled intervention, and its expected measured or visual effect;
 - `decision`: an explicit `keep`, `revise`, `defer`, or `discard` judgment and rationale.
 
 The engine validates references and order but does not assess the truth or quality of prose. Only an observation entry may introduce a factory-observation or Run-comparison checkpoint. Adding an entry creates a project artifact; it does not edit a Blueprint, run a simulation, evaluate a Benchmark, or commission a Candidate.
 
-## Hypothesis-to-Candidate handoff
+## Hypothesis intervention handoff
 
-One Candidate may name an exact `investigation-hypothesis` source: owning project, Investigation id and manifest hash, plus hypothesis entry id and entry hash. Core resolves that chain before creation, inspection, review, or apply. The Candidate's hypothesis and expected effect must exactly equal the pinned entry; a missing, corrupt, cross-project, non-hypothesis, or text-mismatched source fails closed.
+A hypothesis must name its intervention kind; Core and both authoring surfaces never infer it from prose. A `blueprint` hypothesis may source one exact Candidate through owning project, Investigation id and manifest hash, plus hypothesis entry id and entry hash. Core resolves that chain before creation, inspection, review, or apply. The Candidate's hypothesis and expected effect must exactly equal the pinned entry; a missing, corrupt, cross-project, non-hypothesis, text-mismatched, or `production-plan` source fails closed.
 
 Source currentness comes from the newest factory-observation or Run-comparison anchor directly cited by that hypothesis. A factory observation projects its exact checkpoint. A Run comparison projects its TO selection, hashes, Run, result, diagnostic, anchor id, and explicit `run-comparison` source after both sides and the deterministic comparison identity re-verify. A hypothesis without such a citation deliberately falls back to the Investigation's creation context. Because the entry hash commits its previous-entry hash, this context remains transitively bound to the complete append-only chain without duplicating generated hashes in the Candidate file.
 
 `createInvestigationCandidate()` accepts only a caller-authored RFC 6902 patch and ordinary Candidate name/id, Benchmark id, Investigation id, and hypothesis entry id. Core derives the source identity, prose, and current Benchmark Candidate-Blueprint base hash before validating and writing the new artifact. It does not invent the patch or decide whether the intervention is good.
+
+A `production-plan` hypothesis instead yields an `author-production-plan` handoff with the exact hypothesis entry/hash and required plan id/file fields. The author creates a self-contained plan, leaves the project default unchanged, simulates it through explicit selection, and retains the resulting exact Run comparison. Production Plans do not pass through Candidate create/review/apply because selection—not Blueprint mutation—is their experiment boundary.
 
 ## Phase-aware Design Session
 
@@ -85,10 +87,11 @@ Inspection derives one `IndustrialInvestigationHandoff` from the verified anchor
 - any missing or invalid anchor yields `repair-evidence` and permits no inherited factory claim;
 - historical operating context or an empty reasoning log yields `observe-current-factory`;
 - a current observation, or an explicit `revise` decision, yields `form-hypothesis`;
-- a current hypothesis yields `author-candidate`;
+- a current `blueprint` hypothesis yields `author-candidate`;
+- a current `production-plan` hypothesis yields `author-production-plan`;
 - a completed keep, defer, or discard decision resumes the shared project Workbench action.
 
-Every non-project handoff pins the source entry id, sequence, kind, and entry hash plus the exact evidence ids cited by that entry. It separately declares the authorship boundary and required caller fields. Core may select a form and preserve context, but it cannot supply an observation statement, hypothesis, expected effect, Candidate identity, Benchmark choice, or patch.
+Every non-project handoff pins the source entry id, sequence, kind, and entry hash plus the exact evidence ids cited by that entry. It separately declares the authorship boundary and required caller fields. Core may select a form and preserve context, but it cannot supply an observation statement, hypothesis, intervention kind, expected effect, Candidate identity, Benchmark choice, patch, or Production Plan content.
 
 `currentNextAction` is the handoff's navigational action, not a command that manufactures the required prose or patch. The `authorship` object is the machine-readable description of the next artifact boundary. This separation keeps route entry read-only while making the subsequent human/Agent responsibility explicit.
 
@@ -120,4 +123,6 @@ The same chain later commissions the east-port-compliant compact inspection/rewo
 
 V5 originally projected that state as `form-hypothesis`, sourced from entry `0021` / hash `b1c876c39bfa…`, with only `compact-inspection-rework-cell-east-port-review`, `compact-inspection-rework-cell-factory`, and `compact-cell-run-comparison` selected as inherited evidence. Entry `0022` now closes that inquiry with an explicit `defer`: the remaining `56.984 s` is dominated by ordinary upstream etch processing/cadence, while the only retained shared-cell vacuum handoff would raise build cost from `229840` to `230200` and exceed the fixed capital cap by `200`. The managed Session and Studio therefore project `resume-project` without hiding the still-valid physical diagnostic.
 
-The separate `back-end-wip-next-step` Investigation preserves the human/Agent change of attention without rewriting diagnostic rank. Its current Run `101-simulate` observation records `49.1905` average DRAM-device-equivalent WIP, led by `burn-in-1.package-input` at `9.465692` and `packaging-1.die-input` at `6.874125`. The same event evidence shows `96` packaging starts, eleven fixed-eight burn-in batches, `88` delivered devices, and a final eight packaged devices waiting at burn-in. It also cites the historical rejected `back-end-wip-conwip-5-4` review and names the fixed four-device Process portfolio as negative evidence. The resulting `form-hypothesis` phase asks a human or reasoning Agent for a physically distinct production-planning, cadence, or back-end service intervention; INM does not infer avoidable WIP or manufacture a buffer change from the Objective ranking.
+The separate `back-end-wip-next-step` Investigation preserves the human/Agent change of attention without rewriting diagnostic rank. Its current Run `102-simulate` observation records `49.1905` average DRAM-device-equivalent WIP, led by `burn-in-1.package-input` at `9.465692` and `packaging-1.die-input` at `6.874125`. The same event evidence shows `96` packaging starts, eleven fixed-eight burn-in batches, `88` delivered devices, and a final eight packaged devices waiting at burn-in. It also cites the historical rejected `back-end-wip-conwip-5-4` review and names the fixed four-device Process portfolio as negative evidence.
+
+Entry `0003` explicitly declares a `production-plan` hypothesis and creates the `author-production-plan` handoff. The separately selected eleven-lot plan becomes Run `103-simulate`; comparison `102-simulate → 103-simulate` proves score `+7.193077`, average WIP `-4.732567`, and unchanged 88 delivered devices, but also one fewer scheduled, released, completed, and on-time lot. Entries `0004` and `0005` retain that exact comparison and explicitly `DISCARD` the plan because it improves the horizon metric by deleting real planned memory production. Entry `0006` then captures Run `102-simulate` again as the current twelve-lot factory. The Investigation is current and ready for another human/Agent hypothesis that preserves planned supply; the higher score never became automatic design authority.

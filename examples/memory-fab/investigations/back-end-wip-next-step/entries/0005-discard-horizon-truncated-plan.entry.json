@@ -1,0 +1,16 @@
+{
+  "author": "agent",
+  "disposition": "discard",
+  "entryHash": "19ee3c853884fcea49515feae9d7193b249e728e5c40e7d8c040fa9caac9e081",
+  "evidence": [
+    "eleven-lot-burn-in-horizon-comparison"
+  ],
+  "id": "discard-horizon-truncated-plan",
+  "introducedAnchors": [],
+  "investigation": "back-end-wip-next-step",
+  "kind": "decision",
+  "previousEntryHash": "de0bd1a58554c320e0f94313c5347b9d3cd44ef2831b350e0eb216736442b3ac",
+  "sequence": 5,
+  "statement": "DISCARD the eleven-lot horizon-aligned Production Plan. Its higher score and lower WIP come from deleting one real high-priority memory lot at the simulation boundary rather than improving factory service: delivered devices remain 88 while scheduled, released, completed, and on-time lots each fall from 12 to 11. Preserve twelve-lot production intent and investigate back-end cadence or service capacity without reducing planned supply.",
+  "version": 1
+}

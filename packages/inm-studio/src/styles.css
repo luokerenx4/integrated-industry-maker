@@ -503,7 +503,10 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .run-comparison-result > header > b { min-width: 118px; padding: 11px; color: #a9bab6; border: 1px solid #39514d; border-radius: 6px; text-align: center; font: 10px var(--mono); }
 .run-comparison-result > header > b.improved { color: #68dfbd; border-color: #2b715e; background: #0e2b24; }
 .run-comparison-result > header > b.regressed { color: #f0a08e; border-color: #75483d; background: #2a1915; }
+.run-comparison-result > header > b.production-tradeoff { color: #edca72; border-color: #7b672e; background: #2a2411; }
 .run-comparison-result > header > b small { display: block; margin-top: 5px; color: inherit; font-size: 6px; }
+.run-production-tradeoff { display: flex; gap: 14px; align-items: center; margin: 0 20px 14px; padding: 11px 13px; color: #bcae83; border: 1px solid #6f5c29; background: #211d10; font: 7px/1.6 var(--mono); }
+.run-production-tradeoff b { flex: 0 0 auto; color: #f0cd72; letter-spacing: .08em; }
 .run-delta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin: 0 20px; border: 1px solid #1a3734; background: #1a3734; }
 .run-delta-grid article { padding: 13px 14px; background: #081514; }
 .run-delta-grid small { display: block; color: #507770; font: 6px var(--mono); }

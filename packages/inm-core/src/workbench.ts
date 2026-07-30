@@ -117,7 +117,12 @@ export type WorkbenchNextActionTarget =
   | {
     kind: "investigation";
     investigationId: string;
-    phase: "repair-evidence" | "observe-current-factory" | "form-hypothesis" | "author-candidate";
+    phase:
+      | "repair-evidence"
+      | "observe-current-factory"
+      | "form-hypothesis"
+      | "author-candidate"
+      | "author-production-plan";
     sourceEntryId: string | null;
   }
   | { kind: "design-program"; programId: string; diagnosticId: string }

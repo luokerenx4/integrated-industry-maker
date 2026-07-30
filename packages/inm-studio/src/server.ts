@@ -733,10 +733,12 @@ const server = Bun.serve({
             "Appending an Investigation entry requires id, author, kind, and statement",
           );
         }
-        if (body.kind === "hypothesis" && typeof body.expectedEffect !== "string") {
+        if (body.kind === "hypothesis"
+          && (typeof body.expectedEffect !== "string"
+            || (body.intervention !== "blueprint" && body.intervention !== "production-plan"))) {
           throw new IndustrialInvestigationError(
             "investigation.invalid-entry",
-            "A hypothesis requires expectedEffect",
+            "A hypothesis requires intervention blueprint|production-plan and expectedEffect",
           );
         }
         if (body.kind === "decision"

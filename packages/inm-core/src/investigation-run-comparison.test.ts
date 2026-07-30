@@ -103,6 +103,7 @@ test("an immutable Run comparison accumulates as exact Investigation and Candida
         id: "preserve-compact-cell-guardrails",
         kind: "hypothesis",
         author: "human",
+        intervention: "blueprint",
         statement: "The next inspection intervention can preserve the compact cell's unchanged delivery and quality guardrails.",
         expectedEffect: "The next exact comparison retains 12 on-time lots, zero scrap, zero escapes, and no additional area.",
         evidence: ["compact-cell-comparison"],
