@@ -67,6 +67,7 @@ JSON
 → exact connection Resource allowlist, explicit sorter Device ownership/geometry, and cardinal transport-path validation; shared-cell graph compilation; loader/line/unloader throughput; and integer travel time
 → local/inter-zone topology, supply/demand matching, station-owned carrier compatibility, world-distance outbound/return time, and home-fleet compilation
 → canonical CompiledFactoryProject
+→ canonical selection-scoped execution identity
 → Objective delivery-portfolio expansion and capacity-gap plan
 ```
 
@@ -86,7 +87,9 @@ Power is spatial, dynamic, and region-local rather than factory-global. A power-
 
 ## Asset and program boundary
 
-Every Resource or Device is a directory package rooted at `assets/resources/<id>` or `assets/devices/<id>`. `asset.json` is the self-description index; presentation lives in `visual.json`; Device execution lives in `runtime.ts`. All indexed paths are relative and confined to the package. Catalog hashes cover the complete directory, including scripts, textures, and models.
+Every Resource or Device is a directory package rooted at `assets/resources/<id>` or `assets/devices/<id>`. `asset.json` is the self-description index; presentation lives in `visual.json`; Device execution lives in `runtime.ts`. All indexed paths are relative and confined to the package. Catalog hashes cover the complete directory, including scripts, textures, and models, and serve as descriptive project-inventory identity.
+
+Evidence authority is narrower and stricter in the useful direction. Core computes one `executionHash` from the exact selected closure: reachable Resource/Process/Route semantics, placed/transport/fleet Device physics and runtime source, effective plans and contracts, selected World/Blueprint/Scenario/Objective semantics, compiled topology, and power grids. Presentation and unselected qualifications/options remain outside it. Adding an unused project-local alternative does not stale unrelated evidence; selecting it or changing any reachable semantic/runtime input does.
 
 The old `behavior.kind` execution switch does not exist. Processes are not shared assets or an engine-global Recipe database: each project owns `processes/*.process.json`, and their hashes participate in run identity. A production Device must declare the exact project-local Processes for which that equipment is qualified, plus their supported categories, an exact rational speed multiplier, explicit production modes, configurable buffer sets, semantic capabilities, and any number of named buffers and ports. Category membership is descriptive and can never substitute for equipment qualification. Production modes may require a minimum material-treatment level; treatment Devices consume a physical agent and raise exact material lots without changing Resource identity. Asset buffer `accepts` lists are maximum capabilities. Each blueprint Device instance may first narrow them through `bufferFilters`; recipe bindings and extractor deposits narrow the effective contract further. Physical belts, station slots, fuel selection, initial inventory, runtime actions, CLI analysis, and Studio all consume that one compiled contract. Each production instance selects a qualified Process and mode and maps every Process Resource to a permitted buffer. Its `DeviceProgram` owns the final local throughput decision and returns one of seven declarative decisions:
 
@@ -132,7 +135,7 @@ The engine does not depend on wall-clock time, frame rate, `Math.random()`, obje
 
 All runtime writes pass through `mutateFactoryState()`. Buffers are addressed by `(device, buffer, resource)`; resource nodes account separately for remaining, reservation, and extraction; jobs carry declared outputs plus worked/remaining powered time; transports retain physical state; storage Devices and grids retain initial/final/charged/discharged energy; stations retain initial/charged/spent/final carrier energy. A failed extraction job releases its reservation. A power-paused job retains its consumed inputs or reservation, invalidates its old completion event, and resumes exactly its remaining time when power returns. Device scripts and simulator subsystems do not own independent mutable stores. Objective-scoped WIP and total/per-Resource inventory, belt pressure, endpoint utilization/energy, storage energy, station carrier energy, unpowered time, and station congestion are measured from runtime state. See [[docs/design/inventory-accounting]].
 
-Each result is keyed by engine version, all catalog and input hashes, seed, duration, and event limit. `resultHash` covers the run key, ordered event stream, final state, and metrics.
+Each result is keyed by engine version, selection-scoped execution identity, named World/Blueprint/Scenario/Objective hashes, seed, duration, and event limit. Full catalog-inventory hashes are intentionally excluded. `resultHash` covers the run key, ordered event stream, final state, and metrics.
 
 ## Evaluation
 

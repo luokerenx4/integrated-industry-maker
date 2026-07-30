@@ -8,9 +8,10 @@ import { loadFactoryProject, type LoadedFactoryProject } from "./loader";
 import { analyzeProduction } from "./production-analysis";
 import { synthesizeProjectBlueprint, type ProjectBlueprintSynthesis } from "./project-synthesis";
 import { manifestSchema } from "./schema";
-import { SCORE_BREAKDOWN_COMPONENTS, type Blueprint } from "./types";
+import { SCORE_BREAKDOWN_COMPONENTS, type Blueprint, type ProjectEvidenceHashes } from "./types";
 import type { FabLossBucketId } from "./fab-loss-analysis";
 import { hashValue, readJson } from "./utils";
+import { projectEvidenceHashes } from "./execution-identity";
 
 const id = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase kebab-case");
 const strategyEntry = z.string().min(1).refine((value) => !value.startsWith("/") && !value.split(/[\\/]/).includes("..") && value.endsWith(".ts"), "must be a project-relative TypeScript file");
@@ -227,17 +228,7 @@ export interface DesignProgramBrief {
   driver: {
     case: { id: string; name: string; weight: number; seed: number };
     selection: { world: string; blueprint: string; scenario: string; objective: string };
-    hashes: {
-      engineVersion: string;
-      resourceCatalogHash: string;
-      processCatalogHash: string;
-      routeCatalogHash: string;
-      deviceCatalogHash: string;
-      worldHash: string;
-      blueprintHash: string;
-      scenarioHash: string;
-      objectiveHash: string;
-    };
+    hashes: ProjectEvidenceHashes;
   };
   staticEvidence: {
     capacity: { state: "ready" | "blocked"; gapCount: number; gapsByKind: Record<string, number> };
@@ -395,7 +386,7 @@ export async function prepareDesignProgram(projectDir: string, programId: string
         scenario: driverCase.scenario,
         objective: driverCase.objective,
       },
-      hashes: { ...project.hashes },
+      hashes: projectEvidenceHashes(project.hashes),
     },
     staticEvidence: {
       capacity: { state: capacity.ready ? "ready" : "blocked", gapCount: capacity.gaps.length, gapsByKind },

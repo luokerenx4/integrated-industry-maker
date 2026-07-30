@@ -8,6 +8,7 @@ import type {
   ResourceBufferQuantity, ResourceTransit, SimulationResult, Tick, TransportBlockCause, TransportBlockStage,
 } from "./types";
 import { hashValue } from "./utils";
+import { projectEvidenceHashes } from "./execution-identity";
 import { mutateFactoryState } from "./state";
 import { emptyTransportBlockTicks } from "./transport-blocking";
 import {
@@ -3938,7 +3939,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const reason = publicEventCount >= maxEvents ? "max-events" : "until-tick";
   emit({ type: "simulation.completed", tick: state.tick, reason });
   const metrics = evaluateFactory(project, state, stats, events);
-  const runKey = hashValue({ ...project.hashes, seed, untilTick, maxEvents });
+  const runKey = hashValue({ ...projectEvidenceHashes(project.hashes), seed, untilTick, maxEvents });
   const resultHash = hashValue({ runKey, events, state, metrics });
   return { state, events, metrics, resultHash, runKey };
 }

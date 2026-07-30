@@ -1,0 +1,408 @@
+{
+  "carrierMissions": 0,
+  "carrierReturns": 0,
+  "completedOrders": 104,
+  "consumed": {
+    "graphite": 26,
+    "hydrogen": 78
+  },
+  "devices": {
+    "synth-chemical-basin-wind-turbine-1": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-chemical-basin-wind-turbine-2": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-crude-oil-extractor-1": {
+      "activeJob": {
+        "durationTicks": 2000,
+        "extraction": {
+          "count": 1,
+          "node": "oil-seep-1"
+        },
+        "operation": "extract-crude-oil",
+        "powerMilliWatts": 80000,
+        "powerSatisfactionPpm": 1000000,
+        "produce": [
+          {
+            "buffer": "output",
+            "count": 1,
+            "resource": "crude-oil"
+          }
+        ],
+        "remainingTicks": 2000,
+        "resumedAt": 120000,
+        "startedAt": 120000,
+        "workedTicks": 0
+      },
+      "buffers": {
+        "output": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "output": {}
+      },
+      "materialBatches": {
+        "output": {}
+      },
+      "progressTicks": 0,
+      "status": "processing"
+    },
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "processing"
+    },
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-graphite-surplus-sink": {
+      "buffers": {
+        "input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "input": {}
+      },
+      "materialBatches": {
+        "input": {}
+      },
+      "status": "waiting-input"
+    },
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-hydrogen-sink": {
+      "buffers": {
+        "input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "input": {}
+      },
+      "materialBatches": {
+        "input": {}
+      },
+      "status": "waiting-input"
+    },
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "processing"
+    },
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-refine-crude-1": {
+      "activeJob": {
+        "durationTicks": 4000,
+        "operation": "refine-crude",
+        "powerMilliWatts": 300000,
+        "powerSatisfactionPpm": 1000000,
+        "processInputs": [
+          {
+            "buffer": "crude-input",
+            "count": 2,
+            "minimumTreatmentLevel": 0,
+            "resource": "crude-oil"
+          }
+        ],
+        "produce": [
+          {
+            "buffer": "gas-output",
+            "count": 1,
+            "resource": "hydrogen",
+            "treatmentLevel": 0
+          },
+          {
+            "buffer": "liquid-output",
+            "count": 2,
+            "resource": "refined-oil",
+            "treatmentLevel": 0
+          }
+        ],
+        "productionMode": "standard",
+        "remainingTicks": 4000,
+        "resumedAt": 117700,
+        "startedAt": 117700,
+        "workedTicks": 0
+      },
+      "buffers": {
+        "crude-input": {
+          "crude-oil": 1
+        },
+        "gas-output": {},
+        "liquid-output": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "crude-input": {},
+        "gas-output": {},
+        "liquid-output": {}
+      },
+      "materialBatches": {
+        "crude-input": {
+          "crude-oil": {
+            "0": 1
+          }
+        },
+        "gas-output": {},
+        "liquid-output": {}
+      },
+      "progressTicks": 2300,
+      "status": "processing"
+    },
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "synth-xray-crack-oil-1": {
+      "activeJob": {
+        "durationTicks": 4000,
+        "operation": "xray-crack-oil",
+        "powerMilliWatts": 280000,
+        "powerSatisfactionPpm": 1000000,
+        "processInputs": [
+          {
+            "buffer": "hydrogen-input",
+            "count": 1,
+            "minimumTreatmentLevel": 0,
+            "resource": "hydrogen"
+          },
+          {
+            "buffer": "oil-input",
+            "count": 2,
+            "minimumTreatmentLevel": 0,
+            "resource": "refined-oil"
+          }
+        ],
+        "produce": [
+          {
+            "buffer": "graphite-output",
+            "count": 1,
+            "resource": "graphite",
+            "treatmentLevel": 0
+          },
+          {
+            "buffer": "hydrogen-output",
+            "count": 3,
+            "resource": "hydrogen",
+            "treatmentLevel": 0
+          }
+        ],
+        "productionMode": "standard",
+        "remainingTicks": 4000,
+        "resumedAt": 119500,
+        "startedAt": 119500,
+        "workedTicks": 0
+      },
+      "buffers": {
+        "graphite-output": {},
+        "hydrogen-input": {},
+        "hydrogen-output": {},
+        "oil-input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "graphite-output": {},
+        "hydrogen-input": {},
+        "hydrogen-output": {},
+        "oil-input": {}
+      },
+      "materialBatches": {
+        "graphite-output": {},
+        "hydrogen-input": {},
+        "hydrogen-output": {},
+        "oil-input": {}
+      },
+      "progressTicks": 500,
+      "status": "processing"
+    }
+  },
+  "energy": {
+    "availableMilliWatts": 1200000,
+    "consumedMilliJoules": 75302875,
+    "fuelConsumed": {},
+    "grids": {
+      "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
+        "availableMilliWatts": 1200000,
+        "chargedMilliJoules": 0,
+        "consumedMilliJoules": 75302875,
+        "dischargedMilliJoules": 0,
+        "satisfactionPpm": 1000000,
+        "storageCapacityMilliJoules": 0,
+        "storedMilliJoules": 0
+      }
+    }
+  },
+  "highSpeedMissions": 0,
+  "logisticsMissions": {},
+  "logisticsTransports": {},
+  "lotReleaseControl": {
+    "open": true
+  },
+  "lots": {},
+  "materialTreatment": {
+    "agentsConsumed": {},
+    "treated": {}
+  },
+  "produced": {
+    "crude-oil": 60,
+    "graphite": 27,
+    "hydrogen": 109,
+    "refined-oil": 56
+  },
+  "resourceNodes": {
+    "oil-seep-1": {
+      "extracted": 60,
+      "remaining": 139,
+      "reserved": 1
+    },
+    "oil-seep-2": {
+      "extracted": 0,
+      "remaining": 200,
+      "reserved": 0
+    }
+  },
+  "tick": 120000,
+  "transports": {
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1": [
+      {
+        "arriveTick": 121700,
+        "cellIndex": -1,
+        "count": 1,
+        "departTick": 120000,
+        "from": "synth-crude-oil-extractor-1",
+        "fromBuffer": "output",
+        "id": "transit-000251",
+        "phase": "loading",
+        "readyTick": 120250,
+        "resource": "crude-oil",
+        "to": "synth-refine-crude-1",
+        "toBuffer": "crude-input",
+        "treatmentLevel": 0
+      }
+    ],
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink": [
+      {
+        "arriveTick": 123400,
+        "cellIndex": 2,
+        "count": 1,
+        "departTick": 119500,
+        "from": "synth-xray-crack-oil-1",
+        "fromBuffer": "graphite-output",
+        "id": "transit-000248",
+        "phase": "belt",
+        "readyTick": 120050,
+        "resource": "graphite",
+        "to": "synth-graphite-surplus-sink",
+        "toBuffer": "input",
+        "treatmentLevel": 0
+      }
+    ],
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1": [],
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink": [
+      {
+        "arriveTick": 120300,
+        "cellIndex": 2,
+        "count": 1,
+        "departTick": 119500,
+        "from": "synth-xray-crack-oil-1",
+        "fromBuffer": "hydrogen-output",
+        "id": "transit-000247",
+        "phase": "belt",
+        "readyTick": 120050,
+        "resource": "hydrogen",
+        "to": "synth-hydrogen-sink",
+        "toBuffer": "input",
+        "treatmentLevel": 0
+      },
+      {
+        "arriveTick": 120550,
+        "cellIndex": 0,
+        "count": 1,
+        "departTick": 119750,
+        "from": "synth-xray-crack-oil-1",
+        "fromBuffer": "hydrogen-output",
+        "id": "transit-000249",
+        "phase": "belt",
+        "readyTick": 120100,
+        "resource": "hydrogen",
+        "to": "synth-hydrogen-sink",
+        "toBuffer": "input",
+        "treatmentLevel": 0
+      },
+      {
+        "arriveTick": 120800,
+        "cellIndex": -1,
+        "count": 1,
+        "departTick": 120000,
+        "from": "synth-xray-crack-oil-1",
+        "fromBuffer": "hydrogen-output",
+        "id": "transit-000250",
+        "phase": "loading",
+        "readyTick": 120250,
+        "resource": "hydrogen",
+        "to": "synth-hydrogen-sink",
+        "toBuffer": "input",
+        "treatmentLevel": 0
+      }
+    ],
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1": []
+  }
+}

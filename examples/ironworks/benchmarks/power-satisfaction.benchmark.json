@@ -22,12 +22,9 @@
     "cases": {
       "undersupplied-grid": {
         "blueprintHash": "7bc6ded712aa74e41edb448ec506c0663e699f12c3bcc5f65b0868c41e374864",
-        "deviceCatalogHash": "d474a1ec472afde113aa02aee4a67bdc2a7a2d2e90599c1094a13912141b6e45",
-        "engineVersion": "inm-sim/0.88.0",
+        "engineVersion": "inm-sim/0.89.0",
+        "executionHash": "033f939a291d288245daba5681c4b50831ca61b10d1ebdcd60572bcfd9b0e388",
         "objectiveHash": "fb0e6a7fc5f199a0f11a3f9fd61da0e9727535ad0ec07331147152daba2b3911",
-        "processCatalogHash": "f61be981922fea0a2c4f3fab1bf6f7487947a5c41d98e7a0528697459ed320c7",
-        "resourceCatalogHash": "c7df51cd6d51624513ce011c801ca6da29b2e63da9a9aa8df11ab1a33445a7a5",
-        "routeCatalogHash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
         "scenarioHash": "74d80095adafa40c0fce1ae6a1c367b0ce14474d6bc932fef2644776a763cf00",
         "worldHash": "667920f2b2a4dbcd839064f6a43c4182a4ad001044dd67a78da0e07260169168"
       }

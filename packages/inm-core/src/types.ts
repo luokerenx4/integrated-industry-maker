@@ -1001,6 +1001,8 @@ export interface CompiledFactoryProject {
 
 export interface ProjectHashes {
   engineVersion: string;
+  /** Exact selected industrial execution closure; unrelated catalog inventory is excluded. */
+  executionHash: string;
   resourceCatalogHash: string;
   processCatalogHash: string;
   routeCatalogHash: string;
@@ -1010,6 +1012,10 @@ export interface ProjectHashes {
   scenarioHash: string;
   objectiveHash: string;
 }
+
+/** Persisted compatibility authority for one exact selected factory execution. */
+export type ProjectEvidenceHashes = Pick<ProjectHashes,
+  "engineVersion" | "executionHash" | "worldHash" | "blueprintHash" | "scenarioHash" | "objectiveHash">;
 
 export type DeviceStatus = "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
 export type InputSupplyState =

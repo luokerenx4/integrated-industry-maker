@@ -1,0 +1,24 @@
+{
+  "createdAt": "2026-07-30T04:06:50.909Z",
+  "decision": "BASELINE",
+  "engineVersion": "inm-sim/0.89.0",
+  "hashes": {
+    "blueprintHash": "203a6ba6559ec34b9dd9ab2eae01703a4ffff31c9058fb397805655f51a7b57f",
+    "engineVersion": "inm-sim/0.89.0",
+    "executionHash": "25864099d9d47022bcdb5f992ff4f6373babe8351dcb040b888ff545658df75e",
+    "objectiveHash": "2478c3f85303fbe441e89dbdfbb795b0ee23ce4f23f3347d1174e559a6dc992b",
+    "scenarioHash": "655ab7deed2ac8fe110433a4a31412fd97cf217c2e227e7242b7c16d371e5dd9",
+    "worldHash": "8ca7e0a67db35012fcd0cb629cb981af61d5d9da3d02dca0c0182097c6586b35"
+  },
+  "resultHash": "6d6f4375028573f6d67cbe77e0bca48e809d8d2667f3d7da076b35012f4fb67c",
+  "runKey": "c5f96f6627c4a2cb88b04852751f2f79f70b88a182e317ea8996df911b445976",
+  "seed": 42,
+  "selection": {
+    "blueprint": "scaled-factory",
+    "objective": "scaled-production",
+    "scenario": "cold-start",
+    "world": "scaled"
+  },
+  "status": "completed",
+  "version": 1
+}

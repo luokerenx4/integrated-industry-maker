@@ -33,7 +33,7 @@ This document owns workspace discovery, project identity, file confinement, proj
 2. Project discovery scans one configured directory level and rejects symlink project entries.
 3. Indexed asset files are relative paths confined beneath their package directory.
 4. Studio file URLs include a project id and cannot traverse outside that project root.
-5. Catalog hashes cover project-local Device/Resource package contents, including TypeScript runtime and package presentation files. Project-level environment imagery is validated and confined presentation metadata but does not alter industrial catalog or Blueprint identity.
+5. Catalog hashes cover project-local Device/Resource package contents, including TypeScript runtime and package presentation files. They describe complete project inventory; evidence compatibility instead uses the exact selection-scoped execution identity. Project-level environment imagery is validated and confined presentation metadata and alters neither industrial execution nor Blueprint identity.
 6. No loader walks upward, consults another project, or falls back to an engine-global asset.
 7. Creating a project copies a complete starter, including its local runtime API.
 

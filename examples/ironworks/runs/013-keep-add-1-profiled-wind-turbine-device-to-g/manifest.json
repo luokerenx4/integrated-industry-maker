@@ -1,0 +1,25 @@
+{
+  "createdAt": "2026-07-30T04:06:49.397Z",
+  "decision": "KEEP",
+  "engineVersion": "inm-sim/0.89.0",
+  "hashes": {
+    "blueprintHash": "288498c37cf60733c20f8c53b12f561b52c6f3aedb6d92eb4355f082c14be516",
+    "engineVersion": "inm-sim/0.89.0",
+    "executionHash": "585a7c7c47d4dda3bb33ef04b1620c328125df70e9a05b38c275f8d94b321237",
+    "objectiveHash": "8893fbeb7a3f3c530a711eae305e1773c9c74e8513b510e73545a812e965b76d",
+    "scenarioHash": "ba90230fc2542e93f3729dd95927af96ba3c37f2c52e53abf6717945f20a8c83",
+    "worldHash": "667920f2b2a4dbcd839064f6a43c4182a4ad001044dd67a78da0e07260169168"
+  },
+  "parentRun": "000-baseline",
+  "resultHash": "f340662ce0151b88938217bf1f81cb48ad576f5c54ae71960ba0cf56139daf08",
+  "runKey": "268af86eb49627cc4e15c8eb7ad28d263a9f4ff2e252cf0fe3ff20848d6ea2d7",
+  "seed": 42,
+  "selection": {
+    "blueprint": "main",
+    "objective": "default",
+    "scenario": "baseline",
+    "world": "main"
+  },
+  "status": "completed",
+  "version": 1
+}

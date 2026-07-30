@@ -38,6 +38,7 @@ export * from "./artifact-schema";
 export * from "./operation";
 export * from "./operation-execution";
 export * from "./studio-source-identity";
+export * from "./execution-identity";
 
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";

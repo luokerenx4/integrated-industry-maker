@@ -72,14 +72,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 8, infoCount: 8 },
-    evidence: { state: "current", runId: "094-simulate" },
+    evidence: { state: "current", runId: "096-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 16, verifiedCount: 0 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.objective.wipResources).toContain("packaged-dram-device");
   expect(snapshot.objective.wipResources).not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "094-simulate",
+    runId: "096-simulate",
     averageWip: 27.834429166666666,
     averageTotalInventory: 124.73002083333333,
     peakWip: 59,
@@ -96,7 +96,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     averageInventory: 9.781316666666667,
   }));
   expect(snapshot.objectiveEvidence).toEqual(expect.objectContaining({
-    runId: "094-simulate",
+    runId: "096-simulate",
     finalScore: 30.88369959166667,
     dominantPenalty: { id: "wip", contribution: -41.75164375, role: "penalty" },
     wip: expect.objectContaining({
@@ -610,7 +610,7 @@ test("shared handoff opens the exact Objective-focused Program after diagnostic 
     lossDispositions: [],
   });
   expect(nextAction).toEqual(expect.objectContaining({
-    id: `design.run.objective:back-end-wip-convergence:${objectiveAuthority}:wip:094-simulate`,
+    id: `design.run.objective:back-end-wip-convergence:${objectiveAuthority}:wip:096-simulate`,
     title: "Expand Back-end WIP Convergence's intervention portfolio",
     argv: ["inm", "design", snapshot.project.rootDir, "--program", "back-end-wip-convergence", "--run-id", objectiveAuthority!, "--json"],
     studioRoute: `/memory-fab/designs/back-end-wip-convergence/runs/${objectiveAuthority}`,
@@ -618,7 +618,7 @@ test("shared handoff opens the exact Objective-focused Program after diagnostic 
       kind: "design-run",
       programId: "back-end-wip-convergence",
       objectiveComponent: "wip",
-      evidenceRunId: "094-simulate",
+      evidenceRunId: "096-simulate",
       phase: "exhausted",
       runId: objectiveAuthority,
     },
@@ -994,7 +994,7 @@ test("bounded loss disposition expires on any changed authority, target evidence
   expect(derive((manifest) => { manifest.program.hash = "0".repeat(64); })).toBeNull();
   expect(derive((manifest) => { manifest.benchmark.contractHash = "0".repeat(64); })).toBeNull();
   expect(derive((manifest) => { manifest.driver.selection.scenario = "changed"; })).toBeNull();
-  expect(derive((manifest) => { manifest.driver.hashes.deviceCatalogHash = "0".repeat(64); })).toBeNull();
+  expect(derive((manifest) => { manifest.driver.hashes.executionHash = "0".repeat(64); })).toBeNull();
   expect(derive((manifest) => { manifest.iterations[1]!.addressedLossTarget!.metric = "changed"; })).toBeNull();
   expect(derive(undefined, (value) => {
     const bucket = value.lossAttribution!.buckets.find((item) => item.id === "input-starvation")!;
@@ -1028,10 +1028,7 @@ test("Design evidence classification chooses current leaf authority without time
       },
       hashes: {
         engineVersion: "inm-sim/test",
-        resourceCatalogHash: hash("r"),
-        processCatalogHash: hash("p"),
-        routeCatalogHash: hash("t"),
-        deviceCatalogHash: hash("v"),
+        executionHash: hash("x"),
         worldHash: hash("w"),
         blueprintHash: hash("d"),
         scenarioHash: hash("s"),
@@ -1080,7 +1077,7 @@ test("Design evidence classification chooses current leaf authority without time
   const staleDriver = run("7", {
     driver: {
       ...structuredClone(identity.driver),
-      hashes: { ...identity.driver.hashes, deviceCatalogHash: hash("x") },
+      hashes: { ...identity.driver.hashes, executionHash: hash("y") },
     },
   });
   const evidence = classifyDesignProgramEvidence(identity, [historical, staleDriver, exhausted, source, promotable, continuation], [{
@@ -1115,7 +1112,7 @@ test("Design evidence classification chooses current leaf authority without time
   });
 });
 
-test("a historical run with a stale Device catalog cannot supply current fab loss authority", async () => {
+test("a historical run with a different selected execution cannot supply current fab loss authority", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/memory-fab"), {
     world: "cleanroom", blueprint: "equipment-energy-sleep", scenario: "equipment-energy-window", objective: "dram-energy",
   });

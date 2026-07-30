@@ -1,0 +1,25 @@
+{
+  "createdAt": "2026-07-30T04:06:49.510Z",
+  "decision": "KEEP",
+  "engineVersion": "inm-sim/0.89.0",
+  "hashes": {
+    "blueprintHash": "654f6acd9d7ce9163c06c771130d7f6cff7fa702454e17046c2552539fb1a83c",
+    "engineVersion": "inm-sim/0.89.0",
+    "executionHash": "b97b046e22d7454a40341509ebbc8a9fe51e3b79e4ce8aaf57c1ea37fe23c3f4",
+    "objectiveHash": "8893fbeb7a3f3c530a711eae305e1773c9c74e8513b510e73545a812e965b76d",
+    "scenarioHash": "ba90230fc2542e93f3729dd95927af96ba3c37f2c52e53abf6717945f20a8c83",
+    "worldHash": "667920f2b2a4dbcd839064f6a43c4182a4ad001044dd67a78da0e07260169168"
+  },
+  "parentRun": "001-keep-add-1-profiled-wind-turbine-device-to-g",
+  "resultHash": "33a992621255d4b62b00af63a96f460ee3dadf7becf83bc4503e93a3687a922f",
+  "runKey": "81e6f0c5090e3cb5922753652a46cfa332d7d58551c49f8f358235d31669792b",
+  "seed": 42,
+  "selection": {
+    "blueprint": "main",
+    "objective": "default",
+    "scenario": "baseline",
+    "world": "main"
+  },
+  "status": "completed",
+  "version": 1
+}

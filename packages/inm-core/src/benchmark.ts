@@ -21,13 +21,14 @@ import {
 } from "./benchmark-case-execution";
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
-import type { Blueprint, CompiledFactoryProject, ProjectHashes, SimulationResult } from "./types";
+import type { Blueprint, CompiledFactoryProject, ProjectEvidenceHashes, SimulationResult } from "./types";
+import { projectEvidenceHashes } from "./execution-identity";
 import { atomicWriteJson, ENGINE_VERSION, hashValue, readJson } from "./utils";
 
 const id = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase kebab-case");
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
 const projectHashesSchema = z.object({
-  engineVersion: z.string().min(1), resourceCatalogHash: hash, processCatalogHash: hash, routeCatalogHash: hash, deviceCatalogHash: hash,
+  engineVersion: z.string().min(1), executionHash: hash,
   worldHash: hash, blueprintHash: hash, scenarioHash: hash, objectiveHash: hash,
 }).strict();
 
@@ -318,7 +319,7 @@ interface CachedBaselineEvaluation {
 function baselineCacheIdentity(
   manifest: BlueprintBenchmarkManifest & { lock: NonNullable<BlueprintBenchmarkManifest["lock"]> },
   item: BlueprintBenchmarkManifest["cases"][number],
-  hashes: ProjectHashes,
+  hashes: ProjectEvidenceHashes,
 ): string {
   return hashValue({
     version: 1,
@@ -340,7 +341,7 @@ async function readCachedBaselineEvaluation(
   item: BlueprintBenchmarkManifest["cases"][number],
   baseline: CompiledFactoryProject,
 ): Promise<FactoryBlueprintEvaluation | null> {
-  const identityHash = baselineCacheIdentity(manifest, item, baseline.hashes);
+  const identityHash = baselineCacheIdentity(manifest, item, projectEvidenceHashes(baseline.hashes));
   try {
     const cached = await readJson(baselineCachePath(projectDir, manifest.id, item.id, identityHash)) as Partial<CachedBaselineEvaluation>;
     if (cached.version !== 1 || cached.identityHash !== identityHash || !cached.evaluation
@@ -359,7 +360,7 @@ async function writeCachedBaselineEvaluation(
   baseline: CompiledFactoryProject,
   evaluation: FactoryBlueprintEvaluation,
 ): Promise<void> {
-  const identityHash = baselineCacheIdentity(manifest, item, baseline.hashes);
+  const identityHash = baselineCacheIdentity(manifest, item, projectEvidenceHashes(baseline.hashes));
   await atomicWriteJson(baselineCachePath(projectDir, manifest.id, item.id, identityHash), {
     version: 1,
     identityHash,
@@ -440,12 +441,12 @@ export async function listBlueprintBenchmarks(projectDir: string): Promise<Bluep
 export async function lockBlueprintBenchmark(projectDir: string, benchmarkId: string): Promise<BlueprintBenchmarkManifest> {
   const source = await readJson(benchmarkPath(projectDir, benchmarkId)) as Record<string, unknown>;
   const manifest = parseBlueprintBenchmark(Object.fromEntries(Object.entries(source).filter(([key]) => key !== "lock")), benchmarkId);
-  const cases: Record<string, ProjectHashes> = {};
+  const cases: Record<string, ProjectEvidenceHashes> = {};
   for (const item of manifest.cases) {
     const baseline = await openSelectedProject(projectDir, {
       world: item.world, blueprint: manifest.baselineBlueprint, scenario: item.scenario, objective: item.objective,
     });
-    cases[item.id] = baseline.hashes;
+    cases[item.id] = projectEvidenceHashes(baseline.hashes);
   }
   const locked: BlueprintBenchmarkManifest = {
     ...manifest,
@@ -464,8 +465,8 @@ function assertBenchmarkLock(manifest: BlueprintBenchmarkManifest, benchmarkId: 
   if (hashValue(expectedCaseIds) !== hashValue(lockedCaseIds)) throw new Error(`Blueprint benchmark '${benchmarkId}' case set differs from its lock`);
 }
 
-function assertLockedHashes(benchmarkId: string, caseId: string, expected: ProjectHashes, actual: ProjectHashes): void {
-  for (const key of Object.keys(expected) as Array<keyof ProjectHashes>) if (expected[key] !== actual[key]) {
+function assertLockedHashes(benchmarkId: string, caseId: string, expected: ProjectEvidenceHashes, actual: ProjectEvidenceHashes): void {
+  for (const key of Object.keys(expected) as Array<keyof ProjectEvidenceHashes>) if (expected[key] !== actual[key]) {
     throw new Error(`Blueprint benchmark '${benchmarkId}' fixed input drifted in case '${caseId}': ${key} ${expected[key]} → ${actual[key]}`);
   }
 }
@@ -580,7 +581,7 @@ async function prepareLoadedBlueprintBenchmark(
       world: item.world, blueprint: manifest.baselineBlueprint, scenario: item.scenario, objective: item.objective,
     });
     const compileMs = performance.now() - compileStartedAt;
-    assertLockedHashes(manifest.id, item.id, manifest.lock.cases[item.id]!, baseline.hashes);
+    assertLockedHashes(manifest.id, item.id, manifest.lock.cases[item.id]!, projectEvidenceHashes(baseline.hashes));
     const cacheStartedAt = performance.now();
     const cachedEvaluation = await readCachedBaselineEvaluation(projectDir, manifest, item, baseline);
     const cacheReadMs = performance.now() - cacheStartedAt;

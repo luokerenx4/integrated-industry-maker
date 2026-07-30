@@ -22,12 +22,9 @@
     "cases": {
       "incomplete-tail": {
         "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
-        "deviceCatalogHash": "73079d416a4b68dcd4e71c70f693ec133b49b03f35e58ae3a93c536965c4a6eb",
-        "engineVersion": "inm-sim/0.88.0",
+        "engineVersion": "inm-sim/0.89.0",
+        "executionHash": "2c9208a116e87bd036a63615e8376572e9b65d894f2867848edc46c1fe99a875",
         "objectiveHash": "2f68b5c48689f2d11dfb3ca68a8b452141f326cb5589173d1bce5ef6c089a7e5",
-        "processCatalogHash": "62149ef009fb8f8a99249fcbf4c09efc321650dbd54c83bdec5758ce3d42763a",
-        "resourceCatalogHash": "f2448edd0ae1dd8fd7bbb063b890fdb8eaf4cd93f26120eb2d66824ba0581c11",
-        "routeCatalogHash": "e706d898f2cdc31b0abb456f7da04cdac5d9839ff93b160cb14c54c3c6b1c6d2",
         "scenarioHash": "ccdb119ae7e4dc409e83c3c0bce7539bc7390098c6dcadd3ea97d1ac3cb2990f",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       }

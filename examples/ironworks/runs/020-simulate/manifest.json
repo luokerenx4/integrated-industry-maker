@@ -1,0 +1,24 @@
+{
+  "createdAt": "2026-07-30T04:06:51.120Z",
+  "decision": "BASELINE",
+  "engineVersion": "inm-sim/0.89.0",
+  "hashes": {
+    "blueprintHash": "6d1f936cb87b067be85a668c8187aa67197b0a80dd27b4ebc19137efb4b52437",
+    "engineVersion": "inm-sim/0.89.0",
+    "executionHash": "a08ee3b6dee4e7d9791e25abbc4d4923ce8233e383fdc2a6651141f6e2d5b66e",
+    "objectiveHash": "92f58f9c80916808463678567b005c983b4107dcfc0bae40eb10a6bd0872e6b5",
+    "scenarioHash": "d6f58333d455cc66e6f3746ed6c14f5fa841594ef9b5e6ff6ab7ca587b26068c",
+    "worldHash": "3b82ed811e2e21ccffb4c39fb89fba85cd9c3c7f1ecdfadab40d89f27e3711d6"
+  },
+  "resultHash": "b2b8d6ee11f7e4bf1ae2e2b2f83c0e546586095c2efe3be63923cb4c6683a8e5",
+  "runKey": "2fc71e5c54d823820deafd9f65e8bd93c360ebc33116697fd1a43f712495362d",
+  "seed": 42,
+  "selection": {
+    "blueprint": "xray-cracking-factory",
+    "objective": "hydrogen-production",
+    "scenario": "chemical-cold-start",
+    "world": "chemical"
+  },
+  "status": "completed",
+  "version": 1
+}

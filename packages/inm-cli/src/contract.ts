@@ -1,4 +1,4 @@
-import type { CompiledFactoryProject, InmManifest, OperationExecutionState, ProjectHashes, ProjectOperationContext, ProjectWorkbenchSnapshot } from "@inm/core";
+import type { CompiledFactoryProject, InmManifest, OperationExecutionState, ProjectEvidenceHashes, ProjectHashes, ProjectOperationContext, ProjectWorkbenchSnapshot } from "@inm/core";
 
 export const CLI_SCHEMA_VERSION = 2 as const;
 
@@ -15,7 +15,7 @@ export type CliContext =
     scope: "project";
     project: CliProjectIdentity;
     selection?: { world: string; blueprint: string; scenario: string; objective: string };
-    hashes?: ProjectHashes;
+    hashes?: ProjectHashes | ProjectEvidenceHashes;
   };
 
 export interface CliArtifact {

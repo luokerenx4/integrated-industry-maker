@@ -490,8 +490,8 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
   const projectDir = join(repository, "examples/memory-fab");
   const before = await Bun.file(join(projectDir, "blueprints/generated-dram-fab.blueprint.json")).text();
   const [machine, human, help] = await Promise.all([
-    runCli(["observe", projectDir, "--run", "094-simulate", "--json"]),
-    runCli(["observe", projectDir, "--run", "094-simulate"]),
+    runCli(["observe", projectDir, "--run", "096-simulate", "--json"]),
+    runCli(["observe", projectDir, "--run", "096-simulate"]),
     runCli(["help", "--json"]),
   ]);
   expect({ machine: machine.exitCode, human: human.exitCode, machineStderr: machine.stderr, humanStderr: human.stderr })
@@ -513,28 +513,28 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
     data: expect.objectContaining({
       status: "ready",
       authority: "human-or-agent",
-      evidence: { state: "compatible", run: expect.objectContaining({ id: "094-simulate" }) },
+      evidence: { state: "compatible", run: expect.objectContaining({ id: "096-simulate" }) },
       leadingObjectiveTradeoff: expect.objectContaining({
         component: "wip",
         contribution: -41.75164375,
-        runId: "094-simulate",
+        runId: "096-simulate",
         interpretation: "objective-accounting-not-causal-loss",
       }),
       views: expect.arrayContaining([
-        expect.objectContaining({ studioRoute: "/memory-fab/factory?run=094-simulate" }),
-        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/burn-in-1?run=094-simulate" }),
-        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/packaging-1?run=094-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory?run=096-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/burn-in-1?run=096-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/packaging-1?run=096-simulate" }),
       ]),
     }),
   }));
   expect(envelope.nextActions[0]).toEqual(expect.objectContaining({
     id: "author-observation-hypothesis",
     effect: "read-only",
-    studioRoute: "/memory-fab/factory?run=094-simulate",
+    studioRoute: "/memory-fab/factory?run=096-simulate",
     argv: expect.arrayContaining(["--section", "objective"]),
   }));
   expect(human.stdout).toContain("observation brief");
-  expect(human.stdout).toContain("/memory-fab/factory?run=094-simulate");
+  expect(human.stdout).toContain("/memory-fab/factory?run=096-simulate");
   expect(human.stdout).toContain("Leading Objective tradeoff: wip -41.752");
   expect(human.stdout).not.toContain("analysis.material-deficit");
   const observeCapability = JSON.parse(help.stdout).data.commands.find((command: { id: string }) => command.id === "observe");
@@ -965,7 +965,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
   }
 }, 180_000);
 
-test("public inspect withholds loss authority from a stale Device-catalog run", async () => {
+test("public inspect withholds loss authority from a different selected execution", async () => {
   const projectDir = join(repository, "examples/memory-fab");
   const result = await runCli([
     "inspect", projectDir, "--world", "cleanroom", "--blueprint", "equipment-energy-sleep",
@@ -1166,19 +1166,31 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
         currentRuns: 2,
       }),
     }));
-    expect(result.lossDispositions).toEqual([]);
+    expect(result.lossDispositions).toHaveLength(8);
+    expect(result.lossDispositions.map((item: { source: { programId: string } }) => item.source.programId).sort()).toEqual([
+      "back-end-die-handoff",
+      "burn-in-changeover-convergence",
+      "front-end-queue-convergence",
+      "inspection-supply-path",
+      "layer-two-particle-control",
+      "lithography-maintenance-convergence",
+      "release-admission-convergence",
+      "shipping-power-convergence",
+    ]);
     expect(result.nextAction).toEqual(expect.objectContaining({
-      id: expect.stringMatching(/^design\.inspect:inspection-supply-path:fab-loss\.input-starvation:/),
+      id: `design.run.objective:back-end-wip-convergence:${authorityRunId}:wip:096-simulate`,
       target: expect.objectContaining({
-        kind: "design-program",
-        programId: "inspection-supply-path",
+        evidenceRunId: "096-simulate",
+        kind: "design-run",
+        programId: "back-end-wip-convergence",
+        runId: authorityRunId,
       }),
     }));
     expect(JSON.parse(objective.stdout).data.result).toEqual(expect.objectContaining({
       dominantPenalty: { id: "wip", contribution: -41.75164375, role: "penalty" },
     }));
-    expect(JSON.parse(dispositions.stdout).data.result).toHaveLength(0);
-    expect(human.stdout).toContain("Next action: Investigate the leading loss with Inspection Supply Path Convergence");
+    expect(JSON.parse(dispositions.stdout).data.result).toHaveLength(8);
+    expect(human.stdout).toContain("Next action: Expand Back-end WIP Convergence's intervention portfolio");
     return;
   }
   const program = result.designPrograms.find((item: { id: string }) => item.id === "commissioned-dram-fab");

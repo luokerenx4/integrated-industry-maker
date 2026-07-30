@@ -40,6 +40,7 @@ import {
   resolveProjectDirectory,
   runDesignProgram,
   simulateProjectOperation,
+  sameProjectEvidenceIdentity,
   stableStringify,
   studioSourceHash,
   validateProjectOperation,
@@ -188,7 +189,7 @@ async function loadStudioData(projectId: string, runName?: string) {
   if (runName && !requestedRun) throw new Error(`Unknown compatible immutable run '${runName}' in project '${projectId}'`);
   const requestedLoaded = requestedRun ? await loadFactoryProject(projectDir, requestedRun.manifest.selection) : undefined;
   const requestedProject = requestedLoaded ? compileFactoryProject(requestedLoaded) : undefined;
-  if (requestedRun && stableStringify(requestedRun.manifest.hashes) !== stableStringify(requestedProject!.hashes)) {
+  if (requestedRun && !sameProjectEvidenceIdentity(requestedRun.manifest.hashes, requestedProject!.hashes)) {
     throw new Error(`Immutable run '${requestedRun.name}' is not compatible with the exact selected project hashes`);
   }
   const selected = requestedRun
@@ -197,7 +198,7 @@ async function loadStudioData(projectId: string, runName?: string) {
       && run.manifest.selection.blueprint === defaultProject.selection.blueprint
       && run.manifest.selection.scenario === defaultProject.selection.scenario
       && run.manifest.selection.objective === defaultProject.selection.objective
-      && stableStringify(run.manifest.hashes) === stableStringify(defaultProject.hashes)).at(-1) : undefined);
+      && sameProjectEvidenceIdentity(run.manifest.hashes, defaultProject.hashes)).at(-1) : undefined);
   const loaded = requestedLoaded ?? defaultLoaded;
   const runBlueprint = selected
     ? JSON.parse(await readFile(join(selected.path, "blueprint.json"), "utf8"))
@@ -207,7 +208,7 @@ async function loadStudioData(projectId: string, runName?: string) {
   const compatibleHashes = selected?.manifest.hashes ?? defaultProject.hashes;
   const compatibleRuns = runs.filter((run) =>
     stableStringify(run.manifest.selection) === stableStringify(compatibleSelection)
-    && stableStringify(run.manifest.hashes) === stableStringify(compatibleHashes));
+    && sameProjectEvidenceIdentity(run.manifest.hashes, compatibleHashes));
   const regionLayout = layoutRegions(project.world.regions);
   let events = [];
   let metrics = null;

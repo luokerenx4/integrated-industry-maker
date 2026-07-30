@@ -40,7 +40,7 @@ async function parseFile<T>(path: string, kind: SchemaKind): Promise<T> {
   return parsed.data as T;
 }
 
-async function contentHash(directory: string): Promise<string> {
+async function contentHash(directory: string, excluded: ReadonlySet<string> = new Set()): Promise<string> {
   const hash = createHash("sha256");
   async function visit(current: string): Promise<void> {
     const entries = (await readdir(current, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name));
@@ -49,7 +49,7 @@ async function contentHash(directory: string): Promise<string> {
       const name = relative(directory, path).split(sep).join("/");
       if (entry.isSymbolicLink()) throw new Error(`Asset packages cannot contain symbolic links: ${path}`);
       if (entry.isDirectory()) await visit(path);
-      else if (entry.isFile()) { hash.update(name); hash.update("\0"); hash.update(await readFile(path)); hash.update("\0"); }
+      else if (entry.isFile() && !excluded.has(name)) { hash.update(name); hash.update("\0"); hash.update(await readFile(path)); hash.update("\0"); }
     }
   }
   await visit(directory);
@@ -176,9 +176,20 @@ async function loadDevices(rootDir: string): Promise<Record<string, DeviceAsset>
       materialMaps.metalness,
       materialMaps.emissive,
     ]);
-    const program = await importDeviceProgram(manifest.id, assetFile(assetDir, manifest.runtime.entry), hash);
+    const presentationFiles = new Set([
+      "asset.json",
+      manifest.files.visual,
+      visual.model,
+      materialMaps.baseColor,
+      materialMaps.normal,
+      materialMaps.roughness,
+      materialMaps.metalness,
+      materialMaps.emissive,
+    ].filter((path): path is string => path !== null));
+    const runtimeSourceHash = await contentHash(assetDir, presentationFiles);
+    const program = await importDeviceProgram(manifest.id, assetFile(assetDir, manifest.runtime.entry), runtimeSourceHash);
     catalog[manifest.id] = {
-      ...manifest, assetDir, contentHash: hash, runtimeSourceHash: hash, program,
+      ...manifest, assetDir, contentHash: hash, runtimeSourceHash, program,
       visual: {
         ...visual,
         model: projectFile(rootDir, assetDir, visual.model),

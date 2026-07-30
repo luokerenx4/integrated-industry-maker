@@ -62,7 +62,7 @@ Every positive-time metric boundary reads resident and active-job inventory, loc
 
 ## Immutable runs
 
-A completed run contains its Blueprint snapshot, manifest, events, final state, metrics, and report; research runs also include hypothesis and patch. Files are atomically written and `manifest.json` is last. The run key includes engine version, all input/catalog hashes, seed, duration, and event limit. `resultHash` covers the run key, ordered events, final state, and metrics.
+A completed run contains its Blueprint snapshot, manifest, events, final state, metrics, and report; research runs also include hypothesis and patch. Files are atomically written and `manifest.json` is last. The run key includes engine version, the exact selection-scoped execution hash, named World/Blueprint/Scenario/Objective hashes, seed, duration, and event limit. Full catalog inventory and presentation do not participate unless selected execution reaches them. `resultHash` covers the run key, ordered events, final state, and metrics.
 
 Studio viewing never creates a run. Only explicit CLI simulation/research workflows write history.
 

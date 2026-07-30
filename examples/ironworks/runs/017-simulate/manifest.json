@@ -1,0 +1,24 @@
+{
+  "createdAt": "2026-07-30T04:06:50.170Z",
+  "decision": "BASELINE",
+  "engineVersion": "inm-sim/0.89.0",
+  "hashes": {
+    "blueprintHash": "bab26231febd55a42ecdc0b653ada177c2595e30c06f38f7d54b4535d11e4880",
+    "engineVersion": "inm-sim/0.89.0",
+    "executionHash": "c68d484028ad6bd95d001695c1422fb421fdf947536cc4763d5aff8a951dc0c2",
+    "objectiveHash": "ce57b784e094d1d8db88b8fb2bc9f1224f2247ffd2969794a89a71ac970c6918",
+    "scenarioHash": "f61f06fb390aef9303cff308d8e03465c01dee4fb69083ee2fc4511dec5cd4f0",
+    "worldHash": "667920f2b2a4dbcd839064f6a43c4182a4ad001044dd67a78da0e07260169168"
+  },
+  "resultHash": "fc75f33b0f1c2111fe6a68b27036ced7319280b5fee11031a0a513ab9d5ce541",
+  "runKey": "dab02fcfc6d421c4194f2a1c09dc3c4e4e296f6b8a93b1f6a538bd1f6e45ce95",
+  "seed": 42,
+  "selection": {
+    "blueprint": "stacked-cargo",
+    "objective": "stacked-cargo",
+    "scenario": "stacked-cargo",
+    "world": "main"
+  },
+  "status": "completed",
+  "version": 1
+}

@@ -1,0 +1,732 @@
+{
+  "averageBeltItems": 2.2025,
+  "averageBlockedBeltItems": 0,
+  "averageWip": 2.6483333333333334,
+  "batchFlow": {
+    "averageLotsPerJob": 0,
+    "batchOperations": 0,
+    "formationDevices": {},
+    "formationHolds": 0,
+    "formationHoldTicks": 0,
+    "jobs": 0,
+    "lots": 0,
+    "meanQueueWaitTicksPerLot": 0,
+    "operations": {},
+    "preferredReleases": 0,
+    "timeoutReleases": 0
+  },
+  "beltCellUtilization": 0.031464285714285715,
+  "blockedOutputTime": {
+    "synth-chemical-basin-wind-turbine-1": 0,
+    "synth-chemical-basin-wind-turbine-2": 0,
+    "synth-crude-oil-extractor-1": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": 0,
+    "synth-graphite-surplus-sink": 0,
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-loader": 0,
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-unloader": 0,
+    "synth-hydrogen-sink": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 0,
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-loader": 0,
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-unloader": 0,
+    "synth-refine-crude-1": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 0,
+    "synth-xray-crack-oil-1": 0
+  },
+  "bottleneckEntity": "synth-refine-crude-1",
+  "cadenceControl": {
+    "devices": {}
+  },
+  "carrierMissions": 0,
+  "carrierReturns": 0,
+  "completedOrders": 104,
+  "consumed": {
+    "graphite": 26,
+    "hydrogen": 78
+  },
+  "deliveryPortfolio": {
+    "contracts": {
+      "primary": {
+        "delivered": 78,
+        "demand": 20,
+        "fulfillment": 3.9,
+        "grossValue": 0,
+        "name": "Closed-Loop Hydrogen Cracking",
+        "netValue": 0,
+        "overflow": 58,
+        "region": "chemical-basin",
+        "resource": "hydrogen",
+        "shortfall": 0,
+        "shortfallPenalty": 0,
+        "valued": 78
+      }
+    },
+    "delivered": 78,
+    "demanded": 20,
+    "fulfillment": 3.9,
+    "grossValue": 0,
+    "netValue": 0,
+    "netValuePerMinute": 0,
+    "overflow": 58,
+    "shortfallPenalty": 0,
+    "valued": 78
+  },
+  "electricityCosts": {
+    "demandChargeMicroCurrency": 0,
+    "energyChargeMicroCurrency": 0,
+    "regions": {},
+    "totalMicroCurrency": 0
+  },
+  "energyConsumedMilliJoules": 75302875,
+  "energyStorage": {
+    "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
+      "capacityMilliJoules": 0,
+      "chargedMilliJoules": 0,
+      "dischargedMilliJoules": 0,
+      "initialMilliJoules": 0,
+      "storedMilliJoules": 0
+    }
+  },
+  "equipmentEnergyManagement": {
+    "devices": {},
+    "totalSleepingTicks": 0,
+    "totalSleeps": 0,
+    "totalWakeTicks": 0,
+    "totalWakeups": 0
+  },
+  "equipmentMaintenance": {
+    "devices": {},
+    "providers": {},
+    "qualificationConsumables": {},
+    "serviceConsumables": {},
+    "totalAssetLimit": 0,
+    "totalCalendarTriggered": 0,
+    "totalCancelled": 0,
+    "totalCompleted": 0,
+    "totalCrewBlocks": 0,
+    "totalCrewWaitTicks": 0,
+    "totalDriftDefects": 0,
+    "totalDriftedJobs": 0,
+    "totalDriftedLots": 0,
+    "totalInputBlocks": 0,
+    "totalInputWaitTicks": 0,
+    "totalMaintenanceTicks": 0,
+    "totalOpportunistic": 0,
+    "totalPlannedBoundary": 0,
+    "totalQualificationCancelled": 0,
+    "totalQualificationCompleted": 0,
+    "totalQualificationCrewTicks": 0,
+    "totalQualificationTicks": 0,
+    "totalServiceCrewTicks": 0,
+    "totalUsageTriggered": 0
+  },
+  "equipmentSetups": {
+    "campaignMaximumHoldReleases": 0,
+    "campaignMinimumLotReleases": 0,
+    "devices": {},
+    "totalCampaignHolds": 0,
+    "totalCampaignHoldTicks": 0,
+    "totalChangeovers": 0,
+    "totalSetupTicks": 0
+  },
+  "extracted": {
+    "crude-oil": 60
+  },
+  "failedTime": {
+    "synth-chemical-basin-wind-turbine-1": 0,
+    "synth-chemical-basin-wind-turbine-2": 0,
+    "synth-crude-oil-extractor-1": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": 0,
+    "synth-graphite-surplus-sink": 0,
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-loader": 0,
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-unloader": 0,
+    "synth-hydrogen-sink": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 0,
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-loader": 0,
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-unloader": 0,
+    "synth-refine-crude-1": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 0,
+    "synth-xray-crack-oil-1": 0
+  },
+  "finalScore": 402.48213791666666,
+  "fuelConsumed": {},
+  "highSpeedMissions": 0,
+  "idleTime": {
+    "synth-chemical-basin-wind-turbine-1": 120000,
+    "synth-chemical-basin-wind-turbine-2": 120000,
+    "synth-crude-oil-extractor-1": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": 105250,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": 105250,
+    "synth-graphite-surplus-sink": 0,
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-loader": 113250,
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-unloader": 113500,
+    "synth-hydrogen-sink": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": 113000,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 113000,
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-loader": 100000,
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-unloader": 100500,
+    "synth-refine-crude-1": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": 106000,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 106000,
+    "synth-xray-crack-oil-1": 0
+  },
+  "infeasibleReason": null,
+  "inventoryAccounting": {
+    "averageExcludedInventory": 6.095000000000001,
+    "averageTotalInventory": 8.743333333333334,
+    "averageWip": 2.6483333333333334,
+    "locations": {
+      "buffer:synth-refine-crude-1:liquid-output:refined-oil": {
+        "averageInventory": 0.058333333333333334,
+        "buffer": "liquid-output",
+        "device": "synth-refine-crude-1",
+        "finalInventory": 0,
+        "kind": "buffer",
+        "peakInventory": 1,
+        "resource": "refined-oil"
+      },
+      "buffer:synth-xray-crack-oil-1:oil-input:refined-oil": {
+        "averageInventory": 0.175,
+        "buffer": "oil-input",
+        "device": "synth-xray-crack-oil-1",
+        "finalInventory": 0,
+        "kind": "buffer",
+        "peakInventory": 2,
+        "resource": "refined-oil"
+      },
+      "in-process:synth-xray-crack-oil-1:xray-crack-oil:refined-oil": {
+        "averageInventory": 1.8083333333333333,
+        "device": "synth-xray-crack-oil-1",
+        "finalInventory": 2,
+        "kind": "in-process",
+        "peakInventory": 2,
+        "process": "xray-crack-oil",
+        "resource": "refined-oil"
+      },
+      "local-transit:synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1:belt:refined-oil": {
+        "averageInventory": 0.37333333333333335,
+        "connection": "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1",
+        "finalInventory": 0,
+        "kind": "local-transit",
+        "peakInventory": 2,
+        "phase": "belt",
+        "resource": "refined-oil"
+      },
+      "local-transit:synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1:loading:refined-oil": {
+        "averageInventory": 0.11666666666666667,
+        "connection": "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1",
+        "finalInventory": 0,
+        "kind": "local-transit",
+        "peakInventory": 1,
+        "phase": "loading",
+        "resource": "refined-oil"
+      },
+      "local-transit:synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1:unloading:refined-oil": {
+        "averageInventory": 0.11666666666666667,
+        "connection": "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1",
+        "finalInventory": 0,
+        "kind": "local-transit",
+        "peakInventory": 1,
+        "phase": "unloading",
+        "resource": "refined-oil"
+      }
+    },
+    "peakTotalInventory": 11,
+    "peakWip": 4,
+    "resources": {
+      "crude-oil": {
+        "averageInventory": 3.2266666666666666,
+        "finalInventory": 4,
+        "includedInWip": false,
+        "peakInventory": 4
+      },
+      "graphite": {
+        "averageInventory": 0.8491666666666666,
+        "finalInventory": 1,
+        "includedInWip": false,
+        "peakInventory": 1
+      },
+      "hydrogen": {
+        "averageInventory": 2.0191666666666666,
+        "finalInventory": 4,
+        "includedInWip": false,
+        "peakInventory": 4
+      },
+      "refined-oil": {
+        "averageInventory": 2.6483333333333334,
+        "finalInventory": 2,
+        "includedInWip": true,
+        "peakInventory": 4
+      }
+    }
+  },
+  "lotFlow": {
+    "completed": 0,
+    "family": null,
+    "inProgress": 0,
+    "maximumCycleTimeTicks": 0,
+    "maximumTardinessTicks": 0,
+    "meanCycleTimeTicks": 0,
+    "meanProcessTimeTicks": 0,
+    "meanQueueTimeTicks": 0,
+    "meanTardinessTicks": 0,
+    "meanTransportTimeTicks": 0,
+    "onTimeCompleted": 0,
+    "p95CycleTimeTicks": 0,
+    "pendingRelease": 0,
+    "released": 0,
+    "scheduled": 0,
+    "scrapped": 0
+  },
+  "lotOutputFlow": {
+    "actualOutputs": {},
+    "actualUnits": 0,
+    "jobs": 0,
+    "lostOutputs": {},
+    "lostUnits": 0,
+    "nominalOutputs": {},
+    "nominalUnits": 0,
+    "outputRatio": 1,
+    "processes": {}
+  },
+  "machineUtilization": {
+    "synth-chemical-basin-wind-turbine-1": 0,
+    "synth-chemical-basin-wind-turbine-2": 0,
+    "synth-crude-oil-extractor-1": 1,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": 0.12291666666666666,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": 0.12291666666666666,
+    "synth-graphite-surplus-sink": 0,
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-loader": 0.05625,
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-unloader": 0.05416666666666667,
+    "synth-hydrogen-sink": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": 0.058333333333333334,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 0.058333333333333334,
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-loader": 0.16666666666666666,
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-unloader": 0.1625,
+    "synth-refine-crude-1": 0.9525,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": 0.11666666666666667,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 0.11666666666666667,
+    "synth-xray-crack-oil-1": 0.9041666666666667
+  },
+  "materialTreatment": {
+    "agentsConsumed": {},
+    "treated": {}
+  },
+  "occupiedArea": 102,
+  "onTimeDelivery": 3.9,
+  "peakBeltItems": 5,
+  "powerGrids": {
+    "grid-chemical-basin-synth-chemical-basin-wind-turbine-1": {
+      "averageSatisfactionPpm": 1000000,
+      "curtailedMilliJoules": 68697125,
+      "demandMilliJoules": 75302875,
+      "generatedMilliJoules": 144000000,
+      "minimumSatisfactionPpm": 1000000,
+      "peakDeficitMilliWatts": 0,
+      "peakDemandMilliWatts": 669500,
+      "peakGenerationMilliWatts": 1200000,
+      "peakSurplusMilliWatts": 1086000,
+      "requiredStorageCapacityMilliJoules": 0,
+      "servedMilliJoules": 75302875,
+      "unservedMilliJoules": 0
+    }
+  },
+  "produced": {
+    "crude-oil": 60,
+    "graphite": 27,
+    "hydrogen": 109,
+    "refined-oil": 56
+  },
+  "productionTooling": {
+    "devices": {},
+    "providers": {},
+    "resources": {},
+    "totalAllocations": 0,
+    "totalCancelled": 0,
+    "totalCompleted": 0,
+    "totalInputBlocks": 0,
+    "totalInputWaitTicks": 0,
+    "totalOccupiedTicks": 0,
+    "totalUnitTicks": 0
+  },
+  "productionUtilities": {
+    "devices": {},
+    "providers": {},
+    "totalAllocations": 0,
+    "totalCancelled": 0,
+    "totalCompleted": 0,
+    "totalInputBlocks": 0,
+    "totalInputWaitTicks": 0,
+    "totalOccupiedTicks": 0,
+    "totalProviderInterruptions": 0,
+    "totalUnitTicks": 0,
+    "utilities": {}
+  },
+  "qualityFlow": {
+    "activeDefects": 0,
+    "defectFreeCompleted": 0,
+    "escapedDefects": 0,
+    "firstPassCompleted": 0,
+    "firstPassYield": 0,
+    "goodYield": 0,
+    "inspectedLots": 0,
+    "passedInspections": 0,
+    "qualityControl": {
+      "appliedDefectInstances": 0,
+      "authoredDefectInstances": 0,
+      "authoredExcursions": 0,
+      "devices": {},
+      "preventedDefectInstances": 0,
+      "preventedLots": 0
+    },
+    "rejectedInspections": 0,
+    "reworkedLots": 0,
+    "scrapDispositions": 0,
+    "totalInspections": 0,
+    "totalReworkCycles": 0
+  },
+  "releaseFlow": {
+    "actualSpanTicks": 0,
+    "capacityBlockedLots": 0,
+    "capacityBlockedTicks": 0,
+    "control": "open-loop",
+    "controlBlockedLots": 0,
+    "controlBlockedTicks": 0,
+    "dispatch": null,
+    "maximumReleaseDelayTicks": 0,
+    "maximumWip": null,
+    "meanActualIntervalTicks": 0,
+    "meanPlannedIntervalTicks": 0,
+    "meanReleaseDelayTicks": 0,
+    "peakActiveLots": 0,
+    "pending": 0,
+    "plannedSpanTicks": 0,
+    "released": 0,
+    "reopenAtWip": null,
+    "scheduled": 0,
+    "serviceLevelAfterTicks": null,
+    "serviceLevelOpenings": 0,
+    "serviceProtectedReleases": 0
+  },
+  "resourceNodes": {
+    "oil-seep-1": {
+      "depleted": false,
+      "extracted": 60,
+      "initial": 200,
+      "remaining": 139,
+      "reserved": 1
+    },
+    "oil-seep-2": {
+      "depleted": false,
+      "extracted": 0,
+      "initial": 200,
+      "remaining": 200,
+      "reserved": 0
+    }
+  },
+  "routeFlow": {},
+  "scoreBreakdown": {
+    "blocked": 0,
+    "buildCost": -5.1,
+    "changeovers": 0,
+    "constraintPenalty": 0,
+    "cycleTime": 0,
+    "deliveryValue": 0,
+    "electricityCost": 0,
+    "energy": -0.75302875,
+    "occupiedArea": -20.400000000000002,
+    "onTimeDelivery": 39,
+    "qualityEscapes": 0,
+    "rework": 0,
+    "tardiness": 0,
+    "throughput": 390,
+    "wip": -0.26483333333333337
+  },
+  "sleepingTime": {
+    "synth-chemical-basin-wind-turbine-1": 0,
+    "synth-chemical-basin-wind-turbine-2": 0,
+    "synth-crude-oil-extractor-1": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": 0,
+    "synth-graphite-surplus-sink": 0,
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-loader": 0,
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-unloader": 0,
+    "synth-hydrogen-sink": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 0,
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-loader": 0,
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-unloader": 0,
+    "synth-refine-crude-1": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 0,
+    "synth-xray-crack-oil-1": 0
+  },
+  "stationEnergy": {},
+  "stationFleets": {},
+  "throughputPerMinute": 39,
+  "totalBuildCost": 10200,
+  "transportCongestion": 0.03146428571428557,
+  "transportEnergyConsumedMilliJoules": 786375,
+  "transportFlows": {
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1": {
+      "averageInFlightItems": 0.8358333333333333,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "crude-oil": 59
+      },
+      "deliveredItems": 59,
+      "deliveredItemsPerMinute": 29.5,
+      "departedByResource": {
+        "crude-oil": 60
+      },
+      "departedItems": 60,
+      "departedItemsPerMinute": 30,
+      "utilization": 0.12291666666666666
+    },
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink": {
+      "averageInFlightItems": 0.8491666666666666,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "graphite": 26
+      },
+      "deliveredItems": 26,
+      "deliveredItemsPerMinute": 13,
+      "departedByResource": {
+        "graphite": 27
+      },
+      "departedItems": 27,
+      "departedItemsPerMinute": 13.5,
+      "utilization": 0.05416666666666667
+    },
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1": {
+      "averageInFlightItems": 0.42,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "hydrogen": 28
+      },
+      "deliveredItems": 28,
+      "deliveredItemsPerMinute": 14,
+      "departedByResource": {
+        "hydrogen": 28
+      },
+      "departedItems": 28,
+      "departedItemsPerMinute": 14,
+      "utilization": 0.058333333333333334
+    },
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink": {
+      "averageInFlightItems": 0.52625,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "hydrogen": 78
+      },
+      "deliveredItems": 78,
+      "deliveredItemsPerMinute": 39,
+      "departedByResource": {
+        "hydrogen": 81
+      },
+      "departedItems": 81,
+      "departedItemsPerMinute": 40.5,
+      "utilization": 0.1625
+    },
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1": {
+      "averageInFlightItems": 0.6066666666666667,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "refined-oil": 56
+      },
+      "deliveredItems": 56,
+      "deliveredItemsPerMinute": 28,
+      "departedByResource": {
+        "refined-oil": 56
+      },
+      "departedItems": 56,
+      "departedItemsPerMinute": 28,
+      "utilization": 0.11666666666666667
+    }
+  },
+  "transportStageUtilization": {
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1": {
+      "loader": 0.12291666666666666,
+      "unloader": 0.12291666666666666
+    },
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink": {
+      "loader": 0.05625,
+      "unloader": 0.05416666666666667
+    },
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1": {
+      "loader": 0.058333333333333334,
+      "unloader": 0.058333333333333334
+    },
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink": {
+      "loader": 0.16666666666666666,
+      "unloader": 0.1625
+    },
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1": {
+      "loader": 0.11666666666666667,
+      "unloader": 0.11666666666666667
+    }
+  },
+  "unpoweredTime": {
+    "synth-chemical-basin-wind-turbine-1": 0,
+    "synth-chemical-basin-wind-turbine-2": 0,
+    "synth-crude-oil-extractor-1": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": 0,
+    "synth-graphite-surplus-sink": 0,
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-loader": 0,
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-unloader": 0,
+    "synth-hydrogen-sink": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 0,
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-loader": 0,
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-unloader": 0,
+    "synth-refine-crude-1": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 0,
+    "synth-xray-crack-oil-1": 0
+  },
+  "waitingInputTime": {
+    "synth-chemical-basin-wind-turbine-1": 0,
+    "synth-chemical-basin-wind-turbine-2": 0,
+    "synth-crude-oil-extractor-1": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-loader": 0,
+    "synth-crude-oil-synth-crude-oil-extractor-1-to-synth-refine-crude-1-unloader": 0,
+    "synth-graphite-surplus-sink": 120000,
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-loader": 0,
+    "synth-graphite-synth-xray-crack-oil-1-to-synth-graphite-surplus-sink-unloader": 0,
+    "synth-hydrogen-sink": 120000,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": 0,
+    "synth-hydrogen-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 0,
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-loader": 0,
+    "synth-hydrogen-synth-xray-crack-oil-1-to-synth-hydrogen-sink-unloader": 0,
+    "synth-refine-crude-1": 5700,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-loader": 0,
+    "synth-refined-oil-synth-refine-crude-1-to-synth-xray-crack-oil-1-unloader": 0,
+    "synth-xray-crack-oil-1": 11500
+  }
+}

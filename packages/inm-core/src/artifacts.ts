@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
-import type { Blueprint, CompiledFactoryProject, FactoryEvent, SimulationResult } from "./types";
+import type { Blueprint, CompiledFactoryProject, FactoryEvent, ProjectEvidenceHashes, SimulationResult } from "./types";
+import { projectEvidenceHashes } from "./execution-identity";
 import { atomicWrite, atomicWriteJson, hashValue, pathExists, stableStringify } from "./utils";
 import { planProductionCapacity } from "./capacity-plan";
 import { transportBlockCauseTotals } from "./transport-blocking";
@@ -29,7 +30,7 @@ export interface RunManifest {
   runKey: string;
   resultHash: string;
   engineVersion: string;
-  hashes: CompiledFactoryProject["hashes"];
+  hashes: ProjectEvidenceHashes;
   selection: { world: string; blueprint: string; scenario: string; objective: string };
   seed: number;
   decision: "BASELINE" | "KEEP" | "REVERT";
@@ -169,7 +170,7 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
   await atomicWrite(join(runDir, "report.md"), report);
   const manifest: RunManifest = {
     version: 1, status: "completed", createdAt: new Date().toISOString(), runKey: result.runKey,
-    resultHash: result.resultHash, engineVersion: project.hashes.engineVersion, hashes: project.hashes,
+    resultHash: result.resultHash, engineVersion: project.hashes.engineVersion, hashes: projectEvidenceHashes(project.hashes),
     selection: { ...project.selection },
     seed: options.seed, decision: options.decision ?? "BASELINE", ...(options.parentRun ? { parentRun: basename(options.parentRun) } : {}),
   };

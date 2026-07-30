@@ -30,6 +30,11 @@ import {
 import { ENGINE_VERSION, hashValue, readJson, stableStringify } from "./utils";
 import { describeWipInventoryLocation } from "./inventory-location";
 import {
+  buildSelectionExecutionHash,
+  projectEvidenceHashes,
+  sameProjectEvidenceIdentity,
+} from "./execution-identity";
+import {
   classifyDesignProgramEvidence,
   type WorkbenchDesignProgramEvidence,
 } from "./design-evidence";
@@ -457,10 +462,10 @@ export function deriveWorkbenchLossDisposition(
       scenario: context.selection.scenario.id,
       objective: context.selection.objective.id,
     })
-    || stableStringify(manifest.driver.hashes) !== stableStringify({
+    || stableStringify(manifest.driver.hashes) !== stableStringify(projectEvidenceHashes({
       ...context.hashes,
       blueprintHash: manifest.seed.blueprintHash,
-    })
+    }))
     || manifest.stopReason !== "frontier-exhausted"
     || manifest.budget.evaluated <= 0
     || manifest.iterations.length !== manifest.budget.evaluated
@@ -1028,7 +1033,8 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     decision: run.manifest.decision,
     resultHash: run.manifest.resultHash,
     engineVersion: run.manifest.engineVersion,
-    compatible: run.manifest.engineVersion === ENGINE_VERSION && stableStringify(run.manifest.hashes) === stableStringify(project.hashes),
+    compatible: run.manifest.engineVersion === ENGINE_VERSION
+      && sameProjectEvidenceIdentity(run.manifest.hashes, project.hashes),
     selection: { ...run.manifest.selection },
   }));
   const candidateSummaries: ProjectWorkbenchSnapshot["candidates"] = candidates.map((candidate, index) => {
@@ -1073,6 +1079,11 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     if (!reasons.length && benchmark.contractHash) {
       const normalizedSeed = structuredClone(project.blueprint);
       normalizedSeed.revision = project.hashes.blueprintHash;
+      const { hashes: _hashes, ...compiledSelection } = project;
+      const normalizedExecutionHash = buildSelectionExecutionHash({
+        ...compiledSelection,
+        blueprint: normalizedSeed,
+      });
       const indexed = await indexDesignRuns(project.rootDir, program.id);
       evidence = classifyDesignProgramEvidence({
         engineVersion: ENGINE_VERSION,
@@ -1091,10 +1102,11 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
             scenario: selection.scenario.id,
             objective: selection.objective.id,
           },
-          hashes: {
+          hashes: projectEvidenceHashes({
             ...project.hashes,
+            executionHash: normalizedExecutionHash,
             blueprintHash: hashValue(normalizedSeed),
-          },
+          }),
         },
         promotionBase: { blueprint: promotionTarget, hash: project.hashes.blueprintHash },
       }, indexed.runs, indexed.invalidRuns);

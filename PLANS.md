@@ -12,9 +12,7 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/selection-scoped-evidence-identity]] | Keep unused project-local design options from invalidating the exact selected factory's evidence. | 2026-07-29 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -28,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/selection-scoped-evidence-identity]] | Keep unused project-local design options from invalidating the exact selected factory's evidence. | 2026-07-30 |
 | [[plans/frictionless-industrial-design-cycle]] | Make the ordinary start, run, inspect, edit, and repeat cycle trustworthy without process or port archaeology. | 2026-07-29 |
 | [[plans/back-end-screening-batch-portfolio]] | Give the exhausted memory-fab WIP Program a fixed small-batch screening portfolio without weakening service. | 2026-07-29 |
 | [[plans/live-project-evidence-refresh]] | Keep a running Studio source-current and refresh newly completed project evidence without restart or port knowledge. | 2026-07-29 |

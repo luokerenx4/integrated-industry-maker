@@ -1,0 +1,25 @@
+{
+  "createdAt": "2026-07-30T04:06:49.762Z",
+  "decision": "KEEP",
+  "engineVersion": "inm-sim/0.89.0",
+  "hashes": {
+    "blueprintHash": "eebffeb2e66d7fd7a9234d98d96d687ba71a1848cc205f3b14756b53790606d2",
+    "engineVersion": "inm-sim/0.89.0",
+    "executionHash": "a83caddfef192ff1ef95bf3d32ac8c315b7004c888e5ca9d88cf600bbaa7ea34",
+    "objectiveHash": "8893fbeb7a3f3c530a711eae305e1773c9c74e8513b510e73545a812e965b76d",
+    "scenarioHash": "ba90230fc2542e93f3729dd95927af96ba3c37f2c52e53abf6717945f20a8c83",
+    "worldHash": "667920f2b2a4dbcd839064f6a43c4182a4ad001044dd67a78da0e07260169168"
+  },
+  "parentRun": "002-keep-switch-assembler-1-from-assemble-gear",
+  "resultHash": "0df9791c84b2475fa05e452eb051e167bdb28a164fc17e42769b88277a5e4c94",
+  "runKey": "3d2d100466f8301a4240503001fe5f3747e09773fe7d148c44e7af046699dcea",
+  "seed": 42,
+  "selection": {
+    "blueprint": "main",
+    "objective": "default",
+    "scenario": "baseline",
+    "world": "main"
+  },
+  "status": "completed",
+  "version": 1
+}

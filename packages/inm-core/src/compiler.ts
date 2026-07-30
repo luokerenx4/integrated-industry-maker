@@ -8,6 +8,7 @@ import type { LoadedFactoryProject } from "./loader";
 import { ENGINE_VERSION, hashValue } from "./utils";
 import { externalPortCellAtDistance, rotatePortSide, rotatedFootprint, transportCellId, transportEndpointRotation } from "./routing";
 import { compileProductionAmounts, productionDurationTicks, productionPowerMilliWatts } from "./production-mode";
+import { buildSelectionExecutionHash } from "./execution-identity";
 
 function acceptsResource(accepts: readonly string[], resource: ResourceId): boolean {
   return accepts.includes("*") || accepts.includes(resource);
@@ -2089,8 +2090,10 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
   for (const [index, failure] of (loaded.scenario.failures ?? []).entries()) if (!devices[failure.device]) issues.push({ path: `scenario/failures/${index}/device`, code: "reference.device-instance", message: `Unknown device instance '${failure.device}'` });
   if (issues.length) throw new InmValidationError(issues);
 
+  const compiled = { ...loaded, regions, resourceNodes, devices, connections, transportCells, logisticsNetworks, powerGrids };
   const hashes: ProjectHashes = {
     engineVersion: ENGINE_VERSION,
+    executionHash: buildSelectionExecutionHash(compiled),
     resourceCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.resources).map(([id, asset]) => [id, asset.contentHash]))),
     processCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.processes).map(([id, process]) => [id, process.contentHash]))),
     routeCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.routes).map(([id, route]) => [id, route.contentHash]))),
@@ -2098,5 +2101,5 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     worldHash: hashValue(loaded.world),
     blueprintHash: hashValue(loaded.blueprint), scenarioHash: hashValue(loaded.scenario), objectiveHash: hashValue(loaded.objective),
   };
-  return { ...loaded, regions, resourceNodes, devices, connections, transportCells, logisticsNetworks, powerGrids, hashes };
+  return { ...compiled, hashes };
 }
