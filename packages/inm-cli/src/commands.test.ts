@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { hashValue, listRuns, listWorkspaceProjects, lockBlueprintBenchmark, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProductionCapacity, resolveProjectDirectory } from "@inm/core";
+import { hashValue, listRuns, listWorkspaceProjects, lockBlueprintBenchmark, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProductionCapacity, resolveProjectDirectory, simulateProjectOperation } from "@inm/core";
 import { compareCommand, projectCreateCommand, projectDefaultCommand, synthesizeCommand, workspaceInitCommand } from "./commands";
 
 const repository = resolve(import.meta.dir, "../../..");
@@ -32,6 +32,7 @@ async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
   await rm(join(projectDir, "runs/099-simulate"), { recursive: true, force: true });
   await rm(join(projectDir, "runs/100-simulate"), { recursive: true, force: true });
   await rm(join(projectDir, "runs/101-simulate"), { recursive: true, force: true });
+  await rm(join(projectDir, "runs/102-simulate"), { recursive: true, force: true });
   for (const entry of [
     "0016-compact-inspection-rework-cell.entry.json",
     "0017-revise-compact-cell-east-port.entry.json",
@@ -42,6 +43,21 @@ async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
   ]) {
     await rm(join(projectDir, "investigations/inspection-starvation-next-step/entries", entry), { force: true });
   }
+}
+
+async function currentCompactRunPair(prefix: string) {
+  const root = await mkdtemp(join(tmpdir(), prefix));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes(".inm"),
+  });
+  const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
+  await writeFile(blueprintPath, await readFile(join(projectDir, "runs/100-simulate/blueprint.json"), "utf8"));
+  const from = await simulateProjectOperation(projectDir, {}, { seed: 42 });
+  await writeFile(blueprintPath, await readFile(join(projectDir, "runs/101-simulate/blueprint.json"), "utf8"));
+  const to = await simulateProjectOperation(projectDir, {}, { seed: 42 });
+  return { root, projectDir, fromRunId: from.data.run.id, toRunId: to.data.run.id };
 }
 
 test("one workspace creates, selects, and isolates multiple self-contained projects", async () => {
@@ -110,12 +126,14 @@ test("compare command evaluates two Blueprints without writing a run artifact", 
 });
 
 test("compare command explains two exact immutable memory-fab Runs for humans and Agents", async () => {
-  const projectDir = join(repository, "examples/memory-fab");
-  const args = ["compare", projectDir, "--from-run", "100-simulate", "--to-run", "101-simulate"];
+  const { root, projectDir, fromRunId, toRunId } = await currentCompactRunPair("inm-cli-run-comparison-");
+  try {
+  const args = ["compare", projectDir, "--from-run", fromRunId, "--to-run", toRunId];
 
   const human = await runCli(args);
   expect({ exitCode: human.exitCode, stderr: human.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(human.stdout).toContain("FROM 100-simulate 5302c842062c → TO 101-simulate d0a140643718");
+  expect(human.stdout).toContain(`FROM ${fromRunId}`);
+  expect(human.stdout).toContain(`→ TO ${toRunId}`);
   expect(human.stdout).toContain("score                 -0.306590 →     0.198410  Δ +0.505000");
   expect(human.stdout).toContain("build cost               229940 →       229840  Δ -100");
   expect(human.stdout).toContain("occupied area               269 →          259  Δ -10");
@@ -128,7 +146,7 @@ test("compare command explains two exact immutable memory-fab Runs for humans an
   expect({ exitCode: agent.exitCode, stderr: agent.stderr }).toEqual({ exitCode: 0, stderr: "" });
   const envelope = JSON.parse(agent.stdout);
   expect(envelope).toEqual(expect.objectContaining({
-    schemaVersion: 2,
+    schemaVersion: 3,
     ok: true,
     command: "compare",
     data: expect.objectContaining({
@@ -140,14 +158,12 @@ test("compare command explains two exact immutable memory-fab Runs for humans an
         verdict: "IMPROVED",
         from: expect.objectContaining({
           run: expect.objectContaining({
-            id: "100-simulate",
-            resultHash: "5302c842062cb8f5785dff1387f89a26439f3b510ca86126b621ac3fca013a06",
+            id: fromRunId,
           }),
         }),
         to: expect.objectContaining({
           run: expect.objectContaining({
-            id: "101-simulate",
-            resultHash: "d0a140643718af750433d62a12f0fb1ba668408daa16142c1cfb13d552b33b3e",
+            id: toRunId,
           }),
         }),
         delta: expect.objectContaining({
@@ -161,16 +177,16 @@ test("compare command explains two exact immutable memory-fab Runs for humans an
           firstPassYield: 0,
         }),
         navigation: expect.objectContaining({
-          studioRoute: "/memory-fab/runs?from=100-simulate&to=101-simulate",
+          studioRoute: `/memory-fab/runs?from=${fromRunId}&to=${toRunId}`,
         }),
       }),
     }),
     nextActions: [expect.objectContaining({
-      studioRoute: "/memory-fab/runs?from=100-simulate&to=101-simulate",
+      studioRoute: `/memory-fab/runs?from=${fromRunId}&to=${toRunId}`,
     })],
   }));
 
-  const invalid = await runCli(["compare", projectDir, "--from-run", "100-simulate", "--to-run", "100-simulate", "--json"]);
+  const invalid = await runCli(["compare", projectDir, "--from-run", fromRunId, "--to-run", fromRunId, "--json"]);
   expect(invalid.exitCode).toBe(1);
   expect(invalid.stdout).toBe("");
   expect(JSON.parse(invalid.stderr).error).toEqual(expect.objectContaining({
@@ -182,26 +198,14 @@ test("compare command explains two exact immutable memory-fab Runs for humans an
   const compareCapability = JSON.parse(help.stdout).data.commands.find((command: { id: string }) => command.id === "compare");
   expect(compareCapability.usage).toContain("--from-run ID --to-run ID");
   expect(compareCapability.outputSections).toEqual(["summary", "changes", "evaluation", "losses", "all"]);
-});
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}, 30_000);
 
 test("investigate captures one exact immutable Run comparison for later human or Agent reasoning", async () => {
-  const root = await mkdtemp(join(tmpdir(), "inm-cli-run-comparison-investigation-"));
-  const projectDir = join(root, "memory-fab");
+  const { root, projectDir, fromRunId, toRunId } = await currentCompactRunPair("inm-cli-run-comparison-investigation-");
   try {
-    await cp(join(repository, "examples/memory-fab"), projectDir, {
-      recursive: true,
-      filter: (source) => {
-        const segments = source.split("/");
-        if ([".inm", "design-runs", "candidate-reviews", "investigations"]
-          .some((directory) => segments.includes(directory))) return false;
-        const runsIndex = segments.lastIndexOf("runs");
-        return runsIndex < 0
-          || segments[runsIndex + 1] === undefined
-          || segments[runsIndex + 1] === "100-simulate"
-          || segments[runsIndex + 1] === "101-simulate";
-      },
-    });
-
     const create = await runCli([
       "investigate",
       projectDir,
@@ -229,15 +233,15 @@ test("investigate captures one exact immutable Run comparison for later human or
       "--author",
       "agent",
       "--statement",
-      "Run 101 preserves delivery and quality while reducing the compact-cell footprint and inspection starvation.",
+      `${toRunId} preserves delivery and quality while reducing the compact-cell footprint and inspection starvation.`,
       "--evidence",
       "operating-run,diagnostic",
       "--capture-comparison",
       "compact-cell-comparison",
       "--from-run",
-      "100-simulate",
+      fromRunId,
       "--to-run",
-      "101-simulate",
+      toRunId,
       "--json",
     ]);
     expect({ exitCode: captured.exitCode, stderr: captured.stderr })
@@ -252,8 +256,8 @@ test("investigate captures one exact immutable Run comparison for later human or
           expect.objectContaining({
             id: "compact-cell-comparison",
             kind: "run-comparison",
-            from: expect.objectContaining({ runId: "100-simulate" }),
-            to: expect.objectContaining({ runId: "101-simulate" }),
+            from: expect.objectContaining({ runId: fromRunId }),
+            to: expect.objectContaining({ runId: toRunId }),
             comparisonHash: expect.stringMatching(/^[0-9a-f]{64}$/),
           }),
         ],
@@ -298,17 +302,17 @@ test("investigate captures one exact immutable Run comparison for later human or
             "compare",
             projectDir,
             "--from-run",
-            "100-simulate",
+            fromRunId,
             "--to-run",
-            "101-simulate",
+            toRunId,
             "--json",
           ],
-          studioRoute: "/memory-fab/runs?from=100-simulate&to=101-simulate",
+          studioRoute: `/memory-fab/runs?from=${fromRunId}&to=${toRunId}`,
         },
       }),
     ]));
     expect(human.stdout).toContain(
-      "compact-cell-comparison · Run comparison '100-simulate → 101-simulate' is exact",
+      `compact-cell-comparison · Run comparison '${fromRunId} → ${toRunId}' is exact`,
     );
     expect(human.stdout).toContain("introduced: compact-cell-comparison:run-comparison");
 
@@ -328,7 +332,7 @@ test("investigate captures one exact immutable Run comparison for later human or
       "--capture-comparison",
       "invalid-comparison",
       "--from-run",
-      "100-simulate",
+      fromRunId,
       "--json",
     ]);
     expect(incomplete.exitCode).toBe(2);
@@ -411,7 +415,7 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
   const { stdout, stderr, exitCode } = await runCandidate();
   expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
   const result = JSON.parse(stdout);
-  expect(result).toEqual(expect.objectContaining({ schemaVersion: 2, ok: true, command: "candidate" }));
+  expect(result).toEqual(expect.objectContaining({ schemaVersion: 3, ok: true, command: "candidate" }));
   expect(result.data).toEqual(expect.objectContaining({
     section: "summary",
     result: expect.objectContaining({
@@ -489,7 +493,7 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
   const applied = await runCandidate(true);
   expect({ exitCode: applied.exitCode, stderr: applied.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(JSON.parse(applied.stdout)).toEqual(expect.objectContaining({
-    schemaVersion: 2, ok: true, command: "candidate",
+    schemaVersion: 3, ok: true, command: "candidate",
     execution: expect.objectContaining({
       kind: "candidate-apply",
       status: "completed",
@@ -522,7 +526,7 @@ test("CLI-only operator discovers, inspects, previews, applies, and verifies an 
   const replay = await runCandidate(true);
   expect({ exitCode: replay.exitCode, stdout: replay.stdout }).toEqual({ exitCode: 1, stdout: "" });
   expect(JSON.parse(replay.stderr)).toEqual(expect.objectContaining({
-    schemaVersion: 2, ok: false, command: "candidate",
+    schemaVersion: 3, ok: false, command: "candidate",
     error: expect.objectContaining({ code: "candidate.review-required", retryable: false }),
   }));
 }, 90_000);
@@ -632,7 +636,7 @@ test("public CLI cancellation retains one operation identity and exits without a
   const failure = records.at(-1);
   expect(progress.length).toBeGreaterThan(0);
   expect(failure).toEqual(expect.objectContaining({
-    schemaVersion: 2,
+    schemaVersion: 3,
     ok: false,
     command: "benchmark",
     error: expect.objectContaining({ code: "operation.cancelled", retryable: false }),
@@ -685,6 +689,7 @@ test("recorded rejected Candidate reopens cheaply with an exact revision handoff
       "inm", "observe", projectDir,
       "--world", "cleanroom",
       "--blueprint", "generated-dram-fab",
+      "--production-plan", "production-window",
       "--scenario", "production-window",
       "--objective", "dram-output",
       "--json",
@@ -701,9 +706,10 @@ test("public inspect JSON and next action are the shared Core workbench snapshot
   ]);
   expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
   const envelope = JSON.parse(stdout);
-  expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 2, ok: true, command: "inspect" }));
+  expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 3, ok: true, command: "inspect" }));
   expect(envelope.context).toEqual(expect.objectContaining({ scope: "project", selection: expected.selection && {
     world: expected.selection.world.id, blueprint: expected.selection.blueprint.id,
+    productionPlan: expected.selection.productionPlan.id,
     scenario: expected.selection.scenario.id, objective: expected.selection.objective.id,
   }, hashes: expected.hashes }));
   expect(envelope.data).toEqual({ section: "all", result: expected });
@@ -762,15 +768,15 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
   const projectDir = join(repository, "examples/memory-fab");
   const before = await Bun.file(join(projectDir, "blueprints/generated-dram-fab.blueprint.json")).text();
   const [machine, human, help] = await Promise.all([
-    runCli(["observe", projectDir, "--run", "101-simulate", "--json"]),
-    runCli(["observe", projectDir, "--run", "101-simulate"]),
+    runCli(["observe", projectDir, "--run", "102-simulate", "--json"]),
+    runCli(["observe", projectDir, "--run", "102-simulate"]),
     runCli(["help", "--json"]),
   ]);
   expect({ machine: machine.exitCode, human: human.exitCode, machineStderr: machine.stderr, humanStderr: human.stderr })
     .toEqual({ machine: 0, human: 0, machineStderr: "", humanStderr: "" });
   const envelope = JSON.parse(machine.stdout);
   expect(envelope).toEqual(expect.objectContaining({
-    schemaVersion: 2,
+    schemaVersion: 3,
     ok: true,
     command: "observe",
     context: expect.objectContaining({
@@ -778,6 +784,7 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
       selection: {
         world: "cleanroom",
         blueprint: "generated-dram-fab",
+        productionPlan: "production-window",
         scenario: "production-window",
         objective: "dram-output",
       },
@@ -785,28 +792,28 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
     data: expect.objectContaining({
       status: "ready",
       authority: "human-or-agent",
-      evidence: { state: "compatible", run: expect.objectContaining({ id: "101-simulate" }) },
+      evidence: { state: "compatible", run: expect.objectContaining({ id: "102-simulate" }) },
       leadingObjectiveTradeoff: expect.objectContaining({
         component: "wip",
         contribution: -73.78575000000001,
-        runId: "101-simulate",
+        runId: "102-simulate",
         interpretation: "objective-accounting-not-causal-loss",
       }),
       views: expect.arrayContaining([
-        expect.objectContaining({ studioRoute: "/memory-fab/factory?run=101-simulate" }),
-        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/burn-in-1?run=101-simulate" }),
-        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/packaging-1?run=101-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory?run=102-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/burn-in-1?run=102-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/packaging-1?run=102-simulate" }),
       ]),
     }),
   }));
   expect(envelope.nextActions[0]).toEqual(expect.objectContaining({
     id: "author-observation-hypothesis",
     effect: "read-only",
-    studioRoute: "/memory-fab/factory?run=101-simulate",
+    studioRoute: "/memory-fab/factory?run=102-simulate",
     argv: expect.arrayContaining(["--section", "objective"]),
   }));
   expect(human.stdout).toContain("observation brief");
-  expect(human.stdout).toContain("/memory-fab/factory?run=101-simulate");
+  expect(human.stdout).toContain("/memory-fab/factory?run=102-simulate");
   expect(human.stdout).toContain("Leading Objective tradeoff: wip -73.786");
   expect(human.stdout).not.toContain("analysis.material-deficit");
   const observeCapability = JSON.parse(help.stdout).data.commands.find((command: { id: string }) => command.id === "observe");
@@ -841,6 +848,8 @@ test("public investigate preserves and resumes exact project-local human/Agent r
     },
   });
   await restorePreCompactMemoryFabBlueprint(projectDir);
+  const operatingRun = await simulateProjectOperation(projectDir, {}, { seed: 42 });
+  const operatingRunId = operatingRun.data.run.id;
   const investigationId = "inspection-starvation-next-step";
   const created = await runCli([
     "investigate",
@@ -857,7 +866,7 @@ test("public investigate preserves and resumes exact project-local human/Agent r
   expect({ exitCode: created.exitCode, stderr: created.stderr }).toEqual({ exitCode: 0, stderr: "" });
   const createdEnvelope = JSON.parse(created.stdout);
   expect(createdEnvelope).toEqual(expect.objectContaining({
-    schemaVersion: 2,
+    schemaVersion: 3,
     ok: true,
     command: "investigate",
     context: expect.objectContaining({
@@ -865,6 +874,7 @@ test("public investigate preserves and resumes exact project-local human/Agent r
       selection: {
         world: "cleanroom",
         blueprint: "generated-dram-fab",
+        productionPlan: "production-window",
         scenario: "production-window",
         objective: "dram-output",
       },
@@ -882,7 +892,6 @@ test("public investigate preserves and resumes exact project-local human/Agent r
         anchors: [
           expect.objectContaining({ id: "operating-run", state: "current" }),
           expect.objectContaining({ id: "diagnostic", state: "current" }),
-          expect.objectContaining({ id: "design-lineage", state: "current" }),
         ],
       }),
     },
@@ -960,7 +969,7 @@ test("public investigate preserves and resumes exact project-local human/Agent r
     "--expected-effect",
     "Reduce inspection shortage while preserving service, quality, WIP, and interruption guardrails.",
     "--evidence",
-    "diagnostic,design-lineage",
+    "diagnostic,operating-run",
     "--json",
   ]);
   expect({ exitCode: hypothesized.exitCode, stderr: hypothesized.stderr }).toEqual({ exitCode: 0, stderr: "" });
@@ -1011,7 +1020,7 @@ test("public investigate preserves and resumes exact project-local human/Agent r
             operatingContext: expect.objectContaining({
               source: "investigation-creation",
               anchorId: "operating-run",
-              run: expect.objectContaining({ id: "098-simulate" }),
+              run: expect.objectContaining({ id: operatingRunId }),
             }),
           }),
         }),
@@ -1057,53 +1066,7 @@ test("public investigate preserves and resumes exact project-local human/Agent r
   ]);
   expect({ exitCode: candidateHuman.exitCode, stderr: candidateHuman.stderr })
     .toEqual({ exitCode: 0, stderr: "" });
-  expect(candidateHuman.stdout).toContain("context investigation-creation operating-run / 098-simulate · CURRENT");
-
-  const decided = await runCli([
-    "investigate",
-    projectDir,
-    "--investigation",
-    investigationId,
-    "--entry",
-    "retain-commissioned-supply-path",
-    "--kind",
-    "decision",
-    "--author",
-    "agent",
-    "--statement",
-    "Retain the commissioned supply-path intervention as the exact boundary for the next physically distinct hypothesis.",
-    "--disposition",
-    "keep",
-    "--attach-candidate",
-    "inspection-supply-path-966127dd",
-    "--anchor-id",
-    "supply-path-review",
-    "--evidence",
-    "design-lineage,supply-path-review",
-    "--json",
-  ]);
-  expect({ exitCode: decided.exitCode, stderr: decided.stderr }).toEqual({ exitCode: 0, stderr: "" });
-  expect(JSON.parse(decided.stdout).data.result).toEqual(expect.objectContaining({
-    entryCount: 3,
-    anchors: expect.arrayContaining([
-      expect.objectContaining({
-        id: "supply-path-review",
-        kind: "candidate-review",
-        state: "current",
-      }),
-    ]),
-    lastEntry: expect.objectContaining({
-      id: "retain-commissioned-supply-path",
-      evidence: ["design-lineage", "supply-path-review"],
-      introducedAnchors: [
-        expect.objectContaining({
-          id: "supply-path-review",
-          candidateId: "inspection-supply-path-966127dd",
-          verdict: "KEEP",
-        }),
-      ],
-    }),
-  }));
+  expect(candidateHuman.stdout).toContain(`context investigation-creation operating-run / ${operatingRunId} · CURRENT`);
 
   const captured = await runCli([
     "investigate",
@@ -1111,17 +1074,17 @@ test("public investigate preserves and resumes exact project-local human/Agent r
     "--investigation",
     investigationId,
     "--entry",
-    "post-decision-factory-observed",
+    "post-hypothesis-factory-observed",
     "--kind",
     "observation",
     "--author",
     "agent",
     "--statement",
-    "The retained decision remains bound to the exact current factory and leading diagnostic.",
+    "The follow-up hypothesis remains bound to the exact current factory and leading diagnostic.",
     "--capture-observation",
-    "post-decision-factory",
+    "post-hypothesis-factory",
     "--evidence",
-    "supply-path-review",
+    "operating-run,diagnostic",
     "--json",
   ]);
   expect({ exitCode: captured.exitCode, stderr: captured.stderr })
@@ -1129,23 +1092,23 @@ test("public investigate preserves and resumes exact project-local human/Agent r
   expect(JSON.parse(captured.stdout).data.result).toEqual(expect.objectContaining({
     action: "appended",
     state: "current",
-    entryCount: 4,
+    entryCount: 3,
     anchors: expect.arrayContaining([
       expect.objectContaining({
-        id: "post-decision-factory",
+        id: "post-hypothesis-factory",
         kind: "factory-observation",
         state: "current",
       }),
     ]),
     lastEntry: expect.objectContaining({
-      id: "post-decision-factory-observed",
-      evidence: ["supply-path-review", "post-decision-factory"],
+      id: "post-hypothesis-factory-observed",
+      evidence: ["operating-run", "diagnostic", "post-hypothesis-factory"],
       introducedAnchors: [
         expect.objectContaining({
-          id: "post-decision-factory",
+          id: "post-hypothesis-factory",
           kind: "factory-observation",
-          runId: "098-simulate",
-          resultHash: "19fd034abbecc9dff1a2d7c67d3cf1e2f0c2ab56c3445e39b6b1e0c4b36decbc",
+          runId: operatingRunId,
+          resultHash: operatingRun.data.resultHash,
           diagnostic: expect.objectContaining({
             code: "fab-loss.input-starvation",
           }),
@@ -1167,19 +1130,19 @@ test("public investigate preserves and resumes exact project-local human/Agent r
   expect(JSON.parse(inspection.stdout).data.result).toEqual(expect.objectContaining({
     action: "inspect",
     state: "current",
-    entryCount: 4,
+    entryCount: 3,
     lastEntry: expect.objectContaining({
-      id: "post-decision-factory-observed",
+      id: "post-hypothesis-factory-observed",
       kind: "observation",
-      sequence: 4,
+      sequence: 3,
     }),
     handoff: expect.objectContaining({
       phase: "form-hypothesis",
       sourceEntry: expect.objectContaining({
-        id: "post-decision-factory-observed",
+        id: "post-hypothesis-factory-observed",
         kind: "observation",
       }),
-      evidenceIds: ["supply-path-review", "post-decision-factory"],
+      evidenceIds: ["operating-run", "diagnostic", "post-hypothesis-factory"],
       authorship: expect.objectContaining({
         kind: "investigation-entry",
         entryKind: "hypothesis",
@@ -1190,28 +1153,24 @@ test("public investigate preserves and resumes exact project-local human/Agent r
     .toEqual([
       "inspection-input-is-empty",
       "inspection-decoupling-buffer",
-      "retain-commissioned-supply-path",
-      "post-decision-factory-observed",
+      "post-hypothesis-factory-observed",
     ]);
   expect(JSON.parse(list.stdout).data).toEqual({
     action: "list",
     investigations: [expect.objectContaining({
       id: investigationId,
-      entryCount: 4,
+      entryCount: 3,
     })],
   });
   expect(human.stdout).toContain("Inspection starvation next step · Industrial Investigation");
-  expect(human.stdout).toContain("CURRENT    design-lineage");
-  expect(human.stdout).toContain("CURRENT    supply-path-review");
-  expect(human.stdout).toContain("CURRENT    post-decision-factory");
+  expect(human.stdout).not.toContain("CURRENT    design-lineage");
+  expect(human.stdout).toContain("CURRENT    post-hypothesis-factory");
   expect(human.stdout).toContain("0002 HYPOTHESIS · human");
-  expect(human.stdout).toContain("0003 DECISION · agent");
-  expect(human.stdout).toContain("0004 OBSERVATION · agent");
-  expect(human.stdout).toContain("introduced: supply-path-review:candidate-review");
-  expect(human.stdout).toContain("introduced: post-decision-factory:factory-observation");
+  expect(human.stdout).toContain("0003 OBSERVATION · agent");
+  expect(human.stdout).toContain("introduced: post-hypothesis-factory:factory-observation");
   expect(human.stdout).toContain("expected: Reduce inspection shortage");
-  expect(human.stdout).toContain("Design Session: FORM-HYPOTHESIS · 0004 post-decision-factory-observed");
-  expect(human.stdout).toContain("Evidence: supply-path-review + post-decision-factory");
+  expect(human.stdout).toContain("Design Session: FORM-HYPOTHESIS · 0003 post-hypothesis-factory-observed");
+  expect(human.stdout).toContain("Evidence: operating-run + diagnostic + post-hypothesis-factory");
   expect((JSON.parse(help.stdout).data.commands as Array<{ id: string }>).map((command) => command.id))
     .toContain("investigate");
   expect((JSON.parse(help.stdout).data.commands as Array<{
@@ -1235,17 +1194,17 @@ test("public investigate preserves and resumes exact project-local human/Agent r
     "--investigation",
     investigationId,
     "--entry",
-    "post-decision-hypothesis",
+    "post-hypothesis-follow-up",
     "--kind",
     "hypothesis",
     "--author",
     "agent",
     "--statement",
-    "A bounded follow-up should preserve the post-decision factory outcomes.",
+    "A bounded follow-up should preserve the current observed factory outcomes.",
     "--expected-effect",
-    "The exact post-decision operating context remains feasible after the bounded change.",
+    "The exact observed operating context remains feasible after the bounded change.",
     "--evidence",
-    "post-decision-factory",
+    "post-hypothesis-factory",
     "--json",
   ]);
   expect({ exitCode: continuedHypothesis.exitCode, stderr: continuedHypothesis.stderr })
@@ -1256,13 +1215,13 @@ test("public investigate preserves and resumes exact project-local human/Agent r
     "--investigation",
     investigationId,
     "--create-candidate",
-    "post-decision-candidate",
+    "post-hypothesis-candidate",
     "--hypothesis-entry",
-    "post-decision-hypothesis",
+    "post-hypothesis-follow-up",
     "--benchmark",
     "greenfield-dram-design",
     "--candidate-name",
-    "Post-decision Candidate",
+    "Post-hypothesis Candidate",
     "--patch-file",
     patchFile,
     "--json",
@@ -1274,18 +1233,18 @@ test("public investigate preserves and resumes exact project-local human/Agent r
       state: "current",
       operatingContext: expect.objectContaining({
         source: "factory-observation",
-        anchorId: "post-decision-factory",
-        run: expect.objectContaining({ id: "098-simulate" }),
+        anchorId: "post-hypothesis-factory",
+        run: expect.objectContaining({ id: operatingRunId }),
       }),
     }));
   const continuedCandidateHuman = await runCli([
     "candidate",
     projectDir,
     "--candidate",
-    "post-decision-candidate",
+    "post-hypothesis-candidate",
   ]);
   expect(continuedCandidateHuman.stdout)
-    .toContain("context factory-observation post-decision-factory / 098-simulate · CURRENT");
+    .toContain(`context factory-observation post-hypothesis-factory / ${operatingRunId} · CURRENT`);
 
   const invalid = await runCli([
     "investigate",
@@ -1315,7 +1274,7 @@ test("public inspect rejects an invalid explicit selection", async () => {
   const { stdout, stderr, exitCode } = await runCli(["inspect", projectDir, "--blueprint", "missing-blueprint", "--json"]);
   expect({ exitCode, stdout }).toEqual({ exitCode: 1, stdout: "" });
   expect(JSON.parse(stderr)).toEqual(expect.objectContaining({
-    schemaVersion: 2, ok: false, command: "inspect",
+    schemaVersion: 3, ok: false, command: "inspect",
     error: expect.objectContaining({ code: "runtime.failed", message: expect.stringContaining("missing-blueprint.blueprint.json"), retryable: false, issues: [] }),
   }));
 });
@@ -1324,7 +1283,7 @@ test("public machine help discovers commands, effects, arguments, defaults, and 
   const { stdout, stderr, exitCode } = await runCli(["help", "--json"]);
   expect({ exitCode, stderr }).toEqual({ exitCode: 0, stderr: "" });
   const envelope = JSON.parse(stdout);
-  expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 2, ok: true, command: "help", context: { scope: "global" } }));
+  expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 3, ok: true, command: "help", context: { scope: "global" } }));
   const commands = envelope.data.commands as Array<{ id: string; effect: string; exitCodes: { success: number; failure: number[]; usage: number }; arguments: Array<{ name: string; default?: unknown }>; outputSections: string[] }>;
   expect(commands.map((command) => command.id)).toContain("candidate");
   expect(commands.map((command) => command.id)).toContain("design");
@@ -1345,7 +1304,7 @@ test("public schema discovery lists and emits every project artifact JSON Schema
     const emitted = await runCli(["schema", kind, "--json"]);
     expect({ kind, exitCode: emitted.exitCode, stderr: emitted.stderr }).toEqual({ kind, exitCode: 0, stderr: "" });
     const envelope = JSON.parse(emitted.stdout);
-    expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 2, ok: true, command: "schema" }));
+    expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 3, ok: true, command: "schema" }));
     expect(envelope.data.kind).toBe(kind);
     expect(envelope.data.schema).toEqual(expect.objectContaining({ $schema: "http://json-schema.org/draft-07/schema#" }));
     expect(Object.keys(envelope.data.schema).length).toBeGreaterThan(2);
@@ -1436,7 +1395,7 @@ test("public Design Program workflow discovers, inspects, and executes without m
   const executed = await runCli(["design", projectDir, "--program", "integrated-dram-fab", "--run", "--max-candidates", "1", "--progress", "ndjson", "--json"]);
   expect(executed.exitCode).toBe(0);
   const progress = executed.stderr.trim().split("\n").map((line) => JSON.parse(line));
-  expect(progress[0]).toEqual(expect.objectContaining({ schemaVersion: 2, type: "progress", command: "design", progress: expect.objectContaining({ phase: "run-started", sequence: 1 }) }));
+  expect(progress[0]).toEqual(expect.objectContaining({ schemaVersion: 3, type: "progress", command: "design", progress: expect.objectContaining({ phase: "run-started", sequence: 1 }) }));
   expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "baseline")).toHaveLength(5);
   expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "seed")).toHaveLength(5);
   expect(progress.filter((event) => event.progress.phase === "case-completed" && event.progress.evaluation.kind === "candidate")).toHaveLength(5);
@@ -1917,7 +1876,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
   const currentInspection = result.designPrograms.find((item: { id: string }) => item.id === "inspection-supply-path");
   if (currentInspection?.evidence.state === "missing"
     && currentInspection.evidence.historicalRuns === 5
-    && result.objectiveEvidence?.runId === "101-simulate") {
+    && result.objectiveEvidence?.runId === "102-simulate") {
     expect(currentInspection).toEqual(expect.objectContaining({
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({
@@ -1932,7 +1891,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
     }));
     expect(result.lossDispositions).toHaveLength(0);
     expect(result.nextAction).toEqual(expect.objectContaining({
-      id: expect.stringMatching(/^design\.inspect:inspection-supply-path:fab-loss\.input-starvation:.*:099e06e6d3$/),
+      id: expect.stringMatching(/^design\.inspect:inspection-supply-path:fab-loss\.input-starvation:/),
       title: "Investigate the leading loss with Inspection Supply Path Convergence",
       actionLabel: "OPEN DESIGN LOOP",
       target: expect.objectContaining({
@@ -1941,7 +1900,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
       }),
     }));
     expect(JSON.parse(objective.stdout).data.result).toEqual(expect.objectContaining({
-      runId: "101-simulate",
+      runId: "102-simulate",
       dominantPenalty: { id: "wip", contribution: -73.78575000000001, role: "penalty" },
     }));
     expect(JSON.parse(dispositions.stdout).data.result).toHaveLength(0);
@@ -2297,7 +2256,7 @@ test("public CLI emits stable JSON errors for invalid section, section mode, sch
     const result = await runCli(item.args);
     expect({ stdout: result.stdout, exitCode: result.exitCode }).toEqual({ stdout: "", exitCode: item.exitCode });
     const envelope = JSON.parse(result.stderr);
-    expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 2, ok: false, command: item.command, error: expect.objectContaining({ code: item.code, retryable: false, issues: expect.any(Array), hashes: expect.any(Object) }) }));
+    expect(envelope).toEqual(expect.objectContaining({ schemaVersion: 3, ok: false, command: item.command, error: expect.objectContaining({ code: item.code, retryable: false, issues: expect.any(Array), hashes: expect.any(Object) }) }));
   }
   const humanOnly = await runCli(["inspect", projectDir, "--section", "catalog"]);
   expect({ stdout: humanOnly.stdout, exitCode: humanOnly.exitCode }).toEqual({ stdout: "", exitCode: 1 });

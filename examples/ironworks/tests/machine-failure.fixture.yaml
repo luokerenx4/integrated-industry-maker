@@ -1,5 +1,6 @@
 name: machine-failure-recovery
 blueprint: main
+productionPlan: baseline
 scenario: machine-failure
 objective: default
 seed: 42

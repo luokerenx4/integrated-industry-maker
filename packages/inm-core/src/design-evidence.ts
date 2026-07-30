@@ -193,6 +193,7 @@ function commissionedDesignRun(
   if (run.best.verdict !== "KEEP" || run.best.promotionPatchOperations <= 0) return null;
   if (run.driver.hashes.engineVersion !== identity.driver.hashes.engineVersion
     || run.driver.hashes.worldHash !== identity.driver.hashes.worldHash
+    || run.driver.hashes.productionPlanHash !== identity.driver.hashes.productionPlanHash
     || run.driver.hashes.scenarioHash !== identity.driver.hashes.scenarioHash
     || run.driver.hashes.objectiveHash !== identity.driver.hashes.objectiveHash) return null;
   const matches = commissionings.filter((commissioning) =>

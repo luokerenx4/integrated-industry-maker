@@ -14,7 +14,7 @@ export interface BenchmarkCaseExecution {
 export interface BenchmarkCaseWorkerJob {
   id: string;
   projectDir: string;
-  selection: Required<Pick<ProjectSelection, "world" | "scenario" | "objective">>;
+  selection: Required<Pick<ProjectSelection, "world" | "productionPlan" | "scenario" | "objective">>;
   blueprintName: string;
   blueprint: Blueprint;
   seed: number;

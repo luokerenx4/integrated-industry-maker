@@ -240,7 +240,7 @@ export interface WorkbenchObjectiveEvidence {
 }
 
 export interface ProjectWorkbenchSnapshot {
-  version: 13;
+  version: 14;
   project: {
     id: string;
     name: string;
@@ -249,6 +249,7 @@ export interface ProjectWorkbenchSnapshot {
   selection: {
     world: { id: string; name: string };
     blueprint: { id: string; name: string };
+    productionPlan: { id: string; name: string };
     scenario: { id: string; name: string; durationTicks: number };
     objective: { id: string; name: string };
   };
@@ -308,7 +309,7 @@ export interface ProjectWorkbenchSnapshot {
     resultHash: string;
     engineVersion: string;
     compatible: boolean;
-    selection: { world: string; blueprint: string; scenario: string; objective: string };
+    selection: { world: string; blueprint: string; productionPlan?: string; scenario: string; objective: string };
   }>;
   experiments: BlueprintBenchmarkSummary[];
   designPrograms: Array<{
@@ -687,6 +688,7 @@ function matchingRun(
 ): ProjectWorkbenchSnapshot["runs"][number] | undefined {
   const matching = runs.filter((run) => run.selection.world === selection.world.id
     && run.selection.blueprint === selection.blueprint.id
+    && run.selection.productionPlan === selection.productionPlan.id
     && run.selection.scenario === selection.scenario.id
     && run.selection.objective === selection.objective.id);
   return matching.filter((run) => run.compatible).at(-1) ?? matching.at(-1);
@@ -696,6 +698,7 @@ function selectionArgv(selection: ProjectWorkbenchSnapshot["selection"]): string
   return [
     "--world", selection.world.id,
     "--blueprint", selection.blueprint.id,
+    "--production-plan", selection.productionPlan.id,
     "--scenario", selection.scenario.id,
     "--objective", selection.objective.id,
   ];
@@ -756,7 +759,7 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
     title: run ? "Refresh incompatible run evidence" : "Measure the current selection",
     reason: run
       ? `The latest matching run used ${run.engineVersion}; create evidence with ${context.selection.blueprint.id} and the current engine.`
-      : `No immutable run matches ${context.selection.blueprint.id} / ${context.selection.scenario.id} / ${context.selection.objective.id}.`,
+      : `No immutable run matches ${context.selection.blueprint.id} / ${context.selection.productionPlan.id} / ${context.selection.scenario.id} / ${context.selection.objective.id}.`,
     actionLabel: "RUN SIMULATION",
     effect: "creates-artifact",
     requiresConfirmation: false,
@@ -1075,6 +1078,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const selection: ProjectWorkbenchSnapshot["selection"] = {
       world: { id: project.selection.world, name: project.world.name },
       blueprint: { id: project.selection.blueprint, name: project.selection.blueprint },
+      productionPlan: { id: project.selection.productionPlan, name: project.productionPlan.name },
       scenario: { id: project.selection.scenario, name: project.scenario.name, durationTicks: project.scenario.durationTicks },
       objective: { id: project.selection.objective, name: project.objective.name },
   };
@@ -1156,6 +1160,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
           selection: {
             world: selection.world.id,
             blueprint: selection.blueprint.id,
+            productionPlan: selection.productionPlan.id,
             scenario: selection.scenario.id,
             objective: selection.objective.id,
           },
@@ -1244,7 +1249,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const snapshot = {
-    version: 13 as const,
+    version: 14 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },

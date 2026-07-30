@@ -25,7 +25,7 @@ Projects are immediate, real directories; symbolic-link projects are rejected. E
 
 Projects are intentionally isolated and self-contained. There is no global catalog, shared asset directory, inheritance, fallback, or cross-project reference. Reuse means copying the complete asset directory into the target project; the copies then evolve and hash independently.
 
-INM keeps two deliberately different identities. Full Resource, Process, Route, and Device catalog hashes describe the complete project-local inventory and change whenever any owned option or presentation file changes. `executionHash` describes only the exact selected industrial execution closure: selected World/Blueprint/Scenario/Objective semantics, placed and transport equipment, effective runtimes and physical contracts, selected Processes and modes, reachable Resources and Routes, compiled topology, and power state. Run, Benchmark, Design, Candidate, CLI, and Studio evidence compatibility uses the latter. An unused option may therefore be authored without erasing unrelated conclusions; selecting it or changing any reachable execution definition invalidates the evidence.
+INM keeps two deliberately different identities. Full Resource, Process, Route, and Device catalog hashes describe the complete project-local inventory and change whenever any owned option or presentation file changes. `executionHash` describes only the exact selected industrial execution closure: selected World/Blueprint/Production Plan/Scenario/Objective semantics, placed and transport equipment, effective runtimes and physical contracts, selected Processes and modes, reachable Resources and Routes, compiled topology, and power state. Run, Benchmark, Design, Candidate, CLI, and Studio evidence compatibility uses the latter. An unused option may therefore be authored without erasing unrelated conclusions; selecting it or changing any reachable execution definition invalidates the evidence.
 
 Coding Agents and editors can discover the current strict authored-file contracts with `inm schema --json` and emit one JSON Schema Draft 7 projection with `inm schema <kind> --json`. Core compilation remains authoritative for cross-file references and industrial invariants that JSON Schema cannot express. See [[docs/design/agent-cli-contract]].
 
@@ -68,7 +68,9 @@ factory/
   .inm/cache/
 ```
 
-The project manifest has a required kebab-case `id` matching its containing directory in a workspace and selects `defaultWorld`, `defaultBlueprint`, `defaultScenario`, and `defaultObjective`. It may select one project-owned TypeScript synthesis entry with `"synthesis": { "strategy": "strategies/<id>.ts" }`; the relative path cannot escape the project and must end in `.ts`. It may also declare renderer-only Factory scenery under `presentation.environment`: `floor` owns the slab/grid/aisle palette, margin, and a project-local PBR surface, while `backdrop` names one project-confined raster image plus its scene height, rear distance, and opacity. This presentation metadata never changes Blueprint geometry or industrial execution.
+The project manifest has a required kebab-case `id` matching its containing directory in a workspace and selects `defaultWorld`, `defaultBlueprint`, `defaultProductionPlan`, `defaultScenario`, and `defaultObjective`. It may select one project-owned TypeScript synthesis entry with `"synthesis": { "strategy": "strategies/<id>.ts" }`; the relative path cannot escape the project and must end in `.ts`. It may also declare renderer-only Factory scenery under `presentation.environment`: `floor` owns the slab/grid/aisle palette, margin, and a project-local PBR surface, while `backdrop` names one project-confined raster image plus its scene height, rear distance, and opacity. This presentation metadata never changes Blueprint geometry or industrial execution.
+
+Every deterministic `tests/*.fixture.json` selects `productionPlan` explicitly. Fixtures are executable evidence contracts, so they do not inherit `defaultProductionPlan` and cannot silently change workload when the project default changes.
 
 Resources and devices are the two asset classes. Every concrete asset is a self-contained directory package. Its directory name must equal its asset id, `asset.json` is the stable index, and every referenced path must remain inside that directory. Fields are strict: unknown properties are errors. `design-programs/` contains authored project-local design orchestration; `design-runs/`, `candidate-reviews/`, and `runs/` contain generated immutable evidence and may be checked in when another operator must reconstruct the same decision.
 
@@ -174,7 +176,7 @@ An identity-preserving WIP Resource adds `"tracking": { "kind": "lot", "family":
 }
 ```
 
-Every transition declares exactly one `to` step or terminal disposition (`complete` / `scrap`). A step may instead have no transitions only when every qualified operation explicitly terminates the tracked lot. Multiple operations at one step are evaluator-approved alternatives; graph back-edges model rework or other re-entry. Optional `queueTime` fixes the maximum elapsed ticks from entering the step to actual Device-job start and the deterministic defects added when it is exceeded. Its clock includes physical transport, batching, setup, maintenance, power and equipment waiting. Every tracked Process belongs to exactly one Route step, every actual tracked output has a transition, and every Scenario lot release uses the Route entry Resource. The Route catalog has its own immutable hash in runs and benchmarks. See [[docs/design/product-routes]] and [[docs/design/industrial-boundaries]].
+Every transition declares exactly one `to` step or terminal disposition (`complete` / `scrap`). A step may instead have no transitions only when every qualified operation explicitly terminates the tracked lot. Multiple operations at one step are evaluator-approved alternatives; graph back-edges model rework or other re-entry. Optional `queueTime` fixes the maximum elapsed ticks from entering the step to actual Device-job start and the deterministic defects added when it is exceeded. Its clock includes physical transport, batching, setup, maintenance, power and equipment waiting. Every tracked Process belongs to exactly one Route step, every actual tracked output has a transition, and every Production Plan lot release uses the Route entry Resource. The Route catalog has its own immutable hash in runs and benchmarks. See [[docs/design/product-routes]] and [[docs/design/industrial-boundaries]].
 
 A combustible Resource declares how much energy one unit contains. The value is an integer number of millijoules and is consumed only through a fuel generator's compiled generation job:
 
@@ -361,7 +363,7 @@ A Blueprint selects one grid-allocation policy for the whole factory:
 }
 ```
 
-`lotRelease` is optional. Omission means open-loop admission after the fixed Scenario release tick and physical boundary check. `conwip` counts every released, non-completed, non-scrapped tracked lot factory-wide. It admits while open until `maximumWip`, closes, and normally reopens when active WIP falls to or below `reopenAtWip`; the reopen threshold must be non-negative and strictly below the positive maximum. Optional `serviceLevelAfterTicks` creates a protected aging class: once an eligible lot reaches that age, it precedes younger ordinary lots and may reopen a closed controller as soon as one hard-cap slot exists. It never exceeds `maximumWip`, and the configured age is not an absolute delay promise while no physical or WIP slot exists. Eligible lots use `fifo`, `earliest-due-date`, or `highest-priority` dispatch within protected and ordinary classes, with deterministic planned-tick/id ties. This policy is candidate Blueprint code; it cannot change Scenario arrivals or due dates. See [[docs/design/wip-release-control]].
+`lotRelease` is optional. Omission means open-loop admission after the fixed Production Plan release tick and physical boundary check. `conwip` counts every released, non-completed, non-scrapped tracked lot factory-wide. It admits while open until `maximumWip`, closes, and normally reopens when active WIP falls to or below `reopenAtWip`; the reopen threshold must be non-negative and strictly below the positive maximum. Optional `serviceLevelAfterTicks` creates a protected aging class: once an eligible lot reaches that age, it precedes younger ordinary lots and may reopen a closed controller as soon as one hard-cap slot exists. It never exceeds `maximumWip`, and the configured age is not an absolute delay promise while no physical or WIP slot exists. Eligible lots use `fifo`, `earliest-due-date`, or `highest-priority` dispatch within protected and ordinary classes, with deterministic planned-tick/id ties. This policy is candidate Blueprint code; it cannot change Production Plan arrivals or due dates. See [[docs/design/wip-release-control]].
 
 `proportional` gives every healthy connected consumer the same integer parts-per-million satisfaction, calculated from available power divided by requested power. Production, extraction, treatment, and explicit sorter loading/unloading advance at that fraction of nominal speed; belt travel does not consume power and keeps its nominal speed. `priority-load-shedding` instead serves complete Device envelopes in priority order and pauses rejected work exactly.
 
@@ -631,7 +633,7 @@ The Blueprint recipe must bind pass, reject, and scrap Resources to physical out
 
 Every Device instance belongs to exactly one region from the selected world. Rotations are `0`, `90`, `180`, or `270`; bounds and collisions are checked within that region. Physical connections run from an output port to an input port in the same region, reference explicit loader and unloader Device instances, and select one line Device asset for the routed belt cells. Extractors must explicitly bind reachable, same-region nodes supported by their asset.
 
-Blueprint files are independently named candidate programs. `inm compare` can transform one complete file into another with an exact RFC 6902 patch while also reporting changes by stable entity id. Array positions are patch mechanics; Device, connection, and logistics-network ids are the semantic identity used in explanations. Comparison fixes catalogs, World, Scenario, Objective, and seed so its metric delta belongs to the Blueprint edit alone. See [[docs/design/blueprint-comparison]].
+Blueprint files are independently named candidate programs. `inm compare` can transform one complete file into another with an exact RFC 6902 patch while also reporting changes by stable entity id. Array positions are patch mechanics; Device, connection, and logistics-network ids are the semantic identity used in explanations. Comparison fixes catalogs, World, Production Plan, Scenario, Objective, and seed so its metric delta belongs to the Blueprint edit alone. See [[docs/design/blueprint-comparison]].
 
 ```json
 {
@@ -845,9 +847,25 @@ The compiler matches supply and demand slots for the same Resource, validates re
 
 Every placed station must explicitly configure `policy.stationChargeMilliWatts`, from zero through the station asset's `maximumChargeMilliWatts`. Charging is a real regional-grid load and fills the station's independent carrier-energy buffer; it is neither hidden in idle power nor inferred from the fleet. A complete route mission costs `baseMilliJoules + distance × milliJoulesPerDistance` once at source departure. Insufficient stored energy blocks departure until an exact charging boundary, while incoming carriers never draw destination energy. Static route capacity is bounded by station-owned fleet round-trip time and configured source-station charging.
 
-## Scenario and objective
+## Production plan, Scenario, and Objective
 
-Initial quantities address device and buffer explicitly:
+Planned work is a separate project-local artifact at `production-plans/<id>.production-plan.json`:
+
+```json
+{
+  "version": 1,
+  "id": "baseline",
+  "name": "Baseline Production",
+  "lotReleases": [
+    { "id": "dram-lot-01", "device": "lot-release", "buffer": "storage", "resource": "blank-dram-wafer-lot", "releaseTick": 0, "priority": 10, "dueTick": 90000 }
+  ],
+  "materialDeliveries": [
+    { "id": "substrates-01", "device": "substrate-receiving", "buffer": "storage", "resource": "dram-package-substrate", "count": 8, "releaseTick": 0 }
+  ]
+}
+```
+
+Scenario initial quantities and operating conditions address devices and buffers explicitly:
 
 ```json
 {
@@ -857,12 +875,6 @@ Initial quantities address device and buffer explicitly:
   "initialBuffers": {
     "smelter-1": { "input": { "iron-ore": 4 } }
   },
-  "lotReleases": [
-    { "id": "dram-lot-01", "device": "lot-release", "buffer": "storage", "resource": "blank-dram-wafer-lot", "releaseTick": 0, "priority": 10, "dueTick": 90000 }
-  ],
-  "materialDeliveries": [
-    { "id": "substrates-01", "device": "substrate-receiving", "buffer": "storage", "resource": "dram-package-substrate", "count": 8, "releaseTick": 0 }
-  ],
   "initialSetups": { "lithography-1": "photo-mask-l1" },
   "qualityExcursions": [
     { "id": "cd-lot-03", "process": "etch-cell-layer-2", "lot": "dram-lot-03", "defects": ["critical-dimension"] }
@@ -912,9 +924,9 @@ Capacity planning integrates these curves against the Objective-derived constant
 
 `initialTreatments` reclassifies a subset of matching `initialBuffers` inventory from level 0 to the declared positive level. It cannot create inventory, exceed the matching initial quantity, bypass the compiled buffer contract, or reference an unplaced Device. Omitted inventory is untreated.
 
-`lotReleases` is the only Scenario entry path for tracked Resources. Each lot id is unique and names its release Device/buffer/Resource, required absolute `releaseTick`, optional integer priority, and optional due tick. A scheduled lot exists as identity but occupies no factory buffer or WIP before its release tick. Target-rate planning credits the authored count as evaluator-owned external supply over the Scenario horizon; it cannot be edited by a candidate Blueprint. Admission waits when the target buffer or Resource quota is full or when the Blueprint CONWIP controller is closed, so simulation still owns actual release time, delay, blocking cause, and controller state. The compiler rejects a tracked Resource in `initialBuffers`, a non-tracked Resource in `lotReleases`, duplicate identities, incompatible buffers, releases outside the Scenario, due dates before release, and buffers unable to hold one lot. See [[docs/design/lot-release-scheduling]], [[docs/design/wip-release-control]], and [[docs/design/fab-capacity-planning]].
+Production Plan `lotReleases` is the only planned entry path for tracked Resources. Each lot id is unique and names its release Device/buffer/Resource, required absolute `releaseTick`, optional integer priority, and optional due tick. A scheduled lot exists as identity but occupies no factory buffer or WIP before its release tick. Target-rate planning credits the authored count as human/Agent-owned external supply over the Scenario horizon; a candidate Blueprint cannot edit it. Admission waits when the target buffer or Resource quota is full or when the Blueprint CONWIP controller is closed, so simulation still owns actual release time, delay, blocking cause, and controller state. The compiler rejects a tracked Resource in Scenario `initialBuffers`, a non-tracked Resource in plan `lotReleases`, duplicate identities, incompatible buffers, releases outside the Scenario, due dates before release, and buffers unable to hold one lot. See [[docs/design/production-plans]], [[docs/design/lot-release-scheduling]], [[docs/design/wip-release-control]], and [[docs/design/fab-capacity-planning]].
 
-`materialDeliveries` is the scheduled entry path for purchased, untracked materials. Each unique delivery id names a placed receiving Device/buffer, Resource, positive atomic count, and absolute `releaseTick`. A due shipment waits outside the plant until the complete count fits, emits `material.delivered` with its delay, and must then use ordinary physical transport. Capacity planning credits its count as fixed external supply. The compiler rejects tracked Resources, incompatible buffers, duplicate ids, oversized atomic deliveries, and arrivals after Scenario end. See [[docs/design/industrial-boundaries]] and [[docs/design/fab-capacity-planning]].
+Production Plan `materialDeliveries` is the scheduled entry path for purchased, untracked materials. Each unique delivery id names a placed receiving Device/buffer, Resource, positive atomic count, and absolute `releaseTick`. A due shipment waits outside the plant until the complete count fits, emits `material.delivered` with its delay, and must then use ordinary physical transport. Capacity planning credits its count as fixed external supply. The compiler rejects tracked Resources, incompatible buffers, duplicate ids, oversized atomic deliveries, and arrivals after Scenario end. See [[docs/design/production-plans]], [[docs/design/industrial-boundaries]], and [[docs/design/fab-capacity-planning]].
 
 `initialSetups` maps setup-sensitive Device ids to qualified Process setup groups at tick zero. An omitted Device starts unconfigured and must use the asset's explicit `null → target` transition when ready WIP arrives. Scenario setup is fixed benchmark input; a candidate Blueprint cannot edit the physical starting state.
 
@@ -966,7 +978,7 @@ Required `wipAccounting` names an Objective-owned equivalent `unit` and a duplic
 
 Optional `deliveryContracts` freezes a multi-product customer portfolio outside the editable Blueprint. A contract Resource must be untracked and may appear in only one contract. Demand is the Scenario-duration integral of `demandPerMinute` and acts as a service floor, not a production ceiling. Every delivered unit earns `valuePerItem`; units below demand additionally avoid `shortfallPenaltyPerItem`, while delivery above demand is reported as overflow and remains valuable. Optional `minimumFulfillment` creates a hard gate. `weights.deliveryValue` multiplies aggregate contract net value per simulated minute. `inm plan` jointly solves every demand floor through one material balance, including fixed coproduct ratios. See [[docs/design/delivery-contracts]].
 
-`targetRegion` is the delivery boundary: only target-Resource consumption in that region counts toward the Objective. `targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` solves that rate through the selected recipes as a global material balance, then sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. `inm synthesize` anchors the final Process and boundary consumer in `targetRegion`, then uses the spatial extension to decide where upstream Processes run and which Resource crosses each regional boundary. For an untracked target, runtime `onTimeDelivery` is achieved regional delivery rate divided by design rate, capped at one. For a tracked target family, it is on-time completed lots divided by all Scenario-scheduled lots, so blocked or delayed admission cannot improve service by withholding work. Optional `cycleTime` and `tardiness` weights penalize mean completed-lot minutes; `changeovers` penalizes completed equipment reconfiguration, `qualityEscapes` penalizes target lots delivered with latent defects, and `rework` penalizes completed recovery cycles. `constraints.minProduction` remains a separate hard minimum target delivery count over the complete Scenario.
+`targetRegion` is the delivery boundary: only target-Resource consumption in that region counts toward the Objective. `targetRatePerMinute` is the factory's required steady-state design rate, not an optional display hint. `inm plan` solves that rate through the selected recipes as a global material balance, then sizes Process Devices, extraction, local transport, station fleets, regional power, and finite reserve for the selected Scenario duration. `inm synthesize` anchors the final Process and boundary consumer in `targetRegion`, then uses the spatial extension to decide where upstream Processes run and which Resource crosses each regional boundary. For an untracked target, runtime `onTimeDelivery` is achieved regional delivery rate divided by design rate, capped at one. For a tracked target family, it is on-time completed lots divided by all Production-Plan-scheduled lots, so blocked or delayed admission cannot improve service by withholding work. Optional `cycleTime` and `tardiness` weights penalize mean completed-lot minutes; `changeovers` penalizes completed equipment reconfiguration, `qualityEscapes` penalizes target lots delivered with latent defects, and `rework` penalizes completed recovery cycles. `constraints.minProduction` remains a separate hard minimum target delivery count over the complete Scenario.
 
 Optional `weights.electricityCost` penalizes Scenario-valued electricity energy and peak-demand charges in currency units. It is separate from `weights.energy`, which values physical consumed MJ without a tariff.
 

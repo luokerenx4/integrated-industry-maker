@@ -1,6 +1,7 @@
 {
   "name": "four-item-cargo-stacks",
   "blueprint": "stacked-cargo",
+  "productionPlan": "baseline",
   "scenario": "stacked-cargo",
   "objective": "stacked-cargo",
   "seed": 42,

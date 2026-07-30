@@ -9,6 +9,7 @@ import {
   inspectIndustrialInvestigation,
   listIndustrialInvestigationEntries,
 } from "./investigation";
+import { simulateProjectOperation } from "./operation";
 
 const repository = resolve(import.meta.dir, "../../..");
 const sourceProjectDir = join(repository, "examples/memory-fab");
@@ -30,6 +31,13 @@ test("an immutable Run comparison accumulates as exact Investigation and Candida
           || segments[runsIndex + 1] === "101-simulate";
       },
     });
+    const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
+    await writeFile(blueprintPath, await readFile(join(projectDir, "runs/100-simulate/blueprint.json"), "utf8"));
+    const fromOperation = await simulateProjectOperation(projectDir, {}, { seed: 42 });
+    await writeFile(blueprintPath, await readFile(join(projectDir, "runs/101-simulate/blueprint.json"), "utf8"));
+    const toOperation = await simulateProjectOperation(projectDir, {}, { seed: 42 });
+    const fromRunId = fromOperation.data.run.id;
+    const toRunId = toOperation.data.run.id;
 
     await createIndustrialInvestigation(projectDir, "compact-cell-evidence", {
       name: "Compact inspection and rework evidence",
@@ -42,13 +50,13 @@ test("an immutable Run comparison accumulates as exact Investigation and Candida
         id: "compact-cell-compared",
         kind: "observation",
         author: "agent",
-        statement: "Run 101 preserves delivery and quality while reducing the compact-cell footprint and inspection starvation.",
+        statement: `${toRunId} preserves delivery and quality while reducing the compact-cell footprint and inspection starvation.`,
         evidence: ["operating-run", "diagnostic", "compact-cell-comparison"],
         introduceEvidence: {
           id: "compact-cell-comparison",
           kind: "run-comparison",
-          fromRunId: "100-simulate",
-          toRunId: "101-simulate",
+          fromRunId,
+          toRunId,
         },
       },
     );
@@ -56,8 +64,8 @@ test("an immutable Run comparison accumulates as exact Investigation and Candida
       expect.objectContaining({
         id: "compact-cell-comparison",
         kind: "run-comparison",
-        from: expect.objectContaining({ runId: "100-simulate" }),
-        to: expect.objectContaining({ runId: "101-simulate" }),
+        from: expect.objectContaining({ runId: fromRunId }),
+        to: expect.objectContaining({ runId: toRunId }),
         comparisonHash: expect.stringMatching(/^[0-9a-f]{64}$/),
         diagnostic: expect.objectContaining({ code: "fab-loss.input-starvation" }),
       }),
@@ -78,12 +86,12 @@ test("an immutable Run comparison accumulates as exact Investigation and Candida
             "compare",
             projectDir,
             "--from-run",
-            "100-simulate",
+            fromRunId,
             "--to-run",
-            "101-simulate",
+            toRunId,
             "--json",
           ],
-          studioRoute: "/memory-fab/runs?from=100-simulate&to=101-simulate",
+          studioRoute: `/memory-fab/runs?from=${fromRunId}&to=${toRunId}`,
         },
       }),
     ]));
@@ -117,13 +125,13 @@ test("an immutable Run comparison accumulates as exact Investigation and Candida
       operatingContext: expect.objectContaining({
         source: "run-comparison",
         anchorId: "compact-cell-comparison",
-        run: expect.objectContaining({ id: "101-simulate" }),
+        run: expect.objectContaining({ id: toRunId }),
         diagnostic: expect.objectContaining({ code: "fab-loss.input-starvation" }),
       }),
     }));
 
     await writeFile(
-      join(projectDir, "blueprints/generated-dram-fab.blueprint.json"),
+      blueprintPath,
       await readFile(join(projectDir, "runs/100-simulate/blueprint.json"), "utf8"),
     );
     const historical = await inspectIndustrialInvestigation(projectDir, "compact-cell-evidence");
@@ -145,15 +153,15 @@ test("an immutable Run comparison accumulates as exact Investigation and Candida
       }],
     });
     expect(historicalCandidate.sourceEvidence.state).toBe("historical");
-    expect(historicalCandidate.sourceEvidence.operatingContext.run.id).toBe("101-simulate");
+    expect(historicalCandidate.sourceEvidence.operatingContext.run.id).toBe(toRunId);
 
-    await writeFile(join(projectDir, "runs/101-simulate/metrics.json"), "{}\n");
+    await writeFile(join(projectDir, "runs", toRunId, "metrics.json"), "{}\n");
     const invalid = await inspectIndustrialInvestigation(projectDir, "compact-cell-evidence");
     expect(invalid.state).toBe("invalid");
     expect(invalid.anchors.find((item) =>
       item.anchor.id === "compact-cell-comparison")?.state).toBe("invalid");
 
-    await rm(join(projectDir, "runs/101-simulate"), { recursive: true, force: true });
+    await rm(join(projectDir, "runs", toRunId), { recursive: true, force: true });
     const missing = await inspectIndustrialInvestigation(projectDir, "compact-cell-evidence");
     expect(missing.state).toBe("missing");
     expect(missing.anchors.find((item) =>

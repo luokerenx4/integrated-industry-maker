@@ -11,6 +11,7 @@
       "id": "small-batch-line-haul",
       "name": "Small-batch inter-zone line haul",
       "objective": "default",
+      "productionPlan": "baseline",
       "scenario": "baseline",
       "seed": 42,
       "weight": 1,
@@ -22,14 +23,15 @@
     "cases": {
       "small-batch-line-haul": {
         "blueprintHash": "10c43cbb57a2aa4494b39b2b2f6c229c1b23f9027b9131ff23cc922798a304d3",
-        "engineVersion": "inm-sim/0.90.0",
-        "executionHash": "d52d2c49256efd539e00be3cecfbe4fe242d9f65fb2357a524be080e716cb242",
+        "engineVersion": "inm-sim/0.91.0",
+        "executionHash": "3d556acbaaa642246d9783ce88ddfe64013e3060ff8d01c52aad2ac9c9c6b4b0",
         "objectiveHash": "8f797af70982a5fa1363919ba58a840ca5b6fb613abb1f8ee309bec7018b9f70",
+        "productionPlanHash": "fa712887abe4b19945a3cd4b6cc508eb5846bc37964d48784f13e916ee02ad48",
         "scenarioHash": "ba90230fc2542e93f3729dd95927af96ba3c37f2c52e53abf6717945f20a8c83",
         "worldHash": "667920f2b2a4dbcd839064f6a43c4182a4ad001044dd67a78da0e07260169168"
       }
     },
-    "contractHash": "3138153e7ad0a56e7c82aa69a36f6518706c1f32e81e077b8e8b59985999a125"
+    "contractHash": "d8d12b7846c078592f110ef4c2e2d40a73f577f33232f6ddfcd5117a08878c9c"
   },
   "name": "Expedited Inter-zone Line Haul",
   "version": 1

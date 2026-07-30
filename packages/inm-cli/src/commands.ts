@@ -345,8 +345,14 @@ function operationMetadata<T extends { data: unknown }>(operation: T): Omit<T, "
   return metadata;
 }
 
-function selectionArgs(selection: { world: string; blueprint: string; scenario: string; objective: string }): string[] {
-  return ["--world", selection.world, "--blueprint", selection.blueprint, "--scenario", selection.scenario, "--objective", selection.objective];
+function selectionArgs(selection: { world: string; blueprint: string; productionPlan: string; scenario: string; objective: string }): string[] {
+  return [
+    "--world", selection.world,
+    "--blueprint", selection.blueprint,
+    "--production-plan", selection.productionPlan,
+    "--scenario", selection.scenario,
+    "--objective", selection.objective,
+  ];
 }
 
 function workbenchNextActions(snapshot: Awaited<ReturnType<typeof openProjectWorkbenchSnapshot>>): CliNextAction[] {
@@ -568,6 +574,7 @@ async function candidateDecisionNextActions(
       "inm", "observe", resolve(projectDir),
       "--world", current.selection.world,
       "--blueprint", current.selection.blueprint,
+      "--production-plan", current.selection.productionPlan,
       "--scenario", current.selection.scenario,
       "--objective", current.selection.objective,
       "--json",
@@ -678,7 +685,7 @@ export async function validateCommand(projectDir: string, selection: ProjectSele
     context: operationProjectContext(operation.context),
     nextActions: [nextAction("inspect", "Read the shared project workbench snapshot.", ["inm", "inspect", operation.context.project.rootDir, ...selectionArgs(operation.context.selection), "--json"])],
   });
-  else write(`✓ ${summary.project}: valid (${summary.regions} ${summary.regions === 1 ? "region" : "regions"}, ${summary.resourceNodes} finite resource ${summary.resourceNodes === 1 ? "node" : "nodes"}, ${summary.devices} devices, ${summary.connections} local connections, ${summary.logisticsNetworks} station ${summary.logisticsNetworks === 1 ? "network" : "networks"} / ${summary.logisticsRoutes} ${summary.logisticsRoutes === 1 ? "route" : "routes"})\nWorld ${operation.context.hashes.worldHash.slice(0, 12)} · Blueprint ${summary.blueprintHash.slice(0, 12)}\n`, false);
+  else write(`✓ ${summary.project}: valid (${summary.regions} ${summary.regions === 1 ? "region" : "regions"}, ${summary.resourceNodes} finite resource ${summary.resourceNodes === 1 ? "node" : "nodes"}, ${summary.devices} devices, ${summary.connections} local connections, ${summary.logisticsNetworks} station ${summary.logisticsNetworks === 1 ? "network" : "networks"} / ${summary.logisticsRoutes} ${summary.logisticsRoutes === 1 ? "route" : "routes"})\nWorld ${operation.context.hashes.worldHash.slice(0, 12)} · Blueprint ${summary.blueprintHash.slice(0, 12)} · Production Plan ${operation.context.hashes.productionPlanHash.slice(0, 12)}\n`, false);
 }
 
 export async function inspectCommand(projectDir: string, selection: ProjectSelection, options: OutputOptions): Promise<void> {
@@ -760,8 +767,8 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
   else write([
     `${snapshot.project.name} · project workbench`,
     `Project: ${snapshot.project.rootDir}`,
-    `Selection: ${snapshot.selection.world.id} / ${snapshot.selection.blueprint.id} / ${snapshot.selection.scenario.id} / ${snapshot.selection.objective.id}`,
-    `Hashes: World ${snapshot.hashes.worldHash.slice(0, 12)} · Blueprint ${snapshot.hashes.blueprintHash.slice(0, 12)} · Scenario ${snapshot.hashes.scenarioHash.slice(0, 12)} · Objective ${snapshot.hashes.objectiveHash.slice(0, 12)}`,
+    `Selection: ${snapshot.selection.world.id} / ${snapshot.selection.blueprint.id} / ${snapshot.selection.productionPlan.id} / ${snapshot.selection.scenario.id} / ${snapshot.selection.objective.id}`,
+    `Hashes: World ${snapshot.hashes.worldHash.slice(0, 12)} · Blueprint ${snapshot.hashes.blueprintHash.slice(0, 12)} · Production Plan ${snapshot.hashes.productionPlanHash.slice(0, 12)} · Scenario ${snapshot.hashes.scenarioHash.slice(0, 12)} · Objective ${snapshot.hashes.objectiveHash.slice(0, 12)}`,
     `Objective: ${snapshot.objective.targetRatePerMinute} ${snapshot.objective.targetResource}/min @ ${snapshot.objective.targetRegion}`,
     `Contracts: ${snapshot.objective.deliveryContracts.map((contract) => `${contract.id}=${contract.demandPerMinute} ${contract.resource}/min @ ${contract.region}`).join("; ")}`,
     `WIP accounting: ${snapshot.objective.wipAccounting.unit} · ${snapshot.objective.wipAccounting.resources.map((entry) => `${entry.resource}×${entry.equivalentUnitsPerItem}`).join(", ") || "no scored resources"}`,
@@ -908,6 +915,7 @@ export async function observeCommand(
   const selectionArguments = [
     "--world", brief.selection.world,
     "--blueprint", brief.selection.blueprint,
+    "--production-plan", brief.selection.productionPlan,
     "--scenario", brief.selection.scenario,
     "--objective", brief.selection.objective,
   ];
@@ -943,7 +951,7 @@ export async function observeCommand(
   }
   write([
     `${brief.project.name} · observation brief ${brief.id.slice(0, 12)}`,
-    `Selection: ${brief.selection.world} / ${brief.selection.blueprint} / ${brief.selection.scenario} / ${brief.selection.objective}`,
+    `Selection: ${brief.selection.world} / ${brief.selection.blueprint} / ${brief.selection.productionPlan} / ${brief.selection.scenario} / ${brief.selection.objective}`,
     `Evidence: ${brief.evidence.run ? `${brief.evidence.run.id} · ${brief.evidence.run.resultHash.slice(0, 12)} · score ${brief.evidence.run.score.toFixed(3)} · ${brief.evidence.run.decision}` : "MISSING · simulate before runtime interpretation"}`,
     ...(brief.leadingDiagnostic ? [`Leading evidence: ${brief.leadingDiagnostic.code} · ${brief.leadingDiagnostic.message}`] : []),
     ...(brief.leadingObjectiveTradeoff ? [
@@ -1398,7 +1406,7 @@ export async function planCommand(projectDir: string, selection: ProjectSelectio
     "", "Treatment capacity",
     ...(plan.treatments.length ? plan.treatments.map((treatment) => `  ${`${treatment.process}/${treatment.treatmentMode}`.padEnd(32)} ${treatment.resource}@${treatment.minimumLevel}+ ${treatment.requiredItemsPerMinute.toFixed(3)}/min  ${treatment.configuredDevices}/${treatment.requiredDevices} ${treatment.asset}  agent ${treatment.requiredAgentPerMinute.toFixed(3)} ${treatment.agentResource}/min${treatment.additionalDevices ? `  ADD ${treatment.additionalDevices}` : ""}`) : ["  none"]),
     "", "Raw resources",
-    ...plan.rawResources.map((resource) => `  ${resource.resource.padEnd(18)} need ${resource.totalDemandPerMinute.toFixed(3).padStart(8)}/min  extraction ${resource.configuredExtractionPerMinute.toFixed(3).padStart(8)}/min  scheduled ${resource.scheduledSupplyPerMinute.toFixed(3).padStart(8)}/min (${resource.scheduledSupply} units)  Scenario balance ${resource.scenarioBalance.toFixed(3)}`),
+    ...plan.rawResources.map((resource) => `  ${resource.resource.padEnd(18)} need ${resource.totalDemandPerMinute.toFixed(3).padStart(8)}/min  extraction ${resource.configuredExtractionPerMinute.toFixed(3).padStart(8)}/min  planned ${resource.scheduledSupplyPerMinute.toFixed(3).padStart(8)}/min (${resource.scheduledSupply} units)  horizon balance ${resource.horizonBalance.toFixed(3)}`),
     "", "Transport envelopes",
     ...plan.transport.map((flow) => `  ${flow.process.padEnd(22)} ${flow.direction.padEnd(6)} ${flow.resource.padEnd(16)} ${flow.requiredItemsPerMinute.toFixed(3).padStart(8)}/${flow.configuredCapacityPerMinute.toFixed(3)} items/min  ${flow.connections.join(", ") || "NO CONNECTION"}`),
     "", "Station fleets",
@@ -1602,7 +1610,7 @@ export async function compareRunsCommand(
   write([
     `${comparison.project.name} · immutable Run comparison`,
     `FROM ${comparison.from.run.id} ${comparison.from.run.resultHash.slice(0, 12)} → TO ${comparison.to.run.id} ${comparison.to.run.resultHash.slice(0, 12)}`,
-    `Evidence: ${comparison.context.engineVersion} · ${comparison.from.selection.world} / ${comparison.from.selection.scenario} / ${comparison.from.selection.objective} · seed ${comparison.context.seed} · ${(comparison.context.durationTicks / 1000).toFixed(1)} s`, "",
+    `Evidence: ${comparison.context.engineVersion} · ${comparison.from.selection.world} / ${comparison.from.selection.productionPlan ?? "legacy-scenario-workload"} / ${comparison.from.selection.scenario} / ${comparison.from.selection.objective} · seed ${comparison.context.seed} · ${(comparison.context.durationTicks / 1000).toFixed(1)} s`, "",
     `Physical and semantic changes (${comparison.changes.length})`,
     ...(changeLines.length ? changeLines : ["  none"]), "",
     "Observed industrial delta",
@@ -1676,7 +1684,7 @@ export async function synthesizeCommand(projectDir: string, selection: ProjectSe
   }), {
     context: compiledProjectContext(project), diagnostics: plan.gaps,
     artifacts: [{ kind: "blueprint", id: options.output, path: outputPath, immutable: false }],
-    nextActions: [nextAction("validate", "Validate the generated Blueprint in the selected project context.", ["inm", "validate", project.rootDir, "--world", project.selection.world, "--blueprint", options.output, "--scenario", project.selection.scenario, "--objective", project.selection.objective, "--json"])],
+    nextActions: [nextAction("validate", "Validate the generated Blueprint in the selected project context.", ["inm", "validate", project.rootDir, "--world", project.selection.world, "--blueprint", options.output, "--production-plan", project.selection.productionPlan, "--scenario", project.selection.scenario, "--objective", project.selection.objective, "--json"])],
   });
   else write([
     `Synthesized '${options.output}' from project-local recipes and assets`, `Blueprint: ${outputPath}`,
@@ -1783,7 +1791,17 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
 
 interface MetricAssertion { kind: "metric"; path: string; min?: number; max?: number; equals?: unknown }
 interface EventAssertion { kind: "event"; type: FactoryEvent["type"]; present: boolean }
-interface Fixture { name: string; world?: string; blueprint?: string; scenario?: string; objective?: string; seed?: number; untilTick?: number; assertions: Array<MetricAssertion | EventAssertion> }
+interface Fixture {
+  name: string;
+  world?: string;
+  blueprint?: string;
+  productionPlan: string;
+  scenario?: string;
+  objective?: string;
+  seed?: number;
+  untilTick?: number;
+  assertions: Array<MetricAssertion | EventAssertion>;
+}
 function getPath(value: unknown, path: string): unknown { return path.split(".").reduce((current, key) => current && typeof current === "object" ? (current as Record<string, unknown>)[key] : undefined, value); }
 function assertFixture(fixture: Fixture, metrics: FactoryMetrics, events: FactoryEvent[]): string[] {
   const failures: string[] = [];
@@ -1809,7 +1827,14 @@ export async function testCommand(projectDir: string, options: OutputOptions): P
   for (const file of files) {
     const contents = await readFile(join(testDir, file), "utf8");
     const fixture = (file.endsWith(".json") ? JSON.parse(contents) : parseYaml(contents)) as Fixture;
-    const project = await openFactoryProject(root, { world: fixture.world, blueprint: fixture.blueprint, scenario: fixture.scenario, objective: fixture.objective });
+    if (!fixture.productionPlan) throw new Error(`Fixture '${file}' must select one explicit Production Plan`);
+    const project = await openFactoryProject(root, {
+      world: fixture.world,
+      blueprint: fixture.blueprint,
+      productionPlan: fixture.productionPlan,
+      scenario: fixture.scenario,
+      objective: fixture.objective,
+    });
     const first = runUntil(project, undefined, { seed: fixture.seed ?? 0, ...(fixture.untilTick ? { untilTick: fixture.untilTick } : {}) });
     const second = runUntil(project, undefined, { seed: fixture.seed ?? 0, ...(fixture.untilTick ? { untilTick: fixture.untilTick } : {}) });
     const failures = assertFixture(fixture, first.metrics, first.events);

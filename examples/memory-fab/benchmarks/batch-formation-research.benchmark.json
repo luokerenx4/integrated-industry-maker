@@ -11,6 +11,7 @@
       "id": "incomplete-tail",
       "name": "Eleven-lot production tail",
       "objective": "dram-output",
+      "productionPlan": "batch-tail",
       "scenario": "batch-tail",
       "seed": 42,
       "weight": 1,
@@ -22,14 +23,15 @@
     "cases": {
       "incomplete-tail": {
         "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
-        "engineVersion": "inm-sim/0.90.0",
-        "executionHash": "c187e1acd82ae5e3a48628be403d32ffef6d92ec74384cf3c35ce405a2464eee",
+        "engineVersion": "inm-sim/0.91.0",
+        "executionHash": "adf7c28bfdff0886ec15860cadb204a47b21f793f56f5386da11337948e09da3",
         "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
-        "scenarioHash": "ccdb119ae7e4dc409e83c3c0bce7539bc7390098c6dcadd3ea97d1ac3cb2990f",
+        "productionPlanHash": "9615e824675157f76c1d4c6f89df59443a8bd14a0405e54f45bdd2cabe9278b6",
+        "scenarioHash": "3dfca70601055e2fa7c03a91f3de2060de7dbcfdc61058d080c3ff55c5bb2e0a",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       }
     },
-    "contractHash": "1f73d71120969dfb33687fb616fe6b91fd12c6f4468a5c7c7cbebf48c3211017"
+    "contractHash": "8a7ae938b4d07daee7f078958d3f1ee3a9556f202cfe1802b80e1dbc3aa199a2"
   },
   "name": "DRAM Bounded Furnace Batch Research",
   "version": 1

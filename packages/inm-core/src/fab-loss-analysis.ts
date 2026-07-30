@@ -123,16 +123,16 @@ const isFlowProductiveDevice = (project: Pick<CompiledFactoryProject, "devices">
 export function analyzeReleaseAdmission(
   metrics: Pick<FactoryMetrics, "lotFlow" | "releaseFlow">,
   durationTicks: number,
-  project: Pick<CompiledFactoryProject, "resources" | "routes" | "scenario">,
+  project: Pick<CompiledFactoryProject, "resources" | "routes" | "productionPlan" | "scenario">,
   events: readonly FactoryEvent[],
 ): Omit<FabLossBucket, "id" | "label"> {
   const family = metrics.lotFlow.family;
-  const declarations = (project.scenario.lotReleases ?? [])
+  const declarations = (project.productionPlan.lotReleases ?? [])
     .filter((release) => project.resources[release.resource]?.tracking?.family === family)
     .sort((left, right) => left.releaseTick - right.releaseTick || left.id.localeCompare(right.id));
   if (declarations.length !== metrics.releaseFlow.scheduled) {
     throw new Error(
-      `Release attribution expected ${metrics.releaseFlow.scheduled} scheduled '${family}' lots but found ${declarations.length} Scenario declarations`,
+      `Release attribution expected ${metrics.releaseFlow.scheduled} scheduled '${family}' lots but found ${declarations.length} Production Plan declarations`,
     );
   }
   const declarationIds = new Set(declarations.map((release) => release.id));
@@ -1617,7 +1617,7 @@ export function analyzeSetupCampaign(
 export function analyzeFabLossProfile(
   metrics: FactoryMetrics,
   durationTicks: number,
-  project: Pick<CompiledFactoryProject, "devices" | "powerGrids" | "resources" | "routes" | "scenario">,
+  project: Pick<CompiledFactoryProject, "devices" | "powerGrids" | "resources" | "routes" | "productionPlan" | "scenario">,
   events: readonly FactoryEvent[],
 ): FabLossProfile | null {
   if (!metrics.lotFlow.family) return null;
@@ -1897,7 +1897,7 @@ export function analyzeFabLosses(
   metrics: FactoryMetrics,
   durationTicks: number,
   run: { id: string; resultHash: string },
-  project: Pick<CompiledFactoryProject, "devices" | "powerGrids" | "resources" | "routes" | "scenario">,
+  project: Pick<CompiledFactoryProject, "devices" | "powerGrids" | "resources" | "routes" | "productionPlan" | "scenario">,
   events: readonly FactoryEvent[],
 ): FabLossAttribution | null {
   const profile = analyzeFabLossProfile(metrics, durationTicks, project, events);

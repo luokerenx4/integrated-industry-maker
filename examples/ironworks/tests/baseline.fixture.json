@@ -1,6 +1,6 @@
 {
   "name": "baseline-production",
-  "blueprint": "main", "scenario": "baseline", "objective": "default", "seed": 42,
+  "blueprint": "main", "productionPlan": "baseline", "scenario": "baseline", "objective": "default", "seed": 42,
   "assertions": [
     { "kind": "metric", "path": "consumed.gear", "min": 9 },
     { "kind": "metric", "path": "energyConsumedMilliJoules", "max": 300000000 },

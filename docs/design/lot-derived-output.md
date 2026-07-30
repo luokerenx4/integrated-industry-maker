@@ -32,7 +32,7 @@ INM keeps these questions separate. `Process.quality` owns identity-preserving d
 
 At physical job start the simulator combines the selected incoming lot's existing defects with any queue-time defects assessed for that route step. The first authored profile whose `defectsAny` intersects that set wins; otherwise the nominal output applies. The selected counts are held on the active job, reserve real destination capacity, and become the only outputs on successful completion. Later equipment-breakdown behavior follows the ordinary active-job invariant.
 
-Production-mode `outputCycles` scales nominal and profiled counts together. Static analysis and target-rate capacity planning deliberately use nominal output because they solve the installed engineering envelope. Locked event simulation is authoritative for realized output under fixed Scenario lots.
+Production-mode `outputCycles` scales nominal and profiled counts together. Static analysis and target-rate capacity planning deliberately use nominal output because they solve the installed engineering envelope. Locked event simulation is authoritative for realized output under fixed Production Plan lots.
 
 ## Metrics and events
 

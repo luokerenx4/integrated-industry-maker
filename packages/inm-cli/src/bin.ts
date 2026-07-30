@@ -46,6 +46,7 @@ COMMON OPTIONS
   --project <id>              Project inside a workspace (default from workspace)
   --world <id>                World name (default from project inm.json)
   --blueprint <id>            Blueprint name (default from project inm.json)
+  --production-plan <id>      Production Plan name (default from project inm.json)
   --from-blueprint <id>       Comparison baseline Blueprint
   --to-blueprint <id>         Comparison candidate Blueprint
   --from-run <id>             Immutable Run comparison baseline
@@ -79,10 +80,16 @@ function twoArgs(positionals: string[], usage: string): [string, string] {
 }
 const projectOption = { project: { type: "string" as const } };
 const common = {
-  ...projectOption, world: { type: "string" as const }, blueprint: { type: "string" as const }, scenario: { type: "string" as const }, objective: { type: "string" as const }, json: { type: "boolean" as const, default: false },
+  ...projectOption, world: { type: "string" as const }, blueprint: { type: "string" as const }, "production-plan": { type: "string" as const }, scenario: { type: "string" as const }, objective: { type: "string" as const }, json: { type: "boolean" as const, default: false },
 };
 const section = { section: { type: "string" as const } };
-const selectionOf = (values: { world?: string; blueprint?: string; scenario?: string; objective?: string }): ProjectSelection => ({ world: values.world, blueprint: values.blueprint, scenario: values.scenario, objective: values.objective });
+const selectionOf = (values: { world?: string; blueprint?: string; "production-plan"?: string; scenario?: string; objective?: string }): ProjectSelection => ({
+  world: values.world,
+  blueprint: values.blueprint,
+  productionPlan: values["production-plan"],
+  scenario: values.scenario,
+  objective: values.objective,
+});
 async function selectedProject(positionals: string[], usage: string, project?: string): Promise<string> {
   return resolveProjectDirectory(oneArg(positionals, usage), project);
 }
@@ -205,7 +212,7 @@ async function main(signal: AbortSignal): Promise<void> {
   }
   if (subcommand === "compare") {
     const { values, positionals } = parseArgs({ args, options: {
-      ...projectOption, world: common.world, scenario: common.scenario, objective: common.objective, json: common.json, ...section,
+      ...projectOption, world: common.world, "production-plan": common["production-plan"], scenario: common.scenario, objective: common.objective, json: common.json, ...section,
       "from-blueprint": { type: "string" }, "to-blueprint": { type: "string" },
       "from-run": { type: "string" }, "to-run": { type: "string" },
       seed: { type: "string", default: "42" },
@@ -216,7 +223,7 @@ async function main(signal: AbortSignal): Promise<void> {
     const hasPartialRun = Boolean(values["from-run"] || values["to-run"]) && !runMode;
     const usage = "Usage: inm compare <project-or-workspace-dir> (--from-blueprint ID --to-blueprint ID [--seed N] | --from-run ID --to-run ID)";
     if (blueprintMode === runMode || hasPartialBlueprint || hasPartialRun) throw new Error(usage);
-    if (runMode && (values.world || values.scenario || values.objective || values.seed !== "42")) {
+    if (runMode && (values.world || values["production-plan"] || values.scenario || values.objective || values.seed !== "42")) {
       throw new Error(`${usage}\nRun comparison uses the immutable Runs' own selection and seed.`);
     }
     const projectDir = await selectedProject(positionals, usage, values.project);
@@ -226,7 +233,7 @@ async function main(signal: AbortSignal): Promise<void> {
       json: values.json,
       section: values.section,
     });
-    return compareCommand(projectDir, { world: values.world, scenario: values.scenario, objective: values.objective }, {
+    return compareCommand(projectDir, { world: values.world, productionPlan: values["production-plan"], scenario: values.scenario, objective: values.objective }, {
       fromBlueprint: values["from-blueprint"]!, toBlueprint: values["to-blueprint"]!, seed: Number(values.seed), json: values.json, section: values.section,
     });
   }

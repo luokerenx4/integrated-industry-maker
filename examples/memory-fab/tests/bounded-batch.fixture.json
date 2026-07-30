@@ -2,6 +2,7 @@
   "name": "bounded batch formation prefers full furnace loads and drains the incomplete tail",
   "world": "cleanroom",
   "blueprint": "batch-flex",
+  "productionPlan": "batch-tail",
   "scenario": "batch-tail",
   "objective": "dram-output",
   "seed": 42,

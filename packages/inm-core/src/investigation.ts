@@ -43,6 +43,7 @@ const subjectSchema = z.object({
 const selectionSchema = z.object({
   world: idSchema,
   blueprint: idSchema,
+  productionPlan: idSchema.optional(),
   scenario: idSchema,
   objective: idSchema,
 }).strict();
@@ -51,6 +52,7 @@ const evidenceHashesSchema = z.object({
   executionHash: hashSchema,
   worldHash: hashSchema,
   blueprintHash: hashSchema,
+  productionPlanHash: hashSchema.optional(),
   scenarioHash: hashSchema,
   objectiveHash: hashSchema,
 }).strict();
@@ -830,6 +832,7 @@ export async function createIndustrialInvestigation(
     selection: {
       world: snapshot.selection.world.id,
       blueprint: snapshot.selection.blueprint.id,
+      productionPlan: snapshot.selection.productionPlan.id,
       scenario: snapshot.selection.scenario.id,
       objective: snapshot.selection.objective.id,
     },
@@ -976,6 +979,7 @@ async function resolveIntroducedEvidenceAnchor(
       selection: {
         world: snapshot.selection.world.id,
         blueprint: snapshot.selection.blueprint.id,
+        productionPlan: snapshot.selection.productionPlan.id,
         scenario: snapshot.selection.scenario.id,
         objective: snapshot.selection.objective.id,
       },
@@ -1095,6 +1099,7 @@ function sameRecordedSelection(
 ): boolean {
   return selection.world === snapshot.selection.world.id
     && selection.blueprint === snapshot.selection.blueprint.id
+    && selection.productionPlan === snapshot.selection.productionPlan.id
     && selection.scenario === snapshot.selection.scenario.id
     && selection.objective === snapshot.selection.objective.id;
 }

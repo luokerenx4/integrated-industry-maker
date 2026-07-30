@@ -3,7 +3,11 @@
   "name": "Stacked Cargo Transfer",
   "durationTicks": 2000,
   "initialBuffers": {
-    "stack-source": { "storage": { "iron-ore": 8 } }
+    "stack-source": {
+      "storage": {
+        "iron-ore": 8
+      }
+    }
   },
   "failures": []
 }

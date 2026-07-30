@@ -1019,7 +1019,7 @@ describe("blueprint compiler", () => {
     const calendarMandatorySource = await maintenanceSource(100);
     calendarMandatorySource.deviceAssets.smelter!.production!.maintenance!.maximumQualificationTicks = 9_000;
     calendarMandatorySource.scenario.initialBuffers!["smelter-1"] = { input: { "iron-ore": 2 } };
-    calendarMandatorySource.scenario.materialDeliveries = [{
+    calendarMandatorySource.productionPlan.materialDeliveries = [{
       id: "second-shift-ore", device: "smelter-1", buffer: "input", resource: "iron-ore", count: 2, releaseTick: 10_000,
     }];
     const calendarMandatory = runUntil(compileFactoryProject(calendarMandatorySource), undefined, { untilTick: 16_000 });
@@ -1036,7 +1036,7 @@ describe("blueprint compiler", () => {
     const calendarEarlySource = await maintenanceSource(100, { opportunistic: { afterQualificationTicks: 7_000 } });
     calendarEarlySource.deviceAssets.smelter!.production!.maintenance!.maximumQualificationTicks = 9_000;
     calendarEarlySource.scenario.initialBuffers!["smelter-1"] = { input: { "iron-ore": 2 } };
-    calendarEarlySource.scenario.materialDeliveries = [{
+    calendarEarlySource.productionPlan.materialDeliveries = [{
       id: "second-shift-ore", device: "smelter-1", buffer: "input", resource: "iron-ore", count: 2, releaseTick: 10_000,
     }];
     const calendarEarly = runUntil(compileFactoryProject(calendarEarlySource), undefined, { untilTick: 15_000 });
@@ -1053,7 +1053,7 @@ describe("blueprint compiler", () => {
     const calendarPlannedSource = await maintenanceSource(100, { planned: { afterQualificationTicks: 7_000 } });
     calendarPlannedSource.deviceAssets.smelter!.production!.maintenance!.maximumQualificationTicks = 9_000;
     calendarPlannedSource.scenario.initialBuffers!["smelter-1"] = { input: { "iron-ore": 2 } };
-    calendarPlannedSource.scenario.materialDeliveries = [{
+    calendarPlannedSource.productionPlan.materialDeliveries = [{
       id: "second-shift-ore", device: "smelter-1", buffer: "input", resource: "iron-ore", count: 2, releaseTick: 10_000,
     }];
     const calendarPlanned = runUntil(compileFactoryProject(calendarPlannedSource), undefined, { untilTick: 15_000 });
@@ -1522,7 +1522,7 @@ describe("blueprint compiler", () => {
     unownedRouteProcess.routes["dram-front-end"]!.steps.find((step) => step.id === "anneal-dielectric-stack")!.operations = ["rapid-anneal-dielectric-stack"];
     expect(issueCodes(() => compileFactoryProject(unownedRouteProcess))).toContain("route.process-unassigned");
     const intermediateRelease = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
-    intermediateRelease.scenario.lotReleases![0]!.resource = "dram-wafer-lot";
+    intermediateRelease.productionPlan.lotReleases![0]!.resource = "dram-wafer-lot";
     expect(issueCodes(() => compileFactoryProject(intermediateRelease))).toContain("route.release-entry");
     const malformedTermination = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
     malformedTermination.processes["probe-sort-dram-standard"]!.outputs.push({ resource: "qualified-dram-wafer-lot", count: 1 });
@@ -1531,7 +1531,7 @@ describe("blueprint compiler", () => {
     hiddenDeadEnd.routes["dram-front-end"]!.steps.find((step) => step.id === "probe-dram")!.operations.push("inspect-final-pattern-standard");
     expect(issueCodes(() => compileFactoryProject(hiddenDeadEnd))).toContain("route.dead-end");
     const trackedMaterialDelivery = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
-    trackedMaterialDelivery.scenario.materialDeliveries![0]!.resource = "blank-dram-wafer-lot";
+    trackedMaterialDelivery.productionPlan.materialDeliveries![0]!.resource = "blank-dram-wafer-lot";
     expect(issueCodes(() => compileFactoryProject(trackedMaterialDelivery))).toContain("material.untracked-required");
     const queueBoundarySource = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
     queueBoundarySource.routes["dram-front-end"]!.steps.find((step) => step.id === "anneal-dielectric-stack")!.queueTime!.maximumTicks = 33_400;
@@ -1662,8 +1662,8 @@ describe("blueprint compiler", () => {
 
     const blockedReleaseSource = await loadFactoryProject(memoryFab, { blueprint: "baseline" });
     blockedReleaseSource.deviceAssets.buffer!.buffers.find((buffer) => buffer.id === "storage")!.capacity = 1;
-    blockedReleaseSource.scenario.materialDeliveries = [];
-    for (const lot of blockedReleaseSource.scenario.lotReleases!) lot.releaseTick = 0;
+    blockedReleaseSource.productionPlan.materialDeliveries = [];
+    for (const lot of blockedReleaseSource.productionPlan.lotReleases!) lot.releaseTick = 0;
     blockedReleaseSource.scenario.failures = [{ device: "release-to-lithography-loader", atTick: 0, durationTicks: 240_000 }];
     const blockedRelease = runUntil(compileFactoryProject(blockedReleaseSource), undefined, { seed: 42, untilTick: 1_000 });
     expect(blockedRelease.metrics.releaseFlow).toEqual(expect.objectContaining({ scheduled: 12, released: 1, pending: 11 }));
@@ -1723,7 +1723,7 @@ describe("blueprint compiler", () => {
     expect(candidate.metrics.finalScore).toBeLessThan(baseline.metrics.finalScore);
 
     const leastSlackSource = await loadFactoryProject(memoryFab, { blueprint: "baseline", scenario: "steady-production" });
-    leastSlackSource.scenario.lotReleases!.forEach((lot, index) => { lot.dueTick = 180_000 + index * 1_000; });
+    leastSlackSource.productionPlan.lotReleases!.forEach((lot, index) => { lot.dueTick = 180_000 + index * 1_000; });
     for (const id of ["lithography-1", "etch-1"]) {
       const device = leastSlackSource.blueprint.devices.find((item) => item.id === id)!;
       device.policy = { ...device.policy, recipeDispatch: "least-slack", lotDispatch: "earliest-due-date" };
@@ -1748,7 +1748,7 @@ describe("blueprint compiler", () => {
     expect(issueCodes(() => compileFactoryProject(nonProductionRouteDispatch))).toContain("production.route-dispatch-tracking-required");
 
     const directedChangeoverSource = await loadFactoryProject(memoryFab, { blueprint: "baseline", scenario: "steady-production" });
-    directedChangeoverSource.scenario.lotReleases!.forEach((lot, index) => { lot.dueTick = 180_000 + index * 1_000; });
+    directedChangeoverSource.productionPlan.lotReleases!.forEach((lot, index) => { lot.dueTick = 180_000 + index * 1_000; });
     directedChangeoverSource.blueprint.devices.find((item) => item.id === "furnace-1")!.recipe!.process = "rapid-anneal-dielectric-stack";
     for (const id of ["lithography-1", "etch-1"]) {
       const device = directedChangeoverSource.blueprint.devices.find((item) => item.id === id)!;
@@ -1774,8 +1774,8 @@ describe("blueprint compiler", () => {
     expect(issueCodes(() => compileFactoryProject(duplicateChangeover))).toContain("production.changeover-transition-duplicate");
 
     const boundedBatchSource = await loadFactoryProject(memoryFab, { blueprint: "baseline", scenario: "steady-production" });
-    boundedBatchSource.scenario.lotReleases = boundedBatchSource.scenario.lotReleases!.slice(0, 11);
-    boundedBatchSource.scenario.materialDeliveries = boundedBatchSource.scenario.materialDeliveries!.slice(0, 11);
+    boundedBatchSource.productionPlan.lotReleases = boundedBatchSource.productionPlan.lotReleases!.slice(0, 11);
+    boundedBatchSource.productionPlan.materialDeliveries = boundedBatchSource.productionPlan.materialDeliveries!.slice(0, 11);
     boundedBatchSource.scenario.durationTicks = 360_000;
     const boundedFurnace = boundedBatchSource.blueprint.devices.find((device) => device.id === "furnace-1")!;
     const batchRecipe = structuredClone(boundedFurnace.recipe!);
@@ -1872,17 +1872,29 @@ describe("blueprint compiler", () => {
     expect(deepInspection.metrics.routeFlow["dram-front-end"]).toEqual(expect.objectContaining({ queueTimeViolations: 12, violatedLots: 10 }));
     expect(deepInspection.metrics.finalScore).toBeLessThan(baseline.metrics.finalScore);
 
-    const invalid = { ...source, scenario: structuredClone(source.scenario) };
-    invalid.scenario.lotReleases = [];
+    const invalid = {
+      ...source,
+      scenario: structuredClone(source.scenario),
+      productionPlan: structuredClone(source.productionPlan),
+    };
+    invalid.productionPlan.lotReleases = [];
     invalid.scenario.initialBuffers = { "lot-release": { storage: { "blank-dram-wafer-lot": 1 } } };
     expect(issueCodes(() => compileFactoryProject(invalid))).toContain("lot.explicit-required");
 
-    const outsideWindow = { ...source, scenario: structuredClone(source.scenario) };
-    outsideWindow.scenario.lotReleases![0]!.releaseTick = outsideWindow.scenario.durationTicks + 1;
+    const outsideWindow = {
+      ...source,
+      scenario: structuredClone(source.scenario),
+      productionPlan: structuredClone(source.productionPlan),
+    };
+    outsideWindow.productionPlan.lotReleases![0]!.releaseTick = outsideWindow.scenario.durationTicks + 1;
     expect(issueCodes(() => compileFactoryProject(outsideWindow))).toContain("lot.release-outside-scenario");
 
-    const dueBeforeRelease = { ...source, scenario: structuredClone(source.scenario) };
-    dueBeforeRelease.scenario.lotReleases![0]!.releaseTick = dueBeforeRelease.scenario.lotReleases![0]!.dueTick! + 1;
+    const dueBeforeRelease = {
+      ...source,
+      scenario: structuredClone(source.scenario),
+      productionPlan: structuredClone(source.productionPlan),
+    };
+    dueBeforeRelease.productionPlan.lotReleases![0]!.releaseTick = dueBeforeRelease.productionPlan.lotReleases![0]!.dueTick! + 1;
     expect(issueCodes(() => compileFactoryProject(dueBeforeRelease))).toContain("lot.due-before-release");
 
     const invalidReleaseControl = { ...source, blueprint: structuredClone(source.blueprint) };
@@ -2411,7 +2423,7 @@ describe("deterministic discrete-event simulation", () => {
       })],
     }));
   });
-  test("static production analysis recognizes Scenario-scheduled boundary supply", async () => {
+  test("static production analysis recognizes Production-Plan-scheduled boundary supply", async () => {
     const analysis = analyzeProduction(await openFactoryProject(memoryFab));
     const scheduledInputs = ["blank-dram-wafer-lot", "dram-package-substrate"];
     for (const resourceId of scheduledInputs) {
@@ -2432,8 +2444,8 @@ describe("deterministic discrete-event simulation", () => {
       expect.objectContaining({
         resource: "iron-ore", totalDemandPerMinute: 48, configuredExtractionPerMinute: 60,
         scheduledSupply: 0, scheduledSupplyPerMinute: 0, configuredSupplyPerMinute: 60,
-        supplyDeficitPerMinute: 0, finiteReserve: 90, scenarioDemand: 96,
-        scenarioSupply: 90, scenarioBalance: -6,
+        supplyDeficitPerMinute: 0, finiteReserve: 90, horizonDemand: 96,
+        horizonSupply: 90, horizonBalance: -6,
       }),
     ]));
     expect(plan.transport.find((flow) => flow.process === "smelt-iron" && flow.direction === "input")).toEqual(expect.objectContaining({ resource: "iron-ore", requiredItemsPerMinute: 48, configuredCapacityPerMinute: 80 }));
@@ -2462,12 +2474,12 @@ describe("deterministic discrete-event simulation", () => {
       expect.objectContaining({
         resource: "blank-dram-wafer-lot", totalDemandPerMinute: 1.5625,
         scheduledSupply: 12, scheduledSupplyPerMinute: 3, configuredSupplyPerMinute: 3,
-        supplyDeficitPerMinute: 0, scenarioDemand: 6.25, scenarioSupply: 12, scenarioBalance: 5.75,
+        supplyDeficitPerMinute: 0, horizonDemand: 6.25, horizonSupply: 12, horizonBalance: 5.75,
       }),
       expect.objectContaining({
         resource: "dram-package-substrate", totalDemandPerMinute: 12.5,
         scheduledSupply: 96, scheduledSupplyPerMinute: 24, configuredSupplyPerMinute: 24,
-        supplyDeficitPerMinute: 0, scenarioDemand: 50, scenarioSupply: 96, scenarioBalance: 46,
+        supplyDeficitPerMinute: 0, horizonDemand: 50, horizonSupply: 96, horizonBalance: 46,
       }),
     ]));
     expect(baseline.toolsets).toEqual([
@@ -3426,7 +3438,7 @@ describe("deterministic discrete-event simulation", () => {
       source.blueprint.logisticsNetworks = [];
       source.scenario.durationTicks = 20_000;
       source.scenario.initialBuffers = { "smelter-1": { input: { "iron-ore": 2 } } };
-      source.scenario.materialDeliveries = [{
+      source.productionPlan.materialDeliveries = [{
         id: "second-shift-ore", device: "smelter-1", buffer: "input",
         resource: "iron-ore", count: 2, releaseTick: 12_000,
       }];
@@ -4932,7 +4944,13 @@ describe("artifacts and renderer-independent projection", () => {
     const dir = await projectCopy(); const project = await openFactoryProject(dir); const result = runUntil(project, undefined, { seed: 42 });
     const run = await writeRunArtifact(project, result, { label: "replay", seed: 42 });
     expect(await verifyRunReplay(project, run, runUntil(project, undefined, { seed: 42 }))).toBeTrue();
-    expect(run.manifest.selection).toEqual({ world: "main", blueprint: "main", scenario: "baseline", objective: "default" });
+    expect(run.manifest.selection).toEqual({
+      world: "main",
+      blueprint: "main",
+      productionPlan: "baseline",
+      scenario: "baseline",
+      objective: "default",
+    });
     expect((await listRuns(dir))[0]!.manifest.status).toBe("completed");
     expect(JSON.parse(await readFile(join(run.path, "metrics.json"), "utf8")).scoreBreakdown).toBeDefined();
     const report = await readFile(join(run.path, "report.md"), "utf8");

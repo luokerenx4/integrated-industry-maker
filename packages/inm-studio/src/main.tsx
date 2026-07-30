@@ -582,7 +582,7 @@ interface CapacityPlan {
     resource: string; processDemandPerMinute: number; infrastructureDemandPerMinute: number; totalDemandPerMinute: number;
     configuredExtractors: number; configuredExtractionPerMinute: number; scheduledSupply: number; scheduledSupplyPerMinute: number;
     configuredSupplyPerMinute: number; supplyDeficitPerMinute: number; additionalExtractors: number;
-    finiteReserve: number; lifetimeMinutes: number | null; scenarioDemand: number; scenarioSupply: number; scenarioBalance: number;
+    finiteReserve: number; lifetimeMinutes: number | null; horizonDemand: number; horizonSupply: number; horizonBalance: number;
   }>;
   transport: Array<{ direction: "input" | "output"; process: string; resource: string; devices: string[]; connections: string[]; requiredItemsPerMinute: number; configuredCapacityPerMinute: number; capacityDeficitPerMinute: number }>;
   stationNetworks: Array<{ network: string; resource: string; routes: string[]; requiredItemsPerMinute: number; perCarrierItemsPerMinute: number; energyLimitedItemsPerMinute: number; configuredItemsPerMinute: number; requiredCarriers: number; configuredCarriers: number; additionalCarriers: number; additionalChargeMilliWatts: number }>;
@@ -625,7 +625,7 @@ interface StudioData {
       opacity: number;
     };
   } | null;
-  selection: { world: string; blueprint: string; scenario: string; objective: string };
+  selection: { world: string; blueprint: string; productionPlan: string; scenario: string; objective: string };
   experiments: BlueprintBenchmarkSummary[];
   designPrograms: DesignProgramSummary[];
   blueprintHash: string;
@@ -1843,7 +1843,7 @@ function AnalysisBrowser({ data, focusDiagnostic, onClose }: { data: StudioData;
             <footer><span>{treatment.requiredItemsPerMinute.toFixed(2)} ITEMS/MIN</span><span>{treatment.requiredAgentPerMinute.toFixed(2)} {treatment.agentResource.toUpperCase()}/MIN</span><span>{treatment.additionalDevices ? `ADD ${treatment.additionalDevices}` : "TREATMENT READY"}</span></footer>
           </div>)}</div>
           <div className="analysis-table analysis-material-table"><div className="analysis-table-head"><span>RAW RESOURCE</span><span>NEED / MIN</span><span>EXTRACT + SCHEDULE</span><span>SCENARIO BALANCE</span></div>{plan.rawResources.map((resource) => <div key={resource.resource}>
-            <strong>{resource.resource}</strong><span>{resource.totalDemandPerMinute.toFixed(3)}</span><span>{resource.configuredExtractionPerMinute.toFixed(3)} + {resource.scheduledSupplyPerMinute.toFixed(3)}</span><b className={resource.scenarioBalance < 0 ? "negative" : "positive"}>{resource.scenarioBalance.toFixed(3)}</b><small>{resource.scheduledSupply} scheduled lots · {resource.lifetimeMinutes === null ? "no deposit" : `${resource.lifetimeMinutes.toFixed(2)} min deposit lifetime`}</small>
+            <strong>{resource.resource}</strong><span>{resource.totalDemandPerMinute.toFixed(3)}</span><span>{resource.configuredExtractionPerMinute.toFixed(3)} + {resource.scheduledSupplyPerMinute.toFixed(3)}</span><b className={resource.horizonBalance < 0 ? "negative" : "positive"}>{resource.horizonBalance.toFixed(3)}</b><small>{resource.scheduledSupply} planned units · {resource.lifetimeMinutes === null ? "no deposit" : `${resource.lifetimeMinutes.toFixed(2)} min deposit lifetime`}</small>
           </div>)}</div>
           <div className="pipeline-list">{plan.power.map((power) => <div className="pipeline-card" key={`plan-power-${power.region}`}>
             <div className="pipeline-head"><span><strong>{power.region} temporal power</strong><small>Scenario generated {(power.scenarioGeneratedMilliJoules / 1e6).toFixed(3)} / demanded {(power.scenarioDemandMilliJoules / 1e6).toFixed(3)} MJ · curtailed {(power.scenarioCurtailedMilliJoules / 1e6).toFixed(3)} MJ</small></span><b className={power.scenarioUnservedMilliJoules > 0 ? "negative" : "positive"}>{(power.scenarioUnservedMilliJoules / 1e6).toFixed(3)} MJ UNSERVED</b></div>
@@ -2042,7 +2042,7 @@ function CopyButton({ text, label = "COPY CLI", testId }: { text: string; label?
 function operationCli(snapshot: ProjectWorkbenchSnapshot, operation: WorkbenchOperationDescriptor): string {
   const argument = (value: string) => /^[a-zA-Z0-9_./:@+-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`;
   const root = argument(snapshot.project.rootDir);
-  const selection = `--world ${argument(snapshot.selection.world.id)} --blueprint ${argument(snapshot.selection.blueprint.id)} --scenario ${argument(snapshot.selection.scenario.id)} --objective ${argument(snapshot.selection.objective.id)}`;
+  const selection = `--world ${argument(snapshot.selection.world.id)} --blueprint ${argument(snapshot.selection.blueprint.id)} --production-plan ${argument(snapshot.selection.productionPlan.id)} --scenario ${argument(snapshot.selection.scenario.id)} --objective ${argument(snapshot.selection.objective.id)}`;
   if (operation.id === "benchmark.evaluate") return `inm benchmark ${root} --benchmark ${argument(snapshot.experiments.find((item) => item.locked)?.id ?? "<benchmark-id>")} --json`;
   if (operation.id === "candidate.preview" || operation.id === "candidate.apply") return `inm candidate ${root} --candidate ${argument(snapshot.candidates[0]?.id ?? "<candidate-id>")}${operation.id === "candidate.apply" ? " --apply" : ""} --json`;
   if (operation.id === "design.run") {
@@ -2063,8 +2063,8 @@ function OperationResultDialog({ result, cli, onClose }: { result: ProjectOperat
     <section className="operation-result" role="dialog" aria-modal="true" aria-label={`Operation result: ${result.operation}`} data-testid={`operation-result-${result.operation}`}>
       <header><div><span className="eyebrow">SHARED CORE OPERATION</span><h2>{result.operation}</h2><p>{result.effect} · {result.status} in {result.durationMs.toFixed(1)} ms</p></div><button className="icon-button" onClick={onClose} aria-label="Close operation result">×</button></header>
       <div className="operation-context">
-        <div><small>SELECTION</small><strong>{result.context.selection.blueprint}</strong><code>{result.context.selection.world} / {result.context.selection.scenario} / {result.context.selection.objective}</code></div>
-        <div><small>INPUT HASH</small><strong>{result.context.hashes.engineVersion}</strong><code>{result.context.hashes.blueprintHash.slice(0, 16)}</code></div>
+        <div><small>SELECTION</small><strong>{result.context.selection.blueprint}</strong><code>{result.context.selection.world} / {result.context.selection.productionPlan} / {result.context.selection.scenario} / {result.context.selection.objective}</code></div>
+        <div><small>INPUT HASH</small><strong>{result.context.hashes.engineVersion}</strong><code>BP {result.context.hashes.blueprintHash.slice(0, 12)} · PLAN {result.context.hashes.productionPlanHash.slice(0, 12)}</code></div>
         <div><small>ACTUAL WRITE SET</small><strong>{result.writeSet.length ? `${result.writeSet.length} WRITTEN` : "READ ONLY"}</strong><code>{result.writeSet.join(" · ") || "no project files"}</code></div>
       </div>
       <div className="operation-result-body">
@@ -2176,10 +2176,10 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
       <button data-testid="recommendation-action" onClick={() => followRecommendation(recommendation.target)}>{recommendation.actionLabel}<b>→</b></button>
     </section>
     <details className="selection-disclosure">
-      <summary data-testid="effective-selection"><span><small>EFFECTIVE SELECTION</small><strong>{snapshot.selection.blueprint.id}</strong></span><code>{snapshot.selection.world.id} / {snapshot.selection.scenario.id} / {snapshot.selection.objective.id}</code><b>CONTEXT + HASHES</b></summary>
+      <summary data-testid="effective-selection"><span><small>EFFECTIVE SELECTION</small><strong>{snapshot.selection.blueprint.id}</strong></span><code>{snapshot.selection.world.id} / {snapshot.selection.productionPlan.id} / {snapshot.selection.scenario.id} / {snapshot.selection.objective.id}</code><b>CONTEXT + HASHES</b></summary>
       <div className="selection-strip" aria-label="Effective project selection">
-        {(["world", "blueprint", "scenario", "objective"] as const).map((key) => <div key={key}><small>{key.toUpperCase()}</small><strong>{snapshot.selection[key].name}</strong><code>{snapshot.selection[key].id}</code></div>)}
-        <div><small>INPUT IDENTITY</small><strong>{snapshot.hashes.engineVersion}</strong><code>{snapshot.hashes.blueprintHash.slice(0, 12)} · {snapshot.hashes.objectiveHash.slice(0, 12)}</code></div>
+        {(["world", "blueprint", "productionPlan", "scenario", "objective"] as const).map((key) => <div key={key}><small>{key === "productionPlan" ? "PRODUCTION PLAN" : key.toUpperCase()}</small><strong>{snapshot.selection[key].name}</strong><code>{snapshot.selection[key].id}</code></div>)}
+        <div><small>INPUT IDENTITY</small><strong>{snapshot.hashes.engineVersion}</strong><code>BP {snapshot.hashes.blueprintHash.slice(0, 12)} · PLAN {snapshot.hashes.productionPlanHash.slice(0, 12)}</code></div>
       </div>
     </details>
     {snapshot.lossDispositions.length > 0 && <section className="loss-disposition-panel" data-testid="loss-dispositions" aria-label="Bounded deferred loss evidence">
@@ -2213,7 +2213,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
           return <div key={bucket.id} className={`${index === 0 ? "primary" : ""}${disposition ? " bounded-deferred" : ""}`}><em>{String(index + 1).padStart(2, "0")}</em><span><strong>{bucket.label}</strong>{disposition && <i>BOUNDED DEFERRED</i>}<small>{bucket.summary}</small></span><b>{bucket.score.toFixed(4)}</b></div>;
         })}</div>
         {releaseContributors.length > 0 && <div className="q-time-contributors release-admission-contributors" data-testid="release-admission-contributors">
-          <header><span className="eyebrow">RELEASE-ADMISSION CONTRIBUTORS</span><small>Scenario-owned identity and deadline · event-owned physical/controller wait and actual admission · top {Math.min(6, releaseContributors.length)} of {releaseContributors.length}</small></header>
+          <header><span className="eyebrow">RELEASE-ADMISSION CONTRIBUTORS</span><small>Production-Plan-owned identity and deadline · event-owned physical/controller wait and actual admission · top {Math.min(6, releaseContributors.length)} of {releaseContributors.length}</small></header>
           <div>{releaseContributors.slice(0, 6).map((contributor) => <article key={contributor.id} data-testid={`release-admission-contributor-${contributor.label}`}>
             <span><small>TRACKED LOT</small><strong>{contributor.label}</strong><code>{contributor.resources.join(" · ")} · {contributor.route}</code></span>
             <span><b>{(contributor.evidence.totalTicks! / 1000).toFixed(1)}s</b><small>{(contributor.evidence.controlBlockedTicks! / 1000).toFixed(1)} CONTROL / {((contributor.evidence.bufferCapacityTicks! + contributor.evidence.resourceCapacityTicks!) / 1000).toFixed(1)} CAPACITY</small></span>
@@ -2441,7 +2441,7 @@ function RunsOverview({
         <footer><span>This comparison is observed evidence. It does not choose the next factory intervention.</span><nav><a href={comparison.navigation.fromFactoryRoute}>OPEN CONTROL FACTORY</a><a href={comparison.navigation.toFactoryRoute}>OPEN INTERVENTION FACTORY</a><a href={`/${encodeURIComponent(snapshot.project.id)}/investigations?from=${encodeURIComponent(comparison.from.run.id)}&to=${encodeURIComponent(comparison.to.run.id)}`}>RETAIN IN INVESTIGATION</a></nav></footer>
       </div>}
     </section>}
-    {snapshot.runs.length ? <div className="runs-table"><div className="runs-head"><span>RUN</span><span>SELECTION</span><span>DECISION</span><span>SCORE</span><span>RESULT HASH</span></div>{[...snapshot.runs].reverse().map((run) => <button key={run.id} data-testid={`run-${run.id}`} title="Open this exact saved Factory replay" onClick={() => onOpenFactory(run.id)}><strong>{run.id}</strong><span>{run.selection.blueprint}<small>{run.selection.world} / {run.selection.scenario} / {run.selection.objective}{run.compatible ? " · CURRENT CONTEXT" : " · SAVED CONTEXT"}</small></span><b className={run.decision.toLowerCase()}>{run.decision}</b><em>{run.score.toFixed(3)}</em><code>{run.resultHash.slice(0, 16)}</code></button>)}</div> : <div className="runs-empty"><b>NO COMPLETED RUNS</b><p>Run <code>inm simulate {snapshot.project.rootDir} --json</code>, then refresh.</p></div>}
+    {snapshot.runs.length ? <div className="runs-table"><div className="runs-head"><span>RUN</span><span>SELECTION</span><span>DECISION</span><span>SCORE</span><span>RESULT HASH</span></div>{[...snapshot.runs].reverse().map((run) => <button key={run.id} data-testid={`run-${run.id}`} title="Open this exact saved Factory replay" onClick={() => onOpenFactory(run.id)}><strong>{run.id}</strong><span>{run.selection.blueprint}<small>{run.selection.world} / {run.selection.productionPlan ?? "historical"} / {run.selection.scenario} / {run.selection.objective}{run.compatible ? " · CURRENT CONTEXT" : " · SAVED CONTEXT"}</small></span><b className={run.decision.toLowerCase()}>{run.decision}</b><em>{run.score.toFixed(3)}</em><code>{run.resultHash.slice(0, 16)}</code></button>)}</div> : <div className="runs-empty"><b>NO COMPLETED RUNS</b><p>Run <code>inm simulate {snapshot.project.rootDir} --json</code>, then refresh.</p></div>}
   </section>;
 }
 
@@ -2550,8 +2550,16 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const query = selectedRun ? `?run=${encodeURIComponent(selectedRun)}` : "";
-      const next = await responseJson<StudioData>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/data${query}`));
+      const query = new URLSearchParams();
+      if (selectedRun) query.set("run", selectedRun);
+      else {
+        const routeQuery = new URLSearchParams(window.location.search);
+        for (const key of ["world", "blueprint", "productionPlan", "scenario", "objective"] as const) {
+          const value = routeQuery.get(key);
+          if (value) query.set(key, value);
+        }
+      }
+      const next = await responseJson<StudioData>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/data${query.size ? `?${query}` : ""}`));
       const overviewQuery = new URLSearchParams(next.selection).toString();
       const observationQuery = new URLSearchParams(next.selection);
       if (next.selectedRun) observationQuery.set("run", next.selectedRun);
@@ -2575,6 +2583,16 @@ function App() {
       if (sequence === requestSequence.current) setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!data || data.projectId !== routeProject) return;
+    const url = new URL(window.location.href);
+    for (const [key, value] of Object.entries(data.selection)) url.searchParams.set(key, value);
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+      window.history.replaceState(window.history.state, "", next);
+    }
+  }, [data, routeProject, routeView]);
 
   const navigateProject = useCallback((projectId: string | null) => {
     window.history.pushState({}, "", projectId ? projectPath(projectId) : "/");
@@ -2991,6 +3009,7 @@ function App() {
       const selection = {
         world: overview.selection.world.id,
         blueprint: overview.selection.blueprint.id,
+        productionPlan: overview.selection.productionPlan.id,
         scenario: overview.selection.scenario.id,
         objective: overview.selection.objective.id,
       };

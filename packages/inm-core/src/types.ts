@@ -637,7 +637,7 @@ export interface Blueprint {
   policies: {
     dispatch?: DispatchPolicy;
     powerAllocation: PowerAllocationPolicy;
-    /** Omit for open-loop admission as soon as the Scenario release and physical boundary permit it. */
+    /** Omit for open-loop admission as soon as the Production Plan release and physical boundary permit it. */
     lotRelease?: ConwipReleasePolicy;
   };
 }
@@ -662,12 +662,11 @@ export interface ScenarioElectricityTariff {
   /** Fixed charge applied to the maximum simultaneous regional demand during the run. */
   demandChargeMicroCurrencyPerKiloWatt: number;
 }
-export interface Scenario {
+export interface ProductionPlan {
+  version: 1;
   id: string;
   name: string;
-  durationTicks: Tick;
-  initialBuffers?: Record<DeviceInstanceId, Record<BufferId, Record<ResourceId, number>>>;
-  /** Scenario-owned identity-preserving lot availability schedule. Tracked Resources may not appear in initialBuffers. */
+  /** Human/Agent-authored identity-preserving lot availability schedule. */
   lotReleases?: Array<{
     id: string;
     device: DeviceInstanceId;
@@ -677,7 +676,7 @@ export interface Scenario {
     priority?: number;
     dueTick?: Tick;
   }>;
-  /** Scenario-owned external deliveries of untracked purchased materials to a placed receiving boundary. */
+  /** Human/Agent-authored external deliveries of untracked purchased materials. */
   materialDeliveries?: Array<{
     id: string;
     device: DeviceInstanceId;
@@ -686,6 +685,12 @@ export interface Scenario {
     count: number;
     releaseTick: Tick;
   }>;
+}
+export interface Scenario {
+  id: string;
+  name: string;
+  durationTicks: Tick;
+  initialBuffers?: Record<DeviceInstanceId, Record<BufferId, Record<ResourceId, number>>>;
   /** Scenario-owned setup state at tick zero for setup-sensitive production Devices. */
   initialSetups?: Record<DeviceInstanceId, string>;
   /** Fixed, deterministic process excursions applied once to named lots when the matching operation completes. */
@@ -768,6 +773,7 @@ export interface InmManifest {
   name: string;
   defaultWorld: string;
   defaultBlueprint: string;
+  defaultProductionPlan: string;
   defaultScenario: string;
   defaultObjective: string;
   /** Optional project-owned TypeScript strategy used by `inm synthesize`. */
@@ -988,7 +994,7 @@ export interface CompiledPowerGrid {
 }
 export interface CompiledFactoryProject {
   rootDir: string;
-  selection: { world: string; blueprint: string; scenario: string; objective: string };
+  selection: { world: string; blueprint: string; productionPlan: string; scenario: string; objective: string };
   manifest: InmManifest;
   resources: Record<ResourceId, ResourceAsset>;
   processes: Record<ProcessId, IndustrialProcess>;
@@ -996,6 +1002,7 @@ export interface CompiledFactoryProject {
   deviceAssets: Record<DeviceAssetId, DeviceAsset>;
   world: IndustrialWorld;
   blueprint: Blueprint;
+  productionPlan: ProductionPlan;
   scenario: Scenario;
   objective: Objective;
   regions: Record<string, WorldRegion>;
@@ -1018,13 +1025,15 @@ export interface ProjectHashes {
   deviceCatalogHash: string;
   worldHash: string;
   blueprintHash: string;
+  productionPlanHash: string;
   scenarioHash: string;
   objectiveHash: string;
 }
 
-/** Persisted compatibility authority for one exact selected factory execution. */
+/** Persisted authority for one exact selected factory execution. Older engine evidence predates independent Production Plans. */
 export type ProjectEvidenceHashes = Pick<ProjectHashes,
-  "engineVersion" | "executionHash" | "worldHash" | "blueprintHash" | "scenarioHash" | "objectiveHash">;
+  "engineVersion" | "executionHash" | "worldHash" | "blueprintHash" | "scenarioHash" | "objectiveHash">
+  & { productionPlanHash?: string };
 
 export type DeviceStatus = "idle" | "sleeping" | "waiting-input" | "processing" | "blocked-output" | "unpowered" | "failed";
 export type InputSupplyState =

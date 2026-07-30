@@ -15,7 +15,7 @@ The V1 named operations are `validate`, `analyze`, `plan`, `simulate`, `benchmar
 Every completed operation returns `ProjectOperationResult<T>` with:
 
 - contract version, stable operation id, effect, completion status, and measured duration;
-- exact project identity, effective World/Blueprint/Scenario/Objective selection, and all input hashes;
+- exact project identity, effective World/Blueprint/Production Plan/Scenario/Objective selection, and all input hashes;
 - operation-owned diagnostics;
 - generated or mutated artifacts;
 - the actual write set, which is empty for read-only work and for a cache-hit simulation;

@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { resolve } from "node:path";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { simulateProjectOperation } from "./operation";
 import {
   compareFactoryRuns,
   factoryRunComparisonEvidenceHash,
@@ -8,22 +11,33 @@ import {
 const memoryFab = resolve("examples/memory-fab");
 
 test("immutable Run comparison explains the commissioned compact inspection-rework cell", async () => {
-  const comparison = await compareFactoryRuns(memoryFab, "100-simulate", "101-simulate");
+  const root = await mkdtemp(join(tmpdir(), "inm-run-comparison-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(memoryFab, projectDir, { recursive: true });
+  try {
+    const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
+    await writeFile(blueprintPath, await readFile(join(projectDir, "runs/100-simulate/blueprint.json"), "utf8"));
+    const fromOperation = await simulateProjectOperation(projectDir, {}, { seed: 42 });
+    await writeFile(blueprintPath, await readFile(join(projectDir, "runs/101-simulate/blueprint.json"), "utf8"));
+    const toOperation = await simulateProjectOperation(projectDir, {}, { seed: 42 });
+    const fromRunId = fromOperation.data.run.id;
+    const toRunId = toOperation.data.run.id;
+    const comparison = await compareFactoryRuns(projectDir, fromRunId, toRunId);
 
-  expect(comparison).toMatchObject({
+    expect(comparison).toMatchObject({
     version: 1,
     project: { id: "memory-fab" },
     context: {
-      engineVersion: "inm-sim/0.90.0",
+      engineVersion: "inm-sim/0.91.0",
       seed: 42,
       durationTicks: 240_000,
     },
     from: {
-      run: { id: "100-simulate", resultHash: "5302c842062cb8f5785dff1387f89a26439f3b510ca86126b621ac3fca013a06" },
+      run: { id: fromRunId },
       hashes: { blueprintHash: "6b8b0ce24a75de511162b1d090c4c15fedd0e976dd1764d173e918d76a5832fe" },
     },
     to: {
-      run: { id: "101-simulate", resultHash: "d0a140643718af750433d62a12f0fb1ba668408daa16142c1cfb13d552b33b3e" },
+      run: { id: toRunId },
       hashes: { blueprintHash: "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7" },
     },
     verdict: "IMPROVED",
@@ -90,11 +104,11 @@ test("immutable Run comparison explains the commissioned compact inspection-rewo
   expect(queue.leadingContributorChanged).toBeTrue();
   expect(queue.from?.leadingContributor?.label).toBe("etch-1");
   expect(queue.to?.leadingContributor?.label).toBe("probe-1");
-  expect(comparison.navigation).toEqual(expect.objectContaining({
-    studioRoute: "/memory-fab/runs?from=100-simulate&to=101-simulate",
-    fromFactoryRoute: "/memory-fab/factory?run=100-simulate",
-    toFactoryRoute: "/memory-fab/factory?run=101-simulate",
-  }));
+    expect(comparison.navigation).toEqual(expect.objectContaining({
+      studioRoute: `/memory-fab/runs?from=${fromRunId}&to=${toRunId}`,
+      fromFactoryRoute: `/memory-fab/factory?run=${fromRunId}`,
+      toFactoryRoute: `/memory-fab/factory?run=${toRunId}`,
+    }));
   expect(comparison.navigation.changedSubjects).toHaveLength(5);
   const evidenceHash = factoryRunComparisonEvidenceHash(comparison);
   expect(evidenceHash).toMatch(/^[0-9a-f]{64}$/);
@@ -103,10 +117,13 @@ test("immutable Run comparison explains the commissioned compact inspection-rewo
     project: { ...comparison.project, name: "Copied project", rootDir: "/copied/project" },
     navigation: { ...comparison.navigation, studioRoute: "/presentation-only-route" },
   })).toBe(evidenceHash);
-  expect(factoryRunComparisonEvidenceHash({
+    expect(factoryRunComparisonEvidenceHash({
     ...comparison,
     delta: { ...comparison.delta, score: comparison.delta.score + 1 },
   })).not.toBe(evidenceHash);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("immutable Run comparison rejects missing and identical evidence identities", async () => {

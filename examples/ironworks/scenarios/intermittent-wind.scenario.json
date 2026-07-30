@@ -10,8 +10,14 @@
       "asset": "wind-turbine",
       "periodTicks": 120000,
       "points": [
-        { "atTick": 0, "outputPermille": 1000 },
-        { "atTick": 60000, "outputPermille": 750 }
+        {
+          "atTick": 0,
+          "outputPermille": 1000
+        },
+        {
+          "atTick": 60000,
+          "outputPermille": 750
+        }
       ]
     },
     {
@@ -19,8 +25,14 @@
       "asset": "wind-turbine",
       "periodTicks": 120000,
       "points": [
-        { "atTick": 0, "outputPermille": 1000 },
-        { "atTick": 60000, "outputPermille": 960 }
+        {
+          "atTick": 0,
+          "outputPermille": 1000
+        },
+        {
+          "atTick": 60000,
+          "outputPermille": 960
+        }
       ]
     }
   ],

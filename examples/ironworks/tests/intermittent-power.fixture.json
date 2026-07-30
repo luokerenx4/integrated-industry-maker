@@ -1,6 +1,7 @@
 {
   "name": "regional renewable curves are covered by synthesized power",
   "blueprint": "scaled-factory",
+  "productionPlan": "baseline",
   "scenario": "intermittent-wind",
   "objective": "scaled-production",
   "seed": 42,

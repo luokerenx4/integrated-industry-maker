@@ -10,7 +10,7 @@ This document owns Resource identity, Process transformations, Device buffers an
 
 Treatment grade is lot state layered onto Resource identity rather than a new Resource kind. Buffer totals and exact `(Resource, treatment level)` batches remain conserved together; see [[docs/design/material-treatment]].
 
-An identity-preserving industrial lot is a different, opt-in layer. Resources in one tracked family represent successive route stages while a stable lot id survives transformation, transport, and delivery. Tracked quantities must enter through explicit Scenario lots and Processes must preserve their identities one-for-one; see [[docs/design/lot-tracking]].
+An identity-preserving industrial lot is a different, opt-in layer. Resources in one tracked family represent successive route stages while a stable lot id survives transformation, transport, and delivery. Tracked quantities must enter through explicit Production Plan lots and Processes must preserve their identities one-for-one; see [[docs/design/production-plans]] and [[docs/design/lot-tracking]].
 
 ## Layered contract model
 

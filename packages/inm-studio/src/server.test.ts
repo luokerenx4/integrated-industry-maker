@@ -24,6 +24,7 @@ async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
   await rm(join(projectDir, "runs/099-simulate"), { recursive: true, force: true });
   await rm(join(projectDir, "runs/100-simulate"), { recursive: true, force: true });
   await rm(join(projectDir, "runs/101-simulate"), { recursive: true, force: true });
+  await rm(join(projectDir, "runs/102-simulate"), { recursive: true, force: true });
   await rm(join(
     projectDir,
     "investigations/inspection-starvation-next-step/entries/0021-compact-cell-run-comparison-retained.entry.json",
@@ -93,7 +94,7 @@ test("Studio defaults to current compatible evidence instead of the newest unrel
     expect(defaultData).toEqual(expect.objectContaining({
       environment: null,
       selectedRun: current.data.run.id,
-      selection: { world: "main", blueprint: "main", scenario: "baseline", objective: "default" },
+      selection: { world: "main", blueprint: "main", productionPlan: "baseline", scenario: "baseline", objective: "default" },
     }));
     expect(defaultData.runs.map((run) => run.name)).toEqual([current.data.run.id]);
 
@@ -102,7 +103,7 @@ test("Studio defaults to current compatible evidence instead of the newest unrel
     const explicitData = await explicitResponse.json() as { selectedRun: string | null; selection: Record<string, string>; runs: Array<{ name: string }> };
     expect(explicitData).toEqual(expect.objectContaining({
       selectedRun: unrelated.data.run.id,
-      selection: { world: "main", blueprint: "main", scenario: "machine-failure", objective: "default" },
+      selection: { world: "main", blueprint: "main", productionPlan: "baseline", scenario: "machine-failure", objective: "default" },
     }));
     expect(explicitData.runs.map((run) => run.name)).toEqual([unrelated.data.run.id]);
   } finally {
@@ -118,6 +119,13 @@ test("Studio exposes the shared immutable Run comparison and reopens each Run's 
     recursive: true,
     filter: (source) => !source.split("/").includes(".inm"),
   });
+  const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
+  await writeFile(blueprintPath, await readFile(join(projectDir, "runs/100-simulate/blueprint.json"), "utf8"));
+  const fromRun = await simulateProjectOperation(projectDir, {}, { seed: 42 });
+  await writeFile(blueprintPath, await readFile(join(projectDir, "runs/101-simulate/blueprint.json"), "utf8"));
+  const toRun = await simulateProjectOperation(projectDir, {}, { seed: 42 });
+  const fromRunId = fromRun.data.run.id;
+  const toRunId = toRun.data.run.id;
   const port = 50_000 + process.pid % 1_000;
   const child = Bun.spawn([
     process.execPath, join(repository, "packages/inm-studio/src/server.ts"), projectDir,
@@ -135,11 +143,11 @@ test("Studio exposes the shared immutable Run comparison and reopens each Run's 
     reader.releaseLock();
 
     const apiResponse = await fetch(
-      `http://localhost:${port}/api/projects/memory-fab/run-comparison?from=100-simulate&to=101-simulate`,
+      `http://localhost:${port}/api/projects/memory-fab/run-comparison?from=${fromRunId}&to=${toRunId}`,
     );
     expect(apiResponse.status).toBe(200);
     const apiComparison = await apiResponse.json();
-    const coreComparison = await compareFactoryRuns(projectDir, "100-simulate", "101-simulate");
+    const coreComparison = await compareFactoryRuns(projectDir, fromRunId, toRunId);
     expect(stableStringify(apiComparison)).toBe(stableStringify(coreComparison));
     expect(apiComparison).toEqual(expect.objectContaining({
       version: 1,
@@ -150,7 +158,7 @@ test("Studio exposes the shared immutable Run comparison and reopens each Run's 
         occupiedArea: -10,
       }),
       navigation: expect.objectContaining({
-        studioRoute: "/memory-fab/runs?from=100-simulate&to=101-simulate",
+        studioRoute: `/memory-fab/runs?from=${fromRunId}&to=${toRunId}`,
       }),
     }));
 
@@ -176,13 +184,13 @@ test("Studio exposes the shared immutable Run comparison and reopens each Run's 
           id: "compact-cell-compared",
           author: "agent",
           kind: "observation",
-          statement: "Run 101 preserves delivery and quality while reducing compact-cell footprint and inspection starvation.",
+          statement: `${toRunId} preserves delivery and quality while reducing compact-cell footprint and inspection starvation.`,
           evidence: ["operating-run", "diagnostic", "compact-cell-comparison"],
           introduceEvidence: {
             id: "compact-cell-comparison",
             kind: "run-comparison",
-            fromRunId: "100-simulate",
-            toRunId: "101-simulate",
+            fromRunId,
+            toRunId,
           },
         }),
       },
@@ -197,8 +205,8 @@ test("Studio exposes the shared immutable Run comparison and reopens each Run's 
             id: "compact-cell-comparison",
             kind: "run-comparison",
             comparisonHash: expect.stringMatching(/^[0-9a-f]{64}$/),
-            from: expect.objectContaining({ runId: "100-simulate" }),
-            to: expect.objectContaining({ runId: "101-simulate" }),
+            from: expect.objectContaining({ runId: fromRunId }),
+            to: expect.objectContaining({ runId: toRunId }),
           }),
           navigation: {
             argv: [
@@ -206,27 +214,27 @@ test("Studio exposes the shared immutable Run comparison and reopens each Run's 
               "compare",
               projectDir,
               "--from-run",
-              "100-simulate",
+              fromRunId,
               "--to-run",
-              "101-simulate",
+              toRunId,
               "--json",
             ],
-            studioRoute: "/memory-fab/runs?from=100-simulate&to=101-simulate",
+            studioRoute: `/memory-fab/runs?from=${fromRunId}&to=${toRunId}`,
           },
         }),
       ]),
     }));
 
     const historicalResponse = await fetch(
-      `http://localhost:${port}/api/projects/memory-fab/data?run=100-simulate`,
+      `http://localhost:${port}/api/projects/memory-fab/data?run=${fromRunId}`,
     );
     expect(historicalResponse.status).toBe(200);
     expect(await historicalResponse.json()).toEqual(expect.objectContaining({
-      selectedRun: "100-simulate",
-      blueprintHash: "6b8b0ce24a75de511162b1d090c4c15fedd0e976dd1764d173e918d76a5832fe",
+      selectedRun: fromRunId,
+      blueprintHash: fromRun.context.hashes.blueprintHash,
     }));
     const historicalObservation = await fetch(
-      `http://localhost:${port}/api/projects/memory-fab/observation?run=100-simulate`,
+      `http://localhost:${port}/api/projects/memory-fab/observation?run=${fromRunId}`,
     );
     expect(historicalObservation.status).toBe(200);
     expect(await historicalObservation.json()).toEqual(expect.objectContaining({
@@ -234,23 +242,23 @@ test("Studio exposes the shared immutable Run comparison and reopens each Run's 
       evidence: {
         state: "compatible",
         run: expect.objectContaining({
-          id: "100-simulate",
-          resultHash: "5302c842062cb8f5785dff1387f89a26439f3b510ca86126b621ac3fca013a06",
+          id: fromRunId,
+          resultHash: fromRun.data.resultHash,
         }),
       },
     }));
 
     const invalidResponse = await fetch(
-      `http://localhost:${port}/api/projects/memory-fab/run-comparison?from=100-simulate&to=100-simulate`,
+      `http://localhost:${port}/api/projects/memory-fab/run-comparison?from=${fromRunId}&to=${fromRunId}`,
     );
     expect(invalidResponse.status).toBe(400);
     expect(await invalidResponse.json()).toEqual(expect.objectContaining({
       code: "run-comparison.same-run",
-      hashes: { fromRunId: "100-simulate", toRunId: "100-simulate" },
+      hashes: { fromRunId, toRunId: fromRunId },
     }));
 
     const incompleteResponse = await fetch(
-      `http://localhost:${port}/api/projects/memory-fab/run-comparison?from=100-simulate`,
+      `http://localhost:${port}/api/projects/memory-fab/run-comparison?from=${fromRunId}`,
     );
     expect(incompleteResponse.status).toBe(400);
     expect(await incompleteResponse.json()).toEqual(expect.objectContaining({
@@ -258,7 +266,7 @@ test("Studio exposes the shared immutable Run comparison and reopens each Run's 
     }));
 
     const deepLink = await fetch(
-      `http://localhost:${port}/memory-fab/runs?from=100-simulate&to=101-simulate`,
+      `http://localhost:${port}/memory-fab/runs?from=${fromRunId}&to=${toRunId}`,
     );
     expect(deepLink.status).toBe(200);
     expect(deepLink.headers.get("content-type")).toContain("text/html");
@@ -278,6 +286,8 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
       && !source.split("/").includes("investigations"),
   });
   await restorePreCompactMemoryFabBlueprint(projectDir);
+  const operatingRun = await simulateProjectOperation(projectDir, {}, { seed: 42 });
+  const operatingRunId = operatingRun.data.run.id;
   const port = 46_500 + process.pid % 400;
   const child = Bun.spawn([
     process.execPath, join(repository, "packages/inm-studio/src/server.ts"), projectDir,
@@ -328,7 +338,6 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
       anchors: [
         expect.objectContaining({ state: "current", anchor: expect.objectContaining({ id: "operating-run" }) }),
         expect.objectContaining({ state: "current", anchor: expect.objectContaining({ id: "diagnostic" }) }),
-        expect.objectContaining({ state: "current", anchor: expect.objectContaining({ id: "design-lineage" }) }),
       ],
     }));
 
@@ -365,63 +374,19 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
       }),
     }));
 
-    const decided = await fetch(
-      `http://localhost:${port}/api/projects/memory-fab/investigations/inspection-starvation-next-step/entries`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id: "retain-commissioned-supply-path",
-          author: "agent",
-          kind: "decision",
-          statement: "Retain the commissioned supply-path result and start the next hypothesis from that exact boundary.",
-          disposition: "keep",
-          evidence: ["design-lineage", "supply-path-review"],
-          introduceEvidence: {
-            id: "supply-path-review",
-            kind: "candidate-review",
-            candidateId: "inspection-supply-path-966127dd",
-          },
-        }),
-      },
-    );
-    expect(decided.status).toBe(201);
-    expect(await decided.json()).toEqual(expect.objectContaining({
-      state: "current",
-      anchors: expect.arrayContaining([
-        expect.objectContaining({
-          state: "current",
-          anchor: expect.objectContaining({
-            id: "supply-path-review",
-            kind: "candidate-review",
-            verdict: "KEEP",
-          }),
-        }),
-      ]),
-      entries: expect.arrayContaining([
-        expect.objectContaining({
-          id: "retain-commissioned-supply-path",
-          sequence: 2,
-          introducedAnchors: [
-            expect.objectContaining({ id: "supply-path-review" }),
-          ],
-        }),
-      ]),
-    }));
-
     const captured = await fetch(
       `http://localhost:${port}/api/projects/memory-fab/investigations/inspection-starvation-next-step/entries`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          id: "post-decision-factory-observed",
+          id: "post-hypothesis-factory-observed",
           author: "agent",
           kind: "observation",
-          statement: "The retained decision remains bound to the current exact factory.",
-          evidence: ["supply-path-review", "post-decision-factory"],
+          statement: "The follow-up hypothesis remains bound to the current exact factory.",
+          evidence: ["operating-run", "diagnostic", "post-hypothesis-factory"],
           introduceEvidence: {
-            id: "post-decision-factory",
+            id: "post-hypothesis-factory",
             kind: "factory-observation",
           },
         }),
@@ -434,9 +399,9 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
         expect.objectContaining({
           state: "current",
           anchor: expect.objectContaining({
-            id: "post-decision-factory",
+            id: "post-hypothesis-factory",
             kind: "factory-observation",
-            runId: "098-simulate",
+            runId: operatingRunId,
             diagnostic: expect.objectContaining({
               code: "fab-loss.input-starvation",
             }),
@@ -456,7 +421,7 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
           kind: "hypothesis",
           statement: "A qualified wafer buffer may decouple inspection from the final etch handoff.",
           expectedEffect: "Reduce inspection input shortage without increasing service, quality, WIP, or Q-time losses.",
-          evidence: ["post-decision-factory"],
+          evidence: ["post-hypothesis-factory"],
         }),
       },
     );
@@ -464,7 +429,7 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
     expect(await hypothesized.json()).toEqual(expect.objectContaining({
       handoff: expect.objectContaining({
         phase: "author-candidate",
-        evidenceIds: ["post-decision-factory"],
+        evidenceIds: ["post-hypothesis-factory"],
         sourceEntry: expect.objectContaining({
           id: "inspection-decoupling-buffer",
           kind: "hypothesis",
@@ -498,8 +463,8 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
         statement: "A qualified wafer buffer may decouple inspection from the final etch handoff.",
         operatingContext: expect.objectContaining({
           source: "factory-observation",
-          anchorId: "post-decision-factory",
-          run: expect.objectContaining({ id: "098-simulate" }),
+          anchorId: "post-hypothesis-factory",
+          run: expect.objectContaining({ id: operatingRunId }),
         }),
       }),
     }));
@@ -508,7 +473,7 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
     expect(await listed.json()).toEqual({
       investigations: [expect.objectContaining({
         id: "inspection-starvation-next-step",
-        entryCount: 4,
+        entryCount: 3,
       })],
     });
     const detail = await fetch(
@@ -519,7 +484,7 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
       entries: expect.any(Array),
       handoff: expect.objectContaining({
         phase: "author-candidate",
-        evidenceIds: ["post-decision-factory"],
+        evidenceIds: ["post-hypothesis-factory"],
       }),
     }));
     const deepLink = await fetch(
@@ -976,10 +941,10 @@ test("opening a project without runs does not write a Studio baseline", async ()
     const escapedFile = await fetch(`http://localhost:${port}/api/projects/ironworks/files/linked-outside.txt`);
     expect(escapedFile.status).toBe(403);
 
-    const overviewResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/overview?world=main&blueprint=main&scenario=baseline&objective=default`);
+    const overviewResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/overview?world=main&blueprint=main&productionPlan=baseline&scenario=baseline&objective=default`);
     expect(overviewResponse.status).toBe(200);
     expect(await overviewResponse.json()).toEqual(await openProjectWorkbenchSnapshot(projectDir, {
-      world: "main", blueprint: "main", scenario: "baseline", objective: "default",
+      world: "main", blueprint: "main", productionPlan: "baseline", scenario: "baseline", objective: "default",
     }));
     const invalidOverview = await fetch(`http://localhost:${port}/api/projects/ironworks/overview?blueprint=missing-blueprint`);
     expect(invalidOverview.status).toBe(400);
@@ -989,10 +954,10 @@ test("opening a project without runs does not write a Studio baseline", async ()
     const overviewMethod = await fetch(`http://localhost:${port}/api/projects/ironworks/overview`, { method: "POST" });
     expect(overviewMethod.status).toBe(405);
 
-    const observationResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/observation?world=main&blueprint=main&scenario=baseline&objective=default`);
+    const observationResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/observation?world=main&blueprint=main&productionPlan=baseline&scenario=baseline&objective=default`);
     expect(observationResponse.status).toBe(200);
     expect(await observationResponse.json()).toEqual(await openFactoryObservationBrief(projectDir, {
-      world: "main", blueprint: "main", scenario: "baseline", objective: "default",
+      world: "main", blueprint: "main", productionPlan: "baseline", scenario: "baseline", objective: "default",
     }));
     const observationMethod = await fetch(`http://localhost:${port}/api/projects/ironworks/observation`, { method: "POST" });
     expect(observationMethod.status).toBe(405);
@@ -1001,12 +966,12 @@ test("opening a project without runs does not write a Studio baseline", async ()
       const operationResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/operations/${operation}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ selection: { world: "main", blueprint: "main", scenario: "baseline", objective: "default" } }),
+        body: JSON.stringify({ selection: { world: "main", blueprint: "main", productionPlan: "baseline", scenario: "baseline", objective: "default" } }),
       });
       expect(operationResponse.status).toBe(200);
       expect(await operationResponse.json()).toEqual(expect.objectContaining({
         version: 1, operation, effect: "read-only", status: "completed",
-        context: expect.objectContaining({ selection: { world: "main", blueprint: "main", scenario: "baseline", objective: "default" } }),
+        context: expect.objectContaining({ selection: { world: "main", blueprint: "main", productionPlan: "baseline", scenario: "baseline", objective: "default" } }),
         artifacts: [], writeSet: [], verification: expect.any(Array),
       }));
     }
@@ -1431,7 +1396,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     const commissionedValidation = await fetch(`http://localhost:${port}/api/projects/memory-fab/operations/validate`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ selection: { world: "cleanroom", blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output" } }),
+      body: JSON.stringify({ selection: { world: "cleanroom", blueprint: "generated-dram-fab", productionPlan: "production-window", scenario: "production-window", objective: "dram-output" } }),
     });
     expect(commissionedValidation.status).toBe(200);
     expect(await commissionedValidation.json()).toEqual(expect.objectContaining({

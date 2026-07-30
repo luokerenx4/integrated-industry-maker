@@ -31,7 +31,7 @@ export interface RunManifest {
   resultHash: string;
   engineVersion: string;
   hashes: ProjectEvidenceHashes;
-  selection: { world: string; blueprint: string; scenario: string; objective: string };
+  selection: { world: string; blueprint: string; productionPlan?: string; scenario: string; objective: string };
   seed: number;
   decision: "BASELINE" | "KEEP" | "REVERT";
   parentRun?: string;

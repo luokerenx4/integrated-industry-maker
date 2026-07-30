@@ -227,7 +227,7 @@ export interface DesignProgramBrief {
   promotionBase: { blueprint: string; hash: string };
   driver: {
     case: { id: string; name: string; weight: number; seed: number };
-    selection: { world: string; blueprint: string; scenario: string; objective: string };
+    selection: { world: string; blueprint: string; productionPlan: string; scenario: string; objective: string };
     hashes: ProjectEvidenceHashes;
   };
   staticEvidence: {
@@ -383,6 +383,7 @@ export async function prepareDesignProgram(projectDir: string, programId: string
       selection: {
         world: driverCase.world,
         blueprint: benchmark.candidateBlueprint,
+        productionPlan: driverCase.productionPlan,
         scenario: driverCase.scenario,
         objective: driverCase.objective,
       },

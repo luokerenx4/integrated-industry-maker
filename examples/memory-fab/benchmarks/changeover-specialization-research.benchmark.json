@@ -11,6 +11,7 @@
       "id": "changeover-pressure",
       "name": "Directed mask and etch cleanup pressure",
       "objective": "dram-output",
+      "productionPlan": "changeover-pressure",
       "scenario": "changeover-pressure",
       "seed": 42,
       "weight": 1,
@@ -22,14 +23,15 @@
     "cases": {
       "changeover-pressure": {
         "blueprintHash": "d6d0e86c9a117449019ac833b251c18fa74473be64d7e8699b1a89709f47b797",
-        "engineVersion": "inm-sim/0.90.0",
-        "executionHash": "9f598668f5ee0406cfcd188e04d2b79e3777352004e4a17ba2b763fc432ce53e",
+        "engineVersion": "inm-sim/0.91.0",
+        "executionHash": "65766216dedfc39d81b7663be0baa57f7bef006113701e9e51a193ad7a40eb7e",
         "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
-        "scenarioHash": "ad5993e6cc1d59f10109a65113b228b5e70bf057dc4479a1235914d777b91d5b",
+        "productionPlanHash": "869c633178843aba1905add2b8c0dd37ca992fbba255fdf15f158c95937acd7d",
+        "scenarioHash": "ab2dad984ac119b709103b62cf189a996b4530a2e59a5d53d3eae4486d06668d",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       }
     },
-    "contractHash": "eb4408810e2dd2cd49eb7146c8cfd709b112bfd7106d47d554347db733dc9a81"
+    "contractHash": "e737852e0aeffa1d9cc97758035952ddb244f4997a46bd7b71779453ccb97b81"
   },
   "name": "DRAM Directed Changeover Specialization Research",
   "version": 1

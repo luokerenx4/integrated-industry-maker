@@ -11,6 +11,7 @@
       "id": "cold-station",
       "name": "Cold station carrier launch",
       "objective": "default",
+      "productionPlan": "baseline",
       "scenario": "baseline",
       "seed": 42,
       "weight": 1,
@@ -22,14 +23,15 @@
     "cases": {
       "cold-station": {
         "blueprintHash": "bcee904329bb9c02e09e8544f1f98299d8b44cf02ff97c80de7c96ba56cae415",
-        "engineVersion": "inm-sim/0.90.0",
-        "executionHash": "0e614a9ec90089bce9df35c5b4da0f7e2e324326287041d0a35d32180781f32f",
+        "engineVersion": "inm-sim/0.91.0",
+        "executionHash": "0264aad556c9a000d6ef331f9c39c99ad002813ecdbbcd609f9b1520da850b01",
         "objectiveHash": "8f797af70982a5fa1363919ba58a840ca5b6fb613abb1f8ee309bec7018b9f70",
+        "productionPlanHash": "fa712887abe4b19945a3cd4b6cc508eb5846bc37964d48784f13e916ee02ad48",
         "scenarioHash": "ba90230fc2542e93f3729dd95927af96ba3c37f2c52e53abf6717945f20a8c83",
         "worldHash": "667920f2b2a4dbcd839064f6a43c4182a4ad001044dd67a78da0e07260169168"
       }
     },
-    "contractHash": "d108293a350a68102c82371345ea4101e9ec76454f622fcc68aa20c8554dc157"
+    "contractHash": "34c20957cf874d10b2f999e0da165492b32eb3d7f928aed6064afd8658c30e26"
   },
   "name": "Station Carrier Energy and Charging",
   "version": 1

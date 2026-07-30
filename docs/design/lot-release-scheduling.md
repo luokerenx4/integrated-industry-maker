@@ -1,8 +1,8 @@
 # Scheduled lot release and fab starts
 
-Status: Scenario-owned lot availability times, explicit pre-release state, capacity- and policy-gated fab admission, release events, cadence/delay metrics, and locked benchmark coverage implemented through engine version `inm-sim/0.53.0`.
+Status: Production-Plan-owned lot availability times, explicit pre-release state, capacity- and policy-gated fab admission, release events, cadence/delay metrics, and locked benchmark coverage.
 
-Related: [[docs/design/wip-release-control]], [[docs/design/lot-tracking]], [[docs/design/batch-processing]], [[docs/design/work-center-dispatch]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
+Related: [[docs/design/production-plans]], [[docs/design/wip-release-control]], [[docs/design/lot-tracking]], [[docs/design/batch-processing]], [[docs/design/work-center-dispatch]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 
 ## Why release time is industrial state
 
@@ -10,9 +10,9 @@ A wafer fab is not initialized as one pile of work-in-process. Wafer starts arri
 
 INM therefore separates planned work from factory inventory. A scheduled lot exists as identity and fixed benchmark workload, but it does not occupy a Device buffer, count as in-fab WIP, or accumulate queue time before admission.
 
-## Scenario contract
+## Production Plan contract
 
-Tracked work enters through `Scenario.lotReleases`:
+Tracked work enters through the selected `ProductionPlan.lotReleases`:
 
 ```json
 {
@@ -48,11 +48,11 @@ Planned-to-actual release delay remains separate, so an overloaded entry boundar
 
 `releaseFlow` reports scheduled, released, pending, planned/actual span, mean planned/actual interval, mean/maximum actual admission delay, control thresholds, configured service age, protected releases, peak active lots, and capacity/controller blocked lots and lot-ticks. The configured service age is an arbitration threshold, not an alias for maximum actual delay. CLI simulation, locked benchmark cases, immutable reports, Blueprint comparisons, and Studio show the same values.
 
-Fab-loss projection reconstructs one ordered contributor for every delayed or still-pending scheduled lot. Each contributor preserves Scenario-owned planned tick, due tick, priority, and tracked Resource beside event-owned actual admission, release ordinal, active WIP, service protection, and controller openings. Its buffer-capacity, Resource-capacity, and controller-owned intervals must independently conserve the evaluator's aggregate release totals. CLI, Studio, Observation, and project-local Design providers consume this same projection; none may infer a lot identity or replace an intentional controller hold with generic “capacity” prose.
+Fab-loss projection reconstructs one ordered contributor for every delayed or still-pending scheduled lot. Each contributor preserves Production-Plan-owned planned tick, due tick, priority, and tracked Resource beside event-owned actual admission, release ordinal, active WIP, service protection, and controller openings. Its buffer-capacity, Resource-capacity, and controller-owned intervals must independently conserve the evaluator's aggregate release totals. CLI, Studio, Observation, and project-local Design providers consume this same projection; none may infer a lot identity or replace an intentional controller hold with generic “capacity” prose.
 
 For tracked Objectives, on-time attainment uses all scheduled lots as its denominator. A Blueprint is therefore penalized when it cannot admit planned work before the horizon; withholding release cannot improve the score. Yield metrics use actually released lots, while WIP excludes work still outside the fab.
 
-The release schedule is Scenario-owned fixed workload, not editable Blueprint code. A Coding Agent changes equipment, Process selection, topology, buffers, and dispatch against the same release waves in every comparison. This mirrors autoresearch: tests own the workload; the candidate owns only the program under test.
+The release schedule is an explicitly selected, human/Agent-authored Production Plan, not editable Blueprint code. A locked Benchmark selects the same plan for baseline and candidate so a Coding Agent changes equipment, Process selection, topology, buffers, and dispatch against identical release waves.
 
 ## Memory-fab benchmark
 
@@ -60,7 +60,7 @@ The memory-fab schedules twelve named lots six seconds apart across a sixty-six-
 
 ## Current boundary
 
-The current model supports deterministic availability times, physical admission, and a factory-wide Blueprint CONWIP controller. It does not yet model release windows, per-family kanban, campaign starts, order cancellation, or split/merge genealogy. Those future layers must consume this explicit scheduled state rather than mutate Scenario files.
+The current model supports deterministic availability times, physical admission, and a factory-wide Blueprint CONWIP controller. It does not yet model release windows, per-family kanban, campaign starts, order cancellation, or split/merge genealogy. Those future layers must consume this explicit scheduled state rather than mutate the selected plan implicitly.
 
 ## Verification
 

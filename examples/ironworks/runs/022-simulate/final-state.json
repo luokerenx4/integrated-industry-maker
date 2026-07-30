@@ -1,0 +1,541 @@
+{
+  "carrierMissions": 5,
+  "carrierReturns": 4,
+  "completedOrders": 9,
+  "consumed": {
+    "gear": 9
+  },
+  "devices": {
+    "assembler-1": {
+      "buffers": {
+        "input-primary": {},
+        "input-secondary": {
+          "coal": 8
+        },
+        "output": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "input-primary": {},
+        "input-secondary": {},
+        "output": {}
+      },
+      "materialBatches": {
+        "input-primary": {},
+        "input-secondary": {
+          "coal": {
+            "0": 8
+          }
+        },
+        "output": {}
+      },
+      "status": "waiting-input"
+    },
+    "coal-assembly-to-splitter-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "coal-assembly-to-splitter-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "coal-forge-to-generator-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "coal-forge-to-generator-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "coal-miner-assembly": {
+      "buffers": {
+        "output": {
+          "coal": 8
+        }
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "output": {}
+      },
+      "materialBatches": {
+        "output": {
+          "coal": {
+            "0": 8
+          }
+        }
+      },
+      "status": "blocked-output"
+    },
+    "coal-miner-forge": {
+      "buffers": {
+        "output": {
+          "coal": 7
+        }
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "output": {}
+      },
+      "materialBatches": {
+        "output": {
+          "coal": {
+            "0": 7
+          }
+        }
+      },
+      "status": "waiting-input"
+    },
+    "coal-splitter-assembly": {
+      "buffers": {
+        "storage": {
+          "coal": 8
+        }
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "storage": {}
+      },
+      "materialBatches": {
+        "storage": {
+          "coal": {
+            "0": 8
+          }
+        }
+      },
+      "status": "idle"
+    },
+    "coal-splitter-to-assembler-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "coal-splitter-to-assembler-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "coal-splitter-to-generator-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "coal-splitter-to-generator-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "gear-to-output-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "gear-to-output-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "generator-1": {
+      "activeJob": {
+        "durationTicks": 70000,
+        "fuel": {
+          "count": 1,
+          "energyMilliJoules": 70000000,
+          "resource": "coal"
+        },
+        "generationMilliWatts": 1000000,
+        "operation": "burn-coal",
+        "powerMilliWatts": 0,
+        "powerSatisfactionPpm": 1000000,
+        "produce": [],
+        "remainingTicks": 70000,
+        "resumedAt": 70000,
+        "startedAt": 70000,
+        "workedTicks": 0
+      },
+      "buffers": {
+        "fuel": {
+          "coal": 4
+        }
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "fuel": {}
+      },
+      "materialBatches": {
+        "fuel": {
+          "coal": {
+            "0": 4
+          }
+        }
+      },
+      "progressTicks": 50000,
+      "status": "processing"
+    },
+    "generator-2": {
+      "activeJob": {
+        "durationTicks": 70000,
+        "fuel": {
+          "count": 1,
+          "energyMilliJoules": 70000000,
+          "resource": "coal"
+        },
+        "generationMilliWatts": 1000000,
+        "operation": "burn-coal",
+        "powerMilliWatts": 0,
+        "powerSatisfactionPpm": 1000000,
+        "produce": [],
+        "remainingTicks": 70000,
+        "resumedAt": 70000,
+        "startedAt": 70000,
+        "workedTicks": 0
+      },
+      "buffers": {
+        "fuel": {
+          "coal": 4
+        }
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "fuel": {}
+      },
+      "materialBatches": {
+        "fuel": {
+          "coal": {
+            "0": 4
+          }
+        }
+      },
+      "progressTicks": 50000,
+      "status": "processing"
+    },
+    "ore-source-1": {
+      "buffers": {
+        "output": {
+          "iron-ore": 8
+        }
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "output": {}
+      },
+      "materialBatches": {
+        "output": {
+          "iron-ore": {
+            "0": 8
+          }
+        }
+      },
+      "status": "blocked-output"
+    },
+    "ore-to-smelter-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "ore-to-smelter-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "output-1": {
+      "buffers": {
+        "input": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "input": {}
+      },
+      "materialBatches": {
+        "input": {}
+      },
+      "status": "waiting-input"
+    },
+    "plate-to-station-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "plate-to-station-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "smelter-1": {
+      "activeJob": {
+        "durationTicks": 4000,
+        "operation": "smelt-iron",
+        "powerMilliWatts": 180000,
+        "powerSatisfactionPpm": 1000000,
+        "processInputs": [
+          {
+            "buffer": "input",
+            "count": 2,
+            "minimumTreatmentLevel": 0,
+            "resource": "iron-ore"
+          }
+        ],
+        "produce": [
+          {
+            "buffer": "output",
+            "count": 1,
+            "resource": "iron-plate",
+            "treatmentLevel": 0
+          }
+        ],
+        "productionMode": "standard",
+        "remainingTicks": 4000,
+        "resumedAt": 117645,
+        "startedAt": 117645,
+        "workedTicks": 0
+      },
+      "buffers": {
+        "input": {
+          "iron-ore": 8
+        },
+        "output": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "input": {},
+        "output": {}
+      },
+      "materialBatches": {
+        "input": {
+          "iron-ore": {
+            "0": 8
+          }
+        },
+        "output": {}
+      },
+      "progressTicks": 2355,
+      "status": "processing"
+    },
+    "station-demand": {
+      "buffers": {
+        "storage": {}
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "storage": {}
+      },
+      "materialBatches": {
+        "storage": {}
+      },
+      "stationEnergy": {
+        "capacityMilliJoules": 12000000,
+        "chargedMilliJoules": 12000000,
+        "chargeSatisfactionPpm": 0,
+        "initialMilliJoules": 0,
+        "spentMilliJoules": 0,
+        "storedMilliJoules": 12000000
+      },
+      "status": "idle"
+    },
+    "station-supply": {
+      "buffers": {
+        "storage": {
+          "iron-plate": 1
+        }
+      },
+      "idlePowered": true,
+      "lotIds": {
+        "storage": {}
+      },
+      "materialBatches": {
+        "storage": {
+          "iron-plate": {
+            "0": 1
+          }
+        }
+      },
+      "stationEnergy": {
+        "capacityMilliJoules": 12000000,
+        "chargedMilliJoules": 22194999.99999994,
+        "chargeSatisfactionPpm": 1000000,
+        "initialMilliJoules": 0,
+        "spentMilliJoules": 11300000,
+        "storedMilliJoules": 10895000
+      },
+      "status": "idle"
+    },
+    "station-to-assembler-loader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "station-to-assembler-unloader": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "storage-forge": {
+      "buffers": {},
+      "energyStorage": {
+        "capacityMilliJoules": 3600000,
+        "chargedMilliJoules": 2717513,
+        "dischargedMilliJoules": 2135935,
+        "initialMilliJoules": 0,
+        "storedMilliJoules": 581578
+      },
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    },
+    "wind-assembly-recipe-line": {
+      "buffers": {},
+      "idlePowered": true,
+      "lotIds": {},
+      "materialBatches": {},
+      "status": "idle"
+    }
+  },
+  "energy": {
+    "availableMilliWatts": 3000000,
+    "consumedMilliJoules": 227679672,
+    "fuelConsumed": {
+      "coal": 4
+    },
+    "grids": {
+      "grid-assembly-zone-generator-2": {
+        "availableMilliWatts": 1600000,
+        "chargedMilliJoules": 0,
+        "consumedMilliJoules": 108261250,
+        "dischargedMilliJoules": 0,
+        "satisfactionPpm": 1000000,
+        "storageCapacityMilliJoules": 0,
+        "storedMilliJoules": 0
+      },
+      "grid-forge-zone-generator-1": {
+        "availableMilliWatts": 1400000,
+        "chargedMilliJoules": 2717513,
+        "consumedMilliJoules": 119418422,
+        "dischargedMilliJoules": 2135935,
+        "satisfactionPpm": 1000000,
+        "storageCapacityMilliJoules": 3600000,
+        "storedMilliJoules": 581578
+      }
+    }
+  },
+  "highSpeedMissions": 0,
+  "logisticsMissions": {
+    "inter-zone-main": [
+      {
+        "cargoArriveTick": 128190,
+        "carrierAsset": "line-haul-carrier",
+        "departTick": 116150,
+        "homeStation": "station-supply",
+        "id": "mission-transit-000170",
+        "network": "inter-zone-main",
+        "phase": "outbound",
+        "returnTick": 140230,
+        "route": "inter-zone-main:iron-plate:station-supply->station-demand"
+      }
+    ]
+  },
+  "logisticsTransports": {
+    "inter-zone-main": [
+      {
+        "arriveTick": 128190,
+        "count": 6,
+        "departTick": 116150,
+        "from": "station-supply",
+        "fromBuffer": "storage",
+        "id": "transit-000170",
+        "logisticsRoute": "inter-zone-main:iron-plate:station-supply->station-demand",
+        "resource": "iron-plate",
+        "to": "station-demand",
+        "toBuffer": "storage",
+        "treatmentLevel": 0
+      }
+    ]
+  },
+  "lotReleaseControl": {
+    "open": true
+  },
+  "lots": {},
+  "materialTreatment": {
+    "agentsConsumed": {},
+    "treated": {}
+  },
+  "produced": {
+    "coal": 50,
+    "gear": 9,
+    "iron-ore": 68,
+    "iron-plate": 25
+  },
+  "resourceNodes": {
+    "coal-seam-assembly": {
+      "extracted": 38,
+      "remaining": 2,
+      "reserved": 0
+    },
+    "coal-seam-forge": {
+      "extracted": 12,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-1": {
+      "extracted": 30,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-2": {
+      "extracted": 30,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-3": {
+      "extracted": 8,
+      "remaining": 22,
+      "reserved": 0
+    }
+  },
+  "tick": 120000,
+  "transports": {
+    "coal-assembly-to-splitter": [],
+    "coal-forge-to-generator": [],
+    "coal-splitter-to-assembler": [],
+    "coal-splitter-to-generator": [],
+    "gear-to-output": [],
+    "ore-to-smelter": [],
+    "plate-to-station": [],
+    "station-to-assembler": []
+  }
+}

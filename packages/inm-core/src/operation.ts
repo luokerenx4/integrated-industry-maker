@@ -28,7 +28,7 @@ export type ProjectOperationEffect = "read-only" | "creates-artifact" | "mutates
 
 export interface ProjectOperationContext {
   project: { id: string; name: string; rootDir: string };
-  selection: { world: string; blueprint: string; scenario: string; objective: string };
+  selection: { world: string; blueprint: string; productionPlan: string; scenario: string; objective: string };
   hashes: ProjectHashes;
 }
 

@@ -2,11 +2,11 @@
 
 Status: Blueprint-authored factory CONWIP, high/low-watermark replenishment, identity-safe release-service aging, eligible-lot arbitration, causal blocking metrics, and commissioned memory-fab control implemented through engine version `inm-sim/0.81.0`.
 
-Related: [[docs/design/lot-release-scheduling]], [[docs/design/lot-tracking]], [[docs/design/work-center-dispatch]], [[docs/design/batch-processing]], [[docs/design/coding-agent-optimization]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
+Related: [[docs/design/production-plans]], [[docs/design/lot-release-scheduling]], [[docs/design/lot-tracking]], [[docs/design/work-center-dispatch]], [[docs/design/batch-processing]], [[docs/design/coding-agent-optimization]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 
 ## Boundary: arrivals are not decisions
 
-`Scenario.lotReleases` owns when each named lot becomes available. A candidate may not edit that workload. `Blueprint.policies.lotRelease` owns the operating decision to admit eligible work into the fab. This separation is the same one used by a locked coding benchmark: test inputs remain fixed while the program under test changes.
+The selected `ProductionPlan.lotReleases` owns when each named lot becomes available. A candidate may not edit that workload. `Blueprint.policies.lotRelease` owns the operating decision to admit eligible work into the fab. This separation is the same one used by a locked coding benchmark: exact plan input remains fixed while the program under test changes.
 
 Omitting `lotRelease` selects open-loop admission. Every eligible lot enters as soon as its physical release buffer and Resource quota can accept it.
 
@@ -35,7 +35,7 @@ Active WIP is every released tracked lot that is not completed or scrapped, acro
 
 Setting `reopenAtWip` to `maximumWip - 1` produces one-for-one replenishment. A lower threshold produces larger waves. That distinction matters in a fab: aggressive one-for-one control can lower inventory while destroying furnace batches or forcing extra mask/recipe changeovers.
 
-Optional `serviceLevelAfterTicks` adds an aging-based service class. Once an eligible lot has waited that long since its Scenario release tick, it receives scarce-card precedence over every younger, ordinary eligible lot. If the controller is closed and at least one hard-cap card is free, the protected lot also opens the controller before the low watermark. The threshold is not an absolute delay promise: a lot can age past it while the hard WIP cap or physical release boundary has no slot. It is the exact point at which the lot becomes protected from younger admission work.
+Optional `serviceLevelAfterTicks` adds an aging-based service class. Once an eligible lot has waited that long since its Production Plan release tick, it receives scarce-card precedence over every younger, ordinary eligible lot. If the controller is closed and at least one hard-cap card is free, the protected lot also opens the controller before the low watermark. The threshold is not an absolute delay promise: a lot can age past it while the hard WIP cap or physical release boundary has no slot. It is the exact point at which the lot becomes protected from younger admission work.
 
 ## Deterministic arbitration
 
@@ -43,7 +43,7 @@ When fewer cards than eligible lots exist, the runtime first separates service-p
 
 - `fifo`: planned release tick, then stable lot id;
 - `earliest-due-date`: due tick, then FIFO;
-- `highest-priority`: authored Scenario priority, then FIFO.
+- `highest-priority`: authored Production Plan priority, then FIFO.
 
 The controller never changes planned release, priority, due date, defect workload, or lot identity. A service opening cannot be consumed by a younger unprotected lot while the identity that earned it remains eligible.
 
@@ -53,7 +53,7 @@ Physical admission is checked before policy admission. A lot therefore records o
 
 `releaseFlow` exposes the configured controller, maximum/reopen thresholds, `serviceLevelAfterTicks`, dispatch rule, service-triggered opening count, service-protected release count, peak active lots, capacity-blocked lots/ticks, and controller-blocked lots/ticks alongside planned/actual cadence and mean/maximum actual delay. CLI simulation, comparison, benchmark output, run reports, and Studio use the same measurements. Human text must call the configured value a service age and keep it visibly separate from actual delay.
 
-On-time delivery still divides by all Scenario-scheduled target lots. Withholding work can reduce internal queue time and average WIP, but it cannot hide unfinished demand from the score.
+On-time delivery still divides by all Production-Plan-scheduled target lots. Withholding work can reduce internal queue time and average WIP, but it cannot hide unfinished demand from the score.
 
 ## Memory-fab research loop
 
@@ -73,7 +73,7 @@ Current compatible run `090-simulate` makes the remaining controller hold causal
 
 ## Current boundary
 
-The policy is factory-wide and deterministic. It does not yet support per-family cards, route-stage caps, time-varying thresholds, order cancellation, probabilistic arrival forecasts, or learned release code. Those extensions should preserve the Scenario/Blueprint boundary and evaluator-owned denominator.
+The policy is factory-wide and deterministic. It does not yet support per-family cards, route-stage caps, time-varying thresholds, order cancellation, probabilistic arrival forecasts, or learned release code. Those extensions should preserve the Production Plan/Blueprint boundary and evaluator-owned denominator.
 
 ## Verification
 

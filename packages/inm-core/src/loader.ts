@@ -6,14 +6,14 @@ import { importDeviceProgram } from "./device-runtime";
 import { schemas, type SchemaKind } from "./schema";
 import type {
   Blueprint, DeviceAsset, DeviceAssetManifest, DeviceVisual, IndustrialProcess, IndustrialProcessManifest, IndustrialWorld, InmManifest, Objective,
-  ProductRoute, ProductRouteManifest, ResourceAsset, ResourceAssetManifest, ResourceVisual, Scenario, ValidationIssue,
+  ProductRoute, ProductRouteManifest, ProductionPlan, ResourceAsset, ResourceAssetManifest, ResourceVisual, Scenario, ValidationIssue,
 } from "./types";
 import { InmValidationError } from "./types";
 import { readJson } from "./utils";
 
 export interface LoadedFactoryProject {
   rootDir: string;
-  selection: { world: string; blueprint: string; scenario: string; objective: string };
+  selection: { world: string; blueprint: string; productionPlan: string; scenario: string; objective: string };
   manifest: InmManifest;
   resources: Record<string, ResourceAsset>;
   processes: Record<string, IndustrialProcess>;
@@ -21,6 +21,7 @@ export interface LoadedFactoryProject {
   deviceAssets: Record<string, DeviceAsset>;
   world: IndustrialWorld;
   blueprint: Blueprint;
+  productionPlan: ProductionPlan;
   scenario: Scenario;
   objective: Objective;
 }
@@ -209,7 +210,7 @@ async function loadDevices(rootDir: string): Promise<Record<string, DeviceAsset>
   return catalog;
 }
 
-export interface ProjectSelection { world?: string; blueprint?: string; scenario?: string; objective?: string }
+export interface ProjectSelection { world?: string; blueprint?: string; productionPlan?: string; scenario?: string; objective?: string }
 
 export async function loadFactoryProject(projectDir: string, selection: ProjectSelection = {}): Promise<LoadedFactoryProject> {
   const rootDir = resolve(projectDir);
@@ -227,18 +228,23 @@ export async function loadFactoryProject(projectDir: string, selection: ProjectS
   }
   const worldId = selection.world ?? manifest.defaultWorld;
   const blueprintId = selection.blueprint ?? manifest.defaultBlueprint;
+  const productionPlanId = selection.productionPlan ?? manifest.defaultProductionPlan;
   const scenarioId = selection.scenario ?? manifest.defaultScenario;
   const objectiveId = selection.objective ?? manifest.defaultObjective;
-  const [resources, processes, routes, deviceAssets, world, blueprint, scenario, objective] = await Promise.all([
+  const [resources, processes, routes, deviceAssets, world, blueprint, productionPlan, scenario, objective] = await Promise.all([
     loadResources(rootDir), loadProcesses(rootDir), loadRoutes(rootDir), loadDevices(rootDir),
     parseFile<IndustrialWorld>(join(rootDir, "worlds", `${worldId}.world.json`), "world"),
     parseFile<Blueprint>(join(rootDir, "blueprints", `${blueprintId}.blueprint.json`), "blueprint"),
+    parseFile<ProductionPlan>(join(rootDir, "production-plans", `${productionPlanId}.production-plan.json`), "production-plan"),
     parseFile<Scenario>(join(rootDir, "scenarios", `${scenarioId}.scenario.json`), "scenario"),
     parseFile<Objective>(join(rootDir, "objectives", `${objectiveId}.objective.json`), "objective"),
   ]);
+  if (productionPlan.id !== productionPlanId) {
+    throw new Error(`Production Plan file '${productionPlanId}.production-plan.json' declares id '${productionPlan.id}'`);
+  }
   return {
     rootDir,
-    selection: { world: worldId, blueprint: blueprintId, scenario: scenarioId, objective: objectiveId },
-    manifest, resources, processes, routes, deviceAssets, world, blueprint, scenario, objective,
+    selection: { world: worldId, blueprint: blueprintId, productionPlan: productionPlanId, scenario: scenarioId, objective: objectiveId },
+    manifest, resources, processes, routes, deviceAssets, world, blueprint, productionPlan, scenario, objective,
   };
 }

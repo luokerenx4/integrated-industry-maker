@@ -96,6 +96,7 @@ export interface CandidateInvestigationSourceEvidence {
     selection: {
       world: string;
       blueprint: string;
+      productionPlan?: string;
       scenario: string;
       objective: string;
     };

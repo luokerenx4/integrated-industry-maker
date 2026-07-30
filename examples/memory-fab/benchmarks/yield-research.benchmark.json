@@ -11,6 +11,7 @@
       "id": "yield-window",
       "name": "Two early latent-electrical wafer lots",
       "objective": "dram-output",
+      "productionPlan": "yield-window",
       "scenario": "yield-window",
       "seed": 42,
       "weight": 1,
@@ -20,6 +21,7 @@
       "id": "yield-excursion",
       "name": "Three early latent-electrical wafer lots",
       "objective": "dram-output",
+      "productionPlan": "yield-excursion",
       "scenario": "yield-excursion",
       "seed": 42,
       "weight": 2,
@@ -31,22 +33,24 @@
     "cases": {
       "yield-excursion": {
         "blueprintHash": "242c37558c8c24138216bedb79a128275436e37aa2c20a046cca279f2083fac8",
-        "engineVersion": "inm-sim/0.90.0",
-        "executionHash": "8204ff8f1b3c24a57d4b8fecba6b92be477e5af7057ea064f46de0fc44371aa1",
+        "engineVersion": "inm-sim/0.91.0",
+        "executionHash": "f1d70be0d101188bda9c4de0cd6c51c19df52eff169b84e86cca5a32490e7137",
         "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
-        "scenarioHash": "8ec51094abee8cf14d1733ea7b1446d712cdca9b583395cab9a00fd10a39cd8d",
+        "productionPlanHash": "995f8b4ccbdc0119529cd8ef4c8b176f18dfdde36090921357510ab80543c1f4",
+        "scenarioHash": "09254f5f0c79ea0def1141f60d3ee0c126eca2456a9563f9c4b6617792285dce",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       },
       "yield-window": {
         "blueprintHash": "242c37558c8c24138216bedb79a128275436e37aa2c20a046cca279f2083fac8",
-        "engineVersion": "inm-sim/0.90.0",
-        "executionHash": "541435934dfa9f105b0d8ccd2ded926f4335cf7db94e3b65472c96b88b58b6ec",
+        "engineVersion": "inm-sim/0.91.0",
+        "executionHash": "ffec585cc002c769fc679c8f4a56262a1122e56d052cd82f294f3726a0e884b9",
         "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
-        "scenarioHash": "c389336267e3c9c50ac7a2a32f5d2d53904e4a4121e745f878150842a86c3ff7",
+        "productionPlanHash": "17366711c6ef896bfd6ba4f67bb0842d97532d29228ce4359de28a94f44c8a51",
+        "scenarioHash": "428da9310b9816ecb21fe2298ab01e9db347d867b6fe83ddd83f5d15295e17f1",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       }
     },
-    "contractHash": "9e0a16091d44f71e6e41ff2f31093bc6a776ab0be749fd6c630bb39f81e8b359"
+    "contractHash": "76cffccaaf827a692072bf44d5ce1acc97e519f01e0057dd11038485454915a0"
   },
   "name": "DRAM One-process Wafer-probe Yield Research",
   "version": 1

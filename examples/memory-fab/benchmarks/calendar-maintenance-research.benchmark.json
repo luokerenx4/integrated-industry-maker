@@ -11,6 +11,7 @@
       "id": "calendar-maintenance-window",
       "name": "Two release waves across qualification expiry",
       "objective": "dram-output",
+      "productionPlan": "calendar-maintenance-window",
       "scenario": "calendar-maintenance-window",
       "seed": 42,
       "weight": 1,
@@ -22,14 +23,15 @@
     "cases": {
       "calendar-maintenance-window": {
         "blueprintHash": "f684c6b465f956460f806b07c23a1f623fcde34fc3b2ad88a6791c8f49e7c0db",
-        "engineVersion": "inm-sim/0.90.0",
-        "executionHash": "683be2d78016321df50879e6533ef28c062b734bcc648d35a34a6caf6c9eb9fa",
+        "engineVersion": "inm-sim/0.91.0",
+        "executionHash": "9f38f4f7c0c69aab4a1b05525782371f6c5ad8b93491850996acfbddf44de27d",
         "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
-        "scenarioHash": "2be54aa42e1e2a154e1fe9ea1b52b1eecf748a4a9c13b319b12c74473ba46c77",
+        "productionPlanHash": "2cf09195346e93e7db0b9bd8e874a7b5b2760bce6ab01612b36d8e3452d0a3bc",
+        "scenarioHash": "2ae33742b5b7069d76a33d705eaa400842d832d06ee8bc691cc14582d21faacc",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       }
     },
-    "contractHash": "3026ead0cd2e574865a9280cd198e1c947c5cb8b55f422d4f23963ebb5135229"
+    "contractHash": "e3153cb8d207e14d81612c06c9ecfc8ff32878f1e96fdc394e69a9c94de9a144"
   },
   "name": "DRAM Calendar Maintenance Window Research",
   "version": 1

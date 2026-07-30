@@ -268,11 +268,11 @@ function layoutRegions(regions: Array<{ id: string; name: string; kind: "industr
   };
 }
 
-async function loadStudioData(projectId: string, runName?: string) {
+async function loadStudioData(projectId: string, runName?: string, selection: ProjectSelection = {}) {
   const projectDir = await projectDirectory(projectId);
   const [experiments, designPrograms] = await Promise.all([listBlueprintBenchmarks(projectDir), listDesignPrograms(projectDir)]);
   const runs = (await listRuns(projectDir)).filter((run) => run.manifest.engineVersion === ENGINE_VERSION && run.manifest.selection.blueprint);
-  const defaultLoaded = await loadFactoryProject(projectDir);
+  const defaultLoaded = await loadFactoryProject(projectDir, selection);
   const defaultProject = compileFactoryProject(defaultLoaded);
   const requestedRun = runName ? runs.find((run) => run.name === runName) : undefined;
   if (runName && !requestedRun) throw new Error(`Unknown compatible immutable run '${runName}' in project '${projectId}'`);
@@ -290,6 +290,7 @@ async function loadStudioData(projectId: string, runName?: string) {
     ?? (!runName ? runs.filter((run) => run.manifest.decision !== "REVERT"
       && run.manifest.selection.world === defaultProject.selection.world
       && run.manifest.selection.blueprint === defaultProject.selection.blueprint
+      && run.manifest.selection.productionPlan === defaultProject.selection.productionPlan
       && run.manifest.selection.scenario === defaultProject.selection.scenario
       && run.manifest.selection.objective === defaultProject.selection.objective
       && sameProjectEvidenceIdentity(run.manifest.hashes, defaultProject.hashes)).at(-1) : undefined);
@@ -586,6 +587,7 @@ function projectSelection(url: URL): ProjectSelection {
   return {
     world: selected("world"),
     blueprint: selected("blueprint"),
+    productionPlan: selected("productionPlan"),
     scenario: selected("scenario"),
     objective: selected("objective"),
   };
@@ -758,7 +760,11 @@ const server = Bun.serve({
       const dataMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/data$/);
       if (dataMatch) {
         if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
-        return Response.json(await loadStudioData(decoded(dataMatch[1]!), url.searchParams.get("run") ?? undefined));
+        return Response.json(await loadStudioData(
+          decoded(dataMatch[1]!),
+          url.searchParams.get("run") ?? undefined,
+          projectSelection(url),
+        ));
       }
 
       const runComparisonMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/run-comparison$/);

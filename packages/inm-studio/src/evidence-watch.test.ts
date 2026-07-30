@@ -20,13 +20,13 @@ test("Studio refreshes only complete immutable evidence at exact project boundar
   expect(await completedProjectRefresh(
     memoryFab,
     "memory-fab",
-    "runs/097-simulate/manifest.json",
+    "runs/102-simulate/manifest.json",
   )).toEqual({
     version: 1,
     type: "project-refresh",
     projectId: "memory-fab",
     reason: "run",
-    artifactId: "097-simulate",
+    artifactId: "102-simulate",
   });
   expect(await completedProjectRefresh(
     memoryFab,

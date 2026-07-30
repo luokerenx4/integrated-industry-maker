@@ -2,6 +2,7 @@
   "name": "chemical-coproduct-factory",
   "world": "chemical",
   "blueprint": "chemical-factory",
+  "productionPlan": "baseline",
   "scenario": "chemical-cold-start",
   "objective": "plastic-production",
   "seed": 42,

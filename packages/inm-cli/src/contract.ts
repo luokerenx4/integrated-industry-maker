@@ -1,6 +1,6 @@
 import type { CompiledFactoryProject, InmManifest, OperationExecutionState, ProjectEvidenceHashes, ProjectHashes, ProjectOperationContext, ProjectWorkbenchSnapshot } from "@inm/core";
 
-export const CLI_SCHEMA_VERSION = 2 as const;
+export const CLI_SCHEMA_VERSION = 3 as const;
 
 export interface CliProjectIdentity {
   id: string;
@@ -14,12 +14,12 @@ export type CliContext =
   | {
     scope: "project";
     project: CliProjectIdentity;
-    selection?: { world: string; blueprint: string; scenario: string; objective: string };
+    selection?: { world: string; blueprint: string; productionPlan: string; scenario: string; objective: string };
     hashes?: ProjectHashes | ProjectEvidenceHashes;
   };
 
 export interface CliArtifact {
-  kind: "workspace" | "project" | "blueprint" | "run" | "benchmark-lock" | "candidate" | "candidate-review" | "design-run" | "investigation" | "investigation-entry";
+  kind: "workspace" | "project" | "blueprint" | "production-plan" | "run" | "benchmark-lock" | "candidate" | "candidate-review" | "design-run" | "investigation" | "investigation-entry";
   id: string;
   path: string;
   immutable: boolean;
@@ -158,6 +158,7 @@ export function workbenchContext(snapshot: ProjectWorkbenchSnapshot): CliContext
     selection: {
       world: snapshot.selection.world.id,
       blueprint: snapshot.selection.blueprint.id,
+      productionPlan: snapshot.selection.productionPlan.id,
       scenario: snapshot.selection.scenario.id,
       objective: snapshot.selection.objective.id,
     },

@@ -6,6 +6,7 @@ test("every authored project artifact has a deterministic Draft 7 JSON Schema", 
   expect(kinds).toEqual([...kinds].sort());
   expect(kinds).toContain("benchmark");
   expect(kinds).toContain("candidate");
+  expect(kinds).toContain("production-plan");
 
   for (const kind of kinds) {
     const first = projectArtifactJsonSchema(kind);
@@ -18,13 +19,33 @@ test("every authored project artifact has a deterministic Draft 7 JSON Schema", 
 });
 
 test("strict Zod object contracts remain closed in exported JSON Schemas", () => {
-  for (const kind of ["manifest", "world", "blueprint", "scenario", "objective", "device-asset", "resource-asset", "process", "benchmark", "candidate"] as const) {
+  for (const kind of ["manifest", "world", "blueprint", "production-plan", "scenario", "objective", "device-asset", "resource-asset", "process", "benchmark", "candidate"] as const) {
     const schema = projectArtifactJsonSchema(kind);
     const root = (schema.definitions as Record<string, Record<string, unknown>>)[kind]!;
     expect(root.type).toBe("object");
     expect(root.additionalProperties).toBeFalse();
     expect(root.required).toEqual(expect.any(Array));
   }
+});
+
+test("Production Plan owns planned releases while Scenario stays environmental", () => {
+  const productionPlan = projectArtifactJsonSchema("production-plan");
+  const planRoot = (productionPlan.definitions as Record<string, {
+    properties: Record<string, unknown>;
+    required: string[];
+  }>)["production-plan"]!;
+  expect(planRoot.required).toEqual(expect.arrayContaining(["version", "id", "name"]));
+  expect(planRoot.properties).toEqual(expect.objectContaining({
+    lotReleases: expect.any(Object),
+    materialDeliveries: expect.any(Object),
+  }));
+
+  const scenario = projectArtifactJsonSchema("scenario");
+  const scenarioRoot = (scenario.definitions as Record<string, {
+    properties: Record<string, unknown>;
+  }>).scenario!;
+  expect(scenarioRoot.properties).not.toHaveProperty("lotReleases");
+  expect(scenarioRoot.properties).not.toHaveProperty("materialDeliveries");
 });
 
 test("Device visual schema exposes only the strict PBR material contract", () => {

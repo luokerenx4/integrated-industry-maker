@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
   buildDesignProgramBrief,
+  compareFactoryBlueprints,
   evaluateBlueprintBenchmark,
   loadBlueprintBenchmark,
   openFactoryProject,
@@ -30,6 +31,34 @@ async function writeJson(path: string, value: unknown): Promise<void> {
 }
 
 describe("selection-scoped execution identity", () => {
+  test("Production Plan selection has an independent identity boundary", async () => {
+    const directory = await projectCopy();
+    const before = await openFactoryProject(directory);
+    await writeJson(join(directory, "production-plans", "alternate.production-plan.json"), {
+      version: 1,
+      id: "alternate",
+      name: "Alternate empty plan",
+    });
+
+    const after = await openFactoryProject(directory, { productionPlan: "alternate" });
+    expect(after.selection.productionPlan).toBe("alternate");
+    expect(after.hashes.productionPlanHash).not.toBe(before.hashes.productionPlanHash);
+    expect(after.hashes.executionHash).not.toBe(before.hashes.executionHash);
+    expect(after.hashes.worldHash).toBe(before.hashes.worldHash);
+    expect(after.hashes.blueprintHash).toBe(before.hashes.blueprintHash);
+    expect(after.hashes.scenarioHash).toBe(before.hashes.scenarioHash);
+    expect(after.hashes.objectiveHash).toBe(before.hashes.objectiveHash);
+    expect(() => compareFactoryBlueprints(before, after)).toThrow("Production Plan differs");
+  });
+
+  test("Scenario rejects the removed planned-work fields", async () => {
+    const directory = await projectCopy();
+    const scenarioPath = join(directory, "scenarios", "baseline.scenario.json");
+    const scenario = await readJson(scenarioPath);
+    await writeJson(scenarioPath, { ...scenario, lotReleases: [] });
+    await expect(openFactoryProject(directory)).rejects.toThrow("Unrecognized key");
+  });
+
   test("unused project-local options change catalog inventory without changing selected execution", async () => {
     const directory = await projectCopy();
     const before = await openFactoryProject(directory);

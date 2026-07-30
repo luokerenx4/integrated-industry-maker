@@ -100,6 +100,7 @@ export interface FactoryRunComparison {
   context: {
     engineVersion: string;
     worldHash: string;
+    productionPlanHash: string;
     scenarioHash: string;
     objectiveHash: string;
     seed: number;
@@ -363,6 +364,7 @@ export async function compareFactoryRuns(
     context: {
       engineVersion: toRun.project.hashes.engineVersion,
       worldHash: toRun.project.hashes.worldHash,
+      productionPlanHash: toRun.project.hashes.productionPlanHash,
       scenarioHash: toRun.project.hashes.scenarioHash,
       objectiveHash: toRun.project.hashes.objectiveHash,
       seed: to.run.seed,

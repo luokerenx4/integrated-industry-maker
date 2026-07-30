@@ -1,6 +1,7 @@
 {
   "name": "synthesized-cold-start-factory",
   "blueprint": "synthesized",
+  "productionPlan": "baseline",
   "scenario": "cold-start",
   "objective": "default",
   "seed": 42,

@@ -1,7 +1,17 @@
 {
-  "id": "baseline", "name": "Baseline Production", "durationTicks": 120000,
+  "id": "baseline",
+  "name": "Baseline Production",
+  "durationTicks": 120000,
   "initialBuffers": {
-    "generator-1": { "fuel": { "coal": 1 } },
-    "generator-2": { "fuel": { "coal": 1 } }
+    "generator-1": {
+      "fuel": {
+        "coal": 1
+      }
+    },
+    "generator-2": {
+      "fuel": {
+        "coal": 1
+      }
+    }
   }
 }

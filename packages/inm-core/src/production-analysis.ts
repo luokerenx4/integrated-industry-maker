@@ -608,8 +608,8 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
   }
 
   const boundarySupply = new Set<ResourceId>([
-    ...(project.scenario.lotReleases ?? []).map((release) => release.resource),
-    ...(project.scenario.materialDeliveries ?? []).map((delivery) => delivery.resource),
+    ...(project.productionPlan.lotReleases ?? []).map((release) => release.resource),
+    ...(project.productionPlan.materialDeliveries ?? []).map((delivery) => delivery.resource),
   ]);
   const boundaryDemand = declaredBoundaryResources(project);
   const resourceIds = [...new Set([...Object.keys(produced), ...Object.keys(consumed)])].sort();
@@ -766,7 +766,7 @@ export function analyzeProduction(project: CompiledFactoryProject): ProductionAn
       message: `${device.id} shares one physical capacity envelope across ${device.processPlans.length} qualified operations using ${device.policy?.recipeDispatch ?? "authored-order"} operation / ${device.policy?.lotDispatch ?? "fifo"} lot dispatch${changeoverDurations.length ? ` with a directed ${Math.min(...changeoverDurations)}-${Math.max(...changeoverDurations)} ms changeover matrix` : ""}${device.policy?.setupCampaign ? ` and setup campaigns of ${device.policy.setupCampaign.minimumReadyLots} ready lots / ${(device.policy.setupCampaign.maximumHoldTicks / 1000).toFixed(3)} s maximum hold` : ""}; per-operation rates are exclusive maxima`,
     });
   }
-  const releaseTicks = (project.scenario.lotReleases ?? []).map((lot) => lot.releaseTick).sort((a, b) => a - b);
+  const releaseTicks = (project.productionPlan.lotReleases ?? []).map((lot) => lot.releaseTick).sort((a, b) => a - b);
   if (releaseTicks.length) {
     const releaseIntervals = releaseTicks.slice(1).map((tick, index) => tick - releaseTicks[index]!);
     const meanReleaseInterval = releaseIntervals.length ? releaseIntervals.reduce((sum, ticks) => sum + ticks, 0) / releaseIntervals.length : 0;

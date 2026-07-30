@@ -11,6 +11,7 @@
       "id": "steady-production",
       "name": "Excursion-free production",
       "objective": "dram-output",
+      "productionPlan": "steady-production",
       "scenario": "steady-production",
       "seed": 42,
       "weight": 1,
@@ -20,6 +21,7 @@
       "id": "mixed-quality",
       "name": "Mixed-quality production",
       "objective": "dram-output",
+      "productionPlan": "production-window",
       "scenario": "production-window",
       "seed": 42,
       "weight": 1,
@@ -31,22 +33,24 @@
     "cases": {
       "mixed-quality": {
         "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
-        "engineVersion": "inm-sim/0.90.0",
-        "executionHash": "c69b1f11ebfd79fe1d9803f844605c3dfd9f565faaada3166d6544ed105964bd",
+        "engineVersion": "inm-sim/0.91.0",
+        "executionHash": "67542a5c1b44e299f3c4d8873e62b4919b97e38640cd37a5b3fd3cdeb945b931",
         "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
-        "scenarioHash": "b6cfa14ecff26487e959f7f1b38230f2e003a3eaf04bd8b587ed268c9fc8eafe",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       },
       "steady-production": {
         "blueprintHash": "4adddb9dfb3387b803cec90b45a272e78045131b93a506344f9c2266ebfbbfea",
-        "engineVersion": "inm-sim/0.90.0",
-        "executionHash": "c28037b553ec15a07a219c98f26513bd04811f490c5c2367a15cf22b9ac50350",
+        "engineVersion": "inm-sim/0.91.0",
+        "executionHash": "594ba6221138393348f9f77afc25009cdf8ae2019f32fb292990bd4f0be0b50d",
         "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
-        "scenarioHash": "87befcae2f98392c8bbef61523ce1ebe884e9bfd84ebe124632008d459b68f7e",
+        "productionPlanHash": "b46bac9787a7e72af4c6e09b0654d61c6a76ac390971b5d42c3fec4bbe6edcf5",
+        "scenarioHash": "5f487b5e37ebe2c1452eb30ae9bee05bad1d6cd10086505b9ed92505cf778711",
         "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
       }
     },
-    "contractHash": "94536027df40027e6d647002024c32453ccbe8ce12f65555e7c95032186ff526"
+    "contractHash": "a13f4561d9787d90296b423e4ae36a70c70f925eac9341ba052911332ad65168"
   },
   "name": "DRAM One-policy Product-mix Research",
   "version": 1

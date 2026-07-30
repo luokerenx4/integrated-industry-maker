@@ -12,7 +12,7 @@ This document owns workspace discovery, project identity, file confinement, proj
 
 - A factory is a directory containing `inm.json` and every input needed to compile it.
 - An engine workspace contains many project directories and a selected default project.
-- A workspace has no Resource, Device, Process, Blueprint, World, Scenario, Objective, or run catalog of its own.
+- A workspace has no Resource, Device, Process, Blueprint, World, Production Plan, Scenario, Objective, or run catalog of its own.
 - Reuse is explicit copying. Two copied assets immediately become independent packages with independent hashes.
 - Device appearance is also project-owned: each package selects its procedural profile or names its own texture/model file. Whole-factory presentation may name project-root-confined environment images, floor material maps, and palette values from `inm.json`. Studio provides rendering capabilities but never an implicit shared asset catalog.
 - `inm <command> <path> [--project id]` resolves exactly one project before any domain loading begins.

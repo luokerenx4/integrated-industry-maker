@@ -326,9 +326,8 @@ export const blueprintSchema = z.object({
   }).strict(),
 }).strict();
 
-export const scenarioSchema = z.object({
-  id, name: z.string().min(1), durationTicks: positiveInt,
-  initialBuffers: z.record(z.record(z.record(nonNegativeInt))).optional(),
+export const productionPlanSchema = z.object({
+  version: z.literal(1), id, name: z.string().min(1),
   lotReleases: z.array(z.object({
     id, device: id, buffer: id, resource: id,
     releaseTick: nonNegativeInt, priority: z.number().int().optional(), dueTick: nonNegativeInt.optional(),
@@ -336,6 +335,11 @@ export const scenarioSchema = z.object({
   materialDeliveries: z.array(z.object({
     id, device: id, buffer: id, resource: id, count: positiveInt, releaseTick: nonNegativeInt,
   }).strict()).optional(),
+}).strict();
+
+export const scenarioSchema = z.object({
+  id, name: z.string().min(1), durationTicks: positiveInt,
+  initialBuffers: z.record(z.record(z.record(nonNegativeInt))).optional(),
   initialSetups: z.record(id).optional(),
   qualityExcursions: z.array(z.object({
     id, process: id, lot: id, defects: z.array(id).min(1),
@@ -390,7 +394,7 @@ export const objectiveSchema = z.object({
 }).strict();
 
 export const manifestSchema = z.object({
-  version: z.literal(1), id, name: z.string().min(1), defaultWorld: id, defaultBlueprint: id, defaultScenario: id, defaultObjective: id,
+  version: z.literal(1), id, name: z.string().min(1), defaultWorld: id, defaultBlueprint: id, defaultProductionPlan: id, defaultScenario: id, defaultObjective: id,
   synthesis: z.object({ strategy: strategyEntry }).strict().optional(),
   presentation: z.object({
     environment: z.object({
@@ -427,7 +431,7 @@ export const workspaceSchema = z.object({
   version: z.literal(1), name: z.string().min(1), projectsDirectory: relativeDirectory, defaultProject: id.nullable(),
 }).strict();
 
-export type SchemaKind = "manifest" | "workspace" | "resource-asset" | "resource-visual" | "process" | "route" | "device-asset" | "device-visual" | "world" | "blueprint" | "scenario" | "objective";
+export type SchemaKind = "manifest" | "workspace" | "resource-asset" | "resource-visual" | "process" | "route" | "device-asset" | "device-visual" | "world" | "blueprint" | "production-plan" | "scenario" | "objective";
 export const schemas = {
   manifest: manifestSchema,
   workspace: workspaceSchema,
@@ -439,6 +443,7 @@ export const schemas = {
   "device-visual": deviceVisualSchema,
   world: worldSchema,
   blueprint: blueprintSchema,
+  "production-plan": productionPlanSchema,
   scenario: scenarioSchema,
   objective: objectiveSchema,
 } as const;

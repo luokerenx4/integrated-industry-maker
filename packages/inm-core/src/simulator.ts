@@ -240,7 +240,7 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
     batches[String(treatment.level)] = (batches[String(treatment.level)] ?? 0) + treatment.count;
   }
   const lots: FactoryState["lots"] = {};
-  for (const definition of project.scenario.lotReleases ?? []) {
+  for (const definition of project.productionPlan.lotReleases ?? []) {
     const resource = project.resources[definition.resource]!;
     const route = project.routes[resource.tracking!.route]!;
     lots[definition.id] = {
@@ -579,7 +579,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
   const scheduledPowerBoundaryTick: Record<string, number | undefined> = {};
   const eligibleLotReleases = new Set<string>();
   const pendingMaterialDeliveries = new Set<string>();
-  const materialDeliveries = Object.fromEntries((project.scenario.materialDeliveries ?? []).map((delivery) => [delivery.id, delivery]));
+  const materialDeliveries = Object.fromEntries((project.productionPlan.materialDeliveries ?? []).map((delivery) => [delivery.id, delivery]));
   const releasePolicy = project.blueprint.policies.lotRelease;
   const activeLotWip = () => {
     let active = 0;
@@ -3290,14 +3290,14 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     schedule(failure.atTick + failure.durationTicks, 1, { kind: "recover", device: failure.device });
   }
   const releaseGroups = new Map<number, string[]>();
-  for (const lot of project.scenario.lotReleases ?? []) {
+  for (const lot of project.productionPlan.lotReleases ?? []) {
     const group = releaseGroups.get(lot.releaseTick) ?? [];
     group.push(lot.id);
     releaseGroups.set(lot.releaseTick, group);
   }
   for (const [releaseTick, lotIds] of [...releaseGroups].sort(([left], [right]) => left - right)) schedule(releaseTick, 2, { kind: "lot-release", lotIds: lotIds.sort() });
   const materialDeliveryGroups = new Map<number, string[]>();
-  for (const delivery of project.scenario.materialDeliveries ?? []) {
+  for (const delivery of project.productionPlan.materialDeliveries ?? []) {
     const group = materialDeliveryGroups.get(delivery.releaseTick) ?? [];
     group.push(delivery.id);
     materialDeliveryGroups.set(delivery.releaseTick, group);

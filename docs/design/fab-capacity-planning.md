@@ -1,14 +1,14 @@
 # Fab capacity planning
 
-Status: qualification-aware toolset allocation plus Scenario-scheduled tracked-lot and purchased-material supply implemented through `inm-sim/0.67.0`.
+Status: qualification-aware toolset allocation plus Production-Plan-scheduled tracked-lot and purchased-material supply implemented.
 
-Related: [[docs/design/work-center-dispatch]], [[docs/design/lot-release-scheduling]], [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
+Related: [[docs/design/production-plans]], [[docs/design/work-center-dispatch]], [[docs/design/lot-release-scheduling]], [[docs/design/blueprint-optimization]], [[docs/design/coding-agent-optimization]], [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]].
 
 ## Why this exists
 
 Semiconductor capacity belongs to physical toolsets, not to recipe rows. A lithography bay qualified for two route steps still owns one clock. Summing each operation's exclusive nominal rate would silently reuse that clock and could call an impossible Blueprint READY.
 
-Tracked wafer lots also enter through a Scenario schedule rather than mineral extraction. Treating those fixed releases as missing deposits produces a false raw-material shortage and weakens the benchmark gate exactly where a Coding Agent needs a trustworthy evaluator.
+Tracked wafer lots also enter through a selected Production Plan rather than mineral extraction. Treating those fixed releases as missing deposits produces a false raw-material shortage and weakens the benchmark gate exactly where a Coding Agent needs a trustworthy evaluator.
 
 ## Qualification-aware allocation
 
@@ -26,20 +26,20 @@ The target-producing operation is anchored to the Objective's `targetRegion`. Wh
 
 ## Scheduled external supply
 
-Every matching `Scenario.lotReleases` lot and `Scenario.materialDeliveries` item is evaluator-owned external supply over the selected Scenario horizon. The raw-capacity row exposes:
+Every matching `ProductionPlan.lotReleases` lot and `ProductionPlan.materialDeliveries` item is explicit external supply over the selected Scenario horizon. The raw-capacity row exposes:
 
 - configured extraction per minute;
 - scheduled lot count and scheduled supply per minute;
 - their combined configured supply rate;
-- Scenario demand, total supply, and balance.
+- selected-horizon demand, total supply, and balance.
 
-The planner raises a raw-rate gap only when extraction plus scheduled external supply cannot sustain the target. It raises a Scenario balance gap when finite deposits plus scheduled supply cannot cover the full horizon. Scheduled lots and purchased items are counted at their authored quantity even though actual admission may wait for receiving capacity or Blueprint CONWIP; that temporal behavior belongs to simulation.
+The planner raises a raw-rate gap only when extraction plus scheduled external supply cannot sustain the target. It raises a horizon balance gap when finite World deposits plus Production Plan supply cannot cover the selected Scenario duration. Scheduled lots and purchased items are counted at their authored quantity even though actual admission may wait for receiving capacity or Blueprint CONWIP; that temporal behavior belongs to simulation.
 
 Configured production analysis uses the same boundary declaration: a Resource present in `lotReleases` or `materialDeliveries` is marked `hasBoundarySupply`. Its equal-share configured-operation table is an explicitly descriptive installed envelope, not a demand solver. It does not infer material deficit/surplus from the sign of independently installed maxima. Rate adequacy remains this Objective-derived capacity planner's responsibility, while runtime arrival and admission remain the simulator's.
 
 ## AutoResearch contract
 
-The benchmark freezes World, Scenario, Objective, catalogs, engine version, baseline Blueprint, and case seeds. The candidate Blueprint is the only editable variable. Capacity readiness can therefore be a hard acceptance gate without letting the candidate manufacture work or relax demand.
+The benchmark freezes World, Production Plan, Scenario, Objective, catalogs, engine version, baseline Blueprint, and case seeds. The candidate Blueprint is the only editable variable. Capacity readiness can therefore be a hard acceptance gate without letting the candidate manufacture work or relax demand.
 
 The built-in research agent reads overloaded toolsets before exclusive per-Process gaps. It duplicates a real placed Device with useful qualifications, preserving the normal cost, area, power, routing, tooling, maintenance, and facility consequences. The locked event simulation and Objective score still decide KEEP or REVERT.
 

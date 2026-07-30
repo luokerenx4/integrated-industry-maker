@@ -54,6 +54,7 @@ async function completedRunIsReadable(projectDir: string, id: string): Promise<b
       && typeof manifest.hashes === "object" && manifest.hashes !== null
       && typeof selection?.world === "string"
       && typeof selection.blueprint === "string"
+      && typeof selection.productionPlan === "string"
       && typeof selection.scenario === "string"
       && typeof selection.objective === "string"
       && typeof manifest.seed === "number"

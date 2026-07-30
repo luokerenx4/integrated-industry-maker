@@ -44,7 +44,7 @@ Objective WIP evidence follows the same rule. A Resource total names the materia
 
 Core owns one deterministic `FactoryObservationBrief`. It is read-only and contains:
 
-- exact project identity, effective World/Blueprint/Scenario/Objective, and project hashes;
+- exact project identity, effective World/Blueprint/Production Plan/Scenario/Objective, and project hashes;
 - observation readiness and one selected compatible immutable run with result hash, score, and decision;
 - the leading active shared Workbench diagnostic and its typed subjects, or `null` when no diagnostic remains in the active queue;
 - a separate leading Objective tradeoff with exact compatible-Run contribution and Resource subjects when the physical/structural queue is exhausted;

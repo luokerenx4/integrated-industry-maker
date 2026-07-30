@@ -731,6 +731,7 @@ export function assertBlueprintComparisonContext(before: CompiledFactoryProject,
     ["Device catalog", before.hashes.deviceCatalogHash, after.hashes.deviceCatalogHash],
     ["World", before.hashes.worldHash, after.hashes.worldHash],
     ["Scenario", before.hashes.scenarioHash, after.hashes.scenarioHash],
+    ["Production Plan", before.hashes.productionPlanHash, after.hashes.productionPlanHash],
     ["Objective", before.hashes.objectiveHash, after.hashes.objectiveHash],
   ] as const) if (left !== right) throw new Error(`${name} differs between compared projects; inm compare isolates Blueprint changes and requires identical benchmark inputs`);
 }

@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/explicit-production-plan-contract]] | Make planned factory work a separately selected, hash-identified project artifact shared by humans, Agents, simulation, and retained evidence. | 2026-07-31 |
 | [[plans/objective-dominant-wip-continuation]] | Close the bounded inspection inquiry and continue from exact current evidence into a separate Objective-equivalent WIP Investigation. | 2026-07-30 |
 | [[plans/investigation-design-session-handoff]] | Turn the existing append-only Investigation into one phase-aware human/Agent Design Session without adding autonomous design authority. | 2026-07-30 |
 | [[plans/persistent-run-comparison-evidence]] | Retain one exact immutable Run comparison inside the append-only human/Agent Investigation chain. | 2026-07-30 |

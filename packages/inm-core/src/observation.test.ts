@@ -13,20 +13,21 @@ test("observation brief keeps the Objective WIP tradeoff visible after current l
   const snapshot = structuredClone(await memoryFabSnapshot);
   snapshot.diagnostics = snapshot.diagnostics.filter((diagnostic) => diagnostic.severity === "info");
   snapshot.lossDispositions = [];
-  const brief = buildFactoryObservationBrief(snapshot, "101-simulate");
-  expect(brief.version).toBe(2);
+  const brief = buildFactoryObservationBrief(snapshot, "102-simulate");
+  expect(brief.version).toBe(3);
   expect(brief.status).toBe("ready");
   expect(brief.authority).toBe("human-or-agent");
   expect(brief.project).toEqual(expect.objectContaining({ id: "memory-fab", rootDir: memoryFabProjectDir }));
   expect(brief.selection).toEqual({
     world: "cleanroom",
     blueprint: "generated-dram-fab",
+    productionPlan: "production-window",
     scenario: "production-window",
     objective: "dram-output",
   });
   expect(brief.evidence.state).toBe("compatible");
   expect(brief.evidence.run).toEqual(expect.objectContaining({
-    id: "101-simulate",
+    id: "102-simulate",
     resultHash: expect.any(String),
     decision: "BASELINE",
   }));
@@ -34,7 +35,7 @@ test("observation brief keeps the Objective WIP tradeoff visible after current l
   expect(brief.leadingObjectiveTradeoff).toEqual({
     component: "wip",
     contribution: -73.78575000000001,
-    runId: "101-simulate",
+    runId: "102-simulate",
     subjects: [
       { kind: "device", id: "burn-in-1" },
       { kind: "device", id: "packaging-1" },
@@ -46,23 +47,23 @@ test("observation brief keeps the Objective WIP tradeoff visible after current l
   expect(brief.views[0]).toEqual(expect.objectContaining({
     id: "factory-overview",
     kind: "factory-overview",
-    studioRoute: "/memory-fab/factory?run=101-simulate",
+    studioRoute: "/memory-fab/factory?run=102-simulate",
     required: true,
   }));
   expect(brief.views).toHaveLength(3);
   expect(brief.views).toEqual(expect.arrayContaining([
     expect.objectContaining({
       kind: "factory-focus",
-      studioRoute: "/memory-fab/factory/devices/burn-in-1?run=101-simulate",
+      studioRoute: "/memory-fab/factory/devices/burn-in-1?run=102-simulate",
     }),
     expect.objectContaining({
       kind: "factory-focus",
-      studioRoute: "/memory-fab/factory/devices/packaging-1?run=101-simulate",
+      studioRoute: "/memory-fab/factory/devices/packaging-1?run=102-simulate",
     }),
   ]));
   expect(brief.handoff.requiredStatements).toHaveLength(4);
   expect(brief.handoff.nextStep).toContain("Use the Objective tradeoff and Resource-qualified views");
-  expect(buildFactoryObservationBrief(snapshot, "101-simulate")).toEqual(brief);
+  expect(buildFactoryObservationBrief(snapshot, "102-simulate")).toEqual(brief);
   expect(() => buildFactoryObservationBrief(snapshot, "missing-run")).toThrow("Unknown immutable run 'missing-run'");
 });
 
@@ -77,7 +78,7 @@ async function observationBriefForDiagnostic(code: string) {
     target: { kind: "diagnostic", diagnosticId: diagnostic.id },
   };
   snapshot.lossDispositions = snapshot.lossDispositions.filter((item) => item.diagnosticId !== diagnostic.id);
-  return buildFactoryObservationBrief(snapshot as ProjectWorkbenchSnapshot, "101-simulate");
+  return buildFactoryObservationBrief(snapshot as ProjectWorkbenchSnapshot, "102-simulate");
 }
 
 test("observation brief exposes the exact shipping grid for power interruption", async () => {
@@ -91,9 +92,9 @@ test("observation brief exposes the exact shipping grid for power interruption",
     ],
   }));
   expect(brief.views).toEqual(expect.arrayContaining([
-    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/substrate-receiving-to-packaging-loader?run=101-simulate" }),
-    expect.objectContaining({ studioRoute: "/memory-fab/factory/connections/substrate-receiving-to-packaging?run=101-simulate" }),
-    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/shipping-power?run=101-simulate" }),
+    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/substrate-receiving-to-packaging-loader?run=102-simulate" }),
+    expect.objectContaining({ studioRoute: "/memory-fab/factory/connections/substrate-receiving-to-packaging?run=102-simulate" }),
+    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/shipping-power?run=102-simulate" }),
   ]));
 });
 
@@ -107,7 +108,7 @@ test("observation brief exposes the exact release boundary for release admission
     ],
   }));
   expect(brief.views).toEqual(expect.arrayContaining([
-    expect.objectContaining({ kind: "factory-focus", studioRoute: "/memory-fab/factory/devices/lot-release?run=101-simulate" }),
+    expect.objectContaining({ kind: "factory-focus", studioRoute: "/memory-fab/factory/devices/lot-release?run=102-simulate" }),
     expect.objectContaining({ kind: "catalog-focus", studioRoute: "/memory-fab/catalog/routes/dram-front-end" }),
   ]));
 });
@@ -122,8 +123,8 @@ test("observation brief exposes the exact equipment and service path for mainten
     ],
   }));
   expect(brief.views).toEqual(expect.arrayContaining([
-    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/lithography-1?run=101-simulate" }),
-    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/maintenance-service-1?run=101-simulate" }),
+    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/lithography-1?run=102-simulate" }),
+    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/maintenance-service-1?run=102-simulate" }),
   ]));
 });
 

@@ -221,8 +221,8 @@ function collectSelectedResources(project: CompiledProjectWithoutHashes, process
       for (const resource of Object.keys(quantities)) ids.add(resource);
     }
   }
-  for (const release of project.scenario.lotReleases ?? []) ids.add(release.resource);
-  for (const delivery of project.scenario.materialDeliveries ?? []) ids.add(delivery.resource);
+  for (const release of project.productionPlan.lotReleases ?? []) ids.add(release.resource);
+  for (const delivery of project.productionPlan.materialDeliveries ?? []) ids.add(delivery.resource);
   for (const treatment of project.scenario.initialTreatments ?? []) ids.add(treatment.resource);
   ids.add(project.objective.targetResource);
   for (const entry of project.objective.wipAccounting.resources) ids.add(entry.resource);
@@ -271,6 +271,7 @@ export function buildSelectionExecutionHash(project: CompiledProjectWithoutHashe
     catalogs,
     world: project.world,
     blueprint: executionBlueprint,
+    productionPlan: project.productionPlan,
     scenario: project.scenario,
     objective: project.objective,
     devices: Object.fromEntries(Object.entries(project.devices).map(([id, device]) => [id, deviceProjection(device)])),
@@ -287,6 +288,7 @@ export function projectEvidenceHashes(hashes: ProjectHashes): ProjectEvidenceHas
     executionHash: hashes.executionHash,
     worldHash: hashes.worldHash,
     blueprintHash: hashes.blueprintHash,
+    productionPlanHash: hashes.productionPlanHash,
     scenarioHash: hashes.scenarioHash,
     objectiveHash: hashes.objectiveHash,
   };

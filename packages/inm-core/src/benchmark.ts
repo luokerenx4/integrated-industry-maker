@@ -29,7 +29,7 @@ const id = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase k
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
 const projectHashesSchema = z.object({
   engineVersion: z.string().min(1), executionHash: hash,
-  worldHash: hash, blueprintHash: hash, scenarioHash: hash, objectiveHash: hash,
+  worldHash: hash, blueprintHash: hash, productionPlanHash: hash.optional(), scenarioHash: hash, objectiveHash: hash,
 }).strict();
 
 export const blueprintOutcomeMetricSchema = z.enum([
@@ -114,7 +114,7 @@ export const blueprintBenchmarkSchema = z.object({
   version: z.literal(1), id, name: z.string().min(1),
   baselineBlueprint: id, candidateBlueprint: id,
   cases: z.array(z.object({
-    id, name: z.string().min(1), world: id, scenario: id, objective: id,
+    id, name: z.string().min(1), world: id, productionPlan: id, scenario: id, objective: id,
     seed: z.number().int().nonnegative(), weight: z.number().positive(),
   }).strict()).min(1),
   acceptance: z.object({
@@ -444,7 +444,7 @@ export async function lockBlueprintBenchmark(projectDir: string, benchmarkId: st
   const cases: Record<string, ProjectEvidenceHashes> = {};
   for (const item of manifest.cases) {
     const baseline = await openSelectedProject(projectDir, {
-      world: item.world, blueprint: manifest.baselineBlueprint, scenario: item.scenario, objective: item.objective,
+      world: item.world, blueprint: manifest.baselineBlueprint, productionPlan: item.productionPlan, scenario: item.scenario, objective: item.objective,
     });
     cases[item.id] = projectEvidenceHashes(baseline.hashes);
   }
@@ -578,7 +578,7 @@ async function prepareLoadedBlueprintBenchmark(
     });
     const compileStartedAt = performance.now();
     const baseline = await openSelectedProject(projectDir, {
-      world: item.world, blueprint: manifest.baselineBlueprint, scenario: item.scenario, objective: item.objective,
+      world: item.world, blueprint: manifest.baselineBlueprint, productionPlan: item.productionPlan, scenario: item.scenario, objective: item.objective,
     });
     const compileMs = performance.now() - compileStartedAt;
     assertLockedHashes(manifest.id, item.id, manifest.lock.cases[item.id]!, projectEvidenceHashes(baseline.hashes));
@@ -623,7 +623,7 @@ async function prepareLoadedBlueprintBenchmark(
       results = await caseExecutor.execute(pending.map(({ item, baseline }) => ({
         id: item.id,
         projectDir: resolve(projectDir),
-        selection: { world: item.world, scenario: item.scenario, objective: item.objective },
+        selection: { world: item.world, productionPlan: item.productionPlan, scenario: item.scenario, objective: item.objective },
         blueprintName: manifest.baselineBlueprint,
         blueprint: structuredClone(baseline.blueprint),
         seed: item.seed,
@@ -774,7 +774,7 @@ export async function evaluatePreparedBlueprintBenchmark(
       options.signal?.throwIfAborted();
       emitStarted(index);
       const item = preparedCase.manifest;
-      const selection = { world: item.world, scenario: item.scenario, objective: item.objective };
+      const selection = { world: item.world, productionPlan: item.productionPlan, scenario: item.scenario, objective: item.objective };
       const caseStartedAt = performance.now();
       const compileStartedAt = performance.now();
       const candidate = await openSelectedProject(projectDir, { ...selection, blueprint: manifest.candidateBlueprint }, options.candidateBlueprint);
@@ -803,6 +803,7 @@ export async function evaluatePreparedBlueprintBenchmark(
       const compileStartedAt = performance.now();
       candidates.push(await openSelectedProject(projectDir, {
         world: item.world,
+        productionPlan: item.productionPlan,
         scenario: item.scenario,
         objective: item.objective,
         blueprint: manifest.candidateBlueprint,
@@ -814,7 +815,7 @@ export async function evaluatePreparedBlueprintBenchmark(
       return {
         id: item.id,
         projectDir,
-        selection: { world: item.world, scenario: item.scenario, objective: item.objective },
+        selection: { world: item.world, productionPlan: item.productionPlan, scenario: item.scenario, objective: item.objective },
         blueprintName: manifest.candidateBlueprint,
         blueprint: structuredClone(candidates[index]!.blueprint),
         seed: item.seed,

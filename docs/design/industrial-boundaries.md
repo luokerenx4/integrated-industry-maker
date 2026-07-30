@@ -12,7 +12,7 @@ The DRAM example makes the distinction concrete. Package substrates are purchase
 
 ## Scheduled purchased material
 
-`Scenario.materialDeliveries` declares immutable external arrivals of untracked Resources. Every delivery names a stable id, a placed receiving Device and buffer, a Resource, positive count, and planned `releaseTick`. Compilation requires an untracked Resource, a compatible real buffer, and an atomic shipment no larger than that buffer's total and per-Resource capacity.
+`ProductionPlan.materialDeliveries` declares explicit external arrivals of untracked Resources. Every delivery names a stable id, a placed receiving Device and buffer, a Resource, positive count, and planned `releaseTick`. Compilation requires an untracked Resource, a compatible real buffer, and an atomic shipment no larger than that buffer's total and per-Resource capacity. See [[docs/design/production-plans]].
 
 At runtime a due delivery waits outside the plant until its receiving buffer has room, then enters atomically and emits `material.delivered` with planned/actual time and delay. It is not initial inventory and does not bypass physical outbound transport. Target-rate planning credits the total scheduled quantity as external supply over the Scenario horizon; the receiving-to-process connection must still carry the required rate.
 

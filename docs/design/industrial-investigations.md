@@ -34,8 +34,8 @@ Neither the workspace nor `.inm` owns Investigation data. Investigation files ma
 Creation begins from the exact compiled project selection and shared Workbench snapshot. V1 requires one current compatible operating Run and one current diagnostic. The manifest pins:
 
 - project id;
-- World, Blueprint, Scenario, and Objective ids;
-- selection-scoped engine, execution, Blueprint, World, Scenario, and Objective hashes;
+- World, Blueprint, Production Plan, Scenario, and Objective ids;
+- selection-scoped engine, execution, Blueprint, World, Production Plan, Scenario, and Objective hashes;
 - operating Run id and result hash;
 - diagnostic id, code, summary, priority, subjects, loss bucket, and leading contributor when available;
 - the Core-owned next action at creation;
@@ -52,7 +52,7 @@ The projection fails closed. It never substitutes a similarly named Run, diagnos
 
 A Candidate-review anchor pins the Candidate id, locked Benchmark, proposal hash, review-result hash, verdict, and reviewed current/proposed Blueprint hashes. It is `current` only while the strict receipt and authored proposal still reproduce those identities against the current candidate Blueprint. Replacing the proposal or moving the Blueprint makes the valid old review `historical`; deleting it makes the anchor `missing`; receipt or identity corruption makes it `invalid`.
 
-A factory-observation anchor is one indivisible operating checkpoint. It pins the effective World/Blueprint/Scenario/Objective selection, all selection-scoped execution hashes, one compatible Run id/result hash, and the selected Run-backed diagnostic's exact code, severity, priority, prose, subjects, and loss contributor. Core derives every field from the current Workbench; callers provide only the new anchor id. It is current only while the exact selected execution, Run, and deterministic diagnostic still agree. After another factory revision it remains valid history rather than being rewritten.
+A factory-observation anchor is one indivisible operating checkpoint. It pins the effective World/Blueprint/Production Plan/Scenario/Objective selection, all selection-scoped execution hashes, one compatible Run id/result hash, and the selected Run-backed diagnostic's exact code, severity, priority, prose, subjects, and loss contributor. Core derives every field from the current Workbench; callers provide only the new anchor id. It is current only while the exact selected execution, Run, and deterministic diagnostic still agree. After another factory revision it remains valid history rather than being rewritten.
 
 A Run-comparison anchor is a compact, recomputable bridge between two immutable operating checkpoints. It pins the exact FROM and TO Run/result/Blueprint identities, TO selection and execution hashes, deterministic comparison hash, and TO Run-backed diagnostic. The comparison hash commits the semantic and spatial patch, evaluator and capacity evidence, fab-loss changes, unchanged guardrails, and verdict while excluding local filesystem roots and presentation-only navigation. Core derives it only from `compareFactoryRuns`; callers provide an anchor id plus FROM/TO Run ids, never hashes, deltas, or a verdict. Inspection reopens both immutable Runs, verifies their strict compatibility and identities, recomputes the comparison and TO diagnostic, and fails closed on absent or corrupted evidence. The anchor is current only while its TO Run is the exact current selected factory; otherwise it remains exact history.
 

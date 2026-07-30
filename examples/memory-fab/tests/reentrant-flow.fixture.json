@@ -2,6 +2,7 @@
   "name": "reentrant DRAM route closes deterministic inspection rework and scrap loops",
   "world": "cleanroom",
   "blueprint": "product-mix",
+  "productionPlan": "production-window",
   "scenario": "production-window",
   "objective": "dram-output",
   "seed": 42,

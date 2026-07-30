@@ -21,7 +21,7 @@ export interface FactoryObservationView {
 }
 
 export interface FactoryObservationBrief {
-  version: 2;
+  version: 3;
   id: string;
   status: "ready" | "needs-run";
   authority: "human-or-agent";
@@ -29,6 +29,7 @@ export interface FactoryObservationBrief {
   selection: {
     world: string;
     blueprint: string;
+    productionPlan: string;
     scenario: string;
     objective: string;
   };
@@ -71,15 +72,17 @@ function selectedRun(
     }
     if (requested.selection.world !== snapshot.selection.world.id
       || requested.selection.blueprint !== snapshot.selection.blueprint.id
+      || requested.selection.productionPlan !== snapshot.selection.productionPlan.id
       || requested.selection.scenario !== snapshot.selection.scenario.id
       || requested.selection.objective !== snapshot.selection.objective.id) {
-      throw new Error(`Immutable run '${requestedRunId}' does not match the exact selected World, Blueprint, Scenario, and Objective`);
+      throw new Error(`Immutable run '${requestedRunId}' does not match the exact selected World, Blueprint, Production Plan, Scenario, and Objective`);
     }
     return requested;
   }
   return snapshot.runs.filter((run) => run.compatible
     && run.selection.world === snapshot.selection.world.id
     && run.selection.blueprint === snapshot.selection.blueprint.id
+    && run.selection.productionPlan === snapshot.selection.productionPlan.id
     && run.selection.scenario === snapshot.selection.scenario.id
     && run.selection.objective === snapshot.selection.objective.id).at(-1) ?? null;
 }
@@ -196,6 +199,7 @@ export function buildFactoryObservationBrief(
     selection: {
       world: snapshot.selection.world.id,
       blueprint: snapshot.selection.blueprint.id,
+      productionPlan: snapshot.selection.productionPlan.id,
       scenario: snapshot.selection.scenario.id,
       objective: snapshot.selection.objective.id,
     },
@@ -208,7 +212,7 @@ export function buildFactoryObservationBrief(
     views: views.map((view) => ({ id: view.id, route: view.studioRoute })),
   };
   return {
-    version: 2,
+    version: 3,
     id: hashValue(identity),
     status: run ? "ready" : "needs-run",
     authority: "human-or-agent",

@@ -157,7 +157,7 @@ test("setup attribution retains campaign release cause and held time separately"
   ]);
 });
 
-test("release admission conserves exact per-lot controller wait and preserves Scenario authority", async () => {
+test("release admission conserves exact per-lot controller wait and preserves Production Plan authority", async () => {
   const projectDir = resolve("examples/memory-fab");
   const project = compileFactoryProject(await loadFactoryProject(projectDir));
   const metrics = JSON.parse(await readFile(resolve(projectDir, "runs/090-simulate/metrics.json"), "utf8")) as FactoryMetrics;
@@ -207,11 +207,12 @@ test("release admission conserves exact per-lot controller wait and preserves Sc
 test("release admission partitions cause transitions for a pending lot", async () => {
   const project = compileFactoryProject(await loadFactoryProject(resolve("examples/memory-fab")));
   const metrics = JSON.parse(await readFile(resolve("examples/memory-fab/runs/090-simulate/metrics.json"), "utf8")) as FactoryMetrics;
-  const declaration = project.scenario.lotReleases![0]!;
+  const declaration = project.productionPlan.lotReleases![0]!;
   const syntheticProject = {
     resources: project.resources,
     routes: project.routes,
-    scenario: { ...project.scenario, durationTicks: 100, lotReleases: [declaration] },
+    productionPlan: { ...project.productionPlan, lotReleases: [declaration] },
+    scenario: { ...project.scenario, durationTicks: 100 },
   };
   const syntheticMetrics = {
     lotFlow: { ...metrics.lotFlow, scheduled: 1, released: 0, pendingRelease: 1 },

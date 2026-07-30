@@ -911,7 +911,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     if (!region) issues.push({ path: `${path}/region`, code: "reference.region", message: `Unknown region '${node.region}'` });
     else if (node.position.x >= region.bounds.width || node.position.y >= region.bounds.height) issues.push({ path: `${path}/position`, code: "geometry.out-of-bounds", message: `Resource node '${node.id}' is outside region '${node.region}' bounds` });
     if (!loaded.resources[node.resource]) issues.push({ path: `${path}/resource`, code: "reference.resource", message: `Unknown resource '${node.resource}'` });
-    else if (loaded.resources[node.resource]!.tracking) issues.push({ path: `${path}/resource`, code: "lot.extraction", message: `Tracked Resource '${node.resource}' must enter through explicit Scenario lots, not a fungible resource node` });
+    else if (loaded.resources[node.resource]!.tracking) issues.push({ path: `${path}/resource`, code: "lot.extraction", message: `Tracked Resource '${node.resource}' must enter through explicit Production Plan lots, not a fungible resource node` });
   }
   const devices: Record<string, CompiledDevice> = {};
   const ids = new Set<string>();
@@ -1928,8 +1928,8 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     }
   }
   const materialDeliveryIds = new Set<string>();
-  for (const [index, delivery] of (loaded.scenario.materialDeliveries ?? []).entries()) {
-    const path = `scenario/materialDeliveries/${index}`;
+  for (const [index, delivery] of (loaded.productionPlan.materialDeliveries ?? []).entries()) {
+    const path = `production-plan/materialDeliveries/${index}`;
     if (materialDeliveryIds.has(delivery.id)) issues.push({ path: `${path}/id`, code: "material.duplicate-delivery-id", message: `Material delivery '${delivery.id}' is declared more than once` });
     materialDeliveryIds.add(delivery.id);
     const device = devices[delivery.device];
@@ -1946,8 +1946,8 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     if (delivery.releaseTick > loaded.scenario.durationTicks) issues.push({ path: `${path}/releaseTick`, code: "scenario.delivery-after-end", message: `Delivery '${delivery.id}' is scheduled after Scenario end` });
   }
   const lotIds = new Set<string>();
-  for (const [index, lot] of (loaded.scenario.lotReleases ?? []).entries()) {
-    const path = `scenario/lotReleases/${index}`;
+  for (const [index, lot] of (loaded.productionPlan.lotReleases ?? []).entries()) {
+    const path = `production-plan/lotReleases/${index}`;
     if (lotIds.has(lot.id)) issues.push({ path: `${path}/id`, code: "lot.duplicate-id", message: `Lot '${lot.id}' is declared more than once` });
     lotIds.add(lot.id);
     const device = devices[lot.device];
@@ -1987,7 +1987,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     });
     if (!lotIds.has(excursion.lot)) issues.push({ path: `${path}/lot`, code: "quality.unknown-lot", message: `Unknown scheduled lot '${excursion.lot}'` });
     if (new Set(excursion.defects).size !== excursion.defects.length) issues.push({ path: `${path}/defects`, code: "quality.duplicate-defect", message: `Quality excursion '${excursion.id}' declares a defect class more than once` });
-    const lotDefinition = loaded.scenario.lotReleases?.find((lot) => lot.id === excursion.lot);
+    const lotDefinition = loaded.productionPlan.lotReleases?.find((lot) => lot.id === excursion.lot);
     const lotFamily = lotDefinition ? loaded.resources[lotDefinition.resource]?.tracking?.family : undefined;
     const processFamilies = process ? new Set([...process.inputs, ...process.outputs].flatMap((amount) => {
       const family = loaded.resources[amount.resource]?.tracking?.family;
@@ -2099,7 +2099,8 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     routeCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.routes).map(([id, route]) => [id, route.contentHash]))),
     deviceCatalogHash: hashValue(Object.fromEntries(Object.entries(loaded.deviceAssets).map(([id, asset]) => [id, asset.contentHash]))),
     worldHash: hashValue(loaded.world),
-    blueprintHash: hashValue(loaded.blueprint), scenarioHash: hashValue(loaded.scenario), objectiveHash: hashValue(loaded.objective),
+    blueprintHash: hashValue(loaded.blueprint), productionPlanHash: hashValue(loaded.productionPlan),
+    scenarioHash: hashValue(loaded.scenario), objectiveHash: hashValue(loaded.objective),
   };
   return { ...compiled, hashes };
 }

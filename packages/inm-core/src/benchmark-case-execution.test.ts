@@ -27,7 +27,7 @@ test("isolated execution reuses one Worker while keeping jobs in exact order", a
   const job = (id: string): BenchmarkCaseWorkerJob => ({
     id,
     projectDir,
-    selection: { world: "main", scenario: "baseline", objective: "default" },
+    selection: { world: "main", productionPlan: "baseline", scenario: "baseline", objective: "default" },
     blueprintName: "main",
     blueprint: structuredClone(loaded.blueprint),
     seed: 42,
@@ -49,7 +49,7 @@ test("a failed worker wave is replaced cleanly and explicit disposal is terminal
   const job = (id: string, root = projectDir): BenchmarkCaseWorkerJob => ({
     id,
     projectDir: root,
-    selection: { world: "main", scenario: "baseline", objective: "default" },
+    selection: { world: "main", productionPlan: "baseline", scenario: "baseline", objective: "default" },
     blueprintName: "main",
     blueprint: structuredClone(loaded.blueprint),
     seed: 42,

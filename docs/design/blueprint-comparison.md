@@ -27,7 +27,7 @@ The only allowed independent variable is the Blueprint. Before evaluation, both 
 
 Both simulations use the same non-negative integer seed. A mismatch is an error rather than an annotated delta because the result would no longer isolate the Blueprint. Each Blueprint must compile and execute under the selected Scenario; runtime failure identifies the failing Blueprint label.
 
-Immutable Run comparison applies the same non-Blueprint invariant to persisted evidence. Each Run must reproduce its own execution hash by compiling its frozen `blueprint.json` against its selected current project inputs, and its `resultHash` must reproduce from the Run key, ordered events, final state, and metrics. The pair must share engine, World, Scenario, Objective, seed, complete Scenario duration, and every non-Blueprint compiled input. Adjacent timestamps, matching Blueprint ids, or a current editable Blueprint are not compatibility evidence.
+Immutable Run comparison applies the same non-Blueprint invariant to persisted evidence. Each Run must reproduce its own execution hash by compiling its frozen `blueprint.json` against its selected current project inputs, and its `resultHash` must reproduce from the Run key, ordered events, final state, and metrics. The pair must share engine, World, Production Plan, Scenario, Objective, seed, complete Scenario duration, and every non-Blueprint compiled input. Adjacent timestamps, matching Blueprint ids, or a current editable Blueprint are not compatibility evidence.
 
 ## Result contract
 

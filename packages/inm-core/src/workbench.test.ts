@@ -32,6 +32,7 @@ async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
   await rm(join(projectDir, "runs/099-simulate"), { recursive: true, force: true });
   await rm(join(projectDir, "runs/100-simulate"), { recursive: true, force: true });
   await rm(join(projectDir, "runs/101-simulate"), { recursive: true, force: true });
+  await rm(join(projectDir, "runs/102-simulate"), { recursive: true, force: true });
   for (const entry of [
     "0016-compact-inspection-rework-cell.entry.json",
     "0017-revise-compact-cell-east-port.entry.json",
@@ -45,7 +46,7 @@ async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
 
 test("shared workbench snapshot orients an operator with stable diagnostics and operations", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/ironworks"));
-  expect(snapshot.version).toBe(13);
+  expect(snapshot.version).toBe(14);
   expect(snapshot.project.id).toBe("ironworks");
   expect(snapshot.selection).toEqual(expect.objectContaining({
     world: expect.objectContaining({ id: "main" }),
@@ -98,7 +99,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 8, infoCount: 9 },
-    evidence: { state: "current", runId: "101-simulate" },
+    evidence: { state: "current", runId: "102-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 24, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
@@ -112,7 +113,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.objective.wipAccounting.resources.map((entry) => entry.resource))
     .not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "101-simulate",
+    runId: "102-simulate",
     wipEquivalentUnit: "dram-device-equivalent",
     averageRawWipInventory: 28.039358333333332,
     averageWipEquivalentUnits: 49.1905,
@@ -132,7 +133,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     averageInventory: 9.465691666666666,
   }));
   expect(snapshot.objectiveEvidence).toEqual(expect.objectContaining({
-    runId: "101-simulate",
+    runId: "102-simulate",
     finalScore: 0.19840972805554147,
     dominantPenalty: { id: "wip", contribution: -73.78575000000001, role: "penalty" },
     wip: expect.objectContaining({
@@ -668,7 +669,7 @@ test("an active physical loss still outranks current Objective Design evidence",
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true });
   await rm(join(projectDir, "design-runs/front-end-queue-convergence"), { recursive: true, force: true });
   const snapshot = await openProjectWorkbenchSnapshot(projectDir);
-  expect(snapshot.version).toBe(13);
+  expect(snapshot.version).toBe(14);
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.input-starvation")).toBeTrue();
   const currentInspection = snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")?.evidence;
   if (currentInspection?.authorityRunId === "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06") {
@@ -1081,6 +1082,7 @@ test("Design evidence classification chooses current leaf authority without time
       selection: {
         world: "cleanroom",
         blueprint: "generated-dram-fab",
+        productionPlan: "production-window",
         scenario: "production-window",
         objective: "dram-output",
       },
@@ -1239,16 +1241,16 @@ test("Design evidence classification chooses current leaf authority without time
   }
 });
 
-test("a historical run with a different selected execution cannot supply current fab loss authority", async () => {
+test("a pre-contract historical run cannot supply current fab loss authority", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/memory-fab"), {
     world: "cleanroom", blueprint: "equipment-energy-sleep", scenario: "equipment-energy-window", objective: "dram-energy",
   });
-  expect(snapshot.status.evidence).toEqual({ state: "incompatible", runId: "066-simulate" });
+  expect(snapshot.status.evidence).toEqual({ state: "missing", runId: null });
   expect(snapshot.lossAttribution).toBeNull();
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code.startsWith("fab-loss."))).toBeFalse();
 });
 
-test("a verified Candidate keeps its source Design lineage authoritative after apply without fabricating current driver evidence", async () => {
+test("a pre-contract Candidate and Design lineage remain historical after apply", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-workbench-commissioned-lineage-"));
   const projectDir = join(root, "memory-fab");
   await cp(join(repository, "examples/memory-fab"), projectDir, {
@@ -1264,42 +1266,33 @@ test("a verified Candidate keeps its source Design lineage authoritative after a
   const snapshot = await openProjectWorkbenchSnapshot(projectDir);
   const evidence = snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")!.evidence;
   expect(evidence).toEqual(expect.objectContaining({
-    state: "commissioned",
-    authorityRunId: "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06",
+    state: "missing",
+    authorityRunId: null,
     currentRuns: 0,
-    commissionedRuns: 1,
-    historicalRuns: 4,
+    commissionedRuns: 0,
+    historicalRuns: 5,
     invalidRuns: 4,
   }));
-  expect(evidence.runs.find((run) => run.id === evidence.authorityRunId)).toEqual(expect.objectContaining({
+  expect(evidence.runs.find((run) =>
+    run.id === "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06"))
+    .toEqual(expect.objectContaining({
     outcome: "promotable",
     currentness: expect.objectContaining({
-      state: "commissioned",
-      commissioning: {
-        candidateId: "inspection-supply-path-966127dd",
-        benchmark: "greenfield-dram-design",
-        program: "inspection-supply-path",
-        runId: "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06",
-        sourceBlueprintHash: "8281c50706c578b823b7d8cc3f5d4f94cef230fefbee210c8a3756a6a9a9563a",
-        baseBlueprintHash: "35ef45f0eb537a5e2f7a94b40b1e41bf74fb5f13fb21d067ed996443785ed144",
-        appliedBlueprintHash: "8281c50706c578b823b7d8cc3f5d4f94cef230fefbee210c8a3756a6a9a9563a",
-        proposalHash: "18c8ebc898254d30a5e428dbd93412f947da062a1c20779656728237640c9832",
-        reviewResultHash: expect.stringMatching(/^[0-9a-f]{64}$/),
-      },
+      state: "historical",
+      reasons: expect.arrayContaining([
+        "engine-version-mismatch",
+        "driver-selection-mismatch",
+        "driver-hashes-mismatch",
+      ]),
     }),
   }));
   expect(snapshot.lossDispositions.some((disposition) =>
     disposition.source.programId === "inspection-supply-path")).toBeFalse();
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    title: "Continue from the commissioned Inspection Supply Path Convergence lineage",
-    actionLabel: "REVIEW COMMISSIONED LINEAGE",
-    effect: "read-only",
-    target: expect.objectContaining({
-      kind: "design-run",
-      programId: "inspection-supply-path",
-      runId: evidence.authorityRunId,
-      phase: "commissioned",
-    }),
+    title: "Measure the current selection",
+    actionLabel: "RUN SIMULATION",
+    effect: "creates-artifact",
+    target: expect.objectContaining({ kind: "operation", operationId: "simulate" }),
   }));
   const candidatePath = join(
     projectDir,

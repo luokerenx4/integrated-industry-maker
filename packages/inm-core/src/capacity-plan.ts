@@ -84,9 +84,9 @@ export interface RawCapacityRequirement {
   additionalExtractors: number;
   finiteReserve: number;
   lifetimeMinutes: number | null;
-  scenarioDemand: number;
-  scenarioSupply: number;
-  scenarioBalance: number;
+  horizonDemand: number;
+  horizonSupply: number;
+  horizonBalance: number;
 }
 
 export interface TransportCapacityRequirement {
@@ -372,20 +372,22 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
     const processDemandPerMinute = rawProcessDemand[resource] ?? 0;
     const infrastructureDemandPerMinute = infrastructureDemand[resource] ?? 0;
     const totalDemandPerMinute = processDemandPerMinute + infrastructureDemandPerMinute;
-    const scheduledSupply = (project.scenario.lotReleases ?? []).filter((lot) => lot.resource === resource).length
-      + (project.scenario.materialDeliveries ?? []).filter((delivery) => delivery.resource === resource).reduce((sum, delivery) => sum + delivery.count, 0);
+    const scheduledSupply = (project.productionPlan.lotReleases ?? []).filter((lot) => lot.resource === resource).length
+      + (project.productionPlan.materialDeliveries ?? []).filter((delivery) => delivery.resource === resource).reduce((sum, delivery) => sum + delivery.count, 0);
     const scheduledSupplyPerMinute = scenarioMinutes > 0 ? scheduledSupply / scenarioMinutes : 0;
     const configuredSupplyPerMinute = configuredExtractionPerMinute + scheduledSupplyPerMinute;
     const supplyDeficitPerMinute = Math.max(0, totalDemandPerMinute - configuredSupplyPerMinute);
     const additionalExtractors = supplyDeficitPerMinute > 0 && perExtractor > 0 ? Math.ceil(supplyDeficitPerMinute / perExtractor - 1e-9) : supplyDeficitPerMinute > 0 ? 1 : 0;
     const finiteReserve = Object.values(project.resourceNodes).filter((node) => node.resource === resource).reduce((sum, node) => sum + node.amount, 0);
-    const scenarioDemand = totalDemandPerMinute * scenarioMinutes;
+    const horizonDemand = totalDemandPerMinute * scenarioMinutes;
     return {
       resource, processDemandPerMinute, infrastructureDemandPerMinute, totalDemandPerMinute,
       configuredExtractors: extractors.length, configuredExtractionPerMinute,
       scheduledSupply, scheduledSupplyPerMinute, configuredSupplyPerMinute, supplyDeficitPerMinute, additionalExtractors,
       finiteReserve, lifetimeMinutes: finiteReserve > 0 && totalDemandPerMinute > 0 ? finiteReserve / totalDemandPerMinute : null,
-      scenarioDemand, scenarioSupply: finiteReserve + scheduledSupply, scenarioBalance: finiteReserve + scheduledSupply - scenarioDemand,
+      horizonDemand,
+      horizonSupply: finiteReserve + scheduledSupply,
+      horizonBalance: finiteReserve + scheduledSupply - horizonDemand,
     };
   });
 
@@ -545,7 +547,11 @@ export function planProductionCapacity(project: CompiledFactoryProject): Product
   });
   for (const raw of rawResources) {
     if (raw.supplyDeficitPerMinute > 1e-9) gaps.push({ kind: "extraction", entity: raw.resource, message: `${raw.resource} supply is short by ${raw.supplyDeficitPerMinute.toFixed(3)}/min after ${raw.scheduledSupplyPerMinute.toFixed(3)}/min scheduled external supply; add ${raw.additionalExtractors} extractor(s)` });
-    if (raw.scenarioBalance < -1e-9) gaps.push({ kind: "reserve", entity: raw.resource, message: `${raw.resource} Scenario supply is short by ${(-raw.scenarioBalance).toFixed(3)} items after ${raw.scheduledSupply.toFixed(3)} scheduled external supply` });
+    if (raw.horizonBalance < -1e-9) gaps.push({
+      kind: "reserve",
+      entity: raw.resource,
+      message: `${raw.resource} horizon supply is short by ${(-raw.horizonBalance).toFixed(3)} items after ${raw.scheduledSupply.toFixed(3)} Production Plan supply`,
+    });
   }
   for (const link of transport) if (link.capacityDeficitPerMinute > 1e-9) gaps.push({ kind: "transport", entity: `${link.process}:${link.direction}:${link.resource}`, message: `${link.process} ${link.direction} transport for ${link.resource} is short by ${link.capacityDeficitPerMinute.toFixed(3)}/min` });
   for (const network of stationNetworks) if (network.additionalCarriers > 0) gaps.push({ kind: "station", entity: network.network, message: `${network.network} needs ${network.requiredCarriers} carriers for ${network.resource}; add ${network.additionalCarriers}` });
