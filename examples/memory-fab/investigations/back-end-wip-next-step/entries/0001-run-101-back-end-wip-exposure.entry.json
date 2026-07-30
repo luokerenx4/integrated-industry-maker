@@ -1,0 +1,29 @@
+{
+  "author": "agent",
+  "entryHash": "91c907d76f98b7af1caf24a5f759d889eef262a04920fe126c4c74461742eb05",
+  "evidence": [
+    "operating-run",
+    "diagnostic",
+    "conwip-5-4-review"
+  ],
+  "id": "run-101-back-end-wip-exposure",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "back-end-wip-conwip-5-4",
+      "currentCandidateHash": "35ef45f0eb537a5e2f7a94b40b1e41bf74fb5f13fb21d067ed996443785ed144",
+      "id": "conwip-5-4-review",
+      "kind": "candidate-review",
+      "proposalHash": "cacad0436501eebec66c3c498a0b4edb06b9d399161935a3135207ea0155f91e",
+      "proposedCandidateHash": "36a927e70a65d4a66f338ca255e0299f77992c6cb5fd9ed42b796d903aa5c637",
+      "reviewResultHash": "4d3e8ea0d1fe46c2e15a6b6d22cf05402d7bd8608bcbb5b4fadcd4fd3780fe19",
+      "verdict": "DISCARD"
+    }
+  ],
+  "investigation": "back-end-wip-next-step",
+  "kind": "observation",
+  "previousEntryHash": null,
+  "sequence": 1,
+  "statement": "Immutable Run 101-simulate scores 49.1905 average dram-device-equivalent WIP, contributing -73.78575 to the Objective; burn-in-1.package-input leads at 9.465692 equivalents and packaging-1.die-input follows at 6.874125. The run-qualified Factory views show packaging-1 processing one die every 1.5 seconds at 60.0% utilization after 96.0 seconds of input wait, while burn-in-1 is a shared fixed-eight-device rack at 68.3% utilization with 76.0 seconds idle, three changeovers totaling 14.0 seconds, and 7.5-second commercial versus 18.75-second performance jobs. Event evidence shows 96 packaging starts but only eleven burn-in batches delivering 88 devices, leaving exactly eight packaged devices at the burn-in input. This is a release/output-quantum and back-end service-cadence observation, not proof that either buffer capacity or all ranked WIP is avoidable. The retained tighter-CONWIP review already proves that suppressing releases can reduce some exposure while failing on-time service; the fixed four-device Process portfolio is likewise prior bounded negative evidence rather than a proposal to rename.",
+  "version": 1
+}

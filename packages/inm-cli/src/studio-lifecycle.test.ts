@@ -340,7 +340,7 @@ test("one command enters the exact phase-aware Investigation Design Session", as
   try {
     const entered = await runCli([
       "session", project,
-      "--investigation", "inspection-starvation-next-step",
+      "--investigation", "back-end-wip-next-step",
       "--port", String(port),
       "--no-open",
       "--json",
@@ -358,21 +358,21 @@ test("one command enters the exact phase-aware Investigation Design Session", as
         target: {
           kind: "investigation",
           investigation: expect.objectContaining({
-            id: "inspection-starvation-next-step",
+            id: "back-end-wip-next-step",
             state: "current",
-            entryCount: 21,
+            entryCount: 1,
           }),
           handoff: expect.objectContaining({
             phase: "form-hypothesis",
             sourceEntry: expect.objectContaining({
-              id: "compact-cell-run-comparison-retained",
-              sequence: 21,
+              id: "run-101-back-end-wip-exposure",
+              sequence: 1,
               kind: "observation",
             }),
             evidenceIds: [
-              "compact-inspection-rework-cell-east-port-review",
-              "compact-inspection-rework-cell-factory",
-              "compact-cell-run-comparison",
+              "operating-run",
+              "diagnostic",
+              "conwip-5-4-review",
             ],
             authorship: expect.objectContaining({
               kind: "investigation-entry",
@@ -380,8 +380,8 @@ test("one command enters the exact phase-aware Investigation Design Session", as
             }),
           }),
         },
-        route: "/memory-fab/investigations/inspection-starvation-next-step#investigation-authoring",
-        url: `http://127.0.0.1:${port}/memory-fab/investigations/inspection-starvation-next-step#investigation-authoring`,
+        route: "/memory-fab/investigations/back-end-wip-next-step#investigation-authoring",
+        url: `http://127.0.0.1:${port}/memory-fab/investigations/back-end-wip-next-step#investigation-authoring`,
         operation: null,
       }),
       nextActions: [
@@ -389,9 +389,9 @@ test("one command enters the exact phase-aware Investigation Design Session", as
           actionLabel: "FORM HYPOTHESIS",
           target: expect.objectContaining({
             kind: "investigation",
-            investigationId: "inspection-starvation-next-step",
+            investigationId: "back-end-wip-next-step",
             phase: "form-hypothesis",
-            sourceEntryId: "compact-cell-run-comparison-retained",
+            sourceEntryId: "run-101-back-end-wip-exposure",
           }),
         }),
       ],

@@ -1,0 +1,76 @@
+{
+  "anchors": [
+    {
+      "id": "operating-run",
+      "kind": "operating-run",
+      "resultHash": "d0a140643718af750433d62a12f0fb1ba668408daa16142c1cfb13d552b33b3e",
+      "runId": "101-simulate"
+    },
+    {
+      "code": "fab-loss.input-starvation",
+      "diagnosticId": "fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:099e06e6d3",
+      "id": "diagnostic",
+      "kind": "diagnostic",
+      "loss": {
+        "bucket": "input-starvation",
+        "contributorId": "device:inspection-1:material-input-shortage"
+      },
+      "message": "Productive-equipment input starvation is ranked 1 in compatible run 101-simulate (signal 0.2090). 9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking.",
+      "priority": 90,
+      "runId": "101-simulate",
+      "severity": "warning",
+      "subjects": [
+        {
+          "id": "inspection-1",
+          "kind": "device"
+        },
+        {
+          "id": "etch-to-inspection",
+          "kind": "connection"
+        },
+        {
+          "id": "etch-l2",
+          "kind": "device"
+        },
+        {
+          "id": "rework-to-inspection",
+          "kind": "connection"
+        },
+        {
+          "id": "rework-1",
+          "kind": "device"
+        }
+      ],
+      "summary": "9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
+    }
+  ],
+  "authority": "human-or-agent",
+  "hashes": {
+    "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+    "engineVersion": "inm-sim/0.90.0",
+    "executionHash": "0476628653a3469ce918a2646a39b6160f17ca7536bf13a949ee32381b129723",
+    "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+    "scenarioHash": "b6cfa14ecff26487e959f7f1b38230f2e003a3eaf04bd8b587ed268c9fc8eafe",
+    "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+  },
+  "id": "back-end-wip-next-step",
+  "initialNextAction": {
+    "actionLabel": "OPEN DESIGN LOOP",
+    "effect": "read-only",
+    "id": "design.inspect:inspection-supply-path:fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:099e06e6d3",
+    "reason": "Productive-equipment input starvation is ranked 1 in compatible run 101-simulate (signal 0.2090). 9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking. Open the aligned Design Program brief before choosing whether to create bounded locked-case evidence.",
+    "studioRoute": "/memory-fab/designs/inspection-supply-path",
+    "title": "Investigate the leading loss with Inspection Supply Path Convergence"
+  },
+  "manifestHash": "2c6b35787525f9f98310b4a059218fd29f483154adcc9a166b334b08a417951c",
+  "name": "Back-end WIP next step",
+  "project": "memory-fab",
+  "question": "Which physically distinct production-planning, cadence, or back-end service intervention can reduce the dominant burn-in and packaging Objective-equivalent WIP exposure without replaying the rejected tighter-CONWIP or fixed small-batch portfolios, or weakening delivery, on-time service, quality, and interruption resilience?",
+  "selection": {
+    "blueprint": "generated-dram-fab",
+    "objective": "dram-output",
+    "scenario": "production-window",
+    "world": "cleanroom"
+  },
+  "version": 1
+}

@@ -1,0 +1,19 @@
+{
+  "author": "agent",
+  "disposition": "defer",
+  "entryHash": "ce6827e506c257f88b86cd9f416e0c148c2311e226c5f3f9498cb7c044da8b5e",
+  "evidence": [
+    "design-lineage",
+    "compact-inspection-rework-cell-east-port-review",
+    "compact-inspection-rework-cell-factory",
+    "compact-cell-run-comparison"
+  ],
+  "id": "defer-post-compact-inspection-frontier",
+  "introducedAnchors": [],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "decision",
+  "previousEntryHash": "b1c876c39bfa864cf224ca3d26d67fb8751e102f639eeb1747db07aadd060ab6",
+  "sequence": 22,
+  "statement": "Defer another inspection intervention under immutable Run 101-simulate. The compact cell already removed the exact one-second return-transit overlap; the remaining 56.984 seconds are dominated by ordinary upstream etch processing and cadence while inspection-1 remains only 20.7% utilized with no capacity, power, failure, maintenance, or line-congestion constraint. The previously bounded shared-destination vacuum handoff is still not feasible: matching assets across the four-cell main lane and sixteen-cell return require 200 additional line capital plus 160 for four endpoint sorters, so current build cost 229840 would become 230200 and exceed the fixed 230000 cap by 200. Preserve the commissioned Blueprint and move design attention to a separate Objective-WIP inquiry; reopen this frontier only after at least 200 capital is independently recovered or a new physically distinct causal mechanism is observed.",
+  "version": 1
+}
