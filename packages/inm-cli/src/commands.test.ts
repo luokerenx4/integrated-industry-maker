@@ -727,6 +727,11 @@ test("public investigate preserves and resumes exact project-local human/Agent r
           sourceEvidence: expect.objectContaining({
             state: "current",
             author: "human",
+            operatingContext: expect.objectContaining({
+              source: "investigation-creation",
+              anchorId: "operating-run",
+              run: expect.objectContaining({ id: "098-simulate" }),
+            }),
           }),
         }),
       }),
@@ -763,6 +768,15 @@ test("public investigate preserves and resumes exact project-local human/Agent r
       state: "current",
     }),
   }));
+  const candidateHuman = await runCli([
+    "candidate",
+    projectDir,
+    "--candidate",
+    "inspection-decoupling-buffer",
+  ]);
+  expect({ exitCode: candidateHuman.exitCode, stderr: candidateHuman.stderr })
+    .toEqual({ exitCode: 0, stderr: "" });
+  expect(candidateHuman.stdout).toContain("factory operating-run / 098-simulate · CURRENT");
 
   const decided = await runCli([
     "investigate",
@@ -810,6 +824,55 @@ test("public investigate preserves and resumes exact project-local human/Agent r
     }),
   }));
 
+  const captured = await runCli([
+    "investigate",
+    projectDir,
+    "--investigation",
+    investigationId,
+    "--entry",
+    "post-decision-factory-observed",
+    "--kind",
+    "observation",
+    "--author",
+    "agent",
+    "--statement",
+    "The retained decision remains bound to the exact current factory and leading diagnostic.",
+    "--capture-observation",
+    "post-decision-factory",
+    "--evidence",
+    "supply-path-review",
+    "--json",
+  ]);
+  expect({ exitCode: captured.exitCode, stderr: captured.stderr })
+    .toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(captured.stdout).data.result).toEqual(expect.objectContaining({
+    action: "appended",
+    state: "current",
+    entryCount: 4,
+    anchors: expect.arrayContaining([
+      expect.objectContaining({
+        id: "post-decision-factory",
+        kind: "factory-observation",
+        state: "current",
+      }),
+    ]),
+    lastEntry: expect.objectContaining({
+      id: "post-decision-factory-observed",
+      evidence: ["supply-path-review", "post-decision-factory"],
+      introducedAnchors: [
+        expect.objectContaining({
+          id: "post-decision-factory",
+          kind: "factory-observation",
+          runId: "098-simulate",
+          resultHash: "19fd034abbecc9dff1a2d7c67d3cf1e2f0c2ab56c3445e39b6b1e0c4b36decbc",
+          diagnostic: expect.objectContaining({
+            code: "fab-loss.input-starvation",
+          }),
+        }),
+      ],
+    }),
+  }));
+
   const [inspection, entries, list, human, help, schemas] = await Promise.all([
     runCli(["investigate", projectDir, "--investigation", investigationId, "--json"]),
     runCli(["investigate", projectDir, "--investigation", investigationId, "--section", "entries", "--json"]),
@@ -823,35 +886,106 @@ test("public investigate preserves and resumes exact project-local human/Agent r
   expect(JSON.parse(inspection.stdout).data.result).toEqual(expect.objectContaining({
     action: "inspect",
     state: "current",
-    entryCount: 3,
+    entryCount: 4,
     lastEntry: expect.objectContaining({
-      id: "retain-commissioned-supply-path",
-      kind: "decision",
-      sequence: 3,
+      id: "post-decision-factory-observed",
+      kind: "observation",
+      sequence: 4,
     }),
   }));
   expect(JSON.parse(entries.stdout).data.result.map((entry: { id: string }) => entry.id))
-    .toEqual(["inspection-input-is-empty", "inspection-decoupling-buffer", "retain-commissioned-supply-path"]);
+    .toEqual([
+      "inspection-input-is-empty",
+      "inspection-decoupling-buffer",
+      "retain-commissioned-supply-path",
+      "post-decision-factory-observed",
+    ]);
   expect(JSON.parse(list.stdout).data).toEqual({
     action: "list",
     investigations: [expect.objectContaining({
       id: investigationId,
-      entryCount: 3,
+      entryCount: 4,
     })],
   });
   expect(human.stdout).toContain("Inspection starvation next step · Industrial Investigation");
   expect(human.stdout).toContain("CURRENT    design-lineage");
   expect(human.stdout).toContain("CURRENT    supply-path-review");
+  expect(human.stdout).toContain("CURRENT    post-decision-factory");
   expect(human.stdout).toContain("0002 HYPOTHESIS · human");
   expect(human.stdout).toContain("0003 DECISION · agent");
+  expect(human.stdout).toContain("0004 OBSERVATION · agent");
   expect(human.stdout).toContain("introduced: supply-path-review:candidate-review");
+  expect(human.stdout).toContain("introduced: post-decision-factory:factory-observation");
   expect(human.stdout).toContain("expected: Reduce inspection shortage");
   expect((JSON.parse(help.stdout).data.commands as Array<{ id: string }>).map((command) => command.id))
     .toContain("investigate");
+  expect((JSON.parse(help.stdout).data.commands as Array<{
+    id: string;
+    arguments: Array<{ name: string }>;
+  }>).find((command) => command.id === "investigate")?.arguments)
+    .toContainEqual(expect.objectContaining({ name: "capture-observation" }));
   expect(JSON.parse(schemas.stdout).data.kinds).toEqual(expect.arrayContaining([
     "investigation",
     "investigation-entry",
   ]));
+
+  const continuedHypothesis = await runCli([
+    "investigate",
+    projectDir,
+    "--investigation",
+    investigationId,
+    "--entry",
+    "post-decision-hypothesis",
+    "--kind",
+    "hypothesis",
+    "--author",
+    "agent",
+    "--statement",
+    "A bounded follow-up should preserve the post-decision factory outcomes.",
+    "--expected-effect",
+    "The exact post-decision operating context remains feasible after the bounded change.",
+    "--evidence",
+    "post-decision-factory",
+    "--json",
+  ]);
+  expect({ exitCode: continuedHypothesis.exitCode, stderr: continuedHypothesis.stderr })
+    .toEqual({ exitCode: 0, stderr: "" });
+  const continuedCandidate = await runCli([
+    "investigate",
+    projectDir,
+    "--investigation",
+    investigationId,
+    "--create-candidate",
+    "post-decision-candidate",
+    "--hypothesis-entry",
+    "post-decision-hypothesis",
+    "--benchmark",
+    "greenfield-dram-design",
+    "--candidate-name",
+    "Post-decision Candidate",
+    "--patch-file",
+    patchFile,
+    "--json",
+  ]);
+  expect({ exitCode: continuedCandidate.exitCode, stderr: continuedCandidate.stderr })
+    .toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(continuedCandidate.stdout).data.result.candidate.sourceEvidence)
+    .toEqual(expect.objectContaining({
+      state: "current",
+      operatingContext: expect.objectContaining({
+        source: "factory-observation",
+        anchorId: "post-decision-factory",
+        run: expect.objectContaining({ id: "098-simulate" }),
+      }),
+    }));
+  const continuedCandidateHuman = await runCli([
+    "candidate",
+    projectDir,
+    "--candidate",
+    "post-decision-candidate",
+  ]);
+  expect(continuedCandidateHuman.stdout)
+    .toContain("factory post-decision-factory / 098-simulate · CURRENT");
 
   const invalid = await runCli([
     "investigate",

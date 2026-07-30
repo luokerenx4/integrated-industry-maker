@@ -31,6 +31,7 @@ function anchorTitle(anchor: InvestigationEvidenceAnchor): string {
   if (anchor.kind === "operating-run") return `OPERATING RUN · ${anchor.runId}`;
   if (anchor.kind === "diagnostic") return `DIAGNOSTIC · ${anchor.code}`;
   if (anchor.kind === "candidate-review") return `CANDIDATE REVIEW · ${anchor.candidateId} · ${anchor.verdict}`;
+  if (anchor.kind === "factory-observation") return `FACTORY OBSERVATION · ${anchor.runId} · ${anchor.diagnostic.code}`;
   return `COMMISSIONED DESIGN · ${anchor.candidateId}`;
 }
 
@@ -146,13 +147,21 @@ export function InvestigationWorkbench({
     const fields = new FormData(form);
     const introducedAnchorId = String(fields.get("introducedAnchorId") ?? "").trim();
     const introducedCandidateId = String(fields.get("introducedCandidateId") ?? "").trim();
+    const introducedObservationId = String(fields.get("introducedObservationId") ?? "").trim();
     if (Boolean(introducedAnchorId) !== Boolean(introducedCandidateId)) {
       setError("An introduced Candidate review requires both its Investigation anchor id and Candidate id.");
+      return;
+    }
+    if (introducedObservationId && (introducedAnchorId || introducedCandidateId)) {
+      setError("Capture a factory observation or introduce a Candidate review in one entry, not both.");
       return;
     }
     const evidence = fields.getAll("evidence").map(String);
     if (introducedAnchorId && introducedCandidateId && !evidence.includes(introducedAnchorId)) {
       evidence.push(introducedAnchorId);
+    }
+    if (introducedObservationId && !evidence.includes(introducedObservationId)) {
+      evidence.push(introducedObservationId);
     }
     const common = {
       id: fields.get("id"),
@@ -160,13 +169,18 @@ export function InvestigationWorkbench({
       kind: entryKind,
       statement: fields.get("statement"),
       evidence,
-      introduceEvidence: introducedAnchorId && introducedCandidateId
+      introduceEvidence: introducedObservationId
         ? {
+          id: introducedObservationId,
+          kind: "factory-observation",
+        }
+        : introducedAnchorId && introducedCandidateId
+          ? {
           id: introducedAnchorId,
           kind: "candidate-review",
           candidateId: introducedCandidateId,
         }
-        : undefined,
+          : undefined,
     };
     const body = entryKind === "hypothesis"
       ? { ...common, expectedEffect: fields.get("expectedEffect") }
@@ -313,6 +327,7 @@ export function InvestigationWorkbench({
             <label className="wide">STATEMENT<textarea name="statement" required placeholder="State one observable fact, testable causal claim, or explicit decision." /></label>
             {entryKind === "hypothesis" && <label className="wide">EXPECTED EFFECT<textarea name="expectedEffect" required placeholder="What exact measured behavior should change if this is true?" /></label>}
             {entryKind === "decision" && <label>DISPOSITION<select name="disposition" defaultValue={prefillCandidateId ? suggestedDisposition : "keep"}><option value="keep">KEEP</option><option value="revise">REVISE</option><option value="defer">DEFER</option><option value="discard">DISCARD</option></select></label>}
+            {entryKind === "observation" && <label>CAPTURE CURRENT FACTORY AS<input name="introducedObservationId" pattern="[a-z0-9][a-z0-9-]*" placeholder="post-change-factory" /></label>}
             <label>INTRODUCE REVIEW AS<input name="introducedAnchorId" defaultValue={suggestedAnchorId} placeholder="metrology-standby-review" /></label>
             <label>REVIEWED CANDIDATE<input name="introducedCandidateId" defaultValue={prefillCandidateId ?? ""} placeholder="metrology-low-power-standby" /></label>
           </div>

@@ -28,6 +28,8 @@ orient exact project state
 
 The observation step is not decoration or final visual QA. It occurs before proposal authoring and again when the evaluated change may alter spatial flow, congestion, device behavior, or operator interpretation.
 
+When the factory changes, that second observation may be appended to the same project-local Investigation as a factory-observation checkpoint. The checkpoint pins the new compatible Run, selected diagnostic, and execution hashes without rewriting the original evidence. A later hypothesis that cites it inherits the new operating context; earlier observations remain exact history instead of being forgotten or treated as current measurements.
+
 Structured and visual evidence are complementary:
 
 - CLI JSON is authoritative for exact selection, hashes, metrics, loss contributors, Benchmark cases, patches, and artifacts.

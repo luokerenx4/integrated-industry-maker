@@ -98,11 +98,26 @@ const candidateReviewAnchorSchema = z.object({
   proposedCandidateHash: hashSchema,
 }).strict();
 
+const factoryObservationAnchorSchema = z.object({
+  id: idSchema,
+  kind: z.literal("factory-observation"),
+  selection: selectionSchema,
+  hashes: evidenceHashesSchema,
+  runId: z.string().min(1),
+  resultHash: hashSchema,
+  diagnostic: diagnosticAnchorSchema.omit({
+    id: true,
+    kind: true,
+    runId: true,
+  }),
+}).strict();
+
 export const investigationEvidenceAnchorSchema = z.discriminatedUnion("kind", [
   operatingRunAnchorSchema,
   diagnosticAnchorSchema,
   designLineageAnchorSchema,
   candidateReviewAnchorSchema,
+  factoryObservationAnchorSchema,
 ]);
 export type InvestigationEvidenceAnchor = z.infer<typeof investigationEvidenceAnchorSchema>;
 
@@ -138,7 +153,10 @@ const entryBaseSchema = z.object({
   author: z.enum(["human", "agent"]),
   statement: z.string().min(1),
   evidence: z.array(idSchema),
-  introducedAnchors: z.array(candidateReviewAnchorSchema).max(1),
+  introducedAnchors: z.array(z.discriminatedUnion("kind", [
+    candidateReviewAnchorSchema,
+    factoryObservationAnchorSchema,
+  ])).max(1),
   previousEntryHash: hashSchema.nullable(),
 });
 
@@ -159,11 +177,16 @@ export const industrialInvestigationEntrySchema = z.discriminatedUnion("kind", [
   }).strict(),
 ]);
 export type IndustrialInvestigationEntry = z.infer<typeof industrialInvestigationEntrySchema>;
-export type InvestigationIntroducedEvidenceInput = {
-  id: string;
-  kind: "candidate-review";
-  candidateId: string;
-};
+export type InvestigationIntroducedEvidenceInput =
+  | {
+    id: string;
+    kind: "candidate-review";
+    candidateId: string;
+  }
+  | {
+    id: string;
+    kind: "factory-observation";
+  };
 type EntryInputCommon = {
   id: string;
   author: "human" | "agent";
@@ -347,6 +370,42 @@ export async function listIndustrialInvestigationEntries(
   return entries;
 }
 
+function hypothesisOperatingContext(
+  manifest: IndustrialInvestigationManifest,
+  entries: IndustrialInvestigationEntry[],
+  hypothesis: Extract<IndustrialInvestigationEntry, { kind: "hypothesis" }>,
+): CandidateInvestigationSourceEvidence["operatingContext"] {
+  const checkpoint = entries
+    .filter((entry) => entry.sequence <= hypothesis.sequence)
+    .flatMap((entry) => entry.introducedAnchors)
+    .reverse()
+    .find((anchor) =>
+      anchor.kind === "factory-observation" && hypothesis.evidence.includes(anchor.id));
+  if (checkpoint?.kind === "factory-observation") {
+    return {
+      source: "factory-observation",
+      anchorId: checkpoint.id,
+      selection: { ...checkpoint.selection },
+      hashes: { ...checkpoint.hashes },
+      run: { id: checkpoint.runId, resultHash: checkpoint.resultHash },
+      diagnostic: {
+        id: checkpoint.diagnostic.diagnosticId,
+        code: checkpoint.diagnostic.code,
+      },
+    };
+  }
+  const operating = manifest.anchors.find((anchor) => anchor.kind === "operating-run")!;
+  const diagnostic = manifest.anchors.find((anchor) => anchor.kind === "diagnostic")!;
+  return {
+    source: "investigation-creation",
+    anchorId: operating.id,
+    selection: { ...manifest.selection },
+    hashes: { ...manifest.hashes },
+    run: { id: operating.runId, resultHash: operating.resultHash },
+    diagnostic: { id: diagnostic.diagnosticId, code: diagnostic.code },
+  };
+}
+
 export async function resolveIndustrialInvestigationHypothesisSource(
   projectDir: string,
   source: InvestigationHypothesisCandidateSource,
@@ -394,7 +453,8 @@ export async function resolveIndustrialInvestigationHypothesisSource(
       `Candidate hypothesis text must exactly match Investigation entry '${source.entry}'`,
     );
   }
-  const project = compileFactoryProject(await loadFactoryProject(projectDir, manifest.selection));
+  const operatingContext = hypothesisOperatingContext(manifest, entries, entry);
+  const project = compileFactoryProject(await loadFactoryProject(projectDir, operatingContext.selection));
   if (project.manifest.id !== manifest.project) {
     throw new IndustrialInvestigationError(
       "investigation.project-mismatch",
@@ -402,11 +462,33 @@ export async function resolveIndustrialInvestigationHypothesisSource(
     );
   }
   const currentHashes = projectEvidenceHashes(project.hashes);
+  let state: CandidateInvestigationSourceEvidence["state"] =
+    stableStringify(currentHashes) === stableStringify(operatingContext.hashes)
+      ? "current"
+      : "historical";
+  if (operatingContext.source === "factory-observation") {
+    const checkpoint = entries
+      .flatMap((item) => item.introducedAnchors)
+      .find((anchor) => anchor.id === operatingContext.anchorId);
+    if (!checkpoint || checkpoint.kind !== "factory-observation") {
+      throw new IndustrialInvestigationError(
+        "investigation.source-context-missing",
+        `Investigation hypothesis '${entry.id}' references unavailable factory observation '${operatingContext.anchorId}'`,
+      );
+    }
+    const runPath = join(resolve(projectDir), "runs", checkpoint.runId);
+    const run = (await listRuns(projectDir)).find((item) => item.name === checkpoint.runId);
+    if (!run || run.manifest.resultHash !== checkpoint.resultHash) {
+      const unavailable = await pathExists(runPath) ? "invalid" : "missing";
+      throw new IndustrialInvestigationError(
+        "investigation.source-context-unavailable",
+        `Investigation hypothesis '${entry.id}' factory observation '${checkpoint.id}' is ${unavailable}`,
+      );
+    }
+  }
   return {
     kind: "investigation-hypothesis",
-    state: stableStringify(currentHashes) === stableStringify(manifest.hashes)
-      ? "current"
-      : "historical",
+    state,
     project: manifest.project,
     investigation: manifest.id,
     investigationName: manifest.name,
@@ -419,6 +501,7 @@ export async function resolveIndustrialInvestigationHypothesisSource(
     statement: entry.statement,
     expectedEffect: entry.expectedEffect,
     evidence: [...entry.evidence],
+    operatingContext,
     navigation: {
       argv: ["inm", "investigate", projectDir, "--investigation", manifest.id, "--json"],
       studioRoute: `/${encodeURIComponent(manifest.project)}/investigations/${encodeURIComponent(manifest.id)}`,
@@ -642,8 +725,14 @@ export async function appendIndustrialInvestigationEntry(
       `Investigation entry '${input.id}' already exists`,
     );
   }
+  if (input.introduceEvidence?.kind === "factory-observation" && input.kind !== "observation") {
+    throw new IndustrialInvestigationError(
+      "investigation.observation-entry-required",
+      "Factory-observation evidence can only be introduced by an observation entry",
+    );
+  }
   const introducedAnchors = input.introduceEvidence
-    ? [await resolveIntroducedEvidenceAnchor(projectDir, input.introduceEvidence)]
+    ? [await resolveIntroducedEvidenceAnchor(projectDir, manifest, input.introduceEvidence)]
     : [];
   const evidence = input.evidence ?? [];
   const anchorIds = new Set<string>([
@@ -709,13 +798,65 @@ export async function appendIndustrialInvestigationEntry(
 
 async function resolveIntroducedEvidenceAnchor(
   projectDir: string,
+  manifest: IndustrialInvestigationManifest,
   input: InvestigationIntroducedEvidenceInput,
-): Promise<z.infer<typeof candidateReviewAnchorSchema>> {
-  if (!idSchema.safeParse(input.id).success || !idSchema.safeParse(input.candidateId).success) {
+): Promise<
+  z.infer<typeof candidateReviewAnchorSchema>
+  | z.infer<typeof factoryObservationAnchorSchema>
+> {
+  if (!idSchema.safeParse(input.id).success
+    || (input.kind === "candidate-review" && !idSchema.safeParse(input.candidateId).success)) {
     throw new IndustrialInvestigationError(
       "investigation.invalid-anchor",
-      "Introduced evidence id and Candidate id must use lowercase kebab-case",
+      "Introduced evidence and Candidate ids must use lowercase kebab-case",
     );
+  }
+  if (input.kind === "factory-observation") {
+    const snapshot = await openProjectWorkbenchSnapshot(projectDir, manifest.selection);
+    const diagnostic = selectedDiagnostic(snapshot);
+    const runId = snapshot.status.evidence.state === "current"
+      ? snapshot.status.evidence.runId
+      : null;
+    const run = runId ? snapshot.runs.find((item) => item.id === runId) ?? null : null;
+    if (!run || !diagnostic || diagnostic.evidence.source !== "compatible-run"
+      || diagnostic.evidence.runId !== run.id) {
+      throw new IndustrialInvestigationError(
+        "investigation.no-current-observation",
+        "Capturing factory evidence requires one current compatible operating Run and Run-backed diagnostic",
+      );
+    }
+    const bucketId = diagnostic.code.startsWith("fab-loss.")
+      ? diagnostic.code.slice("fab-loss.".length)
+      : null;
+    const bucket = bucketId
+      ? snapshot.lossAttribution?.buckets.find((item) => item.id === bucketId) ?? null
+      : null;
+    return {
+      id: input.id,
+      kind: "factory-observation",
+      selection: {
+        world: snapshot.selection.world.id,
+        blueprint: snapshot.selection.blueprint.id,
+        scenario: snapshot.selection.scenario.id,
+        objective: snapshot.selection.objective.id,
+      },
+      hashes: projectEvidenceHashes(snapshot.hashes),
+      runId: run.id,
+      resultHash: run.resultHash,
+      diagnostic: {
+        diagnosticId: diagnostic.id,
+        code: diagnostic.code,
+        severity: diagnostic.severity,
+        priority: diagnostic.priority,
+        message: diagnostic.message,
+        summary: diagnostic.evidence.summary,
+        subjects: diagnostic.subjects.map((subject) => ({ ...subject })),
+        loss: bucket ? {
+          bucket: bucket.id,
+          contributorId: bucket.contributors[0]?.id ?? null,
+        } : null,
+      },
+    };
   }
   try {
     const candidate = await loadCandidateChangeSet(projectDir, input.candidateId);
@@ -751,17 +892,31 @@ function sameSelection(
   manifest: IndustrialInvestigationManifest,
   snapshot: ProjectWorkbenchSnapshot,
 ): boolean {
-  return manifest.selection.world === snapshot.selection.world.id
-    && manifest.selection.blueprint === snapshot.selection.blueprint.id
-    && manifest.selection.scenario === snapshot.selection.scenario.id
-    && manifest.selection.objective === snapshot.selection.objective.id;
+  return sameRecordedSelection(manifest.selection, snapshot);
 }
 
 function sameHashes(
   manifest: IndustrialInvestigationManifest,
   snapshot: ProjectWorkbenchSnapshot,
 ): boolean {
-  return stableStringify(manifest.hashes) === stableStringify(projectEvidenceHashes(snapshot.hashes));
+  return sameRecordedHashes(manifest.hashes, snapshot);
+}
+
+function sameRecordedSelection(
+  selection: IndustrialInvestigationManifest["selection"],
+  snapshot: ProjectWorkbenchSnapshot,
+): boolean {
+  return selection.world === snapshot.selection.world.id
+    && selection.blueprint === snapshot.selection.blueprint.id
+    && selection.scenario === snapshot.selection.scenario.id
+    && selection.objective === snapshot.selection.objective.id;
+}
+
+function sameRecordedHashes(
+  hashes: IndustrialInvestigationManifest["hashes"],
+  snapshot: ProjectWorkbenchSnapshot,
+): boolean {
+  return stableStringify(hashes) === stableStringify(projectEvidenceHashes(snapshot.hashes));
 }
 
 function anchorNavigation(
@@ -779,11 +934,63 @@ function anchorNavigation(
   };
   if (anchor.kind === "candidate-review") return {
     argv: ["inm", "candidate", projectDir, "--candidate", anchor.candidateId, "--json"],
-    studioRoute: `/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(anchor.benchmark)}/candidates/${encodeURIComponent(anchor.candidateId)}`,
+      studioRoute: `/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(anchor.benchmark)}/candidates/${encodeURIComponent(anchor.candidateId)}`,
+  };
+  if (anchor.kind === "factory-observation") return {
+    argv: ["inm", "observe", projectDir, "--run", anchor.runId, "--json"],
+    studioRoute: `/${encodeURIComponent(projectId)}/factory?run=${encodeURIComponent(anchor.runId)}`,
   };
   return {
     argv: ["inm", "design", projectDir, "--program", anchor.programId, "--run-id", anchor.runId, "--json"],
     studioRoute: `/${encodeURIComponent(projectId)}/designs/${encodeURIComponent(anchor.programId)}/runs/${encodeURIComponent(anchor.runId)}`,
+  };
+}
+
+async function inspectFactoryObservationAnchor(
+  projectDir: string,
+  projectId: string,
+  anchor: z.infer<typeof factoryObservationAnchorSchema>,
+  knownSnapshot?: ProjectWorkbenchSnapshot,
+): Promise<InspectedInvestigationAnchor> {
+  const navigation = anchorNavigation(projectDir, projectId, anchor);
+  const runPath = join(resolve(projectDir), "runs", anchor.runId);
+  const run = (await listRuns(projectDir)).find((item) => item.name === anchor.runId);
+  if (!run) return {
+    anchor,
+    state: await pathExists(runPath) ? "invalid" : "missing",
+    message: await pathExists(runPath)
+      ? `Factory observation Run '${anchor.runId}' exists but cannot be loaded as completed evidence.`
+      : `Factory observation Run '${anchor.runId}' is absent.`,
+    navigation,
+  };
+  if (run.manifest.resultHash !== anchor.resultHash) return {
+    anchor,
+    state: "invalid",
+    message: `Factory observation Run '${anchor.runId}' result hash no longer matches the Investigation.`,
+    navigation,
+  };
+  const snapshot = knownSnapshot
+    && sameRecordedSelection(anchor.selection, knownSnapshot)
+    ? knownSnapshot
+    : await openProjectWorkbenchSnapshot(projectDir, anchor.selection);
+  const diagnostic = snapshot.diagnostics.find((item) =>
+    item.id === anchor.diagnostic.diagnosticId);
+  const current = sameRecordedSelection(anchor.selection, snapshot)
+    && sameRecordedHashes(anchor.hashes, snapshot)
+    && snapshot.status.evidence.state === "current"
+    && snapshot.status.evidence.runId === anchor.runId
+    && diagnostic?.evidence.runId === anchor.runId
+    && diagnostic.code === anchor.diagnostic.code
+    && diagnostic.message === anchor.diagnostic.message
+    && diagnostic.evidence.summary === anchor.diagnostic.summary
+    && stableStringify(diagnostic.subjects) === stableStringify(anchor.diagnostic.subjects);
+  return {
+    anchor,
+    state: current ? "current" : "historical",
+    message: current
+      ? `Factory observation '${anchor.id}' is current at Run '${anchor.runId}' with diagnostic '${anchor.diagnostic.code}'.`
+      : `Factory observation '${anchor.id}' remains exact history but is no longer the current selected Run and diagnostic.`,
+    navigation,
   };
 }
 
@@ -795,6 +1002,9 @@ async function inspectAnchor(
 ): Promise<InspectedInvestigationAnchor> {
   const navigation = anchorNavigation(projectDir, manifest.project, anchor);
   const selectedIdentityCurrent = sameSelection(manifest, snapshot) && sameHashes(manifest, snapshot);
+  if (anchor.kind === "factory-observation") {
+    return inspectFactoryObservationAnchor(projectDir, manifest.project, anchor, snapshot);
+  }
   if (anchor.kind === "operating-run") {
     const runPath = join(resolve(projectDir), "runs", anchor.runId);
     const run = (await listRuns(projectDir)).find((item) => item.name === anchor.runId);
@@ -982,13 +1192,20 @@ export async function inspectIndustrialInvestigation(
   ];
   const anchors = await Promise.all(evidenceAnchors.map((anchor) =>
     inspectAnchor(projectDir, manifest, snapshot, anchor)));
-  const rank: Record<InvestigationAnchorState, number> = {
-    current: 0,
-    historical: 1,
-    missing: 2,
-    invalid: 3,
-  };
-  const state = [...anchors].sort((left, right) => rank[right.state] - rank[left.state])[0]?.state ?? "invalid";
+  const broken = anchors.find((item) => item.state === "invalid")
+    ?? anchors.find((item) => item.state === "missing");
+  const latestCheckpoint = entries
+    .flatMap((entry) => entry.introducedAnchors)
+    .reverse()
+    .find((anchor) => anchor.kind === "factory-observation");
+  const latestOperatingState = latestCheckpoint
+    ? anchors.find((item) => item.anchor.id === latestCheckpoint.id)?.state
+    : manifest.anchors
+      .filter((anchor) => anchor.kind === "operating-run" || anchor.kind === "diagnostic")
+      .every((anchor) => anchors.find((item) => item.anchor.id === anchor.id)?.state === "current")
+      ? "current"
+      : "historical";
+  const state: InvestigationAnchorState = broken?.state ?? latestOperatingState ?? "invalid";
   return {
     manifest,
     manifestHash: manifest.manifestHash,

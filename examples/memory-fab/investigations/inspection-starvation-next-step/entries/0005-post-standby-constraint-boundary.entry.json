@@ -1,0 +1,72 @@
+{
+  "author": "agent",
+  "entryHash": "bca79441ac4c736a6cca8ce460e065c175d1a9aed15c2d2fbbfb771f3b60a239",
+  "evidence": [
+    "metrology-standby-review",
+    "metrology-low-power-standby-sourced-review",
+    "post-standby-factory"
+  ],
+  "id": "post-standby-constraint-boundary",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:e2ca32ba9d",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:inspection-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 098-simulate (signal 0.2118). 8/10 active flow Devices accumulated 248.3 explicit material-shortage device-s inside 1172.1 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1115.9 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "inspection-1",
+            "kind": "device"
+          },
+          {
+            "id": "etch-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "etch-l2",
+            "kind": "device"
+          },
+          {
+            "id": "rework-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "rework-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "8/10 active flow Devices accumulated 248.3 explicit material-shortage device-s inside 1172.1 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1115.9 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
+      },
+      "hashes": {
+        "blueprintHash": "8281c50706c578b823b7d8cc3f5d4f94cef230fefbee210c8a3756a6a9a9563a",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "99a80f81f0bbdf2f5c8e3d3a4688fbf36b21d8f4a07706712ba0fd6da83083fb",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "scenarioHash": "b6cfa14ecff26487e959f7f1b38230f2e003a3eaf04bd8b587ed268c9fc8eafe",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "post-standby-factory",
+      "kind": "factory-observation",
+      "resultHash": "19fd034abbecc9dff1a2d7c67d3cf1e2f0c2ab56c3445e39b6b1e0c4b36decbc",
+      "runId": "098-simulate",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      }
+    }
+  ],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "observation",
+  "previousEntryHash": "0bbc08691e4cc9fbb633d380f08df445b3af7bc64823135033801a0039258c19",
+  "sequence": 5,
+  "statement": "The current factory remains 50 currency below the Objective build-cost maximum, while both metrology standby Candidates add 200 and cross it by 150; any revision must recover at least 150 build cost and preserve facility-interruption service.",
+  "version": 1
+}

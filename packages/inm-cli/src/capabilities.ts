@@ -130,6 +130,7 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
       { name: "disposition", form: "option", value: "string", required: false, description: "Required explicit judgment for a decision.", choices: ["keep", "revise", "defer", "discard"] },
       { name: "evidence", form: "option", value: "string", required: false, description: "Comma-separated available evidence-anchor ids, including one introduced by this entry." },
       { name: "attach-candidate", form: "option", value: "string", required: false, description: "Resolve and introduce this Candidate's exact immutable review receipt." },
+      { name: "capture-observation", form: "option", value: "string", required: false, description: "Introduce the exact current compatible Run, diagnostic, selection, and execution hashes under this factory-observation anchor id." },
       { name: "anchor-id", form: "option", value: "string", required: false, description: "Optional stable Investigation-local id for evidence introduced by --attach-candidate; defaults to <candidate>-review." },
       { name: "create-candidate", form: "option", value: "string", required: false, description: "Create one immutable Candidate with this id from an exact hypothesis entry." },
       { name: "hypothesis-entry", form: "option", value: "string", required: false, description: "Exact hypothesis entry used by --create-candidate." },

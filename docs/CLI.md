@@ -52,7 +52,7 @@ Observation is read-only and never captures screenshots, creates a run, authors 
 
 Lists, creates, reopens, or appends to a persistent project-local [[docs/design/industrial-investigations]] record. Creating requires `--investigation`, `--name`, and `--question`; Core freezes the exact current selection/hashes, compatible operating Run, Run-backed Workbench diagnostic, and verified commissioned Design/Candidate lineage when present. It fails rather than inventing evidence when that current boundary is unavailable.
 
-Appending requires an explicit `--author human|agent`, `--kind observation|hypothesis|decision`, `--statement`, and entry id. A hypothesis additionally requires `--expected-effect`; a decision requires `--disposition keep|revise|defer|discard`. `--evidence` is a comma-separated list of available anchor ids. `--attach-candidate <id> --anchor-id <id>` may introduce one exact reviewed Candidate anchor; both flags are required together, and Core resolves the Benchmark, proposal/review hashes, verdict, and current/proposed Blueprint hashes. The new anchor may be cited by that same entry. Entries are separate immutable files in a verified hash chain and cannot rewrite prior reasoning.
+Appending requires an explicit `--author human|agent`, `--kind observation|hypothesis|decision`, `--statement`, and entry id. A hypothesis additionally requires `--expected-effect`; a decision requires `--disposition keep|revise|defer|discard`. `--evidence` is a comma-separated list of available anchor ids. `--attach-candidate <id> --anchor-id <id>` may introduce one exact reviewed Candidate anchor; Core resolves the Benchmark, proposal/review hashes, verdict, and current/proposed Blueprint hashes. An observation may instead use `--capture-observation <anchor-id>` to introduce the exact current selection/hashes, compatible Run/result, and Run-backed diagnostic. The two modes are mutually exclusive, the new anchor is automatically cited by the same entry, and neither accepts caller-authored generated identity. Entries are separate immutable files in a verified hash chain and cannot rewrite prior reasoning.
 
 ```bash
 inm investigate examples/memory-fab \
@@ -82,7 +82,21 @@ inm investigate examples/memory-fab \
   --evidence diagnostic,design-lineage,metrology-standby-review
 ```
 
-Flagless project mode lists Investigations. Supplying `--investigation` reopens one and resolves every evidence anchor as `current`, `historical`, `missing`, or `invalid`. JSON defaults to `summary`; `anchors`, `entries`, and `all` are explicit sections. The envelope's sole next action is the current Core Workbench handoff, while each anchor retains its exact evidence route and argv. The command never authors a Blueprint, starts a simulation, or chooses an industrial decision.
+Continue the same inquiry from the exact current factory after a revision or decision:
+
+```bash
+inm investigate examples/memory-fab \
+  --investigation inspection-starvation-next-step \
+  --entry post-standby-constraint-boundary \
+  --kind observation \
+  --author agent \
+  --statement "The next revision must recover the observed capital deficit and preserve interruption service." \
+  --capture-observation post-standby-factory \
+  --evidence metrology-standby-review,metrology-low-power-standby-sourced-review \
+  --json
+```
+
+Flagless project mode lists Investigations. Supplying `--investigation` reopens one and resolves every evidence anchor as `current`, `historical`, `missing`, or `invalid`. Valid old evidence may remain historical while the newest factory-observation checkpoint makes the ongoing Investigation current; any missing or invalid anchor still degrades the chain. A hypothesis-sourced Candidate reports whether it inherited the creation context or a directly cited checkpoint, including exact anchor and Run identity. JSON defaults to `summary`; `anchors`, `entries`, and `all` are explicit sections. The envelope's sole next action is the current Core Workbench handoff, while each anchor retains its exact evidence route and argv. The command never authors a Blueprint, starts a simulation, or chooses an industrial decision.
 
 `validate`, `analyze`, `plan`, `simulate`, `benchmark`, and `candidate` invoke the named Core [[docs/design/operation-workbench]] operations. Their JSON envelope keeps the requested summary/detail section in `data.result` and places shared industrial-result metadata in `data.operation`: effect, duration, exact context/hashes, diagnostics, artifacts, actual write set, and recommended verification. Long evaluations additionally use top-level `execution` for transient lifecycle identity; dense industrial data is not duplicated into it.
 

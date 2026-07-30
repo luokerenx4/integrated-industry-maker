@@ -12,6 +12,7 @@ import {
   resolveIndustrialInvestigationHypothesisSource,
 } from "./investigation";
 import { inspectCandidateDecision } from "./candidate-review";
+import { simulateProjectOperation } from "./operation";
 import { hashValue } from "./utils";
 
 const repository = resolve(import.meta.dir, "../../..");
@@ -234,6 +235,142 @@ test("a project-local Investigation preserves exact evidence and append-only hum
       .rejects.toEqual(expect.objectContaining({
         code: "investigation.invalid-entry-chain",
       }));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}, 30_000);
+
+test("an Investigation advances to a new exact factory observation without erasing historical evidence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-investigation-checkpoint-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => {
+      const segments = source.split("/");
+      return !segments.includes(".inm") && !segments.includes("investigations");
+    },
+  });
+  try {
+    const created = await createIndustrialInvestigation(
+      projectDir,
+      "continuous-factory-question",
+      {
+        name: "Continuous factory question",
+        question: "What should change after the current commissioned factory?",
+      },
+    );
+    const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
+    const blueprint = JSON.parse(await readFile(blueprintPath, "utf8"));
+    blueprint.revision = `${blueprint.revision}-checkpoint`;
+    await writeFile(blueprintPath, `${JSON.stringify(blueprint, null, 2)}\n`);
+    expect((await inspectIndustrialInvestigation(projectDir, created.manifest.id)).state)
+      .toBe("historical");
+
+    const simulation = await simulateProjectOperation(projectDir, created.manifest.selection, {
+      seed: 42,
+    });
+    const checkpoint = await appendIndustrialInvestigationEntry(
+      projectDir,
+      created.manifest.id,
+      {
+        id: "revised-factory-observed",
+        author: "agent",
+        kind: "observation",
+        statement: "The revised factory has a new compatible operating context.",
+        evidence: ["revised-factory"],
+        introduceEvidence: {
+          id: "revised-factory",
+          kind: "factory-observation",
+        },
+      },
+    );
+    expect(checkpoint.entry.introducedAnchors).toEqual([
+      expect.objectContaining({
+        id: "revised-factory",
+        kind: "factory-observation",
+        runId: simulation.data.run.id,
+        resultHash: simulation.data.resultHash,
+        selection: created.manifest.selection,
+        hashes: expect.objectContaining({
+          blueprintHash: hashValue(blueprint),
+        }),
+        diagnostic: expect.objectContaining({
+          code: "fab-loss.input-starvation",
+        }),
+      }),
+    ]);
+
+    const current = await inspectIndustrialInvestigation(projectDir, created.manifest.id);
+    expect(current.state).toBe("current");
+    expect(current.anchors.map((item) => [item.anchor.id, item.state])).toEqual([
+      ["operating-run", "historical"],
+      ["diagnostic", "historical"],
+      ["design-lineage", "historical"],
+      ["revised-factory", "current"],
+    ]);
+
+    const hypothesis = await appendIndustrialInvestigationEntry(
+      projectDir,
+      created.manifest.id,
+      {
+        id: "checkpoint-bound-hypothesis",
+        author: "human",
+        kind: "hypothesis",
+        statement: "A small spatial change should preserve the revised factory outcomes.",
+        expectedEffect: "The exact revised operating context remains feasible after the bounded change.",
+        evidence: ["revised-factory"],
+      },
+    );
+    const candidate = await createInvestigationCandidate(projectDir, {
+      id: "checkpoint-bound-candidate",
+      name: "Checkpoint-bound Candidate",
+      benchmark: "greenfield-dram-design",
+      investigation: created.manifest.id,
+      hypothesisEntry: hypothesis.entry.id,
+      patch: [{ op: "replace", path: "/devices/0/position/x", value: 3 }],
+    });
+    expect(candidate.sourceEvidence).toEqual(expect.objectContaining({
+      state: "current",
+      entry: "checkpoint-bound-hypothesis",
+      operatingContext: {
+        source: "factory-observation",
+        anchorId: "revised-factory",
+        selection: created.manifest.selection,
+        hashes: expect.objectContaining({ blueprintHash: hashValue(blueprint) }),
+        run: {
+          id: simulation.data.run.id,
+          resultHash: simulation.data.resultHash,
+        },
+        diagnostic: expect.objectContaining({ code: "fab-loss.input-starvation" }),
+      },
+    }));
+
+    const runManifestPath = join(simulation.data.run.path, "manifest.json");
+    const runManifestSource = await readFile(runManifestPath, "utf8");
+    const runManifest = JSON.parse(runManifestSource);
+    runManifest.resultHash = "0".repeat(64);
+    await writeFile(runManifestPath, `${JSON.stringify(runManifest, null, 2)}\n`);
+    const invalid = await inspectIndustrialInvestigation(projectDir, created.manifest.id);
+    expect(invalid.state).toBe("invalid");
+    expect(invalid.anchors.find((item) => item.anchor.id === "revised-factory")?.state)
+      .toBe("invalid");
+    await expect(resolveIndustrialInvestigationHypothesisSource(
+      projectDir,
+      candidate.candidate.source as Extract<
+        NonNullable<typeof candidate.candidate.source>,
+        { kind: "investigation-hypothesis" }
+      >,
+    )).rejects.toEqual(expect.objectContaining({
+      code: "investigation.source-context-unavailable",
+    }));
+    await writeFile(runManifestPath, runManifestSource);
+
+    blueprint.revision = `${blueprint.revision}-later`;
+    await writeFile(blueprintPath, `${JSON.stringify(blueprint, null, 2)}\n`);
+    const movedAgain = await inspectIndustrialInvestigation(projectDir, created.manifest.id);
+    expect(movedAgain.state).toBe("historical");
+    expect(movedAgain.anchors.find((item) => item.anchor.id === "revised-factory")?.state)
+      .toBe("historical");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

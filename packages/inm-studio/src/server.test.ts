@@ -213,6 +213,42 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
       ]),
     }));
 
+    const captured = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/investigations/inspection-starvation-next-step/entries`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: "post-decision-factory-observed",
+          author: "agent",
+          kind: "observation",
+          statement: "The retained decision remains bound to the current exact factory.",
+          evidence: ["supply-path-review", "post-decision-factory"],
+          introduceEvidence: {
+            id: "post-decision-factory",
+            kind: "factory-observation",
+          },
+        }),
+      },
+    );
+    expect(captured.status).toBe(201);
+    expect(await captured.json()).toEqual(expect.objectContaining({
+      state: "current",
+      anchors: expect.arrayContaining([
+        expect.objectContaining({
+          state: "current",
+          anchor: expect.objectContaining({
+            id: "post-decision-factory",
+            kind: "factory-observation",
+            runId: "098-simulate",
+            diagnostic: expect.objectContaining({
+              code: "fab-loss.input-starvation",
+            }),
+          }),
+        }),
+      ]),
+    }));
+
     const hypothesized = await fetch(
       `http://localhost:${port}/api/projects/memory-fab/investigations/inspection-starvation-next-step/entries`,
       {
@@ -224,7 +260,7 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
           kind: "hypothesis",
           statement: "A qualified wafer buffer may decouple inspection from the final etch handoff.",
           expectedEffect: "Reduce inspection input shortage without increasing service, quality, WIP, or Q-time losses.",
-          evidence: ["diagnostic", "design-lineage"],
+          evidence: ["post-decision-factory"],
         }),
       },
     );
@@ -250,6 +286,11 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
         investigation: "inspection-starvation-next-step",
         entry: "inspection-decoupling-buffer",
         statement: "A qualified wafer buffer may decouple inspection from the final etch handoff.",
+        operatingContext: expect.objectContaining({
+          source: "factory-observation",
+          anchorId: "post-decision-factory",
+          run: expect.objectContaining({ id: "098-simulate" }),
+        }),
       }),
     }));
 
@@ -257,14 +298,14 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
     expect(await listed.json()).toEqual({
       investigations: [expect.objectContaining({
         id: "inspection-starvation-next-step",
-        entryCount: 3,
+        entryCount: 4,
       })],
     });
     const detail = await fetch(
       `http://localhost:${port}/api/projects/memory-fab/investigations/inspection-starvation-next-step`,
     );
     expect(detail.status).toBe(200);
-    expect((await detail.json() as { entries: unknown[] }).entries).toHaveLength(3);
+    expect((await detail.json() as { entries: unknown[] }).entries).toHaveLength(4);
     const deepLink = await fetch(
       `http://localhost:${port}/memory-fab/investigations/inspection-starvation-next-step`,
     );

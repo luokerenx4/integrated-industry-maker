@@ -25,6 +25,7 @@ import {
   SCORE_BREAKDOWN_COMPONENTS,
   type Blueprint,
   type CompiledFactoryProject,
+  type ProjectEvidenceHashes,
   type ScoreBreakdownComponent,
 } from "./types";
 import { atomicWriteJson, hashValue, pathExists, readJson } from "./utils";
@@ -89,6 +90,25 @@ export interface CandidateInvestigationSourceEvidence {
   statement: string;
   expectedEffect: string;
   evidence: string[];
+  operatingContext: {
+    source: "investigation-creation" | "factory-observation";
+    anchorId: string;
+    selection: {
+      world: string;
+      blueprint: string;
+      scenario: string;
+      objective: string;
+    };
+    hashes: ProjectEvidenceHashes;
+    run: {
+      id: string;
+      resultHash: string;
+    };
+    diagnostic: {
+      id: string;
+      code: string;
+    };
+  };
   navigation: {
     argv: string[];
     studioRoute: string;

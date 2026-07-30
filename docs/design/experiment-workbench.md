@@ -1,6 +1,6 @@
 # Shared experiment workbench
 
-Status: V1 shared evaluation, V2 project-local change-set application, V3 persistent decision loop, V4 immutable Design continuation, V5 commissioned Design provenance, V6 Objective score causality, V7 control activation causality, V8 rejected-Candidate revision handoff, and V9 Investigation provenance implemented.
+Status: V1 shared evaluation, V2 project-local change-set application, V3 persistent decision loop, V4 immutable Design continuation, V5 commissioned Design provenance, V6 Objective score causality, V7 control activation causality, V8 rejected-Candidate revision handoff, V9 Investigation provenance, and V10 continuous factory context implemented.
 
 Related: [[docs/design/coding-agent-optimization]], [[docs/design/observation-led-design]], [[docs/design/blueprint-comparison]], [[docs/design/operation-workbench]], [[docs/design/studio-debugger]], [[docs/design/simulation-runtime]], [[docs/CLI]].
 
@@ -94,6 +94,12 @@ A Candidate may originate from an immutable Design Run or an exact Investigation
 
 After a recorded review, Studio offers a separate return action. The target Investigation form prepares the Candidate, derived review-anchor id, decision kind, and a verdict-informed disposition, but it never prepares authorship, entry id, rationale, or submission. The review remains immutable evidence rather than a decision. If the exact proposal receipt already appears in that Investigation, the Candidate page shows `HASH-CHAIN EVIDENCE RETAINED` and the return route becomes a non-conflicting completed state.
 
+## V10 — continuous factory context
+
+An Investigation does not end merely because a KEEP decision changes its Blueprint. An explicit observation entry may capture the new current factory as one compact Core-owned checkpoint containing selection/hashes, compatible Run/result, and selected diagnostic evidence. Old valid anchors remain historical; the newest exact checkpoint owns Investigation-level currentness, while missing or invalid history still fails closed.
+
+A later hypothesis inherits only a factory-observation checkpoint it directly cites, otherwise it remains bound to the creation context. Candidate source evidence projects the chosen anchor and Run, so Studio can show which factory the proposal reasons from rather than merely calling the prose current. The form accepts only the authored checkpoint id and statement; it never invents the observation prose or starts the Run.
+
 ## V8 — rejected-Candidate revision handoff
 
 A `DISCARD` or `UNCHANGED` result may contain the most useful industrial evidence in the loop. Core derives a `CandidateRevisionBrief` without adding authority to the receipt: locked blocking reasons, exact current-pass-to-proposed-fail outcome rows, negative current-to-proposed cases, weighted positive and negative Objective-component deltas, and the unique authored patch paths. The disposition is explicitly `revise-or-retire`; a human or reasoning Agent owns the next hypothesis.
@@ -160,6 +166,7 @@ Immutable Design Run V3 requires the field in the seed and every successful Cand
 - [x] Exact current-factory incremental evidence beside immutable locked-baseline compliance for every Candidate review.
 - [x] Cheap recorded-review inspection and shared rejected-Candidate revision handoff.
 - [x] Exact Investigation-hypothesis Candidate provenance, CLI authoring, Studio source/return flow, duplicate-decision detection, and checked-in memory-fab DISCARD evidence.
+- [x] Append-only current-factory checkpoints, context-aware hypothesis provenance, and checked-in post-standby capital/service boundary.
 
 ### V2 acceptance
 
