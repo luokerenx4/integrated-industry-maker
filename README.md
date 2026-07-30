@@ -45,6 +45,9 @@ bun run inm studio start examples/ironworks
 # Or repair/reuse Studio and enter the exact current shared project action
 bun run inm session examples/memory-fab
 
+# Or enter one phase-aware, evidence-pinned Investigation Design Session
+bun run inm session examples/memory-fab --investigation inspection-starvation-next-step
+
 # Explicitly open one Experiment and start it without waiting
 bun run inm session examples/memory-fab --experiment equipment-energy-research --run
 ```
@@ -69,7 +72,7 @@ inm project list <workspace-dir>
 inm project default <workspace-dir> <project-id>
 inm validate|inspect|analyze|plan|compare|benchmark|candidate|design|synthesize|simulate|test|runs|research <project-or-workspace-dir> [--project ID]
 inm analyze <project-or-workspace-dir> [--project ID]
-inm session <project-or-workspace-dir> [--experiment ID [--run]] [--project ID]
+inm session <project-or-workspace-dir> [--experiment ID [--run] | --investigation ID] [--project ID]
 inm studio <start|status|restart|stop|serve> <project-or-workspace-dir> [--project ID]
 ```
 

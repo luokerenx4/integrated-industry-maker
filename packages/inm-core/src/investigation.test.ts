@@ -192,6 +192,15 @@ test("a project-local Investigation preserves exact evidence and append-only hum
         phase: "commissioned",
       }),
     }));
+    expect(inspected.handoff).toEqual(expect.objectContaining({
+      phase: "resume-project",
+      sourceEntry: expect.objectContaining({
+        id: "retain-commissioned-supply-path",
+        kind: "decision",
+      }),
+      authorship: null,
+      nextAction: inspected.currentNextAction,
+    }));
 
     await expect(appendIndustrialInvestigationEntry(projectDir, created.manifest.id, {
       id: "bad-reference",
@@ -234,6 +243,16 @@ test("a project-local Investigation preserves exact evidence and append-only hum
     await writeFile(reviewPath, `${JSON.stringify(review, null, 2)}\n`);
     const invalidReview = await inspectIndustrialInvestigation(projectDir, created.manifest.id);
     expect(invalidReview.state).toBe("invalid");
+    expect(invalidReview.handoff).toEqual(expect.objectContaining({
+      phase: "repair-evidence",
+      authorship: null,
+      nextAction: expect.objectContaining({
+        target: expect.objectContaining({
+          kind: "investigation",
+          phase: "repair-evidence",
+        }),
+      }),
+    }));
     expect(invalidReview.anchors.find((anchor) => anchor.anchor.id === "supply-path-review")?.state)
       .toBe("invalid");
 
@@ -282,8 +301,16 @@ test("an Investigation advances to a new exact factory observation without erasi
     const blueprint = JSON.parse(await readFile(blueprintPath, "utf8"));
     blueprint.revision = `${blueprint.revision}-checkpoint`;
     await writeFile(blueprintPath, `${JSON.stringify(blueprint, null, 2)}\n`);
-    expect((await inspectIndustrialInvestigation(projectDir, created.manifest.id)).state)
-      .toBe("historical");
+    const historicalBeforeCheckpoint = await inspectIndustrialInvestigation(projectDir, created.manifest.id);
+    expect(historicalBeforeCheckpoint.state).toBe("historical");
+    expect(historicalBeforeCheckpoint.handoff).toEqual(expect.objectContaining({
+      phase: "observe-current-factory",
+      authorship: {
+        kind: "investigation-entry",
+        entryKind: "observation",
+        requiredFields: ["entry-id", "author", "statement"],
+      },
+    }));
 
     const simulation = await simulateProjectOperation(projectDir, created.manifest.selection, {
       seed: 42,
@@ -327,6 +354,28 @@ test("an Investigation advances to a new exact factory observation without erasi
       ["design-lineage", "historical"],
       ["revised-factory", "current"],
     ]);
+    expect(current.handoff).toEqual(expect.objectContaining({
+      phase: "form-hypothesis",
+      sourceEntry: expect.objectContaining({
+        id: "revised-factory-observed",
+        kind: "observation",
+        entryHash: checkpoint.entry.entryHash,
+      }),
+      evidenceIds: ["revised-factory"],
+      authorship: {
+        kind: "investigation-entry",
+        entryKind: "hypothesis",
+        requiredFields: ["entry-id", "author", "statement", "expected-effect"],
+      },
+      nextAction: expect.objectContaining({
+        target: {
+          kind: "investigation",
+          investigationId: created.manifest.id,
+          phase: "form-hypothesis",
+          sourceEntryId: checkpoint.entry.id,
+        },
+      }),
+    }));
 
     const hypothesis = await appendIndustrialInvestigationEntry(
       projectDir,
@@ -340,6 +389,22 @@ test("an Investigation advances to a new exact factory observation without erasi
         evidence: ["revised-factory"],
       },
     );
+    const hypothesisHandoff = await inspectIndustrialInvestigation(projectDir, created.manifest.id);
+    expect(hypothesisHandoff.handoff).toEqual(expect.objectContaining({
+      phase: "author-candidate",
+      sourceEntry: expect.objectContaining({
+        id: hypothesis.entry.id,
+        kind: "hypothesis",
+        entryHash: hypothesis.entry.entryHash,
+      }),
+      evidenceIds: ["revised-factory"],
+      authorship: {
+        kind: "candidate",
+        hypothesisEntryId: hypothesis.entry.id,
+        hypothesisEntryHash: hypothesis.entry.entryHash,
+        requiredFields: ["candidate-id", "candidate-name", "benchmark", "patch-file"],
+      },
+    }));
     const candidate = await createInvestigationCandidate(projectDir, {
       id: "checkpoint-bound-candidate",
       name: "Checkpoint-bound Candidate",
@@ -371,6 +436,7 @@ test("an Investigation advances to a new exact factory observation without erasi
     await writeFile(runManifestPath, `${JSON.stringify(runManifest, null, 2)}\n`);
     const invalid = await inspectIndustrialInvestigation(projectDir, created.manifest.id);
     expect(invalid.state).toBe("invalid");
+    expect(invalid.handoff.phase).toBe("repair-evidence");
     expect(invalid.anchors.find((item) => item.anchor.id === "revised-factory")?.state)
       .toBe("invalid");
     await expect(resolveIndustrialInvestigationHypothesisSource(
@@ -388,6 +454,7 @@ test("an Investigation advances to a new exact factory observation without erasi
     await writeFile(blueprintPath, `${JSON.stringify(blueprint, null, 2)}\n`);
     const movedAgain = await inspectIndustrialInvestigation(projectDir, created.manifest.id);
     expect(movedAgain.state).toBe("historical");
+    expect(movedAgain.handoff.phase).toBe("observe-current-factory");
     expect(movedAgain.anchors.find((item) => item.anchor.id === "revised-factory")?.state)
       .toBe("historical");
   } finally {

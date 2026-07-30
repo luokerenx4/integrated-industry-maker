@@ -26,7 +26,7 @@ project-local files + explicit ProjectSelection
 
 Opening a snapshot is read-only. It does not create cache directories, runs, Benchmark results, locks, review receipts, or candidate applications. It loads Candidate manifests and existing project-local review receipts but does not evaluate their patches. Explicit Candidate review remains the operation that runs the locked evaluator and records evidence.
 
-`inm session <path>` is the one-command entry into that same authority. After converging on a source-current managed Studio, it reads the exact Studio overview snapshot and navigates to `nextAction.studioRoute`; its human and JSON projections preserve the complete next-action identity instead of selecting a CLI-local or browser-local landing page. Session entry never executes the action. Explicit Experiment targeting remains a separate session target because only that form may start a reconnectable locked evaluation.
+`inm session <path>` is the one-command entry into that same authority. After converging on a source-current managed Studio, it reads the exact Studio overview snapshot and navigates to `nextAction.studioRoute`; its human and JSON projections preserve the complete next-action identity instead of selecting a CLI-local or browser-local landing page. Session entry never executes the action. `--investigation ID` instead enters that Investigation's exact phase-aware Design Session, while explicit Experiment targeting remains a separate mutually exclusive target because only that form may start a reconnectable locked evaluation.
 
 ## Snapshot contract
 

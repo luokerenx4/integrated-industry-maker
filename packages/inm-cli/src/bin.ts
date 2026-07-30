@@ -39,7 +39,7 @@ PROJECT COMMANDS
   test <path>                 Run scenario fixture benchmarks
   runs <path>                 List immutable run artifacts
   research <path>             Optimize a blueprint with JSON Patch experiments
-  session <path>              Enter the source-current project next action or one Experiment
+  session <path>              Enter a project action, Investigation, or Experiment
   studio <action> <path>      Manage the local Studio workbench
 
 COMMON OPTIONS
@@ -283,15 +283,18 @@ async function main(signal: AbortSignal): Promise<void> {
     const { values, positionals } = parseArgs({ args, options: {
       ...projectOption,
       experiment: { type: "string" },
+      investigation: { type: "string" },
       run: { type: "boolean", default: false },
       port: { type: "string" },
       "no-open": { type: "boolean", default: false },
       json: common.json,
     }, allowPositionals: true });
     if (values.run && !values.experiment) throw new Error("Usage: --run requires --experiment ID");
-    const inputDir = oneArg(positionals, "inm session <project-or-workspace-dir> [--experiment ID [--run]]");
+    if (values.experiment && values.investigation) throw new Error("Usage: --experiment and --investigation are mutually exclusive");
+    const inputDir = oneArg(positionals, "inm session <project-or-workspace-dir> [--experiment ID [--run] | --investigation ID]");
     return projectSessionCommand(inputDir, {
       ...(values.experiment ? { experiment: values.experiment } : {}),
+      ...(values.investigation ? { investigation: values.investigation } : {}),
       run: values.run,
       ...(values.port !== undefined ? { port: Number(values.port) } : {}),
       project: values.project,

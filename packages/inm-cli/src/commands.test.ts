@@ -893,8 +893,10 @@ test("public investigate preserves and resumes exact project-local human/Agent r
     })],
     nextActions: [expect.objectContaining({
       target: expect.objectContaining({
-        kind: "design-run",
-        phase: "commissioned",
+        kind: "investigation",
+        investigationId,
+        phase: "observe-current-factory",
+        sourceEntryId: null,
       }),
     })],
   }));
@@ -1171,6 +1173,18 @@ test("public investigate preserves and resumes exact project-local human/Agent r
       kind: "observation",
       sequence: 4,
     }),
+    handoff: expect.objectContaining({
+      phase: "form-hypothesis",
+      sourceEntry: expect.objectContaining({
+        id: "post-decision-factory-observed",
+        kind: "observation",
+      }),
+      evidenceIds: ["supply-path-review", "post-decision-factory"],
+      authorship: expect.objectContaining({
+        kind: "investigation-entry",
+        entryKind: "hypothesis",
+      }),
+    }),
   }));
   expect(JSON.parse(entries.stdout).data.result.map((entry: { id: string }) => entry.id))
     .toEqual([
@@ -1196,6 +1210,8 @@ test("public investigate preserves and resumes exact project-local human/Agent r
   expect(human.stdout).toContain("introduced: supply-path-review:candidate-review");
   expect(human.stdout).toContain("introduced: post-decision-factory:factory-observation");
   expect(human.stdout).toContain("expected: Reduce inspection shortage");
+  expect(human.stdout).toContain("Design Session: FORM-HYPOTHESIS · 0004 post-decision-factory-observed");
+  expect(human.stdout).toContain("Evidence: supply-path-review + post-decision-factory");
   expect((JSON.parse(help.stdout).data.commands as Array<{ id: string }>).map((command) => command.id))
     .toContain("investigate");
   expect((JSON.parse(help.stdout).data.commands as Array<{
@@ -1203,6 +1219,11 @@ test("public investigate preserves and resumes exact project-local human/Agent r
     arguments: Array<{ name: string }>;
   }>).find((command) => command.id === "investigate")?.arguments)
     .toContainEqual(expect.objectContaining({ name: "capture-observation" }));
+  expect((JSON.parse(help.stdout).data.commands as Array<{
+    id: string;
+    arguments: Array<{ name: string }>;
+  }>).find((command) => command.id === "session")?.arguments)
+    .toContainEqual(expect.objectContaining({ name: "investigation" }));
   expect(JSON.parse(schemas.stdout).data.kinds).toEqual(expect.arrayContaining([
     "investigation",
     "investigation-entry",

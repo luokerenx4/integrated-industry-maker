@@ -11,6 +11,8 @@ import {
   stableStringify,
   studioSourceHash,
   type ProjectWorkbenchSnapshot,
+  type IndustrialInvestigationHandoff,
+  type InvestigationAnchorState,
   type WorkbenchNextAction,
 } from "@inm/core";
 import type { OperationExecutionSnapshot, OperationExecutionStartResponse } from "@inm/core/operation-execution";
@@ -41,6 +43,7 @@ export interface StudioLifecycleOptions {
 
 export interface ProjectSessionOptions extends StudioLifecycleOptions {
   experiment?: string;
+  investigation?: string;
   run?: boolean;
 }
 
@@ -133,6 +136,18 @@ export type ProjectSessionTarget =
       locked: boolean;
       cases: number;
     };
+  }
+  | {
+    kind: "investigation";
+    investigation: {
+      id: string;
+      name: string;
+      question: string;
+      state: InvestigationAnchorState;
+      manifestHash: string;
+      entryCount: number;
+    };
+    handoff: IndustrialInvestigationHandoff;
   };
 
 export interface ProjectSessionResult {
@@ -858,6 +873,9 @@ export async function projectSessionCommand(
   if (options.run && !options.experiment) {
     throw new Error("Usage: --run requires --experiment ID");
   }
+  if (options.experiment && options.investigation) {
+    throw new Error("Usage: --experiment and --investigation are mutually exclusive");
+  }
   const inputDir = resolve(input);
   const projectDir = await resolveProjectDirectory(inputDir, options.project);
   const manifest = manifestSchema.parse(await readJson(join(projectDir, "inm.json")));
@@ -911,6 +929,31 @@ export async function projectSessionCommand(
       },
     };
     route = `/${projectId}/experiments/${encodeURIComponent(selected.id)}`;
+  } else if (options.investigation) {
+    const inspection = await responseJson<{
+      manifest: {
+        id: string;
+        name: string;
+        question: string;
+      };
+      manifestHash: string;
+      entries: unknown[];
+      state: InvestigationAnchorState;
+      handoff: IndustrialInvestigationHandoff;
+    }>(`${baseUrl}/api/projects/${projectId}/investigations/${encodeURIComponent(options.investigation)}`);
+    target = {
+      kind: "investigation",
+      investigation: {
+        id: inspection.manifest.id,
+        name: inspection.manifest.name,
+        question: inspection.manifest.question,
+        state: inspection.state,
+        manifestHash: inspection.manifestHash,
+        entryCount: inspection.entries.length,
+      },
+      handoff: inspection.handoff,
+    };
+    route = inspection.handoff.nextAction.studioRoute;
   } else {
     const snapshot = await responseJson<ProjectWorkbenchSnapshot>(
       `${baseUrl}/api/projects/${projectId}/overview`,
@@ -950,6 +993,18 @@ export async function projectSessionCommand(
         studioRoute: target.nextAction.studioRoute,
         target: target.nextAction.target,
       }]
+      : target.kind === "investigation"
+        ? [{
+          id: target.handoff.nextAction.id,
+          title: target.handoff.nextAction.title,
+          reason: target.handoff.nextAction.reason,
+          actionLabel: target.handoff.nextAction.actionLabel,
+          argv: target.handoff.nextAction.argv,
+          effect: target.handoff.nextAction.effect,
+          requiresConfirmation: target.handoff.nextAction.requiresConfirmation,
+          studioRoute: target.handoff.nextAction.studioRoute,
+          target: target.handoff.nextAction.target,
+        }]
       : options.run ? [{
         id: "open-experiment-session",
         description: "Open or reconnect to the exact Studio Experiment session.",
@@ -979,12 +1034,25 @@ export async function projectSessionCommand(
       `Action: ${target.nextAction.actionLabel} · ${target.nextAction.effect.toUpperCase()}${target.nextAction.requiresConfirmation ? " · CONFIRMATION REQUIRED" : ""}`,
       `CLI: ${target.nextAction.argv.map((part) => JSON.stringify(part)).join(" ")}`,
     ]
+    : target.kind === "investigation"
+      ? [
+        `Target: INVESTIGATION · ${target.investigation.id}`,
+        `Question: ${target.investigation.question}`,
+        `Evidence: ${target.investigation.state.toUpperCase()} · ${target.investigation.entryCount} entr${target.investigation.entryCount === 1 ? "y" : "ies"}`,
+        `Phase: ${target.handoff.phase.toUpperCase()}${target.handoff.sourceEntry ? ` · ${String(target.handoff.sourceEntry.sequence).padStart(4, "0")} ${target.handoff.sourceEntry.id}` : ""}`,
+        `Next action: ${target.handoff.nextAction.title}`,
+        `Reason: ${target.handoff.nextAction.reason}`,
+      ]
     : [
       `Target: EXPERIMENT · ${target.experiment.id}`,
       `Experiment: ${target.experiment.name} · ${target.experiment.cases} ${target.experiment.cases === 1 ? "case" : "cases"} · ${target.experiment.locked ? "LOCKED" : "UNLOCKED"}`,
     ];
   process.stdout.write([
-    target.kind === "experiment" ? "INM Experiment session ready" : "INM project session ready",
+    target.kind === "experiment"
+      ? "INM Experiment session ready"
+      : target.kind === "investigation"
+        ? "INM Investigation Design Session ready"
+        : "INM project session ready",
     ...targetLines,
     `Studio: ${url}`,
     `Service: ${lifecycle.state.toUpperCase()} · port ${lifecycle.port} ${lifecycle.portSelection.toUpperCase()} · source ${lifecycle.source.state.toUpperCase()}`,

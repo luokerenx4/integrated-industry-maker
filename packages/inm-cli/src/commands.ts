@@ -1209,6 +1209,7 @@ export async function investigateCommand(
       })),
       entryCount: inspection.entries.length,
       lastEntry: inspection.entries.at(-1) ?? null,
+      handoff: inspection.handoff,
       currentNextAction: inspection.currentNextAction,
       candidate: candidateCreation
         ? {
@@ -1233,7 +1234,7 @@ export async function investigateCommand(
           ["inm", "candidate", resolve(projectDir), "--candidate", candidateCreation.candidate.id, "--review", "--json"],
           "creates-artifact",
         )]
-        : [inspection.currentNextAction],
+        : [inspection.handoff.nextAction],
     });
     return;
   }
@@ -1255,8 +1256,12 @@ export async function investigateCommand(
       `  Source: hypothesis ${candidateCreation.sourceEvidence.entry} · ${candidateCreation.sourceEvidence.entryHash.slice(0, 12)} · context ${candidateCreation.sourceEvidence.operatingContext.source} ${candidateCreation.sourceEvidence.operatingContext.anchorId} / ${candidateCreation.sourceEvidence.operatingContext.run.id} · ${candidateCreation.sourceEvidence.state.toUpperCase()}`,
       `  Review: inm candidate <path> --candidate ${candidateCreation.candidate.id} --review`,
     ] : []),
-    `Next: ${inspection.currentNextAction.title}`,
-    `  ${inspection.currentNextAction.reason}`,
+    `Design Session: ${inspection.handoff.phase.toUpperCase()}${inspection.handoff.sourceEntry ? ` · ${String(inspection.handoff.sourceEntry.sequence).padStart(4, "0")} ${inspection.handoff.sourceEntry.id}` : ""}`,
+    ...(inspection.handoff.evidenceIds.length
+      ? [`  Evidence: ${inspection.handoff.evidenceIds.join(" + ")}`]
+      : []),
+    `Next: ${inspection.handoff.nextAction.title}`,
+    `  ${inspection.handoff.nextAction.reason}`,
     "",
   ].join("\n"), false);
 }

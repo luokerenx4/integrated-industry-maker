@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/investigation-design-session-handoff]] | Turn the existing append-only Investigation into one phase-aware human/Agent Design Session without adding autonomous design authority. | 2026-07-30 |
 | [[plans/persistent-run-comparison-evidence]] | Retain one exact immutable Run comparison inside the append-only human/Agent Investigation chain. | 2026-07-30 |
 | [[plans/run-delta-design-session]] | Let humans and Agents enter one reliable session and explain exactly what changed between two compatible immutable Runs. | 2026-07-30 |
 | [[plans/compact-inspection-rework-cell]] | Co-locate inspection and rework, shorten the conditional loop, and safely reduce current inspection starvation. | 2026-07-30 |

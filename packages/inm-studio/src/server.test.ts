@@ -317,6 +317,14 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
         authority: "human-or-agent",
       }),
       entries: [],
+      handoff: expect.objectContaining({
+        phase: "observe-current-factory",
+        sourceEntry: null,
+        authorship: expect.objectContaining({
+          kind: "investigation-entry",
+          entryKind: "observation",
+        }),
+      }),
       anchors: [
         expect.objectContaining({ state: "current", anchor: expect.objectContaining({ id: "operating-run" }) }),
         expect.objectContaining({ state: "current", anchor: expect.objectContaining({ id: "diagnostic" }) }),
@@ -347,6 +355,14 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
         kind: "observation",
         sequence: 1,
       })],
+      handoff: expect.objectContaining({
+        phase: "form-hypothesis",
+        evidenceIds: ["operating-run", "diagnostic"],
+        sourceEntry: expect.objectContaining({
+          id: "inspection-input-is-empty",
+          kind: "observation",
+        }),
+      }),
     }));
 
     const decided = await fetch(
@@ -445,6 +461,20 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
       },
     );
     expect(hypothesized.status).toBe(201);
+    expect(await hypothesized.json()).toEqual(expect.objectContaining({
+      handoff: expect.objectContaining({
+        phase: "author-candidate",
+        evidenceIds: ["post-decision-factory"],
+        sourceEntry: expect.objectContaining({
+          id: "inspection-decoupling-buffer",
+          kind: "hypothesis",
+        }),
+        authorship: expect.objectContaining({
+          kind: "candidate",
+          hypothesisEntryId: "inspection-decoupling-buffer",
+        }),
+      }),
+    }));
     const sourcedCandidate = await createInvestigationCandidate(projectDir, {
       id: "inspection-decoupling-buffer",
       name: "Inspection decoupling buffer",
@@ -485,7 +515,13 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
       `http://localhost:${port}/api/projects/memory-fab/investigations/inspection-starvation-next-step`,
     );
     expect(detail.status).toBe(200);
-    expect((await detail.json() as { entries: unknown[] }).entries).toHaveLength(4);
+    expect(await detail.json()).toEqual(expect.objectContaining({
+      entries: expect.any(Array),
+      handoff: expect.objectContaining({
+        phase: "author-candidate",
+        evidenceIds: ["post-decision-factory"],
+      }),
+    }));
     const deepLink = await fetch(
       `http://localhost:${port}/memory-fab/investigations/inspection-starvation-next-step`,
     );

@@ -214,10 +214,11 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
       { name: "agent-command", form: "option", value: "string", required: false, description: "External proposal process command." }, sectionArgument(["summary", "iterations", "all"]), json], outputSections: ["summary", "iterations", "all"],
   },
   {
-    id: "session", usage: "inm session <path> [--experiment ID [--run]] [--project ID] [--port N] [--no-open] [--json]",
-    description: "Ensure a source-current Studio and enter the shared project next action or one exact reconnectable Experiment session.",
+    id: "session", usage: "inm session <path> [--experiment ID [--run] | --investigation ID] [--project ID] [--port N] [--no-open] [--json]",
+    description: "Ensure a source-current Studio and enter the shared project next action, one phase-aware Investigation Design Session, or one exact reconnectable Experiment session.",
     effect: "mode-dependent", supportsJson: true, arguments: [path, project,
       { name: "experiment", form: "option", value: "string", required: false, description: "Optional project-local Benchmark id; omit to enter the shared Workbench next action." },
+      { name: "investigation", form: "option", value: "string", required: false, description: "Optional project-local Investigation id; mutually exclusive with --experiment and enters its exact reasoning phase." },
       { name: "run", form: "option", value: "boolean", required: false, description: "With --experiment, start the locked evaluation as a reconnectable Studio operation and return immediately.", default: false },
       { name: "port", form: "option", value: "integer", required: false, description: "Strict local HTTP port. Omit to discover the target service or allocate a bounded fallback." },
       { name: "no-open", form: "option", value: "boolean", required: false, description: "Do not open the resolved project route in a browser.", default: false },

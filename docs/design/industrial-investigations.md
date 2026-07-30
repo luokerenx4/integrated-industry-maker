@@ -1,6 +1,6 @@
 # Industrial investigations
 
-Status: V4 continuous factory-observation and immutable Run-comparison checkpoints plus exact Investigation-hypothesis Candidate handoff implemented in Core, `inm`, Studio, and the memory-fab north-star fixture.
+Status: V5 phase-aware Investigation Design Session over continuous factory-observation and immutable Run-comparison checkpoints plus exact hypothesis-to-Candidate handoff, implemented in Core, `inm`, Studio, and the memory-fab north-star fixture.
 
 Related: [[docs/design/observation-led-design]], [[docs/design/operator-workbench]], [[docs/design/design-programs]], [[docs/design/experiment-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/studio-debugger]], [[docs/design/project-boundaries]], [[plans/persistent-industrial-investigation-workspace]], [[plans/evidence-backed-metrology-standby-investigation]], [[plans/continuous-investigation-evidence]], and [[plans/persistent-run-comparison-evidence]].
 
@@ -78,15 +78,29 @@ Source currentness comes from the newest factory-observation or Run-comparison a
 
 `createInvestigationCandidate()` accepts only a caller-authored RFC 6902 patch and ordinary Candidate name/id, Benchmark id, Investigation id, and hypothesis entry id. Core derives the source identity, prose, and current Benchmark Candidate-Blueprint base hash before validating and writing the new artifact. It does not invent the patch or decide whether the intervention is good.
 
+## Phase-aware Design Session
+
+Inspection derives one `IndustrialInvestigationHandoff` from the verified anchor states and latest append-only entry. This is a projection of the existing Investigation, not another stored session or draft:
+
+- any missing or invalid anchor yields `repair-evidence` and permits no inherited factory claim;
+- historical operating context or an empty reasoning log yields `observe-current-factory`;
+- a current observation, or an explicit `revise` decision, yields `form-hypothesis`;
+- a current hypothesis yields `author-candidate`;
+- a completed keep, defer, or discard decision resumes the shared project Workbench action.
+
+Every non-project handoff pins the source entry id, sequence, kind, and entry hash plus the exact evidence ids cited by that entry. It separately declares the authorship boundary and required caller fields. Core may select a form and preserve context, but it cannot supply an observation statement, hypothesis, expected effect, Candidate identity, Benchmark choice, or patch.
+
+`currentNextAction` is the handoff's navigational action, not a command that manufactures the required prose or patch. The `authorship` object is the machine-readable description of the next artifact boundary. This separation keeps route entry read-only while making the subsequent human/Agent responsibility explicit.
+
 ## Human and Agent surfaces
 
-`inm investigate` and Studio project the same Core inspection result. Both show the question, pinned target, currentness of every manifest or introduced anchor, ordered reasoning entries, and exact existing routes/argv for referenced evidence.
+`inm investigate` and Studio project the same Core inspection result. Both show the question, pinned target, currentness of every manifest or introduced anchor, ordered reasoning entries, phase, source entry/hash, cited evidence ids, required authorship fields, and exact existing routes/argv for referenced evidence.
 
 CLI is the primary structured surface for text-only Agents. Studio is the primary spatial surface for humans and browser-capable Agents. Studio may provide forms for explicit entry creation, but it cannot manufacture an observation, hypothesis, or decision on the user's behalf.
 
 `inm investigate --create-candidate` is the high-bandwidth authoring path. It consumes an Agent- or human-authored JSON patch file and returns the exact `inm candidate --review` next action without requiring generated hashes. After review, CLI exposes an exact return-to-Investigation action; `--attach-candidate` resolves the receipt, derives `<candidate>-review` when no anchor id is supplied, and adds that introduced evidence to the decision automatically. `--capture-observation <anchor-id>` is the post-change continuation boundary: it resolves the current factory checkpoint, adds it to the observation's evidence, and never starts a simulation or accepts a caller-authored hash. `--capture-comparison <anchor-id> --from-run <id> --to-run <id>` retains one already-observed immutable comparison under the same authorship and no-auto-decision boundary. The three evidence-introduction modes are mutually exclusive.
 
-The stable Studio routes are `/<project>/investigations` and `/<project>/investigations/<id>`. The project-qualified API lists or creates at `GET|POST /api/projects/<project>/investigations`, inspects at `GET /api/projects/<project>/investigations/<id>`, and appends at `POST /api/projects/<project>/investigations/<id>/entries`. The Studio workbench shows the current Core handoff, every anchor's exact evidence navigation, the ordered hash chain, explicit author/kind inputs, and required hypothesis or decision fields. A Run comparison offers an explicit `RETAIN IN INVESTIGATION` route carrying its exact FROM/TO ids; the observation form pre-fills but never submits the comparison id or authored statement. Opening the route is read-only; only an explicit submitted create/append form writes Investigation data.
+The stable Studio routes are `/<project>/investigations` and `/<project>/investigations/<id>`. The project-qualified API lists or creates at `GET|POST /api/projects/<project>/investigations`, inspects at `GET /api/projects/<project>/investigations/<id>`, and appends at `POST /api/projects/<project>/investigations/<id>/entries`. `inm session <path> --investigation <id>` repairs or reuses the source-current managed Studio and opens that exact phase-aware route without port knowledge. The Studio workbench uses Core's handoff to select the observation or hypothesis form and check only the inherited evidence ids; it never fills or submits authorship, statement, expected effect, or Candidate patch. A Run comparison offers an explicit `RETAIN IN INVESTIGATION` route carrying its exact FROM/TO ids; the observation form pre-fills but never submits the comparison id or authored statement. Opening the route is read-only; only an explicit submitted create/append form writes Investigation data.
 
 Candidate review shows the resolved Investigation name, exact hypothesis entry, hash, current/historical state, and inherited factory-observation anchor/Run. A recorded review can return to a stable query-qualified Investigation route that preselects decision kind, Candidate id, derived anchor id, and suggested disposition, but leaves author, entry id, and statement unowned and never submits. Once that exact review is already present in the hash chain, both surfaces show a completed state and suppress conflicting duplicate evidence prefill. Studio's observation form can likewise capture the current factory under an authored anchor id; Core fills the evidence payload only after explicit submission.
 
@@ -103,3 +117,5 @@ The V2 end-to-end fixture repeats the proposal as `metrology-low-power-standby-s
 V3 entry `post-standby-constraint-boundary` introduces factory observation `post-standby-factory` from current Run `098-simulate` and its exact inspection-starvation diagnostic. Beside both retained DISCARD reviews it records the reusable design boundary: the incumbent factory is only `50` currency below the `230,000` maximum, both standby proposals add `200` and exceed it by `150`, and the interruption case also loses two on-time lots. Future metrology-energy hypotheses can cite this checkpoint and inherit the current factory identity instead of reopening or overwriting the Investigation's original evidence.
 
 The same chain later commissions the east-port-compliant compact inspection/rework cell and retains immutable Run comparison `100-simulate → 101-simulate` as `compact-cell-run-comparison`. Its deterministic identity proves `+0.505000` score, `-100` build cost, `-10` occupied area, `-0.166667` seconds mean movement, and `-1.000` second inspection starvation while delivery, on-time service, good yield, scrap, and escapes remain unchanged. Entry `compact-cell-run-comparison-retained` explicitly records that the leading loss contributor moved from `etch-1` to `probe-1` as observed context, not an automatic next-intervention choice. A later hypothesis can cite this anchor and inherit exact Run `101-simulate` rather than reconstructing the comparison from prose.
+
+V5 projects that exact final state as `form-hypothesis`, sourced from entry `0021` / hash `b1c876c39bfa…`, with only `compact-inspection-rework-cell-east-port-review`, `compact-inspection-rework-cell-factory`, and `compact-cell-run-comparison` selected as inherited evidence. The managed Session and Studio render the same boundary. No Design Program rerun, hypothesis, or form submission occurs merely by entering it.

@@ -114,6 +114,12 @@ export interface WorkbenchOperationDescriptor {
 export type WorkbenchNextActionTarget =
   | { kind: "diagnostic"; diagnosticId: string }
   | { kind: "candidate"; benchmarkId: string; candidateId: string; phase: CandidateDecisionState }
+  | {
+    kind: "investigation";
+    investigationId: string;
+    phase: "repair-evidence" | "observe-current-factory" | "form-hypothesis" | "author-candidate";
+    sourceEntryId: string | null;
+  }
   | { kind: "design-program"; programId: string; diagnosticId: string }
   | { kind: "design-program"; programId: string; objectiveComponent: ScoreBreakdownComponent; runId: string }
   | { kind: "design-run"; programId: string; runId: string; phase: "commissioned" | "promotable" | "continuable" | "exhausted"; diagnosticId: string }

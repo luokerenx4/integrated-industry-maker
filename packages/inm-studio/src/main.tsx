@@ -2156,6 +2156,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
     if (target.kind === "design-run") { onDesign(target.programId, target.runId); return; }
     if (target.kind === "objective-component") { onObjectiveTradeoff(target.runId); return; }
     if (target.kind === "run") { onRun(target.runId); return; }
+    if (target.kind === "investigation") { onNavigate("investigations"); return; }
     const operation = snapshot.operations.find((item) => item.id === target.operationId);
     if (operation) onOperation(operation, operationCli(snapshot, operation));
   };

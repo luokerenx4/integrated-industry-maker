@@ -96,7 +96,7 @@ inm investigate examples/memory-fab \
   --json
 ```
 
-Flagless project mode lists Investigations. Supplying `--investigation` reopens one and resolves every evidence anchor as `current`, `historical`, `missing`, or `invalid`. Valid old evidence may remain historical while the newest factory-observation or Run-comparison checkpoint makes the ongoing Investigation current; any missing or invalid anchor still degrades the chain. A hypothesis-sourced Candidate reports whether it inherited the creation context or a directly cited checkpoint, including context kind, exact anchor, and Run identity. JSON defaults to `summary`; `anchors`, `entries`, and `all` are explicit sections. The envelope's sole next action is the current Core Workbench handoff, while each anchor retains its exact evidence route and argv. The command never authors a Blueprint, starts a simulation, or chooses an industrial decision.
+Flagless project mode lists Investigations. Supplying `--investigation` reopens one and resolves every evidence anchor as `current`, `historical`, `missing`, or `invalid`. Valid old evidence may remain historical while the newest factory-observation or Run-comparison checkpoint makes the ongoing Investigation current; any missing or invalid anchor still degrades the chain. A hypothesis-sourced Candidate reports whether it inherited the creation context or a directly cited checkpoint, including context kind, exact anchor, and Run identity. JSON defaults to `summary`; `anchors`, `entries`, and `all` are explicit sections. Inspection derives one phase-aware Design Session handoff: `repair-evidence`, `observe-current-factory`, `form-hypothesis`, `author-candidate`, or `resume-project`. It carries the exact source entry/hash, inherited evidence ids, and required caller fields. The envelope's sole next action enters that handoff; each anchor retains its exact evidence route and argv. The command never authors a Blueprint, starts a simulation, invents required field values, or chooses an industrial decision.
 
 `validate`, `analyze`, `plan`, `simulate`, `benchmark`, and `candidate` invoke the named Core [[docs/design/operation-workbench]] operations. Their JSON envelope keeps the requested summary/detail section in `data.result` and places shared industrial-result metadata in `data.operation`: effect, duration, exact context/hashes, diagnostics, artifacts, actual write set, and recommended verification. Long evaluations additionally use top-level `execution` for transient lifecycle identity; dense industrial data is not duplicated into it.
 
@@ -264,17 +264,23 @@ The command receives `ResearchInput` JSON on stdin—including the target-rate c
 }
 ```
 
-### `inm session <project-or-workspace-dir> [--experiment ID [--run]] [--project ID] [--port N] [--no-open]`
+### `inm session <project-or-workspace-dir> [--experiment ID [--run] | --investigation ID] [--project ID] [--port N] [--no-open]`
 
 Enters the exact current project work without composing lifecycle, port discovery, Workbench inspection, and navigation commands manually. The command ensures a managed source-current Studio, safely replacing only a verified stale instance, reads that Studio's authoritative `ProjectWorkbenchSnapshot`, and opens its exact shared `nextAction.studioRoute`. Omit `--port` for the ordinary managed/default/fallback discovery policy. A failure-free recovery already verified for this exact project/port/source receives one bounded convergence wait. Changed ownership/source and timeout return typed retryable recovery errors; degraded adoption requests one immediate supervised retry and otherwise returns stable `session.studio-degraded` evidence. Session never waits on or opens a foreign or refused port.
 
 Default human and JSON output return one strict `project-next-action` target with the same id, reason, argv, effect, confirmation boundary, typed target, route, and URL used by Studio. Session entry only navigates; it never executes the recommended action implicitly.
 
-Supplying `--experiment ID` instead selects one authored Experiment and its lightweight project-qualified route. In that explicit mode only, `--run` starts the locked evaluation through Studio's reconnectable operation registry and returns immediately; it does not wait for the Benchmark result. Human output prints the exact operation id and polling URL. JSON uses the same result union with an `experiment` target plus the lifecycle/source record, route, URL, start/reuse state, complete initial operation snapshot, polling URL, and an exact next action. `--run` without `--experiment` is a usage error rejected before lifecycle mutation. `--no-open` is intended for Agents or terminal-only use. Standalone `inm benchmark` remains the browser-free synchronous evaluator and shares the same Core contract without pretending its local process is reconnectable.
+Supplying `--investigation ID` instead selects one project-local Investigation and its exact phase-aware authoring route. JSON returns the Investigation id/name/question/currentness, manifest hash, entry count, source entry/hash, inherited evidence ids, authorship requirements, and Core handoff. It starts no simulation and submits no form.
+
+Supplying `--experiment ID` selects one authored Experiment and its lightweight project-qualified route. In that explicit mode only, `--run` starts the locked evaluation through Studio's reconnectable operation registry and returns immediately; it does not wait for the Benchmark result. Human output prints the exact operation id and polling URL. JSON uses the same result union with an `experiment` target plus the lifecycle/source record, route, URL, start/reuse state, complete initial operation snapshot, polling URL, and an exact next action. `--experiment` and `--investigation`, or `--run` without `--experiment`, are usage errors rejected before lifecycle mutation. `--no-open` is intended for Agents or terminal-only use. Standalone `inm benchmark` remains the browser-free synchronous evaluator and shares the same Core contract without pretending its local process is reconnectable.
 
 ```bash
 # Human: repair/reuse Studio and enter the shared current project action.
 bun run inm session examples/memory-fab
+
+# Human or Agent: enter the exact current Investigation Design Session.
+bun run inm session examples/memory-fab \
+  --investigation inspection-starvation-next-step
 
 # Human: explicitly open one Experiment and start its reconnectable run.
 bun run inm session examples/memory-fab \

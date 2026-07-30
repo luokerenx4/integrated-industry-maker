@@ -253,7 +253,35 @@ export interface IndustrialInvestigationInspection {
   entries: IndustrialInvestigationEntry[];
   state: InvestigationAnchorState;
   anchors: InspectedInvestigationAnchor[];
+  handoff: IndustrialInvestigationHandoff;
   currentNextAction: WorkbenchNextAction;
+}
+
+export type IndustrialInvestigationPhase =
+  | "repair-evidence"
+  | "observe-current-factory"
+  | "form-hypothesis"
+  | "author-candidate"
+  | "resume-project";
+
+export interface IndustrialInvestigationHandoff {
+  phase: IndustrialInvestigationPhase;
+  sourceEntry: null | Pick<
+    IndustrialInvestigationEntry,
+    "id" | "sequence" | "kind" | "entryHash"
+  >;
+  evidenceIds: string[];
+  authorship: null | {
+    kind: "investigation-entry";
+    entryKind: "observation" | "hypothesis";
+    requiredFields: Array<"entry-id" | "author" | "statement" | "expected-effect">;
+  } | {
+    kind: "candidate";
+    hypothesisEntryId: string;
+    hypothesisEntryHash: string;
+    requiredFields: Array<"candidate-id" | "candidate-name" | "benchmark" | "patch-file">;
+  };
+  nextAction: WorkbenchNextAction;
 }
 
 export interface IndustrialInvestigationSummary {
@@ -1457,13 +1485,168 @@ export async function inspectIndustrialInvestigation(
       ? "current"
       : "historical";
   const state: InvestigationAnchorState = broken?.state ?? latestOperatingState ?? "invalid";
+  const handoff = buildIndustrialInvestigationHandoff({
+    projectDir,
+    manifest,
+    entries,
+    anchors,
+    state,
+    projectNextAction: snapshot.nextAction,
+  });
   return {
     manifest,
     manifestHash: manifest.manifestHash,
     entries,
     state,
     anchors,
-    currentNextAction: snapshot.nextAction,
+    handoff,
+    currentNextAction: handoff.nextAction,
+  };
+}
+
+function buildIndustrialInvestigationHandoff(input: {
+  projectDir: string;
+  manifest: IndustrialInvestigationManifest;
+  entries: IndustrialInvestigationEntry[];
+  anchors: InspectedInvestigationAnchor[];
+  state: InvestigationAnchorState;
+  projectNextAction: WorkbenchNextAction;
+}): IndustrialInvestigationHandoff {
+  const latest = input.entries.at(-1) ?? null;
+  const sourceEntry = latest
+    ? {
+      id: latest.id,
+      sequence: latest.sequence,
+      kind: latest.kind,
+      entryHash: latest.entryHash,
+    }
+    : null;
+  const evidenceIds = latest?.evidence.length
+    ? [...latest.evidence]
+    : input.anchors
+      .filter((item) => item.state === "current")
+      .map((item) => item.anchor.id);
+  const route = `/${input.manifest.project}/investigations/${input.manifest.id}#investigation-authoring`;
+  const inspectArgv = [
+    "inm",
+    "investigate",
+    resolve(input.projectDir),
+    "--investigation",
+    input.manifest.id,
+    "--json",
+  ];
+  const action = (
+    phase: Exclude<IndustrialInvestigationPhase, "resume-project">,
+    title: string,
+    reason: string,
+    actionLabel: string,
+  ): WorkbenchNextAction => ({
+    id: `investigation.${phase}:${input.manifest.id}:${latest?.entryHash.slice(0, 12) ?? input.manifest.manifestHash.slice(0, 12)}`,
+    tone: phase === "repair-evidence" ? "blocking" : phase === "observe-current-factory" ? "evidence" : "attention",
+    title,
+    reason,
+    actionLabel,
+    effect: "read-only",
+    requiresConfirmation: false,
+    argv: inspectArgv,
+    studioRoute: route,
+    target: {
+      kind: "investigation",
+      investigationId: input.manifest.id,
+      phase,
+      sourceEntryId: latest?.id ?? null,
+    },
+  });
+
+  if (input.state === "missing" || input.state === "invalid") {
+    const failed = input.anchors.filter((item) =>
+      item.state === "missing" || item.state === "invalid");
+    const nextAction = action(
+      "repair-evidence",
+      "Repair this Investigation's evidence before continuing",
+      `${failed.map((item) => item.anchor.id).join(", ") || "Pinned evidence"} is ${input.state}. The append-only chain remains visible, but no new factory claim should inherit a broken identity.`,
+      "REVIEW EVIDENCE",
+    );
+    return {
+      phase: "repair-evidence",
+      sourceEntry,
+      evidenceIds,
+      authorship: null,
+      nextAction,
+    };
+  }
+
+  if (input.state === "historical" || !latest) {
+    const nextAction = action(
+      "observe-current-factory",
+      latest
+        ? "Capture the current factory before extending this Investigation"
+        : "Begin with one exact factory observation",
+      latest
+        ? `The newest operating checkpoint is exact history, not the current selected factory. Append an authored observation with a new Core-resolved factory checkpoint before forming another hypothesis.`
+        : `This Investigation has exact creation evidence but no authored reasoning entry. Begin with one visible or typed observation; Core can bind the current factory without accepting caller-authored hashes.`,
+      "AUTHOR OBSERVATION",
+    );
+    return {
+      phase: "observe-current-factory",
+      sourceEntry,
+      evidenceIds,
+      authorship: {
+        kind: "investigation-entry",
+        entryKind: "observation",
+        requiredFields: ["entry-id", "author", "statement"],
+      },
+      nextAction,
+    };
+  }
+
+  if (latest.kind === "observation" || (latest.kind === "decision" && latest.disposition === "revise")) {
+    const nextAction = action(
+      "form-hypothesis",
+      `Form the next industrial hypothesis from entry ${String(latest.sequence).padStart(4, "0")}`,
+      `Entry '${latest.id}' is the latest authored ${latest.kind} under current evidence. A human or reasoning Agent must state one falsifiable intervention and expected measured or visual effect; INM will preserve the cited identities but will not invent the design.`,
+      "FORM HYPOTHESIS",
+    );
+    return {
+      phase: "form-hypothesis",
+      sourceEntry,
+      evidenceIds,
+      authorship: {
+        kind: "investigation-entry",
+        entryKind: "hypothesis",
+        requiredFields: ["entry-id", "author", "statement", "expected-effect"],
+      },
+      nextAction,
+    };
+  }
+
+  if (latest.kind === "hypothesis") {
+    const nextAction = action(
+      "author-candidate",
+      `Author a Candidate for hypothesis ${String(latest.sequence).padStart(4, "0")}`,
+      `Hypothesis '${latest.id}' is current and pinned by ${latest.entryHash.slice(0, 12)}. Supply a Candidate id, name, locked Benchmark, and caller-authored RFC 6902 patch; Core will derive the exact source and base identities.`,
+      "AUTHOR CANDIDATE",
+    );
+    return {
+      phase: "author-candidate",
+      sourceEntry,
+      evidenceIds,
+      authorship: {
+        kind: "candidate",
+        hypothesisEntryId: latest.id,
+        hypothesisEntryHash: latest.entryHash,
+        requiredFields: ["candidate-id", "candidate-name", "benchmark", "patch-file"],
+      },
+      nextAction,
+    };
+  }
+
+  return {
+    phase: "resume-project",
+    sourceEntry,
+    evidenceIds,
+    authorship: null,
+    nextAction: input.projectNextAction,
   };
 }
 

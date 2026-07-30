@@ -93,6 +93,13 @@ export function InvestigationWorkbench({
     else if (returnAlreadyRecorded || returnedComparison) setEntryKind("observation");
   }, [prefillCandidateId, returnAlreadyRecorded, comparisonFromRunId, comparisonToRunId]);
 
+  useEffect(() => {
+    if (prefillCandidateId || returnedComparison || !inspection) return;
+    if (inspection.handoff.authorship?.kind === "investigation-entry") {
+      setEntryKind(inspection.handoff.authorship.entryKind);
+    }
+  }, [inspection?.handoff.phase, prefillCandidateId, returnedComparison]);
+
   const loadList = useCallback(async () => {
     const value = await responseJson<{ investigations: IndustrialInvestigationSummary[] }>(
       await fetch(apiRoot(projectId)),
@@ -310,13 +317,22 @@ export function InvestigationWorkbench({
 
         <section className="investigation-next-action">
           <div>
-            <span className="eyebrow">CURRENT CORE HANDOFF · {inspection.currentNextAction.effect.toUpperCase()}</span>
-            <h3>{inspection.currentNextAction.title}</h3>
-            <p>{inspection.currentNextAction.reason}</p>
+            <span className="eyebrow">DESIGN SESSION · {inspection.handoff.phase.replaceAll("-", " ").toUpperCase()}</span>
+            <h3>{inspection.handoff.nextAction.title}</h3>
+            <p>{inspection.handoff.nextAction.reason}</p>
+            {inspection.handoff.sourceEntry && <small data-testid="investigation-handoff-source">
+              SOURCE · {String(inspection.handoff.sourceEntry.sequence).padStart(4, "0")} {inspection.handoff.sourceEntry.id} · {inspection.handoff.sourceEntry.entryHash.slice(0, 12)}
+            </small>}
+            {inspection.handoff.evidenceIds.length > 0 && <small data-testid="investigation-handoff-evidence">
+              CITE · {inspection.handoff.evidenceIds.join(" + ")}
+            </small>}
           </div>
           <div>
-            <a href={inspection.currentNextAction.studioRoute}>{inspection.currentNextAction.actionLabel} →</a>
-            <code>{inspection.currentNextAction.argv.join(" ")}</code>
+            <a href={inspection.handoff.nextAction.studioRoute}>{inspection.handoff.nextAction.actionLabel} →</a>
+            <code>{inspection.handoff.nextAction.argv.join(" ")}</code>
+            {inspection.handoff.authorship && <small>
+              REQUIRED · {inspection.handoff.authorship.requiredFields.join(" · ")}
+            </small>}
           </div>
         </section>
 
@@ -359,6 +375,7 @@ export function InvestigationWorkbench({
 
         <form
           className="investigation-entry-form"
+          id="investigation-authoring"
           key={`${returnCandidateId ?? "ordinary-entry"}:${returnedComparison?.fromRunId ?? "no-from"}:${returnedComparison?.toRunId ?? "no-to"}:${returnAlreadyRecorded || comparisonAlreadyRecorded ? "recorded" : "new"}`}
           onSubmit={(event) => { void append(event); }}
         >
@@ -377,7 +394,12 @@ export function InvestigationWorkbench({
             <label>INTRODUCE REVIEW AS<input name="introducedAnchorId" defaultValue={suggestedAnchorId} placeholder="metrology-standby-review" /></label>
             <label>REVIEWED CANDIDATE<input name="introducedCandidateId" defaultValue={prefillCandidateId ?? ""} placeholder="metrology-low-power-standby" /></label>
           </div>
-          <fieldset><legend>EVIDENCE REFERENCES</legend>{inspection.anchors.map(({ anchor }) => <label key={anchor.id}><input type="checkbox" name="evidence" value={anchor.id} defaultChecked />{anchor.id}</label>)}</fieldset>
+          <fieldset><legend>EVIDENCE REFERENCES</legend>{inspection.anchors.map(({ anchor }) => <label key={anchor.id}><input
+            type="checkbox"
+            name="evidence"
+            value={anchor.id}
+            defaultChecked={inspection.handoff.evidenceIds.includes(anchor.id)}
+          />{anchor.id}</label>)}</fieldset>
           <button disabled={loading} type="submit">{loading ? "VERIFYING…" : "APPEND TO HASH CHAIN"}</button>
         </form>
       </div>}

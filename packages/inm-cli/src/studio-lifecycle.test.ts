@@ -7,6 +7,7 @@ import { waitForVerifiedSessionRecovery, type StudioLifecycleResult } from "./st
 
 const repository = resolve(import.meta.dir, "../../..");
 const ironworks = join(repository, "examples/ironworks");
+const memoryFab = join(repository, "examples/memory-fab");
 
 async function runCli(args: string[], environment: Record<string, string> = {}) {
   const child = Bun.spawn([process.execPath, join(repository, "packages/inm-cli/src/bin.ts"), ...args], {
@@ -29,6 +30,16 @@ async function temporaryProject(name: string): Promise<string> {
   await cp(ironworks, project, {
     recursive: true,
     filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm"),
+  });
+  return project;
+}
+
+async function temporaryMemoryFab(name: string): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), `inm-studio-lifecycle-${name}-`));
+  const project = join(root, "memory-fab");
+  await cp(memoryFab, project, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes(".inm"),
   });
   return project;
 }
@@ -191,7 +202,7 @@ test("Studio lifecycle is explicit in machine-readable CLI discovery", async () 
   expect(managedPort.description).toContain("Omit to discover");
   expect(foregroundPort.default).toBe(4176);
   const session = commands.find((command) => command.id === "session")!;
-  expect(session.usage).toContain("[--experiment ID [--run]]");
+  expect(session.usage).toContain("[--experiment ID [--run] | --investigation ID]");
   expect(session.description).toContain("shared project next action");
   expect(session.arguments.find((argument) => argument.name === "experiment")).toEqual(expect.objectContaining({
     required: false,
@@ -321,6 +332,98 @@ test("--run without an explicit Experiment fails before starting Studio", async 
     port,
     health: null,
   }));
+});
+
+test("one command enters the exact phase-aware Investigation Design Session", async () => {
+  const project = await temporaryMemoryFab("investigation-session");
+  const port = 51_450 + process.pid % 50;
+  try {
+    const entered = await runCli([
+      "session", project,
+      "--investigation", "inspection-starvation-next-step",
+      "--port", String(port),
+      "--no-open",
+      "--json",
+    ]);
+    expect(entered).toEqual(expect.objectContaining({ exitCode: 0, stderr: "" }));
+    const envelope = JSON.parse(entered.stdout);
+    expect(envelope).toEqual(expect.objectContaining({
+      command: "session",
+      data: expect.objectContaining({
+        lifecycle: expect.objectContaining({
+          state: "running",
+          port,
+          source: expect.objectContaining({ state: "current" }),
+        }),
+        target: {
+          kind: "investigation",
+          investigation: expect.objectContaining({
+            id: "inspection-starvation-next-step",
+            state: "current",
+            entryCount: 21,
+          }),
+          handoff: expect.objectContaining({
+            phase: "form-hypothesis",
+            sourceEntry: expect.objectContaining({
+              id: "compact-cell-run-comparison-retained",
+              sequence: 21,
+              kind: "observation",
+            }),
+            evidenceIds: [
+              "compact-inspection-rework-cell-east-port-review",
+              "compact-inspection-rework-cell-factory",
+              "compact-cell-run-comparison",
+            ],
+            authorship: expect.objectContaining({
+              kind: "investigation-entry",
+              entryKind: "hypothesis",
+            }),
+          }),
+        },
+        route: "/memory-fab/investigations/inspection-starvation-next-step#investigation-authoring",
+        url: `http://127.0.0.1:${port}/memory-fab/investigations/inspection-starvation-next-step#investigation-authoring`,
+        operation: null,
+      }),
+      nextActions: [
+        expect.objectContaining({
+          actionLabel: "FORM HYPOTHESIS",
+          target: expect.objectContaining({
+            kind: "investigation",
+            investigationId: "inspection-starvation-next-step",
+            phase: "form-hypothesis",
+            sourceEntryId: "compact-cell-run-comparison-retained",
+          }),
+        }),
+      ],
+    }));
+  } finally {
+    await runCli(["studio", "stop", project, "--port", String(port), "--json"]);
+  }
+}, 60_000);
+
+test("session target modes fail before lifecycle mutation when combined", async () => {
+  const project = await temporaryProject("session-target-conflict");
+  const port = 51_490 + process.pid % 10;
+  const rejected = await runCli([
+    "session", project,
+    "--experiment", "power-priority",
+    "--investigation", "some-question",
+    "--port", String(port),
+    "--no-open",
+    "--json",
+  ]);
+  expect(rejected.exitCode).toBe(2);
+  expect(JSON.parse(rejected.stderr)).toEqual(expect.objectContaining({
+    ok: false,
+    command: "session",
+    error: expect.objectContaining({
+      code: "cli.usage",
+      message: "Usage: --experiment and --investigation are mutually exclusive",
+    }),
+  }));
+  const status = await runCli(["studio", "status", project, "--port", String(port), "--json"]);
+  expect(status.exitCode).toBe(0);
+  expect(data(status.stdout).data.state).toBe("not-running");
 });
 
 test("one command enters and starts a reconnectable Experiment session without port memory", async () => {
