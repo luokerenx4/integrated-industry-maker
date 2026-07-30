@@ -3,6 +3,7 @@ import { cp, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
+import { waitForVerifiedSessionRecovery, type StudioLifecycleResult } from "./studio-lifecycle";
 
 const repository = resolve(import.meta.dir, "../../..");
 const ironworks = join(repository, "examples/ironworks");
@@ -79,6 +80,86 @@ function data(stdout: string) {
     };
   };
 }
+
+function recoveringLifecycle(overrides: Partial<StudioLifecycleResult> = {}): StudioLifecycleResult {
+  const expectedHash = "a".repeat(64);
+  return {
+    action: "start",
+    state: "recovering",
+    health: null,
+    inputDir: "/tmp/inm-verified-session",
+    project: null,
+    port: 4176,
+    portSelection: "managed",
+    url: "http://127.0.0.1:4176",
+    pid: 123,
+    logPath: "/tmp/inm-verified-session/.inm/studio/4176/studio.log",
+    supervisor: {
+      phase: "adopting",
+      attemptedSourceHash: expectedHash,
+      childPid: 123,
+      generation: 2,
+      heartbeatAt: new Date().toISOString(),
+      retry: "source-change",
+      failure: null,
+    },
+    source: {
+      state: "recovering",
+      expectedHash,
+      runningHash: "b".repeat(64),
+      managerRunningHash: expectedHash,
+      serverState: "stale",
+      managerState: "current",
+    },
+    ...overrides,
+  };
+}
+
+test("project session waits only for one verified exact-source recovery", async () => {
+  const recovering = recoveringLifecycle();
+  const current = recoveringLifecycle({
+    action: "status",
+    state: "running",
+    supervisor: {
+      ...recovering.supervisor!,
+      phase: "current",
+      retry: "none",
+    },
+    source: {
+      ...recovering.source,
+      state: "current",
+      runningHash: recovering.source.expectedHash,
+      serverState: "current",
+    },
+  });
+  let inspections = 0;
+  const converged = await waitForVerifiedSessionRecovery(
+    recovering,
+    async () => {
+      inspections += 1;
+      return inspections === 1 ? recovering : current;
+    },
+    { timeoutMs: 50, pollMs: 1 },
+  );
+  expect(inspections).toBe(2);
+  expect(converged).toEqual(expect.objectContaining({
+    action: "start",
+    state: "reused",
+    source: expect.objectContaining({ state: "current" }),
+    supervisor: expect.objectContaining({ phase: "current" }),
+  }));
+
+  const wrongSource = recoveringLifecycle({
+    supervisor: {
+      ...recovering.supervisor!,
+      attemptedSourceHash: "c".repeat(64),
+    },
+  });
+  await expect(waitForVerifiedSessionRecovery(wrongSource, async () => current, { timeoutMs: 20, pollMs: 1 }))
+    .rejects.toMatchObject({ code: "session.studio-recovery-unverified" });
+  await expect(waitForVerifiedSessionRecovery(recovering, async () => recovering, { timeoutMs: 5, pollMs: 1 }))
+    .rejects.toMatchObject({ code: "session.studio-recovery-timeout", options: { retryable: true } });
+});
 
 test("Studio lifecycle is explicit in machine-readable CLI discovery", async () => {
   const help = await runCli(["help", "--json"]);

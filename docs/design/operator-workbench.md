@@ -78,6 +78,8 @@ The three operation effects are `read-only`, `creates-artifact`, and `mutates-bl
 
 For tracked-lot queue congestion, CLI and Studio consume the same ordered V8 contributors: exact Device or connection, Route step, Process, Resource, lots, segment count, tick total, share, and maximum interval. Contributors must conserve the evaluator-owned completed-lot total; global utilization context cannot become queue ownership. For input starvation, both surfaces consume the same ordered contributors, Resources, Buffers, exact quantity gaps, immediate authored connection/source subjects, and conserved supply-state intervals. Neither infers a recursive root cause or converts ordinary in-flight material into a lane-capacity recommendation. For transport, both consume the same ordered contributors, dominant mechanism, total blocked item-time, and four immediate-cause shares. Neither converts endpoint service or power evidence into a line-speed recommendation. Studio also exposes the same per-cause metrics in the selected Factory connection inspector. Workbench V13 may additionally project a bounded decision disposition over one exact contributor; that projection never removes or rescales the underlying physical bucket.
 
+Immutable Run comparison is the cross-surface bridge between two Workbench moments. Core owns both exact Run identities, compatibility rejection, semantic/spatial change, evaluator and capacity snapshots, full fab-loss sides, delta/leader transitions, and stable navigation. CLI human/JSON and Studio project this object without replaying simulation or ranking the next intervention. Unchanged delivery, quality, capacity, and Objective constraints stay visible beside score improvements. Historical Factory observation recompiles the Run's frozen Blueprint and validates its result/execution identity, so a copied changed-subject route remains evidence rather than a current-source reconstruction.
+
 ## Objective tradeoff handoff
 
 After capacity blockers, Candidate review, missing or incompatible run evidence, and every still-active diagnostic have been handled, the next action advances to the compatible Run's dominant negative Objective component. This is a different evidence class from realized fab loss. A score component says what the selected Objective valued or penalized; it does not prove that the entire measured quantity is avoidable or identify a physical cause.
@@ -150,6 +152,7 @@ All remaining operation descriptors stay available under explicit progressive di
 - Capacity evidence: `packages/inm-core/src/capacity-plan.ts`
 - Compatible-run fab loss evidence: `packages/inm-core/src/fab-loss-analysis.ts`
 - Observation brief: `packages/inm-core/src/observation.ts`
+- Immutable Run delta and exact historical Workbench projection: `packages/inm-core/src/run-comparison.ts`, `packages/inm-core/src/workbench.ts`
 - CLI projection: `packages/inm-cli/src/commands.ts`
 - Studio API projection: `packages/inm-studio/src/server.ts`
 

@@ -73,6 +73,8 @@ export interface BlueprintMetricSnapshot {
   meanCycleTimeTicks: number;
   p95CycleTimeTicks: number;
   meanQueueTimeTicks: number;
+  meanProcessTimeTicks: number;
+  meanTransportTimeTicks: number;
   meanTardinessTicks: number;
   totalChangeovers: number;
   totalSetupTicks: number;
@@ -188,6 +190,8 @@ export interface BlueprintMetricDelta {
   meanCycleTimeTicks: number;
   p95CycleTimeTicks: number;
   meanQueueTimeTicks: number;
+  meanProcessTimeTicks: number;
+  meanTransportTimeTicks: number;
   meanTardinessTicks: number;
   totalChangeovers: number;
   totalSetupTicks: number;
@@ -403,7 +407,7 @@ export function compareBlueprintSemantics(before: Blueprint, after: Blueprint): 
   return changes;
 }
 
-function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
+export function factoryMetricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
   const storage = Object.values(metrics.energyStorage);
   const power = Object.values(metrics.powerGrids);
   const routes = Object.values(metrics.routeFlow);
@@ -459,6 +463,8 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
     meanCycleTimeTicks: metrics.lotFlow.meanCycleTimeTicks,
     p95CycleTimeTicks: metrics.lotFlow.p95CycleTimeTicks,
     meanQueueTimeTicks: metrics.lotFlow.meanQueueTimeTicks,
+    meanProcessTimeTicks: metrics.lotFlow.meanProcessTimeTicks,
+    meanTransportTimeTicks: metrics.lotFlow.meanTransportTimeTicks,
     meanTardinessTicks: metrics.lotFlow.meanTardinessTicks,
     totalChangeovers: metrics.equipmentSetups.totalChangeovers,
     totalSetupTicks: metrics.equipmentSetups.totalSetupTicks,
@@ -527,7 +533,7 @@ function metricSnapshot(metrics: FactoryMetrics): BlueprintMetricSnapshot {
   };
 }
 
-function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnapshot): BlueprintMetricDelta {
+export function factoryMetricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnapshot): BlueprintMetricDelta {
   const scoreBreakdown = subtractScoreBreakdown(before.scoreBreakdown, after.scoreBreakdown);
   const score = after.score - before.score;
   const inventoryResourceIds = [...new Set([
@@ -625,6 +631,8 @@ function metricDelta(before: BlueprintMetricSnapshot, after: BlueprintMetricSnap
     meanCycleTimeTicks: after.meanCycleTimeTicks - before.meanCycleTimeTicks,
     p95CycleTimeTicks: after.p95CycleTimeTicks - before.p95CycleTimeTicks,
     meanQueueTimeTicks: after.meanQueueTimeTicks - before.meanQueueTimeTicks,
+    meanProcessTimeTicks: after.meanProcessTimeTicks - before.meanProcessTimeTicks,
+    meanTransportTimeTicks: after.meanTransportTimeTicks - before.meanTransportTimeTicks,
     meanTardinessTicks: after.meanTardinessTicks - before.meanTardinessTicks,
     totalChangeovers: after.totalChangeovers - before.totalChangeovers,
     totalSetupTicks: after.totalSetupTicks - before.totalSetupTicks,
@@ -715,7 +723,7 @@ function assertScoreBreakdownTotal(label: string, breakdown: ScoreBreakdown, sco
   );
 }
 
-function assertComparable(before: CompiledFactoryProject, after: CompiledFactoryProject): void {
+export function assertBlueprintComparisonContext(before: CompiledFactoryProject, after: CompiledFactoryProject): void {
   for (const [name, left, right] of [
     ["Resource catalog", before.hashes.resourceCatalogHash, after.hashes.resourceCatalogHash],
     ["Process catalog", before.hashes.processCatalogHash, after.hashes.processCatalogHash],
@@ -738,7 +746,7 @@ export function compareFactoryBlueprints(
     afterEvaluation?: FactoryBlueprintEvaluation;
   } = {},
 ): FactoryBlueprintComparison {
-  assertComparable(before, after);
+  assertBlueprintComparisonContext(before, after);
   const seed = options.seed ?? 42;
   if (!Number.isSafeInteger(seed) || seed < 0) throw new Error("Blueprint comparison seed must be a non-negative safe integer");
   const beforeLabel = options.fromLabel ?? "before"; const afterLabel = options.toLabel ?? "after";
@@ -752,7 +760,7 @@ export function compareFactoryBlueprints(
   const afterEvaluation = options.afterEvaluation ?? evaluateFactoryBlueprint(after, afterLabel, seed);
   const beforeMetrics = beforeEvaluation.metrics;
   const afterMetrics = afterEvaluation.metrics;
-  const delta = metricDelta(beforeMetrics, afterMetrics);
+  const delta = factoryMetricDelta(beforeMetrics, afterMetrics);
   return {
     from: { label: beforeLabel, blueprintHash: before.hashes.blueprintHash, metrics: beforeMetrics, capacityPlan: beforeEvaluation.capacityPlan },
     to: { label: afterLabel, blueprintHash: after.hashes.blueprintHash, metrics: afterMetrics, capacityPlan: afterEvaluation.capacityPlan },
@@ -783,7 +791,7 @@ export function evaluateFactoryBlueprintWithTrace(
     return {
       evaluation: {
         blueprintHash: project.hashes.blueprintHash,
-        metrics: metricSnapshot(simulation.metrics),
+        metrics: factoryMetricSnapshot(simulation.metrics),
         capacityPlan: planProductionCapacity(project),
       },
       simulation,

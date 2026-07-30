@@ -6,17 +6,18 @@ import { buildFactoryObservationBrief, openFactoryObservationBrief } from "./obs
 import { openProjectWorkbenchSnapshot, type ProjectWorkbenchSnapshot } from "./workbench";
 
 const repository = resolve(import.meta.dir, "../../..");
+const memoryFabProjectDir = join(repository, "examples/memory-fab");
+const memoryFabSnapshot = openProjectWorkbenchSnapshot(memoryFabProjectDir);
 
 test("observation brief keeps the Objective WIP tradeoff visible after current losses are bounded", async () => {
-  const projectDir = join(repository, "examples/memory-fab");
-  const snapshot = structuredClone(await openProjectWorkbenchSnapshot(projectDir));
+  const snapshot = structuredClone(await memoryFabSnapshot);
   snapshot.diagnostics = snapshot.diagnostics.filter((diagnostic) => diagnostic.severity === "info");
   snapshot.lossDispositions = [];
   const brief = buildFactoryObservationBrief(snapshot, "101-simulate");
   expect(brief.version).toBe(2);
   expect(brief.status).toBe("ready");
   expect(brief.authority).toBe("human-or-agent");
-  expect(brief.project).toEqual(expect.objectContaining({ id: "memory-fab", rootDir: projectDir }));
+  expect(brief.project).toEqual(expect.objectContaining({ id: "memory-fab", rootDir: memoryFabProjectDir }));
   expect(brief.selection).toEqual({
     world: "cleanroom",
     blueprint: "generated-dram-fab",
@@ -62,12 +63,11 @@ test("observation brief keeps the Objective WIP tradeoff visible after current l
   expect(brief.handoff.requiredStatements).toHaveLength(4);
   expect(brief.handoff.nextStep).toContain("Use the Objective tradeoff and Resource-qualified views");
   expect(buildFactoryObservationBrief(snapshot, "101-simulate")).toEqual(brief);
-  expect(openFactoryObservationBrief(projectDir, {}, "missing-run")).rejects.toThrow("Unknown immutable run 'missing-run'");
+  expect(() => buildFactoryObservationBrief(snapshot, "missing-run")).toThrow("Unknown immutable run 'missing-run'");
 });
 
 async function observationBriefForDiagnostic(code: string) {
-  const projectDir = join(repository, "examples/memory-fab");
-  const snapshot = structuredClone(await openProjectWorkbenchSnapshot(projectDir));
+  const snapshot = structuredClone(await memoryFabSnapshot);
   const diagnostic = snapshot.diagnostics.find((item) => item.code === code);
   if (!diagnostic) {
     throw new Error(`Missing observation fixture diagnostic '${code}'`);

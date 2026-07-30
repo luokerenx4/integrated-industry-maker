@@ -18,11 +18,13 @@ import { planProductionCapacity, type ProductionCapacityPlan } from "./capacity-
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
 import { analyzeProduction, type ProductionAnalysis, type ProductionDiagnostic } from "./production-analysis";
+import { blueprintSchema } from "./schema";
 import {
   SCORE_BREAKDOWN_COMPONENTS,
   type CompiledFactoryProject,
   type FactoryEvent,
   type FactoryMetrics,
+  type FactoryState,
   type Objective,
   type ProjectHashes,
   type ScoreBreakdown,
@@ -677,10 +679,11 @@ function matchingRun(
   selection: ProjectWorkbenchSnapshot["selection"],
   runs: ProjectWorkbenchSnapshot["runs"],
 ): ProjectWorkbenchSnapshot["runs"][number] | undefined {
-  return runs.filter((run) => run.selection.world === selection.world.id
+  const matching = runs.filter((run) => run.selection.world === selection.world.id
     && run.selection.blueprint === selection.blueprint.id
     && run.selection.scenario === selection.scenario.id
-    && run.selection.objective === selection.objective.id).at(-1);
+    && run.selection.objective === selection.objective.id);
+  return matching.filter((run) => run.compatible).at(-1) ?? matching.at(-1);
 }
 
 function selectionArgv(selection: ProjectWorkbenchSnapshot["selection"]): string[] {
@@ -1305,4 +1308,26 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
 
 export async function openProjectWorkbenchSnapshot(projectDir: string, selection: ProjectSelection = {}): Promise<ProjectWorkbenchSnapshot> {
   return buildProjectWorkbenchSnapshot(compileFactoryProject(await loadFactoryProject(projectDir, selection)));
+}
+
+export async function openRunProjectWorkbenchSnapshot(
+  projectDir: string,
+  runId: string,
+): Promise<ProjectWorkbenchSnapshot> {
+  const run = (await listRuns(projectDir)).find((item) => item.name === runId);
+  if (!run) throw new Error(`Unknown immutable run '${runId}'`);
+  const blueprint = blueprintSchema.parse(await readJson(join(run.path, "blueprint.json")));
+  const metrics = await readJson(join(run.path, "metrics.json")) as FactoryMetrics;
+  const state = await readJson(join(run.path, "final-state.json")) as FactoryState;
+  const events = await readFactoryEvents(join(run.path, "events.ndjson"));
+  const resultHash = hashValue({ runKey: run.manifest.runKey, events, state, metrics });
+  if (resultHash !== run.manifest.resultHash) {
+    throw new Error(`Immutable run '${runId}' result hash does not match its saved events, final state, and metrics`);
+  }
+  const loaded = await loadFactoryProject(projectDir, run.manifest.selection);
+  const project = compileFactoryProject({ ...loaded, blueprint });
+  if (!sameProjectEvidenceIdentity(run.manifest.hashes, project.hashes)) {
+    throw new Error(`Immutable run '${runId}' is not compatible with its exact saved Blueprint and selected project hashes`);
+  }
+  return buildProjectWorkbenchSnapshot(project);
 }

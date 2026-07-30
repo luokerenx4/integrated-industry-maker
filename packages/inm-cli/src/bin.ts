@@ -2,7 +2,7 @@
 import { parseArgs } from "node:util";
 import { resolveProjectDirectory, type ProjectSelection } from "@inm/core";
 import {
-  analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, designCommand, formatCliError, helpCommand, inspectCommand, investigateCommand, isCliCancellationError, isCliUsageError, observeCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
+  analyzeCommand, benchmarkCommand, candidateCommand, compareCommand, compareRunsCommand, designCommand, formatCliError, helpCommand, inspectCommand, investigateCommand, isCliCancellationError, isCliUsageError, observeCommand, planCommand, projectCreateCommand, projectDefaultCommand, projectListCommand,
   researchCommand, runsCommand, schemaCommand, simulateCommand, synthesizeCommand, testCommand, validateCommand, workspaceInitCommand,
 } from "./commands";
 import { projectSessionCommand, studioLifecycleCommand, type StudioLifecycleAction } from "./studio-lifecycle";
@@ -48,6 +48,8 @@ COMMON OPTIONS
   --blueprint <id>            Blueprint name (default from project inm.json)
   --from-blueprint <id>       Comparison baseline Blueprint
   --to-blueprint <id>         Comparison candidate Blueprint
+  --from-run <id>             Immutable Run comparison baseline
+  --to-run <id>               Immutable Run comparison result
   --scenario <id>             Scenario name (default from project inm.json)
   --objective <id>            Objective name (default from project inm.json)
   --seed <n>                  Deterministic seed (default 42)
@@ -198,12 +200,28 @@ async function main(signal: AbortSignal): Promise<void> {
   if (subcommand === "compare") {
     const { values, positionals } = parseArgs({ args, options: {
       ...projectOption, world: common.world, scenario: common.scenario, objective: common.objective, json: common.json, ...section,
-      "from-blueprint": { type: "string" }, "to-blueprint": { type: "string" }, seed: { type: "string", default: "42" },
+      "from-blueprint": { type: "string" }, "to-blueprint": { type: "string" },
+      "from-run": { type: "string" }, "to-run": { type: "string" },
+      seed: { type: "string", default: "42" },
     }, allowPositionals: true });
-    if (!values["from-blueprint"] || !values["to-blueprint"]) throw new Error("Usage: inm compare <project-or-workspace-dir> --from-blueprint ID --to-blueprint ID [--seed N]");
-    const projectDir = await selectedProject(positionals, "inm compare <project-or-workspace-dir> --from-blueprint ID --to-blueprint ID", values.project);
+    const blueprintMode = Boolean(values["from-blueprint"] && values["to-blueprint"]);
+    const runMode = Boolean(values["from-run"] && values["to-run"]);
+    const hasPartialBlueprint = Boolean(values["from-blueprint"] || values["to-blueprint"]) && !blueprintMode;
+    const hasPartialRun = Boolean(values["from-run"] || values["to-run"]) && !runMode;
+    const usage = "Usage: inm compare <project-or-workspace-dir> (--from-blueprint ID --to-blueprint ID [--seed N] | --from-run ID --to-run ID)";
+    if (blueprintMode === runMode || hasPartialBlueprint || hasPartialRun) throw new Error(usage);
+    if (runMode && (values.world || values.scenario || values.objective || values.seed !== "42")) {
+      throw new Error(`${usage}\nRun comparison uses the immutable Runs' own selection and seed.`);
+    }
+    const projectDir = await selectedProject(positionals, usage, values.project);
+    if (runMode) return compareRunsCommand(projectDir, {
+      fromRun: values["from-run"]!,
+      toRun: values["to-run"]!,
+      json: values.json,
+      section: values.section,
+    });
     return compareCommand(projectDir, { world: values.world, scenario: values.scenario, objective: values.objective }, {
-      fromBlueprint: values["from-blueprint"], toBlueprint: values["to-blueprint"], seed: Number(values.seed), json: values.json, section: values.section,
+      fromBlueprint: values["from-blueprint"]!, toBlueprint: values["to-blueprint"]!, seed: Number(values.seed), json: values.json, section: values.section,
     });
   }
   if (subcommand === "benchmark") {

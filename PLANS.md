@@ -12,9 +12,7 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/run-delta-design-session]] | Let humans and Agents enter one reliable session and explain exactly what changed between two compatible immutable Runs. | 2026-07-30 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -28,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/run-delta-design-session]] | Let humans and Agents enter one reliable session and explain exactly what changed between two compatible immutable Runs. | 2026-07-30 |
 | [[plans/compact-inspection-rework-cell]] | Co-locate inspection and rework, shorten the conditional loop, and safely reduce current inspection starvation. | 2026-07-30 |
 | [[plans/project-next-action-session]] | Enter the exact current project work from one source-current, portless session command. | 2026-07-30 |
 | [[plans/current-inspection-starvation-requalification]] | Continue Run 099 inspection reasoning through one physically distinct intervention or an exact bounded defer decision. | 2026-07-30 |

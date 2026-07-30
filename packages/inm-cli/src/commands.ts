@@ -2,7 +2,7 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, DesignRunError, IndustrialInvestigationError, InmValidationError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, appendIndustrialInvestigationEntry, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compileFactoryProject, continueDesignRun, createIndustrialInvestigation, createInvestigationCandidate, describeWipInventoryLocation, evaluateBenchmarkOperation, inspectCandidateDecision, inspectDesignProgramEvidence, inspectIndustrialInvestigation, listDesignPrograms, listIndustrialInvestigations, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadBlueprintBenchmark, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, recommendedDesignProgramEvidenceAction, runDesignProgram, simulateProjectOperation, validateProjectOperation,
+  CandidateChangeSetError, DesignRunError, IndustrialInvestigationError, InmValidationError, RunComparisonError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, appendIndustrialInvestigationEntry, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compareFactoryRuns, compileFactoryProject, continueDesignRun, createIndustrialInvestigation, createInvestigationCandidate, describeWipInventoryLocation, evaluateBenchmarkOperation, inspectCandidateDecision, inspectDesignProgramEvidence, inspectIndustrialInvestigation, listDesignPrograms, listIndustrialInvestigations, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadBlueprintBenchmark, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, recommendedDesignProgramEvidenceAction, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
   TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals,
@@ -330,8 +330,14 @@ async function projectDirectoryContext(projectDir: string) {
   return manifestProjectContext(rootDir, manifest);
 }
 
-function nextAction(id: string, description: string, argv: string[], effect: CliNextAction["effect"] = "read-only"): CliNextAction {
-  return { id, description, argv, effect };
+function nextAction(
+  id: string,
+  description: string,
+  argv: string[],
+  effect: CliNextAction["effect"] = "read-only",
+  studioRoute?: string,
+): CliNextAction {
+  return { id, description, argv, effect, ...(studioRoute ? { studioRoute } : {}) };
 }
 
 function operationMetadata<T extends { data: unknown }>(operation: T): Omit<T, "data"> {
@@ -1390,6 +1396,7 @@ export async function compareCommand(
       }),
       changes: () => ({ patch: comparison.patch, changes: comparison.changes }),
       evaluation: () => ({ from: comparison.from, to: comparison.to, delta: comparison.delta, verdict: comparison.verdict }),
+      losses: () => null,
       all: () => comparison,
     });
     writeSuccess("compare", data, { context: compiledProjectContext(from) });
@@ -1455,6 +1462,129 @@ export async function compareCommand(
     `  bottleneck         ${(fromMetrics.bottleneckEntity ?? "none").padStart(12)} → ${(toMetrics.bottleneckEntity ?? "none").padStart(12)}`, "",
     `VERDICT: ${comparison.verdict} (${signed(comparison.delta.score)} objective score)`,
     "No run artifact was written; compare is a read-only evaluation.", "",
+  ].join("\n"), false);
+}
+
+export async function compareRunsCommand(
+  projectDir: string,
+  options: { fromRun: string; toRun: string; json: boolean; section?: string },
+): Promise<void> {
+  requireJsonSection("compare", options);
+  const comparison = await compareFactoryRuns(projectDir, options.fromRun, options.toRun);
+  if (options.json) {
+    const data = sectionResult("compare", options, {
+      summary: () => ({
+        kind: "immutable-runs",
+        verdict: comparison.verdict,
+        context: comparison.context,
+        from: {
+          run: comparison.from.run,
+          selection: comparison.from.selection,
+          hashes: comparison.from.hashes,
+          score: comparison.from.metrics.score,
+          capacityReady: comparison.from.capacityPlan.ready,
+        },
+        to: {
+          run: comparison.to.run,
+          selection: comparison.to.selection,
+          hashes: comparison.to.hashes,
+          score: comparison.to.metrics.score,
+          capacityReady: comparison.to.capacityPlan.ready,
+        },
+        delta: {
+          score: comparison.delta.score,
+          totalBuildCost: comparison.delta.totalBuildCost,
+          occupiedArea: comparison.delta.occupiedArea,
+          meanTransportTimeTicks: comparison.delta.meanTransportTimeTicks,
+          completedLots: comparison.delta.completedLots,
+          onTimeLots: comparison.delta.onTimeLots,
+          goodYield: comparison.delta.goodYield,
+          firstPassYield: comparison.delta.firstPassYield,
+          reworkCycles: comparison.delta.reworkCycles,
+          scrappedLots: comparison.delta.scrappedLots,
+          qualityEscapes: comparison.delta.qualityEscapes,
+        },
+        primaryLoss: {
+          from: comparison.from.losses?.primary?.id ?? null,
+          to: comparison.to.losses?.primary?.id ?? null,
+          changed: comparison.losses.primaryChanged,
+        },
+        patchOperations: comparison.patch.length,
+        semanticChanges: comparison.changes.length,
+        navigation: comparison.navigation,
+      }),
+      changes: () => ({
+        patch: comparison.patch,
+        changes: comparison.changes,
+        navigation: comparison.navigation,
+      }),
+      evaluation: () => ({
+        from: { ...comparison.from, losses: undefined },
+        to: { ...comparison.to, losses: undefined },
+        delta: comparison.delta,
+        verdict: comparison.verdict,
+      }),
+      losses: () => ({
+        from: comparison.from.losses,
+        to: comparison.to.losses,
+        ...comparison.losses,
+      }),
+      all: () => comparison,
+    });
+    const manifest = manifestSchema.parse(await readJson(join(resolve(projectDir), "inm.json")));
+    writeSuccess("compare", data, {
+      context: manifestProjectContext(resolve(projectDir), manifest),
+      nextActions: [nextAction(
+        `compare-runs.open:${comparison.from.run.id}:${comparison.to.run.id}`,
+        "Open this exact immutable Run comparison in Studio.",
+        ["inm", "compare", resolve(projectDir), "--from-run", comparison.from.run.id, "--to-run", comparison.to.run.id, "--json"],
+        "read-only",
+        comparison.navigation.studioRoute,
+      )],
+    });
+    return;
+  }
+
+  const changeLines = comparison.changes.flatMap((change) => {
+    const marker = change.action === "added" ? "+" : change.action === "removed" ? "-" : "~";
+    if (change.action !== "changed") return [`  ${marker} ${change.kind.padEnd(18)} ${change.id}`];
+    return [
+      `  ${marker} ${change.kind.padEnd(18)} ${change.id}`,
+      ...change.fields.map((field) => `      ${field}`),
+    ];
+  });
+  const from = comparison.from.metrics;
+  const to = comparison.to.metrics;
+  const lossLines = comparison.losses.buckets
+    .filter((bucket) => Math.abs(bucket.scoreDelta) > 1e-12 || bucket.leadingContributorChanged)
+    .map((bucket) => {
+      const fromLeader = bucket.from?.leadingContributor?.label ?? "none";
+      const toLeader = bucket.to?.leadingContributor?.label ?? "none";
+      return `  ${bucket.id.padEnd(28)} ${(bucket.from?.score ?? 0).toFixed(6)} → ${(bucket.to?.score ?? 0).toFixed(6)}  Δ ${signed(bucket.scoreDelta, 6)} · leader ${fromLeader} → ${toLeader}`;
+    });
+  const passedConstraints = (metrics: BlueprintMetricSnapshot) =>
+    `${metrics.objectiveConstraints.filter((constraint) => constraint.passed).length}/${metrics.objectiveConstraints.length}`;
+  write([
+    `${comparison.project.name} · immutable Run comparison`,
+    `FROM ${comparison.from.run.id} ${comparison.from.run.resultHash.slice(0, 12)} → TO ${comparison.to.run.id} ${comparison.to.run.resultHash.slice(0, 12)}`,
+    `Evidence: ${comparison.context.engineVersion} · ${comparison.from.selection.world} / ${comparison.from.selection.scenario} / ${comparison.from.selection.objective} · seed ${comparison.context.seed} · ${(comparison.context.durationTicks / 1000).toFixed(1)} s`, "",
+    `Physical and semantic changes (${comparison.changes.length})`,
+    ...(changeLines.length ? changeLines : ["  none"]), "",
+    "Observed industrial delta",
+    `  score              ${from.score.toFixed(6).padStart(12)} → ${to.score.toFixed(6).padStart(12)}  Δ ${signed(comparison.delta.score, 6)}`,
+    `  build cost         ${from.totalBuildCost.toFixed(0).padStart(12)} → ${to.totalBuildCost.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.totalBuildCost, 0)}`,
+    `  occupied area      ${from.occupiedArea.toFixed(0).padStart(12)} → ${to.occupiedArea.toFixed(0).padStart(12)}  Δ ${signed(comparison.delta.occupiedArea, 0)}`,
+    `  mean movement      ${(from.meanTransportTimeTicks / 1000).toFixed(3).padStart(12)} → ${(to.meanTransportTimeTicks / 1000).toFixed(3).padStart(12)} s  Δ ${signed(comparison.delta.meanTransportTimeTicks / 1000)} s`,
+    `  completed / ontime ${`${from.completedLots}/${from.onTimeLots}`.padStart(12)} → ${`${to.completedLots}/${to.onTimeLots}`.padStart(12)}`,
+    `  good / FP yield    ${(from.goodYield * 100).toFixed(1).padStart(5)}%/${(from.firstPassYield * 100).toFixed(1)}% → ${(to.goodYield * 100).toFixed(1).padStart(5)}%/${(to.firstPassYield * 100).toFixed(1)}%`,
+    `  rework/scrap/escape ${`${from.reworkCycles}/${from.scrappedLots}/${from.qualityEscapes}`.padStart(11)} → ${`${to.reworkCycles}/${to.scrappedLots}/${to.qualityEscapes}`.padStart(11)}`,
+    `  capacity           ${comparison.from.capacityPlan.ready ? "READY" : "BLOCKED"} → ${comparison.to.capacityPlan.ready ? "READY" : "BLOCKED"}`,
+    `  Objective guards   ${passedConstraints(from)} passed → ${passedConstraints(to)} passed`, "",
+    "Changed loss evidence",
+    ...(lossLines.length ? lossLines : ["  no ranked loss score or leading contributor changed"]), "",
+    `VERDICT: ${comparison.verdict} (${signed(comparison.delta.score, 6)} objective score)`,
+    "This is observed evidence, not an automatic next-intervention decision.",
+    `Studio: ${comparison.navigation.studioRoute}`, "",
   ].join("\n"), false);
 }
 
@@ -2304,6 +2434,9 @@ export function formatCliError(
   if (error instanceof IndustrialInvestigationError) return json
     ? `${stableStringify(cliError(command, error.code, error.message, { execution }))}\n`
     : `Investigation error [${error.code}]: ${error.message}\n`;
+  if (error instanceof RunComparisonError) return json
+    ? `${stableStringify(cliError(command, error.code, error.message, { hashes: error.details, execution }))}\n`
+    : `Run comparison error [${error.code}]: ${error.message}\n`;
   if (error instanceof InmValidationError) return json
     ? `${stableStringify(cliError(command, "validation.failed", "Project validation failed.", { issues: error.issues, execution }))}\n`
     : `Validation failed:\n${error.issues.map((issue) => `  ${issue.path} [${issue.code}] ${issue.message}`).join("\n")}\n`;

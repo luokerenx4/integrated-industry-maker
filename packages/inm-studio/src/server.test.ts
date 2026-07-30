@@ -2,7 +2,7 @@ import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/pr
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
-import { createInvestigationCandidate, evaluateBlueprintBenchmark, hashValue, lockBlueprintBenchmark, openFactoryObservationBrief, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
+import { compareFactoryRuns, createInvestigationCandidate, evaluateBlueprintBenchmark, hashValue, lockBlueprintBenchmark, openFactoryObservationBrief, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
 import { isTerminalOperationExecution, type OperationExecutionSnapshot, type OperationExecutionStartResponse } from "@inm/core";
 import { parseStudioWatchMessage, type StudioWatchEvent } from "./watch-protocol";
 
@@ -104,6 +104,101 @@ test("Studio defaults to current compatible evidence instead of the newest unrel
   } finally {
     child.kill();
     await child.exited;
+  }
+}, 30_000);
+
+test("Studio exposes the shared immutable Run comparison and reopens each Run's exact Blueprint", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-studio-run-comparison-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes(".inm"),
+  });
+  const port = 50_000 + process.pid % 1_000;
+  const child = Bun.spawn([
+    process.execPath, join(repository, "packages/inm-studio/src/server.ts"), projectDir,
+    "--port", String(port), "--no-open",
+  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
+
+  try {
+    const reader = child.stdout.getReader();
+    let output = "";
+    while (!output.includes("INM Studio:")) {
+      const chunk = await reader.read();
+      if (chunk.done) throw new Error(`Studio stopped before startup: ${output}`);
+      output += new TextDecoder().decode(chunk.value);
+    }
+    reader.releaseLock();
+
+    const apiResponse = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/run-comparison?from=100-simulate&to=101-simulate`,
+    );
+    expect(apiResponse.status).toBe(200);
+    const apiComparison = await apiResponse.json();
+    const coreComparison = await compareFactoryRuns(projectDir, "100-simulate", "101-simulate");
+    expect(stableStringify(apiComparison)).toBe(stableStringify(coreComparison));
+    expect(apiComparison).toEqual(expect.objectContaining({
+      version: 1,
+      verdict: "IMPROVED",
+      delta: expect.objectContaining({
+        score: 0.5049999999999955,
+        totalBuildCost: -100,
+        occupiedArea: -10,
+      }),
+      navigation: expect.objectContaining({
+        studioRoute: "/memory-fab/runs?from=100-simulate&to=101-simulate",
+      }),
+    }));
+
+    const historicalResponse = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/data?run=100-simulate`,
+    );
+    expect(historicalResponse.status).toBe(200);
+    expect(await historicalResponse.json()).toEqual(expect.objectContaining({
+      selectedRun: "100-simulate",
+      blueprintHash: "6b8b0ce24a75de511162b1d090c4c15fedd0e976dd1764d173e918d76a5832fe",
+    }));
+    const historicalObservation = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/observation?run=100-simulate`,
+    );
+    expect(historicalObservation.status).toBe(200);
+    expect(await historicalObservation.json()).toEqual(expect.objectContaining({
+      status: "ready",
+      evidence: {
+        state: "compatible",
+        run: expect.objectContaining({
+          id: "100-simulate",
+          resultHash: "5302c842062cb8f5785dff1387f89a26439f3b510ca86126b621ac3fca013a06",
+        }),
+      },
+    }));
+
+    const invalidResponse = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/run-comparison?from=100-simulate&to=100-simulate`,
+    );
+    expect(invalidResponse.status).toBe(400);
+    expect(await invalidResponse.json()).toEqual(expect.objectContaining({
+      code: "run-comparison.same-run",
+      hashes: { fromRunId: "100-simulate", toRunId: "100-simulate" },
+    }));
+
+    const incompleteResponse = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/run-comparison?from=100-simulate`,
+    );
+    expect(incompleteResponse.status).toBe(400);
+    expect(await incompleteResponse.json()).toEqual(expect.objectContaining({
+      code: "run-comparison.invalid-request",
+    }));
+
+    const deepLink = await fetch(
+      `http://localhost:${port}/memory-fab/runs?from=100-simulate&to=101-simulate`,
+    );
+    expect(deepLink.status).toBe(200);
+    expect(deepLink.headers.get("content-type")).toContain("text/html");
+  } finally {
+    child.kill();
+    await child.exited;
+    await rm(root, { recursive: true, force: true });
   }
 }, 30_000);
 

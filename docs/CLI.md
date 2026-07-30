@@ -112,7 +112,7 @@ Treats the Objective's primary target and every delivery contract as an industri
 inm plan examples/ironworks --json
 ```
 
-### `inm compare <project-or-workspace-dir> --from-blueprint ID --to-blueprint ID [--project ID] [--seed N]`
+### `inm compare <project-or-workspace-dir> (--from-blueprint ID --to-blueprint ID [selection] [--seed N] | --from-run ID --to-run ID) [--project ID]`
 
 Compares two named Blueprint files as one controlled experiment. Both files are compiled against the same selected Resource, Process, and Device catalogs, World, Scenario, Objective, and deterministic seed; the command rejects a changed benchmark input instead of blending it into the Blueprint result.
 
@@ -129,6 +129,14 @@ inm compare examples/ironworks \
 ```
 
 The command is strictly read-only: it never edits a Blueprint and never creates or reuses a run artifact. Use `inm simulate` to persist a chosen candidate. The two Blueprints must both execute successfully under the selected Scenario; a failure names the side that could not be evaluated. The detailed invariant is in [[docs/design/blueprint-comparison]].
+
+Run mode instead reopens two exact completed Runs without simulating. It verifies each saved Blueprint/execution/result identity, requires equal non-Blueprint context, and reports the persisted semantic/spatial patch, score/cost/area/movement and delivery/quality deltas, capacity and Objective guards, fab-loss score/leader changes, and stable Studio/Factory routes. `--section summary|changes|evaluation|losses|all --json` selects one machine-readable projection; human output carries the same industrial facts. Run mode rejects selection and seed overrides because those would describe a fresh evaluation rather than the saved executions.
+
+```bash
+inm compare examples/memory-fab \
+  --from-run 100-simulate \
+  --to-run 101-simulate
+```
 
 ### `inm benchmark <project-or-workspace-dir> [--project ID] [--benchmark ID] [--lock] [--json]`
 
@@ -258,7 +266,7 @@ The command receives `ResearchInput` JSON on stdin—including the target-rate c
 
 ### `inm session <project-or-workspace-dir> [--experiment ID [--run]] [--project ID] [--port N] [--no-open]`
 
-Enters the exact current project work without composing lifecycle, port discovery, Workbench inspection, and navigation commands manually. The command ensures a managed source-current Studio, safely replacing only a verified stale instance, reads that Studio's authoritative `ProjectWorkbenchSnapshot`, and opens its exact shared `nextAction.studioRoute`. Omit `--port` for the ordinary managed/default/fallback discovery policy. If source adoption is degraded, `session` requests one immediate supervised retry and returns stable `session.studio-degraded` evidence instead of waiting on or opening a refused port.
+Enters the exact current project work without composing lifecycle, port discovery, Workbench inspection, and navigation commands manually. The command ensures a managed source-current Studio, safely replacing only a verified stale instance, reads that Studio's authoritative `ProjectWorkbenchSnapshot`, and opens its exact shared `nextAction.studioRoute`. Omit `--port` for the ordinary managed/default/fallback discovery policy. A failure-free recovery already verified for this exact project/port/source receives one bounded convergence wait. Changed ownership/source and timeout return typed retryable recovery errors; degraded adoption requests one immediate supervised retry and otherwise returns stable `session.studio-degraded` evidence. Session never waits on or opens a foreign or refused port.
 
 Default human and JSON output return one strict `project-next-action` target with the same id, reason, argv, effect, confirmation boundary, typed target, route, and URL used by Studio. Session entry only navigates; it never executes the recommended action implicitly.
 

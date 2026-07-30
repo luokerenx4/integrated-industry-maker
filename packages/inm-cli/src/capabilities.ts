@@ -143,11 +143,13 @@ const COMMANDS: Omit<CliCommandDescriptor, "exitCodes">[] = [
     outputSections: ["summary", "anchors", "entries", "all"],
   },
   {
-    id: "compare", usage: "inm compare <path> --from-blueprint ID --to-blueprint ID [selection] [--seed N] [--json]", description: "Compare and evaluate two Blueprints without writing.",
+    id: "compare", usage: "inm compare <path> (--from-blueprint ID --to-blueprint ID [selection] [--seed N] | --from-run ID --to-run ID) [--json]", description: "Compare two Blueprints by fresh controlled evaluation or explain two compatible immutable Runs without writing.",
     effect: "read-only", supportsJson: true, arguments: [path, project, ...selection.filter((item) => item.name !== "blueprint"),
-      { name: "from-blueprint", form: "option", value: "string", required: true, description: "Baseline Blueprint id." },
-      { name: "to-blueprint", form: "option", value: "string", required: true, description: "Candidate Blueprint id." },
-      { name: "seed", form: "option", value: "integer", required: false, description: "Deterministic seed.", default: 42 }, sectionArgument(["summary", "changes", "evaluation", "all"]), json], outputSections: ["summary", "changes", "evaluation", "all"],
+      { name: "from-blueprint", form: "option", value: "string", required: false, description: "Baseline Blueprint id; requires --to-blueprint and excludes Run mode." },
+      { name: "to-blueprint", form: "option", value: "string", required: false, description: "Candidate Blueprint id; requires --from-blueprint and excludes Run mode." },
+      { name: "from-run", form: "option", value: "string", required: false, description: "Baseline immutable Run id; requires --to-run and excludes Blueprint mode." },
+      { name: "to-run", form: "option", value: "string", required: false, description: "Result immutable Run id; requires --from-run and excludes Blueprint mode." },
+      { name: "seed", form: "option", value: "integer", required: false, description: "Deterministic seed for Blueprint mode.", default: 42 }, sectionArgument(["summary", "changes", "evaluation", "losses", "all"]), json], outputSections: ["summary", "changes", "evaluation", "losses", "all"],
   },
   {
     id: "benchmark", usage: "inm benchmark <path> [--benchmark ID] [--lock] [--progress MODE] [--json]", description: "Evaluate a locked Benchmark or deliberately replace its lock.",

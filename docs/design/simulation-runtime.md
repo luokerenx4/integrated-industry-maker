@@ -66,6 +66,8 @@ A completed run contains its Blueprint snapshot, manifest, events, final state, 
 
 Studio viewing never creates a run. Only explicit CLI simulation/research workflows write history.
 
+Historical viewing and Run comparison compile the Run's own frozen `blueprint.json`, never the current editable file that happens to share its authored Blueprint id. Reopening verifies that compilation reproduces the persisted execution identity; comparison additionally recomputes `resultHash` from the Run key, ordered events, final state, and metrics before using either side. A stable `?run=<id>` Factory route therefore reopens that exact physical layout, metrics, observation brief, and focused Device/Connection rather than projecting current source onto historical evidence.
+
 ## Source of truth
 
 - Scheduler/simulation: `packages/inm-core/src/simulator.ts`

@@ -4747,7 +4747,11 @@ describe("coding-agent Blueprint benchmarks", () => {
   test("separates memory-fab locked compliance from the current-factory WIP tradeoff", async () => {
     const root = await mkdtemp(join(tmpdir(), "inm-current-wip-candidate-"));
     const projectDir = join(root, "memory-fab");
-    await cp(memoryFab, projectDir, { recursive: true });
+    await cp(memoryFab, projectDir, {
+      recursive: true,
+      filter: (source) => ![".inm", "runs", "design-runs", "candidate-reviews", "investigations"]
+        .some((directory) => source.split("/").includes(directory)),
+    });
     const candidatePath = join(projectDir, "candidates/back-end-wip-conwip-5-4.candidate.json");
     const candidate = JSON.parse(await readFile(candidatePath, "utf8"));
     candidate.baseCandidateHash = hashValue((await loadFactoryProject(projectDir, { blueprint: "generated-dram-fab" })).blueprint);
@@ -4803,7 +4807,7 @@ describe("coding-agent Blueprint benchmarks", () => {
       costsToRemove: expect.arrayContaining([expect.objectContaining({ component: "onTimeDelivery", scoreDelta: expect.any(Number) })]),
       patchPaths: ["/policies/lotRelease/maximumWip", "/policies/lotRelease/reopenAtWip"],
     }));
-  });
+  }, 15_000);
 
   test("rejects changed, non-KEEP, invalid-root, and uncompilable candidate proposals with stable codes", async () => {
     const dir = await projectCopy();

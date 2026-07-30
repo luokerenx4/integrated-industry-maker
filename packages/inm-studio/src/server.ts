@@ -7,11 +7,13 @@ import {
   CandidateChangeSetError,
   DesignRunError,
   IndustrialInvestigationError,
+  RunComparisonError,
   analyzeProduction,
   analyzeProjectOperation,
   applyCandidateOperation,
   blueprintSchema,
   buildDesignProgramBrief,
+  compareFactoryRuns,
   compileFactoryProject,
   continueDesignRun,
   createIndustrialInvestigation,
@@ -35,6 +37,7 @@ import {
   buildFactoryObservationBrief,
   openFactoryProject,
   openProjectWorkbenchSnapshot,
+  openRunProjectWorkbenchSnapshot,
   pathExists,
   planProjectOperation,
   planProductionCapacity,
@@ -274,7 +277,12 @@ async function loadStudioData(projectId: string, runName?: string) {
   const requestedRun = runName ? runs.find((run) => run.name === runName) : undefined;
   if (runName && !requestedRun) throw new Error(`Unknown compatible immutable run '${runName}' in project '${projectId}'`);
   const requestedLoaded = requestedRun ? await loadFactoryProject(projectDir, requestedRun.manifest.selection) : undefined;
-  const requestedProject = requestedLoaded ? compileFactoryProject(requestedLoaded) : undefined;
+  const requestedBlueprint = requestedRun
+    ? blueprintSchema.parse(await readJson(join(requestedRun.path, "blueprint.json")))
+    : undefined;
+  const requestedProject = requestedLoaded && requestedBlueprint
+    ? compileFactoryProject({ ...requestedLoaded, blueprint: requestedBlueprint })
+    : undefined;
   if (requestedRun && !sameProjectEvidenceIdentity(requestedRun.manifest.hashes, requestedProject!.hashes)) {
     throw new Error(`Immutable run '${requestedRun.name}' is not compatible with the exact selected project hashes`);
   }
@@ -286,9 +294,9 @@ async function loadStudioData(projectId: string, runName?: string) {
       && run.manifest.selection.objective === defaultProject.selection.objective
       && sameProjectEvidenceIdentity(run.manifest.hashes, defaultProject.hashes)).at(-1) : undefined);
   const loaded = requestedLoaded ?? defaultLoaded;
-  const runBlueprint = selected
+  const runBlueprint = requestedBlueprint ?? (selected
     ? JSON.parse(await readFile(join(selected.path, "blueprint.json"), "utf8"))
-    : loaded.blueprint;
+    : loaded.blueprint);
   const project = compileFactoryProject({ ...loaded, blueprint: runBlueprint });
   const compatibleSelection = selected?.manifest.selection ?? defaultProject.selection;
   const compatibleHashes = selected?.manifest.hashes ?? defaultProject.hashes;
@@ -585,6 +593,12 @@ function projectSelection(url: URL): ProjectSelection {
 
 function errorDetails(error: unknown): { status: number; body: { code: string; error: string; hashes?: Record<string, string> } } {
   const message = error instanceof Error ? error.message : String(error);
+  if (error instanceof RunComparisonError) {
+    const status = error.code === "run-comparison.unknown-run" ? 404
+      : error.code === "run-comparison.incompatible" || error.code === "run-comparison.invalid-evidence" ? 409
+        : 400;
+    return { status, body: { code: error.code, error: message, hashes: error.details } };
+  }
   if (error instanceof CandidateChangeSetError) return { status: error.code === "candidate.stale-base" ? 409 : 400, body: { code: error.code, error: message } };
   if (error instanceof DesignRunError) return { status: error.code.endsWith("stale") ? 409 : 400, body: { code: error.code, error: message, hashes: error.hashes } };
   if (error instanceof IndustrialInvestigationError) {
@@ -655,8 +669,11 @@ const server = Bun.serve({
       if (observationMatch) {
         if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
         const projectDir = await projectDirectory(decoded(observationMatch[1]!));
-        const snapshot = await openProjectWorkbenchSnapshot(projectDir, projectSelection(url));
-        return Response.json(buildFactoryObservationBrief(snapshot, url.searchParams.get("run") ?? undefined));
+        const requestedRunId = url.searchParams.get("run");
+        const snapshot = requestedRunId
+          ? await openRunProjectWorkbenchSnapshot(projectDir, requestedRunId)
+          : await openProjectWorkbenchSnapshot(projectDir, projectSelection(url));
+        return Response.json(buildFactoryObservationBrief(snapshot, requestedRunId ?? undefined));
       }
 
       const investigationsMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/investigations$/);
@@ -740,7 +757,23 @@ const server = Bun.serve({
 
       const dataMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/data$/);
       if (dataMatch) {
+        if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
         return Response.json(await loadStudioData(decoded(dataMatch[1]!), url.searchParams.get("run") ?? undefined));
+      }
+
+      const runComparisonMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/run-comparison$/);
+      if (runComparisonMatch) {
+        if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const fromRunId = url.searchParams.get("from");
+        const toRunId = url.searchParams.get("to");
+        if (!fromRunId || !toRunId) {
+          return Response.json({
+            code: "run-comparison.invalid-request",
+            error: "Run comparison requires exact 'from' and 'to' immutable Run ids.",
+          }, { status: 400 });
+        }
+        const projectDir = await projectDirectory(decoded(runComparisonMatch[1]!));
+        return Response.json(await compareFactoryRuns(projectDir, fromRunId, toRunId));
       }
 
       const operationMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/operations\/(validate|analyze|plan|simulate)$/);

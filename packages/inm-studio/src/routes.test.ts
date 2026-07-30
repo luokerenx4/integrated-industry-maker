@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, factoryRunId, investigationPath, overlayReturnPath, projectPath, requiresFullProjectData, studioRoute, viewPath } from "./routes";
+import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, factoryRunId, investigationPath, overlayReturnPath, projectPath, requiresFullProjectData, runComparisonIds, runComparisonPath, studioRoute, viewPath } from "./routes";
 
 test("Studio builds and parses every stable project-qualified route", () => {
   const cases = [
@@ -31,6 +31,19 @@ test("Factory paths preserve one encoded immutable run identity", () => {
     .toBe("/memory-fab/factory/devices/etch%2Fl2?run=090-simulate");
   expect(factoryRunId("?run=090-simulate")).toBe("090-simulate");
   expect(factoryRunId("")).toBeNull();
+});
+
+test("Run comparison paths preserve both exact immutable evidence identities", () => {
+  expect(runComparisonPath("memory fab", "100 simulate", "101/simulate"))
+    .toBe("/memory%20fab/runs?from=100%20simulate&to=101%2Fsimulate");
+  expect(runComparisonIds("?from=100%20simulate&to=101%2Fsimulate")).toEqual({
+    fromRunId: "100 simulate",
+    toRunId: "101/simulate",
+  });
+  expect(runComparisonPath("memory-fab")).toBe("/memory-fab/runs");
+  expect(runComparisonIds("")).toEqual({ fromRunId: null, toRunId: null });
+  expect(studioRoute(runComparisonPath("memory-fab", "100-simulate", "101-simulate").split("?")[0]!))
+    .toEqual(expect.objectContaining({ projectId: "memory-fab", view: "runs" }));
 });
 
 test("reload, back, and forward reconstruct route state without browser-only authority", () => {

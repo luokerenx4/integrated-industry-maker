@@ -108,6 +108,81 @@ test("compare command evaluates two Blueprints without writing a run artifact", 
   expect(await readFile(candidatePath, "utf8")).toBe(candidateBefore);
 });
 
+test("compare command explains two exact immutable memory-fab Runs for humans and Agents", async () => {
+  const projectDir = join(repository, "examples/memory-fab");
+  const args = ["compare", projectDir, "--from-run", "100-simulate", "--to-run", "101-simulate"];
+
+  const human = await runCli(args);
+  expect({ exitCode: human.exitCode, stderr: human.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(human.stdout).toContain("FROM 100-simulate 5302c842062c → TO 101-simulate d0a140643718");
+  expect(human.stdout).toContain("score                 -0.306590 →     0.198410  Δ +0.505000");
+  expect(human.stdout).toContain("build cost               229940 →       229840  Δ -100");
+  expect(human.stdout).toContain("occupied area               269 →          259  Δ -10");
+  expect(human.stdout).toContain("completed / ontime        12/12 →        12/12");
+  expect(human.stdout).toContain("good / FP yield    100.0%/83.3% → 100.0%/83.3%");
+  expect(human.stdout).toContain("leader etch-1 → probe-1");
+  expect(human.stdout).toContain("This is observed evidence, not an automatic next-intervention decision.");
+
+  const agent = await runCli([...args, "--json", "--section", "summary"]);
+  expect({ exitCode: agent.exitCode, stderr: agent.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  const envelope = JSON.parse(agent.stdout);
+  expect(envelope).toEqual(expect.objectContaining({
+    schemaVersion: 2,
+    ok: true,
+    command: "compare",
+    data: expect.objectContaining({
+      section: "summary",
+      result: expect.objectContaining({
+        kind: "immutable-runs",
+        semanticChanges: 6,
+        patchOperations: 32,
+        verdict: "IMPROVED",
+        from: expect.objectContaining({
+          run: expect.objectContaining({
+            id: "100-simulate",
+            resultHash: "5302c842062cb8f5785dff1387f89a26439f3b510ca86126b621ac3fca013a06",
+          }),
+        }),
+        to: expect.objectContaining({
+          run: expect.objectContaining({
+            id: "101-simulate",
+            resultHash: "d0a140643718af750433d62a12f0fb1ba668408daa16142c1cfb13d552b33b3e",
+          }),
+        }),
+        delta: expect.objectContaining({
+          score: 0.5049999999999955,
+          totalBuildCost: -100,
+          occupiedArea: -10,
+          meanTransportTimeTicks: -166.66666666666788,
+          completedLots: 0,
+          onTimeLots: 0,
+          goodYield: 0,
+          firstPassYield: 0,
+        }),
+        navigation: expect.objectContaining({
+          studioRoute: "/memory-fab/runs?from=100-simulate&to=101-simulate",
+        }),
+      }),
+    }),
+    nextActions: [expect.objectContaining({
+      studioRoute: "/memory-fab/runs?from=100-simulate&to=101-simulate",
+    })],
+  }));
+
+  const invalid = await runCli(["compare", projectDir, "--from-run", "100-simulate", "--to-run", "100-simulate", "--json"]);
+  expect(invalid.exitCode).toBe(1);
+  expect(invalid.stdout).toBe("");
+  expect(JSON.parse(invalid.stderr).error).toEqual(expect.objectContaining({
+    code: "run-comparison.same-run",
+    retryable: false,
+  }));
+
+  const help = await runCli(["help", "--json"]);
+  const compareCapability = JSON.parse(help.stdout).data.commands.find((command: { id: string }) => command.id === "compare");
+  expect(compareCapability.usage).toContain("--from-run ID --to-run ID");
+  expect(compareCapability.outputSections).toEqual(["summary", "changes", "evaluation", "losses", "all"]);
+});
+
 test("CLI-only operator discovers, inspects, previews, applies, and verifies an outcome-guarded Candidate", async () => {
   const parent = await mkdtemp(join(tmpdir(), "inm-candidate-cli-")); const projectDir = join(parent, "memory-fab");
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true, filter: (source) => !source.split("/").includes("runs") && !source.split("/").includes(".inm") });
@@ -593,10 +668,22 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
 test("public investigate preserves and resumes exact project-local human/Agent reasoning", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-cli-investigation-"));
   const projectDir = join(root, "memory-fab");
-  await cp(join(repository, "examples/memory-fab"), projectDir, {
+  const sourceProjectDir = join(repository, "examples/memory-fab");
+  const sourceDesignRun = "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06";
+  await cp(sourceProjectDir, projectDir, {
     recursive: true,
-    filter: (source) => !source.split("/").includes(".inm")
-      && !source.split("/").includes("investigations"),
+    filter: (source) => {
+      const relative = source.slice(sourceProjectDir.length).replace(/^\/+/, "");
+      const [group, subject, artifact] = relative.split("/");
+      if (group === ".inm" || group === "investigations") return false;
+      if (group === "runs") return subject === undefined || subject === "098-simulate";
+      if (group === "design-runs") {
+        return subject === undefined
+          || (subject === "inspection-supply-path"
+            && (artifact === undefined || artifact === sourceDesignRun));
+      }
+      return true;
+    },
   });
   await restorePreCompactMemoryFabBlueprint(projectDir);
   const investigationId = "inspection-starvation-next-step";

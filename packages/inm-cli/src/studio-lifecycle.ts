@@ -24,6 +24,8 @@ const DEFAULT_STUDIO_PORT = Number.isSafeInteger(configuredDefaultPort) && confi
   : 4176;
 const FALLBACK_STUDIO_PORTS = 24;
 const START_TIMEOUT_MS = 15_000;
+const SESSION_RECOVERY_TIMEOUT_MS = 5_000;
+const SESSION_RECOVERY_POLL_MS = 100;
 const repository = resolve(import.meta.dir, "../../..");
 const serverEntry = join(repository, "packages/inm-studio/src/server.ts");
 const supervisorEntry = join(repository, "packages/inm-studio/src/supervisor.ts");
@@ -798,6 +800,54 @@ async function responseJson<T>(url: string, init?: RequestInit): Promise<T> {
   return value;
 }
 
+export async function waitForVerifiedSessionRecovery(
+  lifecycle: StudioLifecycleResult,
+  inspect: () => Promise<StudioLifecycleResult>,
+  timing: { timeoutMs?: number; pollMs?: number } = {},
+): Promise<StudioLifecycleResult> {
+  if (lifecycle.state !== "recovering") return lifecycle;
+  const expectedHash = lifecycle.source.expectedHash;
+  const verifiedRecovery = (current: StudioLifecycleResult): boolean =>
+    current.inputDir === lifecycle.inputDir
+    && current.project === lifecycle.project
+    && current.port === lifecycle.port
+    && current.source.expectedHash === expectedHash
+    && current.supervisor?.attemptedSourceHash === expectedHash
+    && current.supervisor.failure === null;
+  if (!verifiedRecovery(lifecycle)) throw new CliCommandError(
+    "session.studio-recovery-unverified",
+    `Studio recovery on port ${lifecycle.port} is not verified for this exact target and source ${expectedHash.slice(0, 12)}.`,
+    { retryable: true },
+  );
+  const timeoutMs = timing.timeoutMs ?? SESSION_RECOVERY_TIMEOUT_MS;
+  const pollMs = timing.pollMs ?? SESSION_RECOVERY_POLL_MS;
+  const deadline = Date.now() + timeoutMs;
+  let latest = lifecycle;
+  while (Date.now() < deadline) {
+    await Bun.sleep(pollMs);
+    latest = await inspect();
+    if (latest.state === "degraded") return latest;
+    if (!verifiedRecovery(latest)) throw new CliCommandError(
+      "session.studio-recovery-unverified",
+      `Studio recovery on port ${lifecycle.port} stopped matching this exact project or source ${expectedHash.slice(0, 12)}.`,
+      { retryable: true },
+    );
+    if (latest.supervisor?.phase === "current" && latest.source.state === "current") {
+      return { ...latest, action: lifecycle.action, state: "reused" };
+    }
+    if (latest.state !== "recovering") throw new CliCommandError(
+      "session.studio-recovery-unverified",
+      `Studio recovery on port ${lifecycle.port} exited recovery without source-current evidence.`,
+      { retryable: true },
+    );
+  }
+  throw new CliCommandError(
+    "session.studio-recovery-timeout",
+    `Studio did not converge to source ${expectedHash.slice(0, 12)} within ${timeoutMs}ms; last supervisor phase was ${latest.supervisor?.phase ?? "unknown"}.`,
+    { retryable: true },
+  );
+}
+
 export async function projectSessionCommand(
   input: string,
   options: ProjectSessionOptions,
@@ -813,11 +863,22 @@ export async function projectSessionCommand(
   const manifest = manifestSchema.parse(await readJson(join(projectDir, "inm.json")));
   const context = manifestProjectContext(projectDir, manifest);
   const selectedPort = await resolveLifecyclePort("start", inputDir, options);
-  const lifecycle = await startManaged(inputDir, {
+  let lifecycle = await startManaged(inputDir, {
     ...options,
     port: selectedPort.port,
     portSelection: selectedPort.portSelection,
   });
+  if (lifecycle.state === "recovering") {
+    const resolvedOptions: ResolvedStudioLifecycleOptions = {
+      ...options,
+      port: selectedPort.port,
+      portSelection: selectedPort.portSelection,
+    };
+    lifecycle = await waitForVerifiedSessionRecovery(
+      lifecycle,
+      () => currentStatus(inputDir, resolvedOptions),
+    );
+  }
   if (lifecycle.state === "degraded" || lifecycle.state === "recovering") {
     const failure = lifecycle.supervisor?.failure;
     throw new CliCommandError(

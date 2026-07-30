@@ -1,6 +1,6 @@
 import React, { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals } from "@inm/core/transport-blocking";
-import type { BlueprintBenchmarkSummary, DesignProgramSummary, FactoryObservationBrief, ProjectOperationResult, ProjectWorkbenchSnapshot, TransportBlockTicks, WorkbenchDiagnostic, WorkbenchNextActionTarget, WorkbenchOperationDescriptor } from "@inm/core";
+import type { BlueprintBenchmarkSummary, DesignProgramSummary, FactoryObservationBrief, FactoryRunComparison, ProjectOperationResult, ProjectWorkbenchSnapshot, TransportBlockTicks, WorkbenchDiagnostic, WorkbenchNextActionTarget, WorkbenchOperationDescriptor } from "@inm/core";
 import { createRoot } from "react-dom/client";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Billboard, Clone, Grid, Html, Line, OrbitControls, RoundedBox, Text, useGLTF, useTexture } from "@react-three/drei";
@@ -8,7 +8,7 @@ import * as THREE from "three";
 import "./styles.css";
 import { connectedSceneObjects, normalizeStudioSelection, selectStudioObject, type StudioSelection } from "./selection";
 import { factoryPresentation, type FactoryLabelDensity, type FactoryPresentation as FactoryPresentationPolicy, type FactoryPresentationRequest } from "./factory-presentation";
-import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, factoryRunId, investigationPath, overlayReturnPath, projectPath, requiresFullProjectData, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
+import { analysisPath, catalogPath, designPath, experimentPath, factoryObjectPath, factoryRunId, investigationPath, overlayReturnPath, projectPath, requiresFullProjectData, runComparisonIds, runComparisonPath, studioRoute, viewPath, type AssetKind, type StudioView } from "./routes";
 import { ExperimentWorkbench } from "./experiment-workbench";
 import { DesignWorkbench } from "./design-workbench";
 import { InvestigationWorkbench } from "./investigation-workbench";
@@ -2361,10 +2361,86 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   </section>;
 }
 
-function RunsOverview({ snapshot, onOpenFactory }: { snapshot: ProjectWorkbenchSnapshot; onOpenFactory: (runId: string) => void }) {
+function signedRunDelta(value: number, digits = 3): string {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(digits)}`;
+}
+
+function RunsOverview({
+  snapshot,
+  comparisonIds,
+  comparison,
+  comparisonLoading,
+  comparisonError,
+  onCompare,
+  onOpenFactory,
+}: {
+  snapshot: ProjectWorkbenchSnapshot;
+  comparisonIds: { fromRunId: string | null; toRunId: string | null };
+  comparison: FactoryRunComparison | null;
+  comparisonLoading: boolean;
+  comparisonError: string | null;
+  onCompare: (fromRunId: string, toRunId: string) => void;
+  onOpenFactory: (runId: string) => void;
+}) {
+  const newestRun = snapshot.runs.at(-1)?.id ?? "";
+  const previousRun = snapshot.runs.at(-2)?.id ?? "";
+  const [fromRunId, setFromRunId] = useState(comparisonIds.fromRunId ?? previousRun);
+  const [toRunId, setToRunId] = useState(comparisonIds.toRunId ?? newestRun);
+  useEffect(() => {
+    setFromRunId(comparisonIds.fromRunId ?? previousRun);
+    setToRunId(comparisonIds.toRunId ?? newestRun);
+  }, [comparisonIds.fromRunId, comparisonIds.toRunId, newestRun, previousRun]);
+  const changedLosses = comparison?.losses.buckets.filter((bucket) =>
+    Math.abs(bucket.scoreDelta) > 1e-12 || bucket.leadingContributorChanged) ?? [];
+  const canCompare = Boolean(fromRunId && toRunId && fromRunId !== toRunId);
+  const fromMetrics = comparison?.from.metrics;
+  const toMetrics = comparison?.to.metrics;
+  const passed = (side: FactoryRunComparison["from"]) =>
+    `${side.metrics.objectiveConstraints.filter((constraint) => constraint.passed).length}/${side.metrics.objectiveConstraints.length}`;
+
   return <section className="runs-page" aria-label="Project runs">
-    <header><span className="eyebrow">IMMUTABLE EVIDENCE</span><h2>Simulation runs</h2><p>Every result is reconstructed from project files; browser memory is not authoritative.</p></header>
-    {snapshot.runs.length ? <div className="runs-table"><div className="runs-head"><span>RUN</span><span>SELECTION</span><span>DECISION</span><span>SCORE</span><span>RESULT HASH</span></div>{[...snapshot.runs].reverse().map((run) => <button key={run.id} data-testid={`run-${run.id}`} disabled={!run.compatible} title={run.compatible ? "Open exact compatible Factory replay" : "Historical run: current project hashes differ"} onClick={() => onOpenFactory(run.id)}><strong>{run.id}</strong><span>{run.selection.blueprint}<small>{run.selection.world} / {run.selection.scenario} / {run.selection.objective}{run.compatible ? "" : " · HISTORICAL"}</small></span><b className={run.decision.toLowerCase()}>{run.decision}</b><em>{run.score.toFixed(3)}</em><code>{run.resultHash.slice(0, 16)}</code></button>)}</div> : <div className="runs-empty"><b>NO COMPLETED RUNS</b><p>Run <code>inm simulate {snapshot.project.rootDir} --json</code>, then refresh.</p></div>}
+    <header><span className="eyebrow">IMMUTABLE EVIDENCE</span><h2>Simulation runs</h2><p>Every result is reconstructed from exact project artifacts; browser memory and the current editable Blueprint are not evidence authority.</p></header>
+    {snapshot.runs.length >= 2 && <section className="run-compare-workbench" aria-label="Compare immutable runs">
+      <form onSubmit={(event) => { event.preventDefault(); if (canCompare) onCompare(fromRunId, toRunId); }}>
+        <div><label htmlFor="compare-from-run">FROM · CONTROL</label><select id="compare-from-run" value={fromRunId} onChange={(event) => setFromRunId(event.target.value)}>{[...snapshot.runs].reverse().map((run) => <option key={run.id} value={run.id}>{run.id} · {run.score.toFixed(3)}</option>)}</select></div>
+        <span aria-hidden="true">→</span>
+        <div><label htmlFor="compare-to-run">TO · INTERVENTION</label><select id="compare-to-run" value={toRunId} onChange={(event) => setToRunId(event.target.value)}>{[...snapshot.runs].reverse().map((run) => <option key={run.id} value={run.id}>{run.id} · {run.score.toFixed(3)}</option>)}</select></div>
+        <button type="submit" disabled={!canCompare || comparisonLoading}>{comparisonLoading ? "VERIFYING…" : fromRunId === toRunId ? "CHOOSE TWO RUNS" : "COMPARE EXACT EVIDENCE"}</button>
+      </form>
+      <p>Compatibility is verified from saved execution identities, Scenario duration, seed, catalogs, and each Run’s own Blueprint—not from adjacency or current source.</p>
+      {comparisonError && <div className="run-comparison-error" role="alert"><b>COMPARISON REJECTED</b><span>{comparisonError}</span></div>}
+      {comparison && fromMetrics && toMetrics && <div className="run-comparison-result" data-testid="run-comparison-result">
+        <header>
+          <div><span>EXACT EVIDENCE DELTA · {comparison.context.engineVersion}</span><h3>{comparison.from.run.id} <i>→</i> {comparison.to.run.id}</h3><code>{comparison.from.run.resultHash.slice(0, 16)} → {comparison.to.run.resultHash.slice(0, 16)}</code></div>
+          <b className={comparison.verdict.toLowerCase()}>{comparison.verdict}<small>{signedRunDelta(comparison.delta.score, 6)} SCORE</small></b>
+        </header>
+        <div className="run-delta-grid">
+          <article><small>OBJECTIVE SCORE</small><strong>{fromMetrics.score.toFixed(6)} <i>→</i> {toMetrics.score.toFixed(6)}</strong><b>{signedRunDelta(comparison.delta.score, 6)}</b></article>
+          <article><small>BUILD COST</small><strong>{fromMetrics.totalBuildCost.toFixed(0)} <i>→</i> {toMetrics.totalBuildCost.toFixed(0)}</strong><b>{signedRunDelta(comparison.delta.totalBuildCost, 0)}</b></article>
+          <article><small>OCCUPIED AREA</small><strong>{fromMetrics.occupiedArea.toFixed(0)} <i>→</i> {toMetrics.occupiedArea.toFixed(0)}</strong><b>{signedRunDelta(comparison.delta.occupiedArea, 0)} CELLS</b></article>
+          <article><small>MEAN MOVEMENT</small><strong>{(fromMetrics.meanTransportTimeTicks / 1000).toFixed(3)} <i>→</i> {(toMetrics.meanTransportTimeTicks / 1000).toFixed(3)} s</strong><b>{signedRunDelta(comparison.delta.meanTransportTimeTicks / 1000)} s</b></article>
+        </div>
+        <section className="run-guardrails">
+          <header><span>UNCHANGED OUTCOME GUARDRAILS</span><b>DO NOT HIDE TRADEOFFS</b></header>
+          <div><span><small>COMPLETED / ON TIME</small><strong>{fromMetrics.completedLots}/{fromMetrics.onTimeLots} → {toMetrics.completedLots}/{toMetrics.onTimeLots}</strong></span><span><small>GOOD / FIRST-PASS YIELD</small><strong>{(fromMetrics.goodYield * 100).toFixed(1)}%/{(fromMetrics.firstPassYield * 100).toFixed(1)}% → {(toMetrics.goodYield * 100).toFixed(1)}%/{(toMetrics.firstPassYield * 100).toFixed(1)}%</strong></span><span><small>REWORK / SCRAP / ESCAPE</small><strong>{fromMetrics.reworkCycles}/{fromMetrics.scrappedLots}/{fromMetrics.qualityEscapes} → {toMetrics.reworkCycles}/{toMetrics.scrappedLots}/{toMetrics.qualityEscapes}</strong></span><span><small>CAPACITY / OBJECTIVE GUARDS</small><strong>{comparison.from.capacityPlan.ready ? "READY" : "BLOCKED"} {passed(comparison.from)} → {comparison.to.capacityPlan.ready ? "READY" : "BLOCKED"} {passed(comparison.to)}</strong></span></div>
+        </section>
+        <div className="run-evidence-columns">
+          <section>
+            <header><span>PHYSICAL & SEMANTIC CHANGE</span><b>{comparison.changes.length} CHANGES · {comparison.patch.length} PATCH OPS</b></header>
+            <div className="run-change-list">{comparison.changes.map((change) => {
+              const subject = comparison.navigation.changedSubjects.find((item) => item.kind === change.kind && item.id === change.id);
+              return <article key={`${change.kind}:${change.id}`}><b>{change.action.toUpperCase()} · {change.kind.toUpperCase()}</b><strong>{change.id}</strong><span>{change.fields.join(" · ") || "whole object"}</span>{subject && <nav>{subject.fromFactoryRoute && <a href={subject.fromFactoryRoute}>SEE FROM</a>}{subject.toFactoryRoute && <a href={subject.toFactoryRoute}>SEE TO</a>}</nav>}</article>;
+            })}</div>
+          </section>
+          <section>
+            <header><span>CHANGED LOSS EVIDENCE</span><b>{changedLosses.length} OBSERVED SHIFTS</b></header>
+            <div className="run-loss-list">{changedLosses.length ? changedLosses.map((bucket) => <article key={bucket.id}><b>{bucket.label}</b><strong>{bucket.from?.score.toFixed(6) ?? "—"} <i>→</i> {bucket.to?.score.toFixed(6) ?? "—"} <em>{signedRunDelta(bucket.scoreDelta, 6)}</em></strong><span>LEADER {bucket.from?.leadingContributor?.label ?? "—"} → {bucket.to?.leadingContributor?.label ?? "—"}</span></article>) : <p>No ranked loss score or leading contributor changed.</p>}</div>
+          </section>
+        </div>
+        <footer><span>This comparison is observed evidence. It does not choose the next factory intervention.</span><nav><a href={comparison.navigation.fromFactoryRoute}>OPEN CONTROL FACTORY</a><a href={comparison.navigation.toFactoryRoute}>OPEN INTERVENTION FACTORY</a></nav></footer>
+      </div>}
+    </section>}
+    {snapshot.runs.length ? <div className="runs-table"><div className="runs-head"><span>RUN</span><span>SELECTION</span><span>DECISION</span><span>SCORE</span><span>RESULT HASH</span></div>{[...snapshot.runs].reverse().map((run) => <button key={run.id} data-testid={`run-${run.id}`} title="Open this exact saved Factory replay" onClick={() => onOpenFactory(run.id)}><strong>{run.id}</strong><span>{run.selection.blueprint}<small>{run.selection.world} / {run.selection.scenario} / {run.selection.objective}{run.compatible ? " · CURRENT CONTEXT" : " · SAVED CONTEXT"}</small></span><b className={run.decision.toLowerCase()}>{run.decision}</b><em>{run.score.toFixed(3)}</em><code>{run.resultHash.slice(0, 16)}</code></button>)}</div> : <div className="runs-empty"><b>NO COMPLETED RUNS</b><p>Run <code>inm simulate {snapshot.project.rootDir} --json</code>, then refresh.</p></div>}
   </section>;
 }
 
@@ -2387,6 +2463,7 @@ function FactoryObservationPanel({ brief }: { brief: FactoryObservationBrief }) 
 
 function App() {
   const initialRoute = useMemo(() => studioRoute(), []);
+  const initialRunComparison = useMemo(() => runComparisonIds(), []);
   const [routeProject, setRouteProject] = useState<string | null>(initialRoute.projectId);
   const [routeView, setRouteView] = useState<StudioView>(initialRoute.view);
   const [routeExperiment, setRouteExperiment] = useState<string | null>(initialRoute.experimentId);
@@ -2407,6 +2484,12 @@ function App() {
   const [observation, setObservation] = useState<FactoryObservationBrief | null>(null);
   const [run, setRun] = useState<string | null>(null);
   const [routeRun, setRouteRun] = useState<string | null>(initialRoute.view === "factory" ? factoryRunId() : null);
+  const [routeRunComparison, setRouteRunComparison] = useState(initialRoute.view === "runs"
+    ? initialRunComparison
+    : { fromRunId: null, toRunId: null });
+  const [runComparison, setRunComparison] = useState<FactoryRunComparison | null>(null);
+  const [runComparisonLoading, setRunComparisonLoading] = useState(false);
+  const [runComparisonError, setRunComparisonError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(4);
@@ -2497,6 +2580,9 @@ function App() {
     projectRef.current = projectId;
     runRef.current = null;
     setRouteRun(null);
+    setRouteRunComparison({ fromRunId: null, toRunId: null });
+    setRunComparison(null);
+    setRunComparisonError(null);
     setRouteProject(projectId);
     setRouteView("overview");
     setRouteExperiment(null);
@@ -2529,8 +2615,8 @@ function App() {
         : view === "investigations" ? investigationPath(routeProject)
         : view === "catalog" ? catalogPath(routeProject)
           : view === "analysis" ? analysisPath(routeProject)
-            : view === "factory" ? factoryObjectPath(routeProject, null, run)
-              : viewPath(routeProject, "runs");
+          : view === "factory" ? factoryObjectPath(routeProject, null, run)
+              : runComparisonPath(routeProject);
     if (path === window.location.pathname) return;
     const overlay = view === "catalog" || view === "analysis" || view === "experiments" || view === "designs" || view === "investigations";
     const currentOverlay = routeView === "catalog" || routeView === "analysis" || routeView === "experiments" || routeView === "designs" || routeView === "investigations";
@@ -2541,7 +2627,15 @@ function App() {
     setRouteDesignProgram(view === "designs" ? "" : null); setRouteDesignRun(null);
     setRouteInvestigation(view === "investigations" ? "" : null);
     setRouteAssetKind(null); setRouteAssetId(null); setRouteDiagnostic(null); setSelection(null);
+    if (view === "runs") setRouteRunComparison({ fromRunId: null, toRunId: null });
   }, [routeProject, routeView, run]);
+
+  const navigateRunComparison = useCallback((fromRunId: string, toRunId: string) => {
+    if (!routeProject) return;
+    window.history.pushState({}, "", runComparisonPath(routeProject, fromRunId, toRunId));
+    setRouteView("runs");
+    setRouteRunComparison({ fromRunId, toRunId });
+  }, [routeProject]);
 
   const closeRouteSurface = useCallback(() => {
     if (!routeProject) return;
@@ -2691,6 +2785,7 @@ function App() {
       setRouteDiagnostic(nextRoute.diagnosticId);
       setSelection(nextRoute.selection);
       if (nextRoute.view === "factory") setRouteRun(factoryRunId());
+      else if (nextRoute.view === "runs") setRouteRunComparison(runComparisonIds());
       if (!nextRoute.projectId) { setData(null); setOverview(null); setObservation(null); }
     };
     window.addEventListener("popstate", popstate);
@@ -2706,6 +2801,30 @@ function App() {
   useEffect(() => {
     if (routeProject && routeView === "designs") void loadDesignCatalog(routeProject);
   }, [routeProject, routeView, loadDesignCatalog]);
+  useEffect(() => {
+    const { fromRunId, toRunId } = routeRunComparison;
+    if (!routeProject || routeView !== "runs" || !fromRunId || !toRunId) {
+      setRunComparison(null);
+      setRunComparisonError(null);
+      setRunComparisonLoading(false);
+      return;
+    }
+    let current = true;
+    setRunComparison(null);
+    setRunComparisonError(null);
+    setRunComparisonLoading(true);
+    const query = new URLSearchParams({ from: fromRunId, to: toRunId });
+    void (async () => responseJson<FactoryRunComparison>(await fetch(
+      `/api/projects/${encodeURIComponent(routeProject)}/run-comparison?${query}`,
+    )))().then((next) => {
+      if (current) setRunComparison(next);
+    }).catch((nextError) => {
+      if (current) setRunComparisonError(nextError instanceof Error ? nextError.message : String(nextError));
+    }).finally(() => {
+      if (current) setRunComparisonLoading(false);
+    });
+    return () => { current = false; };
+  }, [routeProject, routeRunComparison, routeView]);
   useEffect(() => {
     if (routeView !== "factory" || !data || !run || factoryRunId() === run) return;
     window.history.replaceState(window.history.state, "", factoryObjectPath(data.projectId, selection, run));
@@ -2890,7 +3009,15 @@ function App() {
     const focusedDiagnostic = routeDiagnostic ? overview.diagnostics.find((diagnostic) => diagnostic.id === routeDiagnostic) : undefined;
     return <main className={`project-shell ${loading ? "syncing" : ""}`}>
       {header}
-      <div className="workbench-content">{routeView === "runs" ? <RunsOverview snapshot={overview} onOpenFactory={openRun} /> : overviewContent}</div>
+      <div className="workbench-content">{routeView === "runs" ? <RunsOverview
+        snapshot={overview}
+        comparisonIds={routeRunComparison}
+        comparison={runComparison}
+        comparisonLoading={runComparisonLoading}
+        comparisonError={runComparisonError}
+        onCompare={navigateRunComparison}
+        onOpenFactory={openRun}
+      /> : overviewContent}</div>
       {routeView === "catalog" && <AssetBrowser data={data} initialKind={routeAssetKind ?? "devices"} initialId={routeAssetId} onNavigate={navigateCatalog} onClose={closeRouteSurface} />}
       {routeView === "analysis" && <AnalysisBrowser data={data} focusDiagnostic={focusedDiagnostic} onClose={closeRouteSurface} />}
       {operationStatus && !operationResult && <div className="modal-backdrop"><section className={`operation-progress ${operationError ? "failed" : ""}`} role="dialog" aria-modal="true" aria-label={`Operation progress: ${operationStatus.id}`}><span className="eyebrow">SHARED CORE OPERATION</span><h2>{operationError ? "OPERATION FAILED" : "OPERATION RUNNING"}</h2><strong>{operationStatus.id}</strong>{operationError ? <><p>{operationError}</p><button onClick={() => { setOperationStatus(null); setOperationError(null); }}>CLOSE</button></> : <><div className="loading-bar"><i /></div><code>{operationStatus.cli}</code></>}</section></div>}

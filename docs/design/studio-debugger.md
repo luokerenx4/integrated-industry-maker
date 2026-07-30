@@ -1,6 +1,6 @@
 # Studio visual debugger
 
-Status: task-oriented project Overview, stable workbench/experiment/candidate/investigation/object routes, shared Benchmark, Candidate, Design, and persistent Investigation workbenches, searchable asset catalog and diagnostics, direct factory-object inspection, and immutable run replay implemented.
+Status: task-oriented project Overview, stable workbench/experiment/candidate/investigation/object routes, shared Benchmark, Candidate, Design, persistent Investigation, and immutable Run-comparison workbenches, searchable asset catalog and diagnostics, direct factory-object inspection, and immutable run replay implemented.
 
 Related: [[docs/design/project-boundaries]], [[docs/design/development-operations]], [[docs/design/operator-workbench]], [[docs/design/operation-workbench]], [[docs/design/experiment-workbench]], [[docs/design/industrial-investigations]], [[docs/design/material-treatment]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/equipment-changeover]], [[docs/design/quality-flow]], [[docs/design/simulation-runtime]], [[docs/CLI]], [[plans/operator-interaction-refinement]].
 
@@ -10,7 +10,7 @@ Studio is a debugger for compiled industrial systems and completed runs plus an 
 
 ## Navigation
 
-The root route presents available projects. Selecting one follows its real `/<project-id>` link and initializes that project as a fresh document boundary before opening its task-oriented Overview. Stable project-qualified routes cover `factory`, `runs`, `catalog`, `analysis`, `experiments`, `designs`, and `investigations`; catalog assets, diagnostics, Factory devices/connections, Benchmarks, Candidate Change Sets, Design Programs, Design Run hashes, and Investigation ids retain their subject identity in the URL. Navigation inside one project uses real stable destinations while preserving client-side transitions. Catalog, Analysis, Experiments, Design, and Investigation are route-backed surfaces over the underlying view: browser back/reload reconstructs them, while their close button or Escape replaces the surface with its recorded same-project origin (or the project Overview after a direct deep link). A strict valid Design Run hash that no longer satisfies current evidence identity remains readable in its copied URL with exact historical reasons, but it cannot own default selection, continuation, or promotion. Invalid deep links retain their URL and strict error notice. The current Core authority, when present, is the ordinary default route transition. Switching primary destinations replaces an open surface instead of leaving it immediately behind in history. Clearing a Factory object by toggle, empty-scene click, inspector close, or Escape also clears its object URL. The back button returns to the launcher; there is no in-project project switcher. Every data, investigation, experiment, candidate, and asset request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
+The root route presents available projects. Selecting one follows its real `/<project-id>` link and initializes that project as a fresh document boundary before opening its task-oriented Overview. Stable project-qualified routes cover `factory`, `runs`, `catalog`, `analysis`, `experiments`, `designs`, and `investigations`; catalog assets, diagnostics, Factory devices/connections, Benchmarks, Candidate Change Sets, Design Programs, Design Run hashes, Investigation ids, and the exact `runs?from=<id>&to=<id>` pair retain their subject identity in the URL. Navigation inside one project uses real stable destinations while preserving client-side transitions. Catalog, Analysis, Experiments, Design, and Investigation are route-backed surfaces over the underlying view: browser back/reload reconstructs them, while their close button or Escape replaces the surface with its recorded same-project origin (or the project Overview after a direct deep link). A strict valid Design Run hash that no longer satisfies current evidence identity remains readable in its copied URL with exact historical reasons, but it cannot own default selection, continuation, or promotion. Invalid deep links retain their URL and strict error notice. The current Core authority, when present, is the ordinary default route transition. Switching primary destinations replaces an open surface instead of leaving it immediately behind in history. Clearing a Factory object by toggle, empty-scene click, inspector close, or Escape also clears its object URL. The back button returns to the launcher; there is no in-project project switcher. Every data, comparison, investigation, experiment, candidate, and asset request is namespaced under `/api/projects/<project-id>/...` and confined to that project root.
 
 ## Project orientation API
 
@@ -21,6 +21,12 @@ The Overview first presents one deterministic operator recommendation derived on
 Project-file refresh notifications use the project server's `/api/watch` WebSocket. Multiple Studio tabs may hold independent watch sockets without consuming the browser's bounded pool of ordinary HTTP/1.1 request connections, so project index, Overview, data, and asset requests remain available. Each connection first receives a strict source-hash readiness event. The client reconnects a dropped socket and reloads the no-store HTML/bundle only when a supervised replacement reports a different source identity.
 
 Every content refresh names its owning project and publication reason. Run and Design directory events are coalesced onto their final manifest, Candidate review uses its final receipt, and the server publishes only after Core can reopen the complete artifact. A bounded retry covers a filesystem that reports the directory before its final marker. Partial/interrupted evidence and ignored `.inm` operation/cache state are silent. The client refreshes the project index plus only the matching open project surface, including the internal Design/Candidate evidence loader when its route identity remains unchanged; Factory retains the exact Run named by its URL while that artifact becomes readable. A distinct index-only event handles workspace manifest and project-directory discovery without attributing one project's content to another.
+
+## Immutable Run comparison
+
+The Runs surface lists every completed artifact as exact saved context rather than disabling history merely because the editable Blueprint advanced. Selecting a row opens that Run's frozen Blueprint, replay, metrics, observation brief, and optional Device/Connection focus under `?run=<id>`. The historical Workbench projection verifies the saved result and execution identities and chooses the newest compatible artifact for that frozen Blueprint, so a later same-id Blueprint cannot displace its evidence.
+
+Two selectors create one copied `/<project-id>/runs?from=<id>&to=<id>` route. `GET /api/projects/<project-id>/run-comparison?from=<id>&to=<id>` returns the Core `compareFactoryRuns` object unchanged. It either rejects the pair with typed identity/compatibility evidence or renders exact result hashes, semantic/spatial changes, score/cost/area/movement deltas, delivery/quality/capacity/constraint guardrails, changed fab-loss scores and leaders, and the Core verdict. Every changed Device or Connection links to both exact historical Factory routes. The page states the design boundary explicitly: comparison explains observed evidence and never recommends or applies an intervention.
 
 ## Experiment workbench
 
@@ -88,6 +94,7 @@ Inspectors are navigation and debugging surfaces only. They contain no Blueprint
 - Shared project orientation projection: `packages/inm-core/src/workbench.ts`
 - Shared Design evidence authority: `packages/inm-core/src/design-evidence.ts`
 - Shared Investigation storage/currentness: `packages/inm-core/src/investigation.ts`
+- Immutable Run comparison and historical Workbench projection: `packages/inm-core/src/run-comparison.ts`, `packages/inm-core/src/workbench.ts`
 - Project/run data server: `packages/inm-studio/src/server.ts`
 - React/Three UI: `packages/inm-studio/src/main.tsx`
 - Investigation UI: `packages/inm-studio/src/investigation-workbench.tsx`
@@ -104,6 +111,8 @@ bun run inm studio serve examples/ironworks --port 4178 --no-open
 
 Browser QA should verify `/`, the project Overview, direct/reloaded/back-forward `factory`, `runs`, `catalog`, `analysis`, experiment, Candidate, Design, and Investigation routes, diagnostic/asset/factory-object/evidence-anchor deep links, Investigation currentness and reasoning layout, proposal preview/verdict/patch, two-step write confirmation without triggering it on checked-in examples, catalog/diagnostic filtering, run selection, timeline controls, direct Device/belt-cell selection, Device-to-connection and connection-to-Device navigation, replay-tick telemetry, physical port contracts, buffer partitions, responsive inspector layout, and console errors. API tests on temporary projects must cover Investigation create/append/reopen, actual Candidate apply, stale rejection, and no preview writes. Merely confirming that the HTTP server responds does not prove the UI.
 
+Run-comparison QA additionally opens the copied `100-simulate → 101-simulate` memory-fab route, confirms its exact deltas and `etch-1 → probe-1` queue leader, follows one changed subject to `?run=100-simulate` and `?run=101-simulate`, and verifies each Factory Blueprint hash, observation brief, and selected inspector remain bound to that Run.
+
 ## Change checklist
 
 - Keep Studio read-only with respect to Blueprint, Benchmark locks, and run history.
@@ -116,5 +125,5 @@ Browser QA should verify `/`, the project Overview, direct/reloaded/back-forward
 ## Known next gaps
 
 - Layer visibility controls for unusually dense multi-region factories.
-- Blueprint diff overlays between KEEP and REVERT runs.
+- Optional in-scene Blueprint delta overlays after the exact side-by-side Run evidence is already open.
 - Resource-node and station-route scoped inspectors.
