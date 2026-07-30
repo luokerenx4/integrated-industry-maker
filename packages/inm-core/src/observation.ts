@@ -21,7 +21,7 @@ export interface FactoryObservationView {
 }
 
 export interface FactoryObservationBrief {
-  version: 4;
+  version: 5;
   id: string;
   status: "ready" | "needs-run";
   authority: "human-or-agent";
@@ -43,6 +43,7 @@ export interface FactoryObservationBrief {
       decision: ProjectWorkbenchSnapshot["runs"][number]["decision"];
     };
     sourceLotLineage: ProjectWorkbenchSnapshot["sourceLotLineage"];
+    sourceLotServices: ProjectWorkbenchSnapshot["sourceLotServices"];
   };
   leadingDiagnostic: null | Pick<WorkbenchDiagnostic, "id" | "code" | "severity" | "message" | "subjects" | "evidence">;
   leadingObjectiveTradeoff: null | {
@@ -206,6 +207,11 @@ export function buildFactoryObservationBrief(
     },
     hashes: snapshot.hashes,
     run: run ? { id: run.id, resultHash: run.resultHash } : null,
+    sourceLotServices: run
+      ? snapshot.sourceLotServices
+        .filter((analysis) => analysis.run.id === run.id)
+        .map((analysis) => analysis.analysisHash)
+      : [],
     diagnostic: leadingDiagnostic?.id ?? null,
     objectiveTradeoff: leadingObjectiveTradeoff
       ? { component: leadingObjectiveTradeoff.component, runId: leadingObjectiveTradeoff.runId, subjects: leadingObjectiveTradeoff.subjects }
@@ -213,7 +219,7 @@ export function buildFactoryObservationBrief(
     views: views.map((view) => ({ id: view.id, route: view.studioRoute })),
   };
   return {
-    version: 4,
+    version: 5,
     id: hashValue(identity),
     status: run ? "ready" : "needs-run",
     authority: "human-or-agent",
@@ -226,6 +232,10 @@ export function buildFactoryObservationBrief(
       sourceLotLineage: run && snapshot.sourceLotLineage?.runId === run.id
         ? structuredClone(snapshot.sourceLotLineage)
         : null,
+      sourceLotServices: run
+        ? snapshot.sourceLotServices.filter((analysis) => analysis.run.id === run.id)
+          .map((analysis) => structuredClone(analysis))
+        : [],
     },
     leadingDiagnostic: leadingDiagnostic ? {
       id: leadingDiagnostic.id,

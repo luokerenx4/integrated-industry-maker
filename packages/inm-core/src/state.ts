@@ -77,6 +77,7 @@ export type FactoryStateMutation =
   | { kind: "utility.release"; device: string; allocations: Array<{ provider: string; utility: string; units: number }>; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
   | { kind: "campaign.hold"; device: string; targetGroup: string; deadlineTick: Tick }
   | { kind: "campaign.release"; device: string; cause: "minimum-ready-lots" | "maximum-hold" }
+  | { kind: "recipe-campaign.finish"; device: string; process: string; mode: string; jobsInStep: number; finalStep: boolean; tick: Tick }
   | { kind: "batch.hold"; device: string; preferredProcess: string; deadlineTick: Tick }
   | { kind: "batch.release"; device: string; cause: "preferred-ready" | "maximum-wait" }
   | { kind: "batch.reset"; device: string }
@@ -780,6 +781,25 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       if (mutation.cause === "minimum-ready-lots") setup.campaignMinimumLotReleases++;
       else setup.campaignMaximumHoldReleases++;
       delete setup.campaign;
+      return;
+    }
+    case "recipe-campaign.finish": {
+      const campaign = state.devices[mutation.device]!.recipeCampaign;
+      if (!campaign || campaign.completedAtTick !== undefined) {
+        throw new Error(`Device '${mutation.device}' has no active finite recipe campaign`);
+      }
+      campaign.jobsCompletedInStep++;
+      campaign.completedJobs++;
+      if (campaign.jobsCompletedInStep > mutation.jobsInStep) {
+        throw new Error(`Device '${mutation.device}' exceeded its current finite recipe-campaign step`);
+      }
+      if (campaign.jobsCompletedInStep === mutation.jobsInStep) {
+        if (mutation.finalStep) campaign.completedAtTick = mutation.tick;
+        else {
+          campaign.stepIndex++;
+          campaign.jobsCompletedInStep = 0;
+        }
+      }
       return;
     }
     case "batch.hold": {

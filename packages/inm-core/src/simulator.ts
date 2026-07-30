@@ -142,6 +142,11 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
     const initialMilliJoules = project.scenario.initialEnergyMilliJoules?.[id] ?? 0;
     devices[id] = {
       status: "idle", idlePowered: project.devices[id]!.assetDef.power.idleMilliWatts === 0, buffers, materialBatches, lotIds, sourceLotBatches,
+      ...(project.devices[id]!.policy?.recipeCampaign ? { recipeCampaign: {
+        stepIndex: 0,
+        jobsCompletedInStep: 0,
+        completedJobs: 0,
+      } } : {}),
       ...(project.devices[id]!.policy?.cadenceControl ? { cadenceControl: {
         coverageDeficitSinceTick: null,
         coverageDeficitEpisodes: 0,
@@ -2812,6 +2817,18 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     held: boolean;
     changed: boolean;
   } => {
+    const finitePolicy = device.policy?.recipeCampaign;
+    const finiteRuntime = state.devices[device.id]!.recipeCampaign;
+    if (finitePolicy && finiteRuntime) {
+      if (finiteRuntime.completedAtTick !== undefined) return { held: false, changed: false };
+      const step = finitePolicy.steps[finiteRuntime.stepIndex]!;
+      return {
+        plan: device.processPlans.find((plan) =>
+          plan.definition.id === step.process && plan.mode.id === step.mode)!,
+        held: false,
+        changed: false,
+      };
+    }
     if (device.policy?.batchFormation) return selectBatchFormationProcessPlan(device, commitments);
     const policy = device.policy?.setupCampaign;
     const setup = state.devices[device.id]!.setup;
@@ -3098,6 +3115,12 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const commitments = captureDeviceContractCommitments(device);
     const campaignSelection = selectCampaignProcessPlan(device, commitments);
     const selectedProcessPlan = campaignSelection.plan;
+    if (runtime.recipeCampaign?.completedAtTick !== undefined) {
+      const inputStarvationChanged = closeInputStarvation(device.id, "unavailable");
+      const previousStatus = runtime.status;
+      setStatus(device.id, "idle");
+      return inputStarvationChanged || previousStatus !== runtime.status;
+    }
     const toolingBlockedPlan = selectedProcessPlan?.tooling.length
       && processPlanMaterialReady(device, selectedProcessPlan, commitments) && !toolingProviderFor(device, selectedProcessPlan)
       ? selectedProcessPlan
@@ -3782,6 +3805,43 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         kind: "production.finish", device: event.device,
         ...(job.equipmentDrift ? { driftedLots: driftLotIds.length, driftDefects: driftDefectsIntroduced } : {}),
       });
+      const recipeCampaignPolicy = project.devices[event.device]!.policy?.recipeCampaign;
+      const recipeCampaignRuntime = runtime.recipeCampaign;
+      if (recipeCampaignPolicy && recipeCampaignRuntime) {
+        if (recipeCampaignRuntime.completedAtTick !== undefined) {
+          throw new Error(`Device '${event.device}' completed production after its finite recipe campaign ended`);
+        }
+        const completedStepIndex = recipeCampaignRuntime.stepIndex;
+        const step = recipeCampaignPolicy.steps[completedStepIndex]!;
+        if (job.operation !== step.process || job.productionMode !== step.mode) {
+          throw new Error(`Device '${event.device}' completed '${job.operation}/${job.productionMode ?? "<none>"}' while finite recipe campaign required '${step.process}/${step.mode}'`);
+        }
+        const jobsCompletedInStep = recipeCampaignRuntime.jobsCompletedInStep + 1;
+        const completedJobs = recipeCampaignRuntime.completedJobs + 1;
+        const finalStep = completedStepIndex === recipeCampaignPolicy.steps.length - 1;
+        mutateFactoryState(state, {
+          kind: "recipe-campaign.finish", device: event.device, process: step.process, mode: step.mode,
+          jobsInStep: step.jobs, finalStep, tick: state.tick,
+        });
+        emit({
+          type: "device.recipe-campaign-progress", tick: state.tick, device: event.device,
+          stepIndex: completedStepIndex, process: step.process, mode: step.mode,
+          jobsCompletedInStep, jobsInStep: step.jobs, completedJobs,
+        });
+        if (jobsCompletedInStep === step.jobs) {
+          if (finalStep) emit({
+            type: "device.recipe-campaign-completed", tick: state.tick, device: event.device, completedJobs,
+          });
+          else {
+            const nextStepIndex = completedStepIndex + 1;
+            const next = recipeCampaignPolicy.steps[nextStepIndex]!;
+            emit({
+              type: "device.recipe-campaign-advanced", tick: state.tick, device: event.device,
+              completedStepIndex, nextStepIndex, process: next.process, mode: next.mode,
+            });
+          }
+        }
+      }
       markDeviceIdle(project.devices[event.device]!); mutateFactoryState(state, { kind: "job.finish", device: event.device });
       emit({ type: "device.finish", tick: state.tick, device: event.device, operation: job.operation,
         ...(job.productionMode ? { mode: job.productionMode } : {}), produced: structuredClone(job.produce),

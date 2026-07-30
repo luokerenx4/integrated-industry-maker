@@ -57,6 +57,7 @@ Read the relevant linked document before changing a subsystem:
 - Treated material lots, treatment Devices/agents, grade-aware dispatch, and synthesis: [[docs/design/material-treatment]]
 - Standard, accelerated, and productive job semantics: [[docs/design/production-modes]]
 - Multi-operation equipment qualification, re-entrant routes, and ready-WIP dispatch: [[docs/design/work-center-dispatch]]
+- Human/Agent-authored finite equipment work sequences and exact runtime progress: [[docs/design/recipe-campaign-scheduling]]
 - Qualified toolset allocation, scheduled lot supply, and target-rate readiness: [[docs/design/fab-capacity-planning]]
 - Identity-preserving WIP lots, due dates, and cycle-time evaluation: [[docs/design/lot-tracking]]
 - Human/Agent-authored tracked-lot starts and purchased-material intent: [[docs/design/production-plans]]

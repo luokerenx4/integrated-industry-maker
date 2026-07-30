@@ -1,8 +1,8 @@
 # Shared work centers and re-entrant production
 
-Status: multi-operation qualification plus operation-, lot-, route-slack-, physically delivered contract-window-, fixed-batch-, setup-campaign-, downstream-coverage cadence-, and quality-aware deterministic ready-WIP dispatch implemented through engine version `inm-sim/0.86.0`.
+Status: multi-operation qualification plus operation-, lot-, route-slack-, physically delivered contract-window-, fixed-batch-, finite-recipe-campaign-, setup-campaign-, downstream-coverage cadence-, and quality-aware deterministic ready-WIP dispatch implemented through engine version `inm-sim/0.92.0`.
 
-Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/batch-processing]], [[docs/design/equipment-changeover]], [[docs/design/setup-campaign-control]], [[docs/design/quality-flow]], [[docs/design/fab-capacity-planning]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
+Related: [[docs/design/material-contracts]], [[docs/design/production-modes]], [[docs/design/lot-tracking]], [[docs/design/batch-processing]], [[docs/design/recipe-campaign-scheduling]], [[docs/design/equipment-changeover]], [[docs/design/setup-campaign-control]], [[docs/design/quality-flow]], [[docs/design/fab-capacity-planning]], [[docs/design/simulation-runtime]], [[docs/design/coding-agent-optimization]], [[docs/PROJECT_FORMAT]].
 
 ## Why this exists
 
@@ -32,6 +32,8 @@ The Device policy `recipeDispatch` is required only when the author wants to ove
 - `highest-lot-priority`: operation containing the tracked lot with the greatest authored priority.
 
 `lotDispatch` independently chooses the exact identities consumed after an operation wins: `fifo`, `oldest-release`, `earliest-due-date`, or `highest-priority`. Operation dispatch and lot dispatch are separate because a shared work center first chooses a route step and then chooses WIP within that step. See [[docs/design/lot-tracking]].
+
+`recipeCampaign` replaces open-ended ready-operation ranking with one finite, exact Process/mode/job sequence authored by a human or reasoning Agent. It waits at the current step until that operation is physically ready, advances only after successful work, and becomes intentionally complete after its final job. It cannot coexist with the open-ended dispatch and adaptive controllers above. See [[docs/design/recipe-campaign-scheduling]].
 
 `cadenceControl` is a separate, deliberately narrower controller for exactly two modes of one Process with identical material work. `downstream-coverage-recovery` waits for resident-plus-in-flight coverage on one exact downstream Connection to remain below its item/time boundary. `input-queue-recovery` waits for enough route-eligible tracked lots to be resident at one exact input and for the oldest to cross its queued-time boundary. The former is predictive pressure; the latter is observed local WIP; neither is event-backed downstream input starvation. The controller cannot coexist with `recipeDispatch`, `setupCampaign`, or `batchFormation`; broader operation choice remains owned by those policies rather than an implicit priority stack.
 

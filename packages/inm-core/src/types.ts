@@ -491,6 +491,14 @@ export interface BlueprintRecipe {
   /** Exact physical port selected for each Process output Resource. */
   outputs: Record<ResourceId, PortId>;
 }
+export interface RecipeCampaignStep {
+  /** Exact qualified Process to execute at this position in the authored campaign. */
+  process: ProcessId;
+  /** Exact qualified production mode; Process identity alone is not sufficient. */
+  mode: string;
+  /** Positive number of successfully completed jobs before advancing. */
+  jobs: number;
+}
 export interface DownstreamCoverageRecoveryPolicy {
   kind: "downstream-coverage-recovery";
   /** The one material transformation shared by both qualified modes. */
@@ -548,6 +556,11 @@ export interface BlueprintDevice {
     dispatch?: LocalDispatchPolicy;
     /** Deterministic selection among ready qualified operations. */
     recipeDispatch?: RecipeDispatchPolicy;
+    /**
+     * A finite, human/Agent-authored operating campaign. The Device waits for
+     * each exact step and stops selecting production work after the final job.
+     */
+    recipeCampaign?: { steps: RecipeCampaignStep[] };
     /** Non-preemptive same-Process mode selection from explicit downstream physical coverage. */
     cadenceControl?: CadenceControlPolicy;
     /** Deterministic selection of identity-preserving lots within a ready operation. */
@@ -1209,6 +1222,12 @@ export interface DeviceRuntimeState {
    * kind is source-lot. Per-Resource counts exactly cover the matching buffer.
    */
   sourceLotBatches: Record<BufferId, Record<ResourceId, SourceLotLineageBatch[]>>;
+  recipeCampaign?: {
+    stepIndex: number;
+    jobsCompletedInStep: number;
+    completedJobs: number;
+    completedAtTick?: Tick;
+  };
   cadenceControl?: {
     /** Start of the current continuous below-boundary interval, or null while coverage is healthy. */
     coverageDeficitSinceTick: Tick | null;
@@ -1505,6 +1524,9 @@ export type FactoryEvent =
   | { type: "device.process-drift"; tick: Tick; device: DeviceInstanceId; process: ProcessId; lotIds: string[]; afterJobs: number; jobsSinceMaintenance: number; durationTicks: Tick; powerMilliWatts: number; defects: string[] }
   | { type: "device.campaign-held"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; minimumReadyLots: number; deadlineTick: Tick }
   | { type: "device.campaign-released"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; heldTicks: Tick; cause: "minimum-ready-lots" | "maximum-hold" }
+  | { type: "device.recipe-campaign-progress"; tick: Tick; device: DeviceInstanceId; stepIndex: number; process: ProcessId; mode: string; jobsCompletedInStep: number; jobsInStep: number; completedJobs: number }
+  | { type: "device.recipe-campaign-advanced"; tick: Tick; device: DeviceInstanceId; completedStepIndex: number; nextStepIndex: number; process: ProcessId; mode: string }
+  | { type: "device.recipe-campaign-completed"; tick: Tick; device: DeviceInstanceId; completedJobs: number }
   | { type: "device.batch-held"; tick: Tick; device: DeviceInstanceId; preferredProcess: ProcessId; readyLots: number; preferredLots: number; deadlineTick: Tick }
   | { type: "device.batch-released"; tick: Tick; device: DeviceInstanceId; preferredProcess: ProcessId; readyLots: number; heldTicks: Tick; cause: "preferred-ready" | "maximum-wait" }
   | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; mode?: string; durationTicks: Tick; lotIds?: string[]; sourceLotInputs?: SourceLotMaterialBatch[]; routeDispatch?: { policy: "least-slack"; lot: string; remainingRouteTicks: Tick; slackTicks: Tick } }
@@ -1818,6 +1840,16 @@ export interface FactoryMetrics {
       recoverAtItems: number;
       minimumQueueTicks: Tick;
     }))>;
+  };
+  recipeCampaigns?: {
+    devices: Record<DeviceInstanceId, {
+      steps: RecipeCampaignStep[];
+      stepIndex: number;
+      jobsCompletedInStep: number;
+      completedJobs: number;
+      completedAtTick: Tick | null;
+      complete: boolean;
+    }>;
   };
   energyConsumedMilliJoules: number;
   electricityCosts: {

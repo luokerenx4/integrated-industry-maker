@@ -1,0 +1,95 @@
+{
+  "author": "agent",
+  "entryHash": "e6fef008024ae5f40954e5fe2a830430c537f89ed54c4172214754384fc55a85",
+  "evidence": [
+    "incumbent-burn-in-service-chronology",
+    "incumbent-five-seven-comparison"
+  ],
+  "id": "incumbent-five-seven-trial",
+  "introducedAnchors": [
+    {
+      "comparisonHash": "e44bb0791342fd7516b13f6aa27558e90e732eb3620cbbe23324be8a1e11f80a",
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:a21d079f84",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:inspection-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 109-candidate-trial-incumbent-five-performance-seven (signal 0.2109). 9/10 active flow Devices accumulated 245.1 explicit material-shortage device-s inside 1162.2 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1190.7 of 1435.8 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "inspection-1",
+            "kind": "device"
+          },
+          {
+            "id": "etch-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "etch-l2",
+            "kind": "device"
+          },
+          {
+            "id": "rework-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "rework-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/10 active flow Devices accumulated 245.1 explicit material-shortage device-s inside 1162.2 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1190.7 of 1435.8 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
+      },
+      "from": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "353061d1b81789346483a196dd373568d2cacd67ea12b05e9374cec675fe2f8e",
+        "runId": "105-simulate"
+      },
+      "hashes": {
+        "blueprintHash": "7855833b2f4d28f95b4dabce45c8e3fe33552c365be7464235ac80e725acde20",
+        "engineVersion": "inm-sim/0.92.0",
+        "executionHash": "d3f3ffeff49819e53e2f9ba0df4e56a6e5d3c61b8352acda319c3dd1e9890c91",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "incumbent-five-seven-comparison",
+      "intervention": {
+        "from": {
+          "hash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+          "id": "generated-dram-fab"
+        },
+        "kind": "blueprint",
+        "to": {
+          "hash": "7855833b2f4d28f95b4dabce45c8e3fe33552c365be7464235ac80e725acde20",
+          "id": "generated-dram-fab"
+        }
+      },
+      "kind": "run-comparison",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "to": {
+        "blueprintHash": "7855833b2f4d28f95b4dabce45c8e3fe33552c365be7464235ac80e725acde20",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "fecbe4692476682d010e07116e53afb376a127b4fd33f942194ec3260772bfe5",
+        "runId": "109-candidate-trial-incumbent-five-performance-seven"
+      }
+    }
+  ],
+  "investigation": "source-lot-back-end-service",
+  "kind": "observation",
+  "previousEntryHash": "890d9a8fd5c02ff7b81d80ea813cf8cd0a0a783dfc57e95929f26b00fb5224b0",
+  "sequence": 17,
+  "statement": "Run 109 executes the authored five-performance/seven-commercial campaign exactly and completes all twelve Burn-in batches at tick 228873. Against Run 105 it raises delivered devices 88→96 and removes the final eight-device source-lot tail, while preserving 12/12 on-time lots, zero scrap, zero escapes, build cost 229840, and occupied area 259. The gain is not free: gross delivery value falls 344→332, average Objective-equivalent WIP rises 49.1905→51.3613, and score falls 0.198410→-5.549238 (Δ -5.747647). Burn-in changeovers fall 3→2, setup falls 14.0→11.0 s, and energy falls by 1.701 MJ, but those benefits do not recover the portfolio-value and WIP loss.",
+  "version": 1
+}

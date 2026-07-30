@@ -114,6 +114,11 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
   const sourceLotLineageRows = result.metrics.sourceLotLineage.sourceSets.flatMap((entry) =>
     entry.finalWip.map((location) =>
       `| ${entry.sourceLotIds.join(" + ")} | ${location.resource} | ${location.kind} | ${describeWipInventoryLocation(location)} | ${location.count} |`));
+  const recipeCampaignRows = Object.entries(result.metrics.recipeCampaigns?.devices ?? {}).map(([device, campaign]) => {
+    const current = campaign.complete ? "complete"
+      : `${campaign.stepIndex + 1}/${campaign.steps.length} · ${campaign.steps[campaign.stepIndex]!.process}/${campaign.steps[campaign.stepIndex]!.mode} · ${campaign.jobsCompletedInStep}/${campaign.steps[campaign.stepIndex]!.jobs}`;
+    return `| ${device} | ${campaign.completedJobs} | ${current} | ${campaign.completedAtTick === null ? "—" : campaign.completedAtTick} |`;
+  });
   const totalUnpoweredTicks = Object.values(result.metrics.unpoweredTime).reduce((sum, ticks) => sum + ticks, 0);
   const treatedMaterials = Object.entries(result.metrics.materialTreatment.treated)
     .flatMap(([resource, levels]) => Object.entries(levels).map(([level, count]) => `${count} ${resource}@${level}`));
@@ -147,6 +152,9 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     `- Route Q-time: ${routeQueueTime.violations} violations across ${routeQueueTime.violatedLots} lots · ${(routeQueueTime.maximumOverrunTicks / 1000).toFixed(3)} s maximum overrun`,
     `- Batch processing: ${result.metrics.batchFlow.jobs} jobs · ${result.metrics.batchFlow.lots} lots · ${result.metrics.batchFlow.averageLotsPerJob.toFixed(3)} lots/job · ${(result.metrics.batchFlow.meanQueueWaitTicksPerLot / 1000).toFixed(3)} s mean device wait/lot · ${result.metrics.batchFlow.formationHolds} formation holds / ${(result.metrics.batchFlow.formationHoldTicks / 1000).toFixed(3)} s (${result.metrics.batchFlow.preferredReleases} full-batch / ${result.metrics.batchFlow.timeoutReleases} timeout)`,
     `- Equipment setup: ${result.metrics.equipmentSetups.totalChangeovers} changeovers · ${(result.metrics.equipmentSetups.totalSetupTicks / 1000).toFixed(3)} s work · ${result.metrics.equipmentSetups.totalCampaignHolds} campaign holds / ${(result.metrics.equipmentSetups.totalCampaignHoldTicks / 1000).toFixed(3)} s (${result.metrics.equipmentSetups.campaignMinimumLotReleases} lot-ready / ${result.metrics.equipmentSetups.campaignMaximumHoldReleases} timeout)`,
+    ...(result.metrics.recipeCampaigns ? [
+      `- Finite recipe campaigns: ${Object.keys(result.metrics.recipeCampaigns.devices).length} Devices · ${Object.values(result.metrics.recipeCampaigns.devices).filter((campaign) => campaign.complete).length} complete · ${Object.values(result.metrics.recipeCampaigns.devices).reduce((sum, campaign) => sum + campaign.completedJobs, 0)} completed jobs`,
+    ] : []),
     `- Equipment energy states: ${result.metrics.equipmentEnergyManagement.totalSleeps} sleeps · ${result.metrics.equipmentEnergyManagement.totalWakeups} wakeups · ${(result.metrics.equipmentEnergyManagement.totalSleepingTicks / 1000).toFixed(3)} equipment-s sleeping · ${(result.metrics.equipmentEnergyManagement.totalWakeTicks / 1000).toFixed(3)} equipment-s waking`,
     `- Inventory accounting: ${result.metrics.inventoryAccounting.averageWipEquivalentUnits.toFixed(3)} average / ${result.metrics.inventoryAccounting.peakWipEquivalentUnits.toFixed(3)} peak \`${result.metrics.inventoryAccounting.wipEquivalentUnit}\` · ${result.metrics.inventoryAccounting.averageRawWipInventory.toFixed(3)} average / ${result.metrics.inventoryAccounting.peakRawWipInventory.toFixed(3)} peak raw WIP items · ${result.metrics.inventoryAccounting.averageTotalInventory.toFixed(3)} average / ${result.metrics.inventoryAccounting.peakTotalInventory.toFixed(3)} peak total raw items`,
     `- Electricity cost: ${(result.metrics.electricityCosts.totalMicroCurrency / 1e6).toFixed(6)} currency · ${(result.metrics.electricityCosts.energyChargeMicroCurrency / 1e6).toFixed(6)} energy · ${(result.metrics.electricityCosts.demandChargeMicroCurrency / 1e6).toFixed(6)} peak demand`,
@@ -192,6 +200,12 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
       ...sourceLotLineageRows,
     ] : ["No source-lot-bearing product remains in physical WIP at the final boundary."]),
     "", "A commingled job retains its complete source-lot set; this report never invents per-unit ancestry inside a mixed batch.",
+    "", "## Finite recipe campaigns", "",
+    ...(recipeCampaignRows.length ? [
+      "| Device | Completed jobs | Current authored position | Completed at tick |",
+      "| --- | ---: | --- | ---: |",
+      ...recipeCampaignRows,
+    ] : ["No Device uses a finite authored recipe campaign."]),
     "", "## Score breakdown", "",
     "```json", stableStringify(result.metrics.scoreBreakdown, 2), "```", "",
   ].join("\n");

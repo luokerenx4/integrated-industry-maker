@@ -1,0 +1,33 @@
+{
+  "candidate": {
+    "id": "incumbent-five-performance-seven-commercial",
+    "proposalHash": "adf8e8c7f5d75921584bc8c5f4c92ae30b61dd2c2dea2153552c93fb2dd5e763",
+    "reviewResultHash": "320ad510ada4d407c453cc689c48ef592048e1080a939aae8349d84a0f89a1fd",
+    "reviewVerdict": "KEEP"
+  },
+  "createdAt": "2026-07-30T22:43:09.976Z",
+  "decision": "TRIAL",
+  "engineVersion": "inm-sim/0.92.0",
+  "hashes": {
+    "blueprintHash": "7855833b2f4d28f95b4dabce45c8e3fe33552c365be7464235ac80e725acde20",
+    "engineVersion": "inm-sim/0.92.0",
+    "executionHash": "d3f3ffeff49819e53e2f9ba0df4e56a6e5d3c61b8352acda319c3dd1e9890c91",
+    "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+    "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+    "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+    "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+  },
+  "parentRun": "105-simulate",
+  "resultHash": "fecbe4692476682d010e07116e53afb376a127b4fd33f942194ec3260772bfe5",
+  "runKey": "4406a4c08bf89039aa778b461e249323ae798f5d829d6a56a274406b46918004",
+  "seed": 42,
+  "selection": {
+    "blueprint": "generated-dram-fab",
+    "objective": "dram-output",
+    "productionPlan": "production-window",
+    "scenario": "production-window",
+    "world": "cleanroom"
+  },
+  "status": "completed",
+  "version": 1
+}

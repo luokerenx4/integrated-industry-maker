@@ -14,7 +14,7 @@ test("observation brief keeps the Objective WIP tradeoff visible after current l
   snapshot.diagnostics = snapshot.diagnostics.filter((diagnostic) => diagnostic.severity === "info");
   snapshot.lossDispositions = [];
   const brief = buildFactoryObservationBrief(snapshot, "105-simulate");
-    expect(brief.version).toBe(4);
+  expect(brief.version).toBe(5);
   expect(brief.status).toBe("ready");
   expect(brief.authority).toBe("human-or-agent");
   expect(brief.project).toEqual(expect.objectContaining({ id: "memory-fab", rootDir: memoryFabProjectDir }));
@@ -31,6 +31,12 @@ test("observation brief keeps the Objective WIP tradeoff visible after current l
     resultHash: expect.any(String),
     decision: "BASELINE",
   }));
+  expect(brief.evidence.sourceLotServices).toEqual(expect.arrayContaining([
+    expect.objectContaining({
+      analysisHash: "93b87b1949dea24903070c3576bcce8b6fe4fc8fa44d9da3f7377738a47ff01f",
+      query: expect.objectContaining({ device: "burn-in-1" }),
+    }),
+  ]));
   expect(brief.leadingDiagnostic).toBeNull();
   expect(brief.leadingObjectiveTradeoff).toEqual({
     component: "wip",
@@ -137,7 +143,7 @@ test("observation brief requests simulation instead of fabricating runtime evide
   });
   const brief = await openFactoryObservationBrief(projectDir);
   expect(brief.status).toBe("needs-run");
-    expect(brief.evidence).toEqual({ state: "missing", run: null, sourceLotLineage: null });
+  expect(brief.evidence).toEqual({ state: "missing", run: null, sourceLotLineage: null, sourceLotServices: [] });
   expect(brief.views[0]!.studioRoute).toBe("/ironworks/factory");
   expect(brief.handoff.nextStep).toContain("Create compatible immutable simulation evidence");
 });

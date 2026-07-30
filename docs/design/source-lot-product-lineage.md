@@ -72,13 +72,23 @@ The union is deliberately conservative. Once a job commingles sources, INM does 
 
 Created and delivered totals are useful boundary measures. Produced counts every successful lineage-bearing transformation and therefore intentionally counts the same ancestry at several process stages; it is not a conservation total.
 
-Run reports and human CLI output summarize the exact final locations. JSON simulation, Workbench, and Observation retain the complete evaluator-owned object qualified by immutable Run id. Studio Factory exposes the same summary globally and the selected Device's exact final source-lot WIP. Neither surface reconstructs lineage from labels, Route lots, or NDJSON after the fact.
+Run reports and human CLI output summarize the exact final locations. JSON simulation, Workbench, and Observation retain the complete evaluator-owned object qualified by immutable Run id. Studio Factory exposes the same summary globally and the selected Device's exact final source-lot WIP. Neither surface reconstructs lineage from labels or Route lots.
+
+`analyzeSourceLotServices()` is the separate deterministic chronology projection for questions that need time rather than only terminal ownership. For every qualified lineage-bearing Device input it joins the immutable event stream, evaluator metrics, and terminal state into:
+
+- source creation plus first, full-batch, and last input arrival;
+- exact Process/mode service start and finish plus queue time after full-batch readiness;
+- first/last customer delivery and delivered units;
+- terminal physical WIP plus unserved age at the Run boundary;
+- the work center's ordered Process and changeover timeline, setup total, last finish, and remaining horizon.
+
+The analysis payload owns an `analysisHash` and exact Run/result identity. Workbench V17 and Observation V5 retain the object, Observation identity includes its hash, `inm inspect --section source-lot-service --json` exposes it directly, and Studio renders that same object. It is derived evidence rather than a new Run artifact: changing the derivation changes the analysis hash without mutating the immutable source Run or its result hash.
 
 ## Memory-fab evidence
 
 Run `105-simulate` is the first `inm-sim/0.92.0` immutable operating record with source-lot product lineage. All twelve wafer lots create `96` known-good dies; eleven source sets deliver `88` devices; nothing is discarded or commingled. The final eight `packaged-dram-device` units at `burn-in-1.package-input` all carry exact source set `[dram-lot-08]`.
 
-The event chain makes the ordering visible. `dram-lot-08` is the last lot to complete Probe at tick `163879`, its eighth packaged device reaches burn-in at tick `205173`, and burn-in remains occupied by earlier source sets until lot-07 finishes at tick `235623`. The four-minute horizon then has only `4377` ticks left. This disproves an anonymous “twelfth lot owns the tail” story and supplies a bounded service-capacity hypothesis; it does not by itself authorize adding equipment.
+The Burn-in service analysis `93b87b1949de…` makes the ordering reusable evidence. `dram-lot-08` is the last lot to complete Probe at tick `163879`, its eighth packaged device reaches burn-in at tick `205173`, and burn-in remains occupied by earlier source sets until lot-07 finishes at tick `235623`. The four-minute horizon then has only `4377` ticks left. Across the complete work-center timeline, eleven jobs follow `RRRCCCCCRRR`, with three changeovers and `14000` setup ticks. This disproves an anonymous “twelfth lot owns the tail” story and supplies a bounded service-capacity hypothesis; it does not by itself authorize adding equipment or choosing a schedule.
 
 ## Source of truth
 
@@ -87,13 +97,16 @@ The event chain makes the ordering visible. `dram-lot-08` is the last lot to com
 - Atomic physical mutation: `packages/inm-core/src/state.ts`
 - Runtime transfer and audits: `packages/inm-core/src/simulator.ts`
 - Immutable aggregation: `packages/inm-core/src/evaluator.ts`
+- Derived service chronology: `packages/inm-core/src/source-lot-service.ts`
 - Reports and observation surfaces: `packages/inm-core/src/artifacts.ts`, `packages/inm-core/src/observation.ts`, `packages/inm-core/src/workbench.ts`
 
 ## Verification
 
 ```bash
 bun test packages/inm-core/src/inm-core.test.ts --test-name-pattern "source-lot product lineage"
+bun test packages/inm-core/src/source-lot-service.test.ts
 bun run inm validate examples/memory-fab --json
+bun run inm inspect examples/memory-fab --section source-lot-service --json
 bun run inm simulate examples/memory-fab --seed 42 --json --section summary
 bun run test
 ```

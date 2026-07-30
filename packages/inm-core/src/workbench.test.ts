@@ -46,7 +46,7 @@ async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
 
 test("shared workbench snapshot orients an operator with stable diagnostics and operations", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/ironworks"));
-    expect(snapshot.version).toBe(15);
+  expect(snapshot.version).toBe(17);
   expect(snapshot.project.id).toBe("ironworks");
   expect(snapshot.selection).toEqual(expect.objectContaining({
     world: expect.objectContaining({ id: "main" }),
@@ -100,7 +100,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 8, infoCount: 9 },
     evidence: { state: "current", runId: "105-simulate" },
-    review: { state: "stale", pendingCount: 0, staleCount: 24, verifiedCount: 1 },
+    review: { state: "stale", pendingCount: 0, disposedCount: 4, staleCount: 24, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.objective.wipAccounting).toEqual(expect.objectContaining({
@@ -152,6 +152,36 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
         count: 8,
         sourceLotIds: ["dram-lot-08"],
       }],
+    }));
+  expect(snapshot.sourceLotServices).toHaveLength(2);
+  expect(snapshot.sourceLotServices.find((analysis) => analysis.query.device === "burn-in-1"))
+    .toEqual(expect.objectContaining({
+      version: 1,
+      kind: "source-lot-service",
+      analysisHash: "93b87b1949dea24903070c3576bcce8b6fe4fc8fa44d9da3f7377738a47ff01f",
+      run: expect.objectContaining({ id: "105-simulate", endTick: 240000 }),
+      query: {
+        device: "burn-in-1",
+        inputBuffer: "package-input",
+        inputResource: "packaged-dram-device",
+        batchUnits: 8,
+      },
+      workCenter: expect.objectContaining({
+        jobs: 11,
+        changeovers: 3,
+        setupTicks: 14000,
+        lastFinishTick: 235623,
+        remainingHorizonTicks: 4377,
+      }),
+      sourceSets: expect.arrayContaining([
+        expect.objectContaining({
+          sourceLotIds: ["dram-lot-08"],
+          inputArrival: expect.objectContaining({ fullBatchReadyAtTick: 205173 }),
+          service: null,
+          delivery: { units: 0, firstAtTick: null, lastAtTick: null },
+          unservedAgeTicks: 34827,
+        }),
+      ]),
     }));
   expect(snapshot.objectiveEvidence).toEqual(expect.objectContaining({
     runId: "105-simulate",
@@ -494,6 +524,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     { id: "dedicated-etch-quality-cell", benchmark: "greenfield-dram-design", patchOperations: 27, state: "stale", verdict: undefined },
     { id: "furnace-flex-dual-service", benchmark: "greenfield-dram-design", patchOperations: 4, state: "stale", verdict: undefined },
     { id: "identity-safe-release-control", benchmark: "greenfield-dram-design", patchOperations: 2, state: "stale", verdict: undefined },
+    { id: "incumbent-five-performance-seven-commercial", benchmark: "greenfield-dram-design", patchOperations: 1, state: "reviewed-keep", verdict: "KEEP" },
     { id: "inspection-edd-resilience", benchmark: "greenfield-dram-design", patchOperations: 1, state: "stale", verdict: undefined },
     { id: "inspection-supply-path-966127dd", benchmark: "greenfield-dram-design", patchOperations: 3, state: "stale", verdict: "KEEP" },
     { id: "layer-two-lithography-capacity", benchmark: "greenfield-dram-design", patchOperations: 30, state: "stale", verdict: undefined },
@@ -508,6 +539,19 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     { id: "stable-furnace-sleep", benchmark: "equipment-energy-research", patchOperations: 1, state: "reviewed-discard", verdict: "DISCARD" },
     { id: "vacuum-lithography-etch-handoff", benchmark: "greenfield-dram-design", patchOperations: 3, state: "stale", verdict: "KEEP" },
   ]);
+  expect(snapshot.candidates.find((candidate) =>
+    candidate.id === "incumbent-five-performance-seven-commercial")?.investigationDisposition)
+    .toEqual(expect.objectContaining({
+      investigationId: "source-lot-back-end-service",
+      entryId: "discard-incumbent-five-seven-campaign",
+      entryHash: "799158ef35baa3d0df71c20b042e983cb743cf778001ae93bf0a950b37b39000",
+      sequence: 18,
+      author: "agent",
+      disposition: "discard",
+      reviewAnchorId: "incumbent-five-seven-review",
+      reviewResultHash: "320ad510ada4d407c453cc689c48ef592048e1080a939aae8349d84a0f89a1fd",
+    }));
+  expect(snapshot.nextAction.id).not.toBe("candidate.apply:incumbent-five-performance-seven-commercial");
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
     id: expect.stringMatching(/^design\.inspect:inspection-supply-path:fab-loss\.input-starvation:/),
     effect: "read-only",
@@ -693,7 +737,7 @@ test("an active physical loss still outranks current Objective Design evidence",
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true });
   await rm(join(projectDir, "design-runs/front-end-queue-convergence"), { recursive: true, force: true });
   const snapshot = await openProjectWorkbenchSnapshot(projectDir);
-    expect(snapshot.version).toBe(15);
+  expect(snapshot.version).toBe(17);
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.input-starvation")).toBeTrue();
   const currentInspection = snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")?.evidence;
   if (currentInspection?.authorityRunId === "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06") {
@@ -1355,7 +1399,13 @@ test("a non-KEEP Candidate receipt resolves review work without displacing curre
   const reviewed = await openProjectWorkbenchSnapshot(projectDir);
   expect(reviewed.candidates.find((candidate) => candidate.id === "stable-furnace-sleep")?.decision)
     .toEqual(expect.objectContaining({ state: "reviewed-discard", verdict: "DISCARD" }));
-  expect(reviewed.status.review).toEqual({ state: "stale", pendingCount: 0, staleCount: 24, verifiedCount: 1 });
+  expect(reviewed.status.review).toEqual({
+    state: "stale",
+    pendingCount: 0,
+    disposedCount: 4,
+    staleCount: 24,
+    verifiedCount: 1,
+  });
   expect(reviewed.nextAction).toEqual(expect.objectContaining({
     id: expect.stringContaining("design.inspect:inspection-supply-path:fab-loss."),
     target: expect.objectContaining({ kind: "design-program", programId: "inspection-supply-path" }),

@@ -177,6 +177,12 @@ const factoryObservationAnchorSchema = z.object({
   hashes: evidenceHashesSchema,
   runId: z.string().min(1),
   resultHash: hashSchema,
+  sourceLotServices: z.array(z.object({
+    analysisHash: hashSchema,
+    device: idSchema,
+    inputBuffer: idSchema,
+    inputResource: idSchema,
+  }).strict()).optional(),
   diagnostic: diagnosticAnchorSchema.omit({
     id: true,
     kind: true,
@@ -1492,6 +1498,14 @@ async function resolveIntroducedEvidenceAnchor(
       hashes: projectEvidenceHashes(snapshot.hashes),
       runId: run.id,
       resultHash: run.resultHash,
+      ...(snapshot.sourceLotServices.length ? {
+        sourceLotServices: snapshot.sourceLotServices.map((analysis) => ({
+          analysisHash: analysis.analysisHash,
+          device: analysis.query.device,
+          inputBuffer: analysis.query.inputBuffer,
+          inputResource: analysis.query.inputResource,
+        })),
+      } : {}),
       diagnostic: {
         diagnosticId: diagnostic.id,
         code: diagnostic.code,

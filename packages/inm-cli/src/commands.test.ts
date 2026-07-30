@@ -852,6 +852,16 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
           deliveredUnits: 88,
           finalWipUnits: 8,
         }),
+        sourceLotServices: expect.arrayContaining([
+          expect.objectContaining({
+            analysisHash: "93b87b1949dea24903070c3576bcce8b6fe4fc8fa44d9da3f7377738a47ff01f",
+            query: expect.objectContaining({
+              device: "burn-in-1",
+              inputBuffer: "package-input",
+              inputResource: "packaged-dram-device",
+            }),
+          }),
+        ]),
       }),
       leadingObjectiveTradeoff: expect.objectContaining({
         component: "wip",

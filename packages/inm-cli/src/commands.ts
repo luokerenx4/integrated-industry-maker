@@ -734,6 +734,7 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
         hashes: snapshot.hashes,
         objective: snapshot.objective,
         inventoryAccounting: snapshot.inventoryAccounting,
+        sourceLotServices: snapshot.sourceLotServices,
         objectiveEvidence: snapshot.objectiveEvidence,
         status: snapshot.status,
         lossAttribution: snapshot.lossAttribution ? { run: snapshot.lossAttribution.run, outcome: snapshot.lossAttribution.outcome, primary: snapshot.lossAttribution.primary, chain: snapshot.lossAttribution.chain, caveat: snapshot.lossAttribution.caveat } : null,
@@ -764,6 +765,7 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
       }),
       "next-action": () => snapshot.nextAction,
       objective: () => snapshot.objectiveEvidence,
+      "source-lot-service": () => snapshot.sourceLotServices,
       diagnostics: () => snapshot.diagnostics,
       losses: () => snapshot.lossAttribution,
       dispositions: () => snapshot.lossDispositions,
@@ -796,6 +798,18 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
         .slice(0, 5)
         .map(([resource, accounting]) => `  ${resource}: ${accounting.averageWipEquivalentUnits.toFixed(3)} equivalent average · ${accounting.averageInventory.toFixed(3)} raw average · factor ×${accounting.wipEquivalentUnitsPerItem}`),
     ] : ["Inventory evidence: no compatible run"]),
+    ...(snapshot.sourceLotServices.length ? [
+      "Source-lot service evidence:",
+      ...snapshot.sourceLotServices.flatMap((analysis) => {
+        const unserved = analysis.sourceSets.filter((sourceSet) => sourceSet.service === null
+          && sourceSet.inputArrival.fullBatchReadyAtTick !== null);
+        return [
+          `  ${analysis.query.device}.${analysis.query.inputBuffer}/${analysis.query.inputResource} · run ${analysis.run.id} · analysis ${analysis.analysisHash.slice(0, 12)} · ${analysis.workCenter.jobs} jobs / ${analysis.workCenter.changeovers} changeovers / ${(analysis.workCenter.setupTicks / 1000).toFixed(3)} s setup · ${(analysis.workCenter.remainingHorizonTicks / 1000).toFixed(3)} s after last work`,
+          ...unserved.map((sourceSet) =>
+            `    UNSERVED ${sourceSet.sourceLotIds.join(" + ")} · full batch tick ${sourceSet.inputArrival.fullBatchReadyAtTick} · ${(sourceSet.unservedAgeTicks / 1000).toFixed(3)} s terminal age · ${sourceSet.finalWip.map((location) => `${location.count} ${location.resource} @ ${describeWipInventoryLocation(location)}`).join(" + ")}`),
+        ];
+      }),
+    ] : []),
     ...(snapshot.objectiveEvidence ? [
       `Objective evidence: run ${snapshot.objectiveEvidence.runId} · score ${snapshot.objectiveEvidence.finalScore.toFixed(3)} · dominant penalty ${snapshot.objectiveEvidence.dominantPenalty ? `${snapshot.objectiveEvidence.dominantPenalty.id} ${snapshot.objectiveEvidence.dominantPenalty.contribution.toFixed(3)}` : "none"}`,
       `  WIP: weight ${snapshot.objectiveEvidence.wip.weight} × ${snapshot.objectiveEvidence.wip.averageWipEquivalentUnits.toFixed(3)} ${snapshot.objectiveEvidence.wip.equivalentUnit} = ${snapshot.objectiveEvidence.wip.scoreContribution.toFixed(3)} score`,
@@ -806,7 +820,7 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
         `    ${location.resource} @ ${location.physicalLocation} (${location.kind}): ${location.averageWipEquivalentUnits.toFixed(3)} equivalent / ${location.averageInventory.toFixed(3)} raw average · ×${location.equivalentUnitsPerItem} · ${(location.shareOfAverageWip * 100).toFixed(1)}% · ${location.scoreContribution.toFixed(3)} score`),
       "  Interpretation: Objective accounting evidence, not proof that the inventory is avoidable.",
     ] : []),
-    `Status: capacity ${snapshot.status.capacity.state.toUpperCase()}${snapshot.status.capacity.gapCount ? ` (${snapshot.status.capacity.gapCount} gaps)` : ""} · flow ${snapshot.status.flow.state.toUpperCase()}${snapshot.status.flow.warningCount ? ` (${snapshot.status.flow.warningCount} warnings)` : ""} · review ${snapshot.status.review.state.toUpperCase()}${snapshot.status.review.pendingCount ? ` (${snapshot.status.review.pendingCount} pending)` : snapshot.status.review.staleCount ? ` (${snapshot.status.review.staleCount} stale)` : ""} · evidence ${snapshot.status.evidence.state.toUpperCase()}`,
+    `Status: capacity ${snapshot.status.capacity.state.toUpperCase()}${snapshot.status.capacity.gapCount ? ` (${snapshot.status.capacity.gapCount} gaps)` : ""} · flow ${snapshot.status.flow.state.toUpperCase()}${snapshot.status.flow.warningCount ? ` (${snapshot.status.flow.warningCount} warnings)` : ""} · review ${snapshot.status.review.state.toUpperCase()}${snapshot.status.review.pendingCount ? ` (${snapshot.status.review.pendingCount} pending)` : snapshot.status.review.staleCount ? ` (${snapshot.status.review.staleCount} stale)` : ""}${snapshot.status.review.disposedCount ? ` · ${snapshot.status.review.disposedCount} investigation-disposed` : ""} · evidence ${snapshot.status.evidence.state.toUpperCase()}`,
     `Factory: zones ${snapshot.counts.regions} · devices ${snapshot.counts.deviceInstances} · local links ${snapshot.counts.connections} / belt cells ${snapshot.counts.transportCells} · station nets ${snapshot.counts.logisticsNetworks} / routes ${snapshot.counts.logisticsRoutes}`,
     `Catalog: resources ${snapshot.counts.resourceAssets} · processes ${snapshot.counts.processes} · product routes ${snapshot.counts.routes} · device assets ${snapshot.counts.deviceAssets}`,
     `Evidence: runs ${snapshot.counts.runs} · experiments ${snapshot.counts.experiments} · candidates ${snapshot.counts.candidates} · design programs ${snapshot.counts.designPrograms}`,
@@ -969,6 +983,8 @@ export async function observeCommand(
     `${brief.project.name} · observation brief ${brief.id.slice(0, 12)}`,
     `Selection: ${brief.selection.world} / ${brief.selection.blueprint} / ${brief.selection.productionPlan} / ${brief.selection.scenario} / ${brief.selection.objective}`,
     `Evidence: ${brief.evidence.run ? `${brief.evidence.run.id} · ${brief.evidence.run.resultHash.slice(0, 12)} · score ${brief.evidence.run.score.toFixed(3)} · ${brief.evidence.run.decision}` : "MISSING · simulate before runtime interpretation"}`,
+    ...brief.evidence.sourceLotServices.map((analysis) =>
+      `Source-lot service: ${analysis.query.device}.${analysis.query.inputBuffer}/${analysis.query.inputResource} · ${analysis.workCenter.jobs} jobs / ${analysis.workCenter.changeovers} changeovers · analysis ${analysis.analysisHash.slice(0, 12)}${analysis.sourceSets.some((sourceSet) => sourceSet.unservedAgeTicks > 0) ? ` · ${analysis.sourceSets.filter((sourceSet) => sourceSet.unservedAgeTicks > 0).length} full batch unserved` : ""}`),
     ...(brief.leadingDiagnostic ? [`Leading evidence: ${brief.leadingDiagnostic.code} · ${brief.leadingDiagnostic.message}`] : []),
     ...(brief.leadingObjectiveTradeoff ? [
       `Leading Objective tradeoff: ${brief.leadingObjectiveTradeoff.component} ${brief.leadingObjectiveTradeoff.contribution.toFixed(3)} · ${brief.leadingObjectiveTradeoff.summary}`,
@@ -1894,6 +1910,11 @@ export async function simulateCommand(projectDir: string, selection: ProjectSele
       ...(result.metrics.batchFlow.batchOperations ? [`Batch processing: ${result.metrics.batchFlow.jobs} jobs · ${result.metrics.batchFlow.lots} lots · ${result.metrics.batchFlow.averageLotsPerJob.toFixed(2)} lots/job · ${(result.metrics.batchFlow.meanQueueWaitTicksPerLot / 1000).toFixed(3)} s mean device wait/lot · ${result.metrics.batchFlow.formationHolds} formation holds / ${(result.metrics.batchFlow.formationHoldTicks / 1000).toFixed(3)} s (${result.metrics.batchFlow.preferredReleases} full-batch / ${result.metrics.batchFlow.timeoutReleases} timeout)`] : []),
       ...Object.entries(result.metrics.cadenceControl.devices).map(([device, control]) =>
         `Cadence control ${device}: ${cadenceControlSide(control)}`),
+      ...Object.entries(result.metrics.recipeCampaigns?.devices ?? {}).map(([device, campaign]) => {
+        const position = campaign.complete ? "COMPLETE"
+          : `${campaign.stepIndex + 1}/${campaign.steps.length} ${campaign.steps[campaign.stepIndex]!.process}/${campaign.steps[campaign.stepIndex]!.mode} ${campaign.jobsCompletedInStep}/${campaign.steps[campaign.stepIndex]!.jobs}`;
+        return `Finite recipe campaign ${device}: ${campaign.completedJobs} jobs · ${position}${campaign.completedAtTick === null ? "" : ` · tick ${campaign.completedAtTick}`}`;
+      }),
     ] : []),
     `Equipment setup: ${result.metrics.equipmentSetups.totalChangeovers} changeovers · ${(result.metrics.equipmentSetups.totalSetupTicks / 1000).toFixed(3)} s work · ${result.metrics.equipmentSetups.totalCampaignHolds} campaign holds / ${(result.metrics.equipmentSetups.totalCampaignHoldTicks / 1000).toFixed(3)} s (${result.metrics.equipmentSetups.campaignMinimumLotReleases} lot-ready / ${result.metrics.equipmentSetups.campaignMaximumHoldReleases} timeout)${Object.entries(result.metrics.equipmentSetups.devices).length ? ` · ${Object.entries(result.metrics.equipmentSetups.devices).map(([device, setup]) => `${device}=${setup.group ?? "unconfigured"}/${setup.changeovers}`).join(", ")}` : ""}`,
     `Reusable tooling: ${result.metrics.productionTooling.totalAllocations} allocations / ${result.metrics.productionTooling.totalCompleted} completed / ${result.metrics.productionTooling.totalCancelled} cancelled · ${(result.metrics.productionTooling.totalOccupiedTicks / 1000).toFixed(3)} equipment-s / ${(result.metrics.productionTooling.totalUnitTicks / 1000).toFixed(3)} unit-s · ${(result.metrics.productionTooling.totalInputWaitTicks / 1000).toFixed(3)} s wait / ${result.metrics.productionTooling.totalInputBlocks} blocks · ${Object.entries(result.metrics.productionTooling.resources).map(([resource, measured]) => `${resource}=${measured.unitsAllocated} allocations/${(measured.unitTicks / 1000).toFixed(3)} unit-s`).join(" · ") || "none"}`,

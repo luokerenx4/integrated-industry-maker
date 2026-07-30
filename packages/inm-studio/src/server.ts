@@ -9,6 +9,7 @@ import {
   IndustrialInvestigationError,
   RunComparisonError,
   analyzeProduction,
+  analyzeSourceLotServices,
   analyzeProjectOperation,
   applyCandidateOperation,
   blueprintSchema,
@@ -57,6 +58,7 @@ import {
   type ProjectSelection,
   type IndustrialInvestigationEntryInput,
   type ProductionPlan,
+  type SourceLotServiceAnalysis,
 } from "@inm/core";
 import { StudioOperationRegistry } from "./operation-registry";
 import { completedProjectRefresh, projectRefreshProbePath } from "./evidence-watch";
@@ -310,10 +312,17 @@ async function loadStudioData(projectId: string, runName?: string, selection: Pr
   const regionLayout = layoutRegions(project.world.regions);
   let events = [];
   let metrics = null;
+  let sourceLotServices: SourceLotServiceAnalysis[] = [];
   if (selected) {
     events = (await readFile(join(selected.path, "events.ndjson"), "utf8"))
       .trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
     metrics = JSON.parse(await readFile(join(selected.path, "metrics.json"), "utf8"));
+    const finalState = JSON.parse(await readFile(join(selected.path, "final-state.json"), "utf8"));
+    sourceLotServices = analyzeSourceLotServices(project, events, metrics, {
+      id: selected.name,
+      resultHash: selected.manifest.resultHash,
+      endTick: finalState.tick,
+    });
   }
 
   const instanceCounts = new Map<string, number>();
@@ -358,6 +367,9 @@ async function loadStudioData(projectId: string, runName?: string, selection: Pr
         changeoverTransitions: device.assetDef.production.changeover.transitions.map((transition) => ({ ...transition })),
       } : {}),
       ...(device.policy?.setupCampaign ? { setupCampaign: { ...device.policy.setupCampaign } } : {}),
+      ...(device.policy?.recipeCampaign ? { recipeCampaign: {
+        steps: device.policy.recipeCampaign.steps.map((step) => ({ ...step })),
+      } } : {}),
       ...(device.policy?.batchFormation ? { batchFormation: { ...device.policy.batchFormation } } : {}),
       ...(device.policy?.cadenceControl ? { cadenceControl: { ...device.policy.cadenceControl } } : {}),
       ...(device.policy?.preventiveMaintenance ? { preventiveMaintenance: { ...device.policy.preventiveMaintenance } } : {}),
@@ -569,6 +581,7 @@ async function loadStudioData(projectId: string, runName?: string, selection: Pr
     },
     events,
     metrics,
+    sourceLotServices,
     selectedRun: selected?.name ?? null,
     runs: compatibleRuns.map((run) => ({
       name: run.name,

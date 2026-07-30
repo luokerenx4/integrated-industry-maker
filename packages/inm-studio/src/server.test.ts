@@ -243,6 +243,16 @@ test("Studio exposes the shared immutable Run comparison and reopens each Run's 
     expect(await historicalResponse.json()).toEqual(expect.objectContaining({
       selectedRun: fromRunId,
       blueprintHash: fromRun.context.hashes.blueprintHash,
+      sourceLotServices: expect.arrayContaining([
+        expect.objectContaining({
+          analysisHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+          query: expect.objectContaining({
+            device: "burn-in-1",
+            inputBuffer: "package-input",
+            inputResource: "packaged-dram-device",
+          }),
+        }),
+      ]),
     }));
     const historicalObservation = await fetch(
       `http://localhost:${port}/api/projects/memory-fab/observation?run=${fromRunId}`,
@@ -260,6 +270,11 @@ test("Studio exposes the shared immutable Run comparison and reopens each Run's 
           runId: fromRunId,
           finalWipUnits: 8,
         }),
+        sourceLotServices: expect.arrayContaining([
+          expect.objectContaining({
+            analysisHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+          }),
+        ]),
       }),
     }));
 

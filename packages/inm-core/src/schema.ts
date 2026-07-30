@@ -246,6 +246,13 @@ export const blueprintSchema = z.object({
     policy: z.object({
       dispatch: z.enum(["fifo", "round-robin", "shortage-first", "batch-coherent"]).optional(),
       recipeDispatch: z.enum(["authored-order", "shortest-cycle", "highest-priority", "minimize-changeover", "contract-value", "oldest-lot", "earliest-due-date", "least-slack", "highest-lot-priority"]).optional(),
+      recipeCampaign: z.object({
+        steps: z.array(z.object({
+          process: id,
+          mode: id,
+          jobs: positiveInt,
+        }).strict()).min(1),
+      }).strict().optional(),
       cadenceControl: z.discriminatedUnion("kind", [
         z.object({
           kind: z.literal("downstream-coverage-recovery"),

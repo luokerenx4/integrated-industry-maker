@@ -1954,6 +1954,65 @@ describe("blueprint compiler", () => {
     expect(interrupted.events.filter((event) => event.type === "lot.scrapped" && event.reason === "equipment-breakdown")).toHaveLength(1);
   }, 60_000);
 
+  test("a finite recipe campaign waits for and completes only its exact authored sequence", async () => {
+    const source = await loadFactoryProject(memoryFab);
+    const burnIn = source.blueprint.devices.find((device) => device.id === "burn-in-1")!;
+    const {
+      recipeDispatch: _recipeDispatch,
+      cadenceControl: _cadenceControl,
+      setupCampaign: _setupCampaign,
+      batchFormation: _batchFormation,
+      ...retainedPolicy
+    } = burnIn.policy ?? {};
+    burnIn.policy = {
+      ...retainedPolicy,
+      recipeCampaign: {
+        steps: [
+          { process: "screen-performance-mix", mode: "agile-screening-5-8", jobs: 5 },
+          { process: "screen-commercial-dram", mode: "agile-screening-5-8", jobs: 7 },
+        ],
+      },
+    };
+    const result = runUntil(compileFactoryProject(source), undefined, { seed: 42 });
+    const starts = result.events.filter((event) =>
+      event.type === "device.start" && event.device === "burn-in-1");
+    expect(starts.map((event) => event.type === "device.start" ? event.operation : null)).toEqual([
+      ...Array.from({ length: 5 }, () => "screen-performance-mix"),
+      ...Array.from({ length: 7 }, () => "screen-commercial-dram"),
+    ]);
+    expect(result.events.filter((event) => event.type === "device.recipe-campaign-advanced")).toEqual([
+      expect.objectContaining({
+        device: "burn-in-1", completedStepIndex: 0, nextStepIndex: 1,
+        process: "screen-commercial-dram", mode: "agile-screening-5-8",
+      }),
+    ]);
+    expect(result.events.filter((event) => event.type === "device.recipe-campaign-completed")).toEqual([
+      expect.objectContaining({ device: "burn-in-1", completedJobs: 12 }),
+    ]);
+    expect(result.metrics.recipeCampaigns!.devices["burn-in-1"]).toEqual({
+      steps: [
+        { process: "screen-performance-mix", mode: "agile-screening-5-8", jobs: 5 },
+        { process: "screen-commercial-dram", mode: "agile-screening-5-8", jobs: 7 },
+      ],
+      stepIndex: 1,
+      jobsCompletedInStep: 7,
+      completedJobs: 12,
+      completedAtTick: expect.any(Number),
+      complete: true,
+    });
+    expect(result.state.devices["burn-in-1"]!.status).toBe("idle");
+
+    const unknownOperation = { ...source, blueprint: structuredClone(source.blueprint) };
+    unknownOperation.blueprint.devices.find((device) => device.id === "burn-in-1")!
+      .policy!.recipeCampaign!.steps[0]!.mode = "unknown-mode";
+    expect(issueCodes(() => compileFactoryProject(unknownOperation))).toContain("production.recipe-campaign-operation");
+
+    const conflictingControl = { ...source, blueprint: structuredClone(source.blueprint) };
+    conflictingControl.blueprint.devices.find((device) => device.id === "burn-in-1")!
+      .policy!.recipeDispatch = "contract-value";
+    expect(issueCodes(() => compileFactoryProject(conflictingControl))).toContain("production.recipe-campaign-exclusive");
+  }, 20_000);
+
   test("source-lot product lineage survives fungible back-end flow and identifies terminal WIP", async () => {
     const source = await loadFactoryProject(memoryFab, {
       world: "cleanroom",

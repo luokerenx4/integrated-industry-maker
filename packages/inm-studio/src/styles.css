@@ -209,6 +209,15 @@ aside { overflow-y: auto; padding: 14px; background: #071014bb; }
 .panel h2 { margin: 0 0 12px; color: #8aa1a9; font: 9px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
 .panel label { display: block; color: #78939b; font: 8px var(--mono); letter-spacing: .12em; margin-bottom: 8px; }
 .panel select { width: 100%; color: #dbe9ed; background: #071115; border: 1px solid #23414a; border-radius: 6px; padding: 9px; font: 10px var(--mono); }
+.source-service-timeline { margin-top: 10px; border: 1px solid #1a3941; border-radius: 6px; background: #071115; overflow: hidden; }
+.source-service-timeline > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px; color: #5d878d; cursor: pointer; list-style: none; font: 7px var(--mono); letter-spacing: .08em; }
+.source-service-timeline > summary::-webkit-details-marker { display: none; }
+.source-service-timeline > summary::before { content: "+"; color: var(--mint); }
+.source-service-timeline[open] > summary::before { content: "−"; }
+.source-service-timeline > summary span { flex: 1; }
+.source-service-timeline > summary b { color: #87a6aa; font-weight: 400; }
+.source-service-timeline[open] > summary { border-bottom: 1px solid #17343b; }
+.source-service-timeline .analysis-list { margin: 0; padding: 8px; }
 .observation-panel { border-color: #26675f; background: linear-gradient(145deg, #0a1c1c, #081417); }
 .observation-panel.needs-run { border-color: #7a5530; }
 .observation-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }

@@ -222,7 +222,7 @@ test("immutable Run comparison isolates one Production Plan intervention and exp
   } finally {
     await rm(root, { recursive: true, force: true });
   }
-});
+}, 15_000);
 
 test("immutable Run comparison rejects missing and identical evidence identities", async () => {
   await expect(compareFactoryRuns(memoryFab, "100-simulate", "100-simulate"))

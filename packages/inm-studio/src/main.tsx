@@ -104,6 +104,7 @@ interface Device {
   lotDispatch: string;
   changeoverTransitions?: Array<{ from: string | null; to: string; durationTicks: number; powerMilliWatts: number }>;
   setupCampaign?: { minimumReadyLots: number; maximumHoldTicks: number };
+  recipeCampaign?: { steps: Array<{ process: string; mode: string; jobs: number }> };
   batchFormation?: { preferredProcess: string; maximumWaitTicks: number };
   cadenceControl?: ({
     process: string; normalMode: string; recoveryMode: string;
@@ -385,6 +386,16 @@ interface Metrics {
       kind: "input-queue-recovery";
       inputResource: string; recoverAtItems: number; minimumQueueTicks: number;
     }))>;
+  };
+  recipeCampaigns?: {
+    devices: Record<string, {
+      steps: Array<{ process: string; mode: string; jobs: number }>;
+      stepIndex: number;
+      jobsCompletedInStep: number;
+      completedJobs: number;
+      completedAtTick: number | null;
+      complete: boolean;
+    }>;
   };
   energyConsumedMilliJoules: number;
   electricityCosts: {
@@ -687,6 +698,29 @@ interface StudioData {
   assets: { devices: DeviceCatalogAsset[]; resources: ResourceCatalogAsset[]; processes: ProcessCatalogAsset[]; routes: RouteCatalogAsset[] };
   events: FactoryEvent[];
   metrics: Metrics | null;
+  sourceLotServices: Array<{
+    version: 1;
+    kind: "source-lot-service";
+    run: { id: string; resultHash: string; endTick: number };
+    query: { device: string; inputBuffer: string; inputResource: string; batchUnits: number };
+    workCenter: {
+      jobs: number; changeovers: number; setupTicks: number; firstWorkTick: number | null; lastFinishTick: number | null; remainingHorizonTicks: number;
+      timeline: Array<{
+        kind: "process" | "changeover"; startTick: number; finishTick: number; durationTicks: number;
+        process?: string; mode?: string | null; sourceLotIds?: string[]; inputUnits?: number; from?: string | null; to?: string;
+      }>;
+    };
+    sourceSets: Array<{
+      sourceLotIds: string[];
+      createdAtTick: number | null;
+      inputArrival: { firstAtTick: number | null; fullBatchReadyAtTick: number | null; lastAtTick: number | null; arrivedUnits: number; batchUnits: number };
+      service: null | { process: string; mode: string | null; startTick: number; finishTick: number; queueTicksAfterFullBatch: number | null };
+      delivery: { units: number; firstAtTick: number | null; lastAtTick: number | null };
+      finalWip: Array<{ kind: string; resource: string; count: number; device?: string; buffer?: string; process?: string; connection?: string; network?: string; route?: string }>;
+      unservedAgeTicks: number;
+    }>;
+    analysisHash: string;
+  }>;
   selectedRun: string | null;
   runs: Array<{ name: string; score: number; decision: string; blueprint: string; resultHash: string }>;
 }
@@ -1488,6 +1522,7 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
   const setup = data.metrics?.equipmentSetups.devices[device.id];
   const batchFormation = data.metrics?.batchFlow.formationDevices[device.id];
   const cadenceControl = data.metrics?.cadenceControl.devices[device.id];
+  const recipeCampaign = data.metrics?.recipeCampaigns?.devices[device.id];
   const tooling = data.metrics?.productionTooling.devices[device.id];
   const toolingProvider = data.metrics?.productionTooling.providers[device.id];
   const utilities = data.metrics?.productionUtilities.devices[device.id];
@@ -1532,6 +1567,9 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
         {device.changeoverTransitions && <span><small>CHANGEOVER MATRIX</small><b>{device.changeoverTransitions.map((transition) =>
           `${transition.from ?? "UNCONFIGURED"}→${transition.to} ${formatTick(transition.durationTicks)} @ ${(transition.powerMilliWatts / 1000).toFixed(0)} W`).join(" · ")}</b></span>}
         {device.setupCampaign && <span><small>SETUP CAMPAIGN</small><b>{device.setupCampaign.minimumReadyLots} LOTS · {formatTick(device.setupCampaign.maximumHoldTicks)} MAX</b></span>}
+        {device.recipeCampaign && <span><small>FINITE RECIPE CAMPAIGN</small><b>{device.recipeCampaign.steps.map((step) => `${step.jobs}× ${step.process}/${step.mode}`).join(" → ")}</b></span>}
+        {recipeCampaign && <span><small>CAMPAIGN POSITION</small><b>{recipeCampaign.complete ? `COMPLETE · ${recipeCampaign.completedJobs} JOBS · ${formatTick(recipeCampaign.completedAtTick ?? 0)}`
+          : `${recipeCampaign.stepIndex + 1}/${recipeCampaign.steps.length} · ${recipeCampaign.jobsCompletedInStep}/${recipeCampaign.steps[recipeCampaign.stepIndex]!.jobs} · ${recipeCampaign.completedJobs} TOTAL`}</b></span>}
         {setup && <span><small>CAMPAIGN HOLDS</small><b>{setup.campaignHolds} · {formatTick(setup.campaignHoldTicks)}</b></span>}
         {device.batchFormation && <span><small>PREFERRED BATCH</small><b>{device.batchFormation.preferredProcess} · {formatTick(device.batchFormation.maximumWaitTicks)} MAX WAIT</b></span>}
         {batchFormation && <span><small>BATCH HOLDS</small><b>{batchFormation.holds} · {formatTick(batchFormation.holdTicks)} · {batchFormation.preferredReleases} FULL / {batchFormation.timeoutReleases} TIMEOUT</b></span>}
@@ -2201,7 +2239,7 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
       <div className="overview-hero-copy"><span className="eyebrow">INDUSTRIAL PROGRAM</span><h2>{snapshot.selection.objective.name}</h2><p>Deliver <strong>{snapshot.objective.targetRatePerMinute} {snapshot.objective.targetResource}/min</strong> into <strong>{snapshot.objective.targetRegion}</strong> under {snapshot.selection.scenario.name}.</p><div className="decision-status" aria-label="Project decision status">
         <span className={snapshot.status.capacity.state}><small>CAPACITY</small><b>{snapshot.status.capacity.state.toUpperCase()}</b>{snapshot.status.capacity.gapCount > 0 && <em>{snapshot.status.capacity.gapCount} GAPS</em>}</span>
         <span className={snapshot.status.flow.state}><small>FLOW</small><b>{snapshot.status.flow.state.toUpperCase()}</b>{snapshot.status.flow.warningCount > 0 && <em>{snapshot.status.flow.warningCount} RISKS</em>}</span>
-        <span className={snapshot.status.review.state}><small>REVIEW</small><b>{snapshot.status.review.state.toUpperCase()}</b>{snapshot.status.review.pendingCount > 0 && <em>{snapshot.status.review.pendingCount} PENDING</em>}{snapshot.status.review.staleCount > 0 && <em>{snapshot.status.review.staleCount} STALE</em>}</span>
+        <span className={snapshot.status.review.state}><small>REVIEW</small><b>{snapshot.status.review.state.toUpperCase()}</b>{snapshot.status.review.pendingCount > 0 && <em>{snapshot.status.review.pendingCount} PENDING</em>}{snapshot.status.review.disposedCount > 0 && <em>{snapshot.status.review.disposedCount} DISPOSED</em>}{snapshot.status.review.staleCount > 0 && <em>{snapshot.status.review.staleCount} STALE</em>}</span>
         <span className={snapshot.status.evidence.state}><small>EVIDENCE</small><b>{snapshot.status.evidence.state.toUpperCase()}</b>{snapshot.status.evidence.runId && <em>{snapshot.status.evidence.runId}</em>}</span>
       </div><div className="hero-footprint"><span>{snapshot.counts.regions} ZONES</span><span>{snapshot.counts.deviceInstances} DEVICES</span><span>{snapshot.counts.connections} LINKS</span><span>{snapshot.counts.powerGrids} GRIDS</span></div></div>
       <div className={`readiness-orbit ${snapshot.status.capacity.state}`}><span>{snapshot.status.capacity.state === "ready" ? "READY" : snapshot.status.capacity.gapCount}</span><small>{snapshot.status.capacity.state === "ready" ? "CAPACITY PROVISIONED" : "CAPACITY GAPS"}</small></div>
@@ -2377,7 +2415,10 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
       </section>
       <section className="overview-panel candidates-panel">
         <header><div><span className="eyebrow">REVIEW QUEUE</span><h3>Candidate proposals</h3></div><button onClick={() => onNavigate("experiments")}>EXPERIMENTS →</button></header>
-        {snapshot.candidates.length ? snapshot.candidates.slice(0, 3).map((candidate) => <button className="candidate-short" key={candidate.id} onClick={() => onCandidate(candidate.benchmark, candidate.id)}><span><strong>{candidate.name}</strong><small>{candidate.decision.error?.message ?? candidate.hypothesis}</small><code>{candidate.patchOperations} patch ops · {candidate.decision.state.toUpperCase()} · {candidate.decision.currentCandidateHash.slice(0, 12)}</code></span><b>{candidate.decision.state === "reviewed-keep" ? "APPLY →" : candidate.decision.state === "verified" ? "VERIFIED →" : candidate.decision.state === "stale" ? "STALE →" : candidate.decision.state === "invalid" ? "INVALID →" : "REVIEW →"}</b></button>) : <div className="overview-empty"><span>No Candidate Change Set is waiting for review.</span></div>}
+        {snapshot.candidates.length ? snapshot.candidates.slice(0, 3).map((candidate) => {
+          const disposition = candidate.investigationDisposition;
+          return <button className="candidate-short" key={candidate.id} onClick={() => onCandidate(candidate.benchmark, candidate.id)}><span><strong>{candidate.name}</strong><small>{candidate.decision.error?.message ?? disposition?.statement ?? candidate.hypothesis}</small><code>{candidate.patchOperations} patch ops · {disposition ? `INVESTIGATION ${disposition.disposition.toUpperCase()}` : candidate.decision.state.toUpperCase()} · {candidate.decision.currentCandidateHash.slice(0, 12)}</code></span><b>{disposition && disposition.disposition !== "keep" ? `${disposition.disposition.toUpperCase()} →` : candidate.decision.state === "reviewed-keep" ? "APPLY →" : candidate.decision.state === "verified" ? "VERIFIED →" : candidate.decision.state === "stale" ? "STALE →" : candidate.decision.state === "invalid" ? "INVALID →" : "REVIEW →"}</b></button>;
+        }) : <div className="overview-empty"><span>No Candidate Change Set is waiting for review.</span></div>}
       </section>
       <details className="overview-panel operations-panel">
         <summary><div><span className="eyebrow">ADVANCED CONTROL</span><h3>Shared Core operations</h3><p>Inspect effects, guards, and exact CLI reproduction.</p></div><span><b>{availableOperations.length}</b> AVAILABLE <i>+</i></span></summary>
@@ -3503,6 +3544,23 @@ function App() {
                       </Fragment>
                     ),
                   )}
+                  {Object.entries(data.metrics.recipeCampaigns?.devices ?? {}).map(
+                    ([device, campaign]) => (
+                      <Fragment key={device}>
+                        <Metric
+                          label={`${device.toUpperCase()} FINITE CAMPAIGN`}
+                          value={campaign.complete
+                            ? `COMPLETE · ${campaign.completedJobs} jobs`
+                            : `${campaign.stepIndex + 1}/${campaign.steps.length} · ${campaign.jobsCompletedInStep}/${campaign.steps[campaign.stepIndex]!.jobs} jobs`}
+                          accent={campaign.complete}
+                        />
+                        <Metric
+                          label="AUTHORED SEQUENCE"
+                          value={campaign.steps.map((step) => `${step.jobs}× ${step.process}`).join(" → ")}
+                        />
+                      </Fragment>
+                    ),
+                  )}
                 </>
               )}
               <Metric
@@ -3870,6 +3928,42 @@ function App() {
               </div>
             </div>
           )}
+          {data.sourceLotServices.map((analysis) => (
+            <div className="panel" data-testid={`source-lot-service-${analysis.query.device}`} key={analysis.analysisHash}>
+              <h2>Source-lot service chronology</h2>
+              <code>{analysis.query.device}.{analysis.query.inputBuffer} / {analysis.query.inputResource} · {analysis.analysisHash.slice(0, 12)}</code>
+              <div className="metrics">
+                <Metric label="JOBS / CHANGEOVERS" value={`${analysis.workCenter.jobs} / ${analysis.workCenter.changeovers}`} />
+                <Metric label="SETUP WORK" value={formatTick(analysis.workCenter.setupTicks)} />
+                <Metric label="POST-WORK HORIZON" value={formatTick(analysis.workCenter.remainingHorizonTicks)} accent />
+              </div>
+              <div className="analysis-list">
+                {analysis.sourceSets.map((sourceSet) => (
+                  <div key={sourceSet.sourceLotIds.join("+")}>
+                    <strong>{sourceSet.sourceLotIds.join(" + ")}</strong>
+                    <span>
+                      FULL {sourceSet.inputArrival.fullBatchReadyAtTick === null ? "—" : formatTick(sourceSet.inputArrival.fullBatchReadyAtTick)}
+                      {" → "}
+                      {sourceSet.service ? `${sourceSet.service.process} ${formatTick(sourceSet.service.startTick)}–${formatTick(sourceSet.service.finishTick)}` : "UNSERVED"}
+                    </span>
+                    <code>{sourceSet.delivery.units} DELIVERED{sourceSet.unservedAgeTicks > 0 ? ` · ${formatTick(sourceSet.unservedAgeTicks)} TERMINAL AGE` : ""}</code>
+                  </div>
+                ))}
+              </div>
+              <details className="source-service-timeline">
+                <summary><span>WORK-CENTER TIMELINE</span><b>{analysis.workCenter.timeline.length} EVENTS</b></summary>
+                <div className="analysis-list">
+                  {analysis.workCenter.timeline.map((item, index) => (
+                    <div key={`${item.kind}-${item.startTick}-${index}`}>
+                      <strong>{item.kind === "process" ? item.process : `${item.from ?? "UNCONFIGURED"} → ${item.to}`}</strong>
+                      <span>{formatTick(item.startTick)} → {formatTick(item.finishTick)}</span>
+                      <code>{item.kind === "process" ? item.sourceLotIds?.join(" + ") : "CHANGEOVER"}</code>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            </div>
+          ))}
         </aside>
       </section>
       <footer className="timeline">

@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { listRuns } from "./artifacts";
 import { listBlueprintBenchmarks, type BlueprintBenchmarkSummary } from "./benchmark";
-import { listCandidateChangeSets } from "./candidate-change-set";
-import { inspectCandidateDecision, type CandidateDecisionState } from "./candidate-review";
+import { listCandidateChangeSets, type CandidateChangeSet } from "./candidate-change-set";
+import { inspectCandidateDecision, type CandidateDecision, type CandidateDecisionState } from "./candidate-review";
 import { listDesignPrograms, type DesignProgramSummary } from "./design-program";
 import {
   indexDesignRuns,
@@ -42,6 +42,8 @@ import {
   verifiedDesignCommissioningIdentity,
   type WorkbenchDesignProgramEvidence,
 } from "./design-evidence";
+import { analyzeSourceLotServices, type SourceLotServiceAnalysis } from "./source-lot-service";
+import type { IndustrialInvestigationEntry } from "./investigation";
 
 export {
   classifyDesignProgramEvidence,
@@ -247,7 +249,7 @@ export interface WorkbenchObjectiveEvidence {
 }
 
 export interface ProjectWorkbenchSnapshot {
-  version: 15;
+  version: 17;
   project: {
     id: string;
     name: string;
@@ -275,6 +277,7 @@ export interface ProjectWorkbenchSnapshot {
   };
   inventoryAccounting: (FactoryMetrics["inventoryAccounting"] & { runId: string }) | null;
   sourceLotLineage: (FactoryMetrics["sourceLotLineage"] & { runId: string }) | null;
+  sourceLotServices: SourceLotServiceAnalysis[];
   objectiveEvidence: WorkbenchObjectiveEvidence | null;
   status: {
     capacity: {
@@ -284,7 +287,13 @@ export interface ProjectWorkbenchSnapshot {
     };
     flow: { state: "clear" | "at-risk"; warningCount: number; infoCount: number };
     evidence: { state: "current" | "missing" | "incompatible"; runId: string | null };
-    review: { state: "clear" | "pending" | "stale"; pendingCount: number; staleCount: number; verifiedCount: number };
+    review: {
+      state: "clear" | "pending" | "stale";
+      pendingCount: number;
+      disposedCount: number;
+      staleCount: number;
+      verifiedCount: number;
+    };
   };
   counts: {
     regions: number;
@@ -355,6 +364,17 @@ export interface ProjectWorkbenchSnapshot {
       verdict?: "KEEP" | "DISCARD" | "UNCHANGED";
       resultHash?: string;
       error?: { code: string; message: string };
+    };
+    investigationDisposition: null | {
+      investigationId: string;
+      entryId: string;
+      entryHash: string;
+      sequence: number;
+      author: "human" | "agent";
+      disposition: "keep" | "revise" | "defer" | "discard";
+      statement: string;
+      reviewAnchorId: string;
+      reviewResultHash: string;
     };
   }>;
   diagnostics: WorkbenchDiagnostic[];
@@ -626,7 +646,10 @@ function operationDescriptors(
 ): WorkbenchOperationDescriptor[] {
   const lockedExperiments = experiments.filter((experiment) => experiment.locked).length;
   const reviewable = candidates.some((candidate) => candidate.decision.state === "proposed" || candidate.decision.state.startsWith("reviewed-"));
-  const applicable = candidates.some((candidate) => candidate.decision.state === "reviewed-keep");
+  const applicable = candidates.some((candidate) =>
+    candidate.decision.state === "reviewed-keep"
+      && (!candidate.investigationDisposition
+        || candidate.investigationDisposition.disposition === "keep"));
   const alignedDesign = designPrograms.find((program) => program.alignment.state === "aligned");
   const designAvailability: WorkbenchOperationDescriptor["availability"] = !designPrograms.some((program) => program.locked)
     ? { state: "unavailable", reasons: ["No locked project-local Design Program is available."] }
@@ -728,7 +751,10 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
     target: { kind: "diagnostic", diagnosticId: blocking.id },
   };
 
-  const candidate = context.candidates.find((item) => item.decision.state === "reviewed-keep")
+  const candidate = context.candidates.find((item) =>
+    item.decision.state === "reviewed-keep"
+      && (!item.investigationDisposition
+        || item.investigationDisposition.disposition === "keep"))
     ?? context.candidates.find((item) => item.decision.state === "proposed");
   if (candidate) {
     const route = `${projectRoute}/experiments/${encodeURIComponent(candidate.benchmark)}/candidates/${encodeURIComponent(candidate.id)}`;
@@ -1064,6 +1090,64 @@ function buildWorkbenchObjectiveEvidence(
   };
 }
 
+async function currentInvestigationDisposition(
+  candidate: CandidateChangeSet,
+  decision: CandidateDecision,
+  entriesForInvestigation: (investigationId: string) => Promise<IndustrialInvestigationEntry[]>,
+): Promise<ProjectWorkbenchSnapshot["candidates"][number]["investigationDisposition"]> {
+  if (candidate.source?.kind !== "investigation-hypothesis"
+    || !decision.resultHash
+    || !decision.proposedCandidateHash
+    || !decision.verdict) return null;
+  try {
+    // Investigation owns the verified append-only chain. Keep this import
+    // deferred because Investigation itself uses Workbench to resolve new
+    // factory-observation anchors.
+    const entries = await entriesForInvestigation(candidate.source.investigation);
+    const reviewAnchors = new Map<string, {
+      candidateId: string;
+      proposalHash: string;
+      currentCandidateHash: string;
+      proposedCandidateHash: string;
+      reviewResultHash: string;
+      verdict: "KEEP" | "DISCARD" | "UNCHANGED";
+    }>();
+    let resolved: ProjectWorkbenchSnapshot["candidates"][number]["investigationDisposition"] = null;
+    for (const entry of entries) {
+      for (const anchor of entry.introducedAnchors) {
+        if (anchor.kind === "candidate-review") reviewAnchors.set(anchor.id, anchor);
+      }
+      if (entry.kind !== "decision") continue;
+      const reviewAnchorId = entry.evidence.find((anchorId) => {
+        const anchor = reviewAnchors.get(anchorId);
+        return anchor?.candidateId === candidate.id
+          && anchor.proposalHash === decision.proposalHash
+          && anchor.currentCandidateHash === decision.currentCandidateHash
+          && anchor.proposedCandidateHash === decision.proposedCandidateHash
+          && anchor.reviewResultHash === decision.resultHash
+          && anchor.verdict === decision.verdict;
+      });
+      if (!reviewAnchorId) continue;
+      resolved = {
+        investigationId: candidate.source.investigation,
+        entryId: entry.id,
+        entryHash: entry.entryHash,
+        sequence: entry.sequence,
+        author: entry.author,
+        disposition: entry.disposition,
+        statement: entry.statement,
+        reviewAnchorId,
+        reviewResultHash: decision.resultHash,
+      };
+    }
+    return resolved;
+  } catch {
+    // Invalid or unavailable reasoning evidence must never suppress a
+    // Candidate action. Investigation inspection will expose the exact repair.
+    return null;
+  }
+}
+
 export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProject): Promise<ProjectWorkbenchSnapshot> {
   const analysis = analyzeProduction(project);
   const capacity = planProductionCapacity(project);
@@ -1074,6 +1158,17 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     listDesignPrograms(project.rootDir),
   ]);
   const decisions = await Promise.all(candidates.map((candidate) => inspectCandidateDecision(project.rootDir, candidate.id)));
+  const investigationEntries = new Map<string, Promise<IndustrialInvestigationEntry[]>>();
+  const entriesForInvestigation = (investigationId: string): Promise<IndustrialInvestigationEntry[]> => {
+    const existing = investigationEntries.get(investigationId);
+    if (existing) return existing;
+    const loading = import("./investigation").then(({ listIndustrialInvestigationEntries }) =>
+      listIndustrialInvestigationEntries(project.rootDir, investigationId));
+    investigationEntries.set(investigationId, loading);
+    return loading;
+  };
+  const investigationDispositions = await Promise.all(candidates.map((candidate, index) =>
+    currentInvestigationDisposition(candidate, decisions[index]!, entriesForInvestigation)));
   const gapsByKind: ProjectWorkbenchSnapshot["status"]["capacity"]["gapsByKind"] = {};
   for (const gap of capacity.gaps) gapsByKind[gap.kind] = (gapsByKind[gap.kind] ?? 0) + 1;
   const deliveryContracts = project.objective.deliveryContracts?.map((contract) => ({
@@ -1119,6 +1214,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
         ...(decision.resultHash ? { resultHash: decision.resultHash } : {}),
         ...(decision.error ? { error: { ...decision.error } } : {}),
       },
+      investigationDisposition: investigationDispositions[index] ?? null,
     };
   });
   const designCommissionings = candidates.flatMap((candidate, index) => {
@@ -1200,18 +1296,29 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   }));
   const currentRun = matchingRun(selection, runSummaries);
   const currentArtifact = currentRun?.compatible ? runs.find((run) => run.name === currentRun.id) : undefined;
-  const currentMetrics = currentArtifact
-    ? await readJson(join(currentArtifact.path, "metrics.json")) as FactoryMetrics
-    : null;
+  const [currentMetrics, currentEvents, currentState] = currentArtifact
+    ? await Promise.all([
+      readJson(join(currentArtifact.path, "metrics.json")) as Promise<FactoryMetrics>,
+      readFactoryEvents(join(currentArtifact.path, "events.ndjson")),
+      readJson(join(currentArtifact.path, "final-state.json")) as Promise<FactoryState>,
+    ])
+    : [null, null, null];
   const lossAttribution = currentArtifact && Object.keys(project.routes).length
     ? analyzeFabLosses(
       currentMetrics!,
       project.scenario.durationTicks,
       { id: currentArtifact.name, resultHash: currentArtifact.manifest.resultHash },
       project,
-      await readFactoryEvents(join(currentArtifact.path, "events.ndjson")),
+      currentEvents!,
     )
     : null;
+  const sourceLotServices = currentArtifact && currentMetrics && currentEvents && currentState
+    ? analyzeSourceLotServices(project, currentEvents, currentMetrics, {
+      id: currentArtifact.name,
+      resultHash: currentArtifact.manifest.resultHash,
+      endTick: currentState.tick,
+    })
+    : [];
   const diagnostics = projectDiagnostics(project, analysis, capacity, lossAttribution);
   const designProgramsWithDispositions = await Promise.all(classifiedDesignPrograms.map(async (projectedProgram) => {
     const sourceProgram = programs.find((program) => program.id === projectedProgram.id)!;
@@ -1253,11 +1360,17 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const flowWarnings = diagnostics.filter((diagnostic) => diagnostic.severity === "warning").length;
   const flowInfo = diagnostics.filter((diagnostic) => diagnostic.severity === "info").length;
   const pendingReviews = candidateSummaries.filter((candidate) =>
-    candidate.decision.state === "proposed" || candidate.decision.state === "reviewed-keep").length;
+    candidate.decision.state === "proposed"
+      || (candidate.decision.state === "reviewed-keep"
+        && (!candidate.investigationDisposition
+          || candidate.investigationDisposition.disposition === "keep"))).length;
+  const disposedReviews = candidateSummaries.filter((candidate) =>
+    candidate.investigationDisposition
+      && candidate.investigationDisposition.disposition !== "keep").length;
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const snapshot = {
-    version: 15 as const,
+    version: 17 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },
@@ -1274,6 +1387,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     sourceLotLineage: currentMetrics
       ? { ...structuredClone(currentMetrics.sourceLotLineage), runId: currentArtifact!.name }
       : null,
+    sourceLotServices,
     objectiveEvidence: currentMetrics
       ? buildWorkbenchObjectiveEvidence(project, currentArtifact!.name, currentMetrics)
       : null,
@@ -1284,6 +1398,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
       review: {
         state: pendingReviews ? "pending" as const : staleReviews ? "stale" as const : "clear" as const,
         pendingCount: pendingReviews,
+        disposedCount: disposedReviews,
         staleCount: staleReviews,
         verifiedCount: verifiedReviews,
       },

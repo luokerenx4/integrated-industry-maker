@@ -918,11 +918,29 @@ export function evaluateFactory(
       }
   }
   const cadenceControl: FactoryMetrics["cadenceControl"] = { devices: cadenceDevices };
+  const recipeCampaigns: NonNullable<FactoryMetrics["recipeCampaigns"]> = {
+    devices: Object.fromEntries(Object.values(project.devices)
+      .filter((device) => device.policy?.recipeCampaign && state.devices[device.id]!.recipeCampaign)
+      .sort((left, right) => left.id.localeCompare(right.id))
+      .map((device) => {
+        const runtime = state.devices[device.id]!.recipeCampaign!;
+        return [device.id, {
+          steps: structuredClone(device.policy!.recipeCampaign!.steps),
+          stepIndex: runtime.stepIndex,
+          jobsCompletedInStep: runtime.jobsCompletedInStep,
+          completedJobs: runtime.completedJobs,
+          completedAtTick: runtime.completedAtTick ?? null,
+          complete: runtime.completedAtTick !== undefined,
+        }];
+      })),
+  };
   return {
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute, deliveryPortfolio,
     completedOrders: state.completedOrders, highSpeedMissions: state.highSpeedMissions,
     carrierMissions: state.carrierMissions, carrierReturns: state.carrierReturns, stationFleets,
-    onTimeDelivery, lotFlow, routeFlow, releaseFlow, qualityFlow, lotOutputFlow, sourceLotLineage, batchFlow, cadenceControl, energyConsumedMilliJoules: state.energy.consumedMilliJoules, electricityCosts, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
+    onTimeDelivery, lotFlow, routeFlow, releaseFlow, qualityFlow, lotOutputFlow, sourceLotLineage, batchFlow, cadenceControl,
+    ...(Object.keys(recipeCampaigns.devices).length ? { recipeCampaigns } : {}),
+    energyConsumedMilliJoules: state.energy.consumedMilliJoules, electricityCosts, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
     powerGrids: Object.fromEntries(Object.entries(stats.powerGrids).map(([grid, power]) => [grid, {
       generatedMilliJoules: power.generatedMilliJoules, demandMilliJoules: power.demandMilliJoules,
       servedMilliJoules: power.servedMilliJoules, unservedMilliJoules: power.unservedMilliJoules, curtailedMilliJoules: power.curtailedMilliJoules,

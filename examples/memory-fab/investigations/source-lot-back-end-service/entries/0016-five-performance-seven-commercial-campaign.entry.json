@@ -1,0 +1,18 @@
+{
+  "author": "agent",
+  "entryHash": "890d9a8fd5c02ff7b81d80ea813cf8cd0a0a783dfc57e95929f26b00fb5224b0",
+  "evidence": [
+    "incumbent-burn-in-service-chronology",
+    "utility-funded-overflow-review"
+  ],
+  "expectedEffect": "Under Run 105 inputs, finish the twelfth Burn-in job near tick 228873, deliver all 96 devices, reduce final source-lot WIP from 8 to 0, retain 12/12 on-time lots, zero scrap, zero quality escape and current capital/resilience. Explicitly measure the expected portfolio trade from gross delivery value 344 to 332, setup work, average WIP, energy and locked-case service; KEEP is not implied if the strict campaign merely moves terminal WIP into longer earlier queues or violates any locked guardrail.",
+  "id": "five-performance-seven-commercial-campaign",
+  "intervention": "blueprint",
+  "introducedAnchors": [],
+  "investigation": "source-lot-back-end-service",
+  "kind": "hypothesis",
+  "previousEntryHash": "fb38289971eb8dc48a595afa16034f3f8e35c5ef76c45bb4ff172b23f1fe8547",
+  "sequence": 16,
+  "statement": "Replace only burn-in-1 recipe selection with one explicit finite incumbent-rack campaign: complete five screen-performance-mix jobs in agile-screening-5-8 mode, then seven screen-commercial-dram jobs in the same mode, and stop after twelve successful jobs. Preserve every Device, connection, utility provider, Process duration and batch size, twelve-lot Production Plan, release control, Scenario, Objective, delivery contract, quality rule, and physical changeover. The campaign is a human/Agent-authored falsifiable operating schedule; Core must wait for each exact step and must not generate, reorder, repeat, or optimize it.",
+  "version": 1
+}

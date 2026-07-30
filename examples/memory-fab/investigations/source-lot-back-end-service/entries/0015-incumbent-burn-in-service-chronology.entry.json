@@ -1,0 +1,88 @@
+{
+  "author": "agent",
+  "entryHash": "fb38289971eb8dc48a595afa16034f3f8e35c5ef76c45bb4ff172b23f1fe8547",
+  "evidence": [
+    "post-batch-coherent-current-factory",
+    "utility-funded-overflow-review",
+    "incumbent-burn-in-service-chronology"
+  ],
+  "id": "incumbent-burn-in-service-chronology",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:24b42c0afc",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:inspection-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 105-simulate (signal 0.2090). 9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "inspection-1",
+            "kind": "device"
+          },
+          {
+            "id": "etch-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "etch-l2",
+            "kind": "device"
+          },
+          {
+            "id": "rework-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "rework-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
+      },
+      "hashes": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "engineVersion": "inm-sim/0.92.0",
+        "executionHash": "b8b5653fd5fa7a0481cc632deb8a4e3bf23cb1e71923734db74941e48880d6d4",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "incumbent-burn-in-service-chronology",
+      "kind": "factory-observation",
+      "resultHash": "353061d1b81789346483a196dd373568d2cacd67ea12b05e9374cec675fe2f8e",
+      "runId": "105-simulate",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "sourceLotServices": [
+        {
+          "analysisHash": "93b87b1949dea24903070c3576bcce8b6fe4fc8fa44d9da3f7377738a47ff01f",
+          "device": "burn-in-1",
+          "inputBuffer": "package-input",
+          "inputResource": "packaged-dram-device"
+        },
+        {
+          "analysisHash": "0d55413651dadd49c3086c79171685d2757ee19d031e744ff59a5ca7411b1944",
+          "device": "packaging-1",
+          "inputBuffer": "die-input",
+          "inputResource": "known-good-dram-die"
+        }
+      ]
+    }
+  ],
+  "investigation": "source-lot-back-end-service",
+  "kind": "observation",
+  "previousEntryHash": "fac7c61bb0a98d8abdaeb45acd7710a996f216062f7ab8fb2ad09431b7817a5b",
+  "sequence": 15,
+  "statement": "Run 105 now has deterministic source-lot service analysis 93b87b1949de: burn-in-1.package-input receives twelve complete eight-device source batches at ticks 71623 through 205173; the incumbent executes RRRCCCCCRRR across 11 jobs, pays three changeovers and 14000 setup ticks, finishes lot-07 at tick 235623, and leaves only 4377 horizon ticks. Exact source set [dram-lot-08] was fully ready at tick 205173, receives no service or delivery, remains as eight packaged-dram-device at the rack input, and reaches the final boundary with 34827 ticks of unserved age. The analysis is derived from immutable Run events and final state and is separately hash-identified; it establishes temporal service and portfolio ordering, not an automatic schedule or a claim that every throughput gain improves the Objective.",
+  "version": 1
+}

@@ -1,0 +1,23 @@
+[
+  {
+    "op": "replace",
+    "path": "/devices/10/policy",
+    "value": {
+      "powerPriority": 5,
+      "recipeCampaign": {
+        "steps": [
+          {
+            "jobs": 5,
+            "mode": "agile-screening-5-8",
+            "process": "screen-performance-mix"
+          },
+          {
+            "jobs": 7,
+            "mode": "agile-screening-5-8",
+            "process": "screen-commercial-dram"
+          }
+        ]
+      }
+    }
+  }
+]

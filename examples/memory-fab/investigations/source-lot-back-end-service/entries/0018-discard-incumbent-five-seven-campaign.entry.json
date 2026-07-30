@@ -1,0 +1,30 @@
+{
+  "author": "agent",
+  "disposition": "discard",
+  "entryHash": "799158ef35baa3d0df71c20b042e983cb743cf778001ae93bf0a950b37b39000",
+  "evidence": [
+    "incumbent-burn-in-service-chronology",
+    "incumbent-five-seven-comparison",
+    "incumbent-five-seven-review"
+  ],
+  "id": "discard-incumbent-five-seven-campaign",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "incumbent-five-performance-seven-commercial",
+      "currentCandidateHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+      "id": "incumbent-five-seven-review",
+      "kind": "candidate-review",
+      "proposalHash": "adf8e8c7f5d75921584bc8c5f4c92ae30b61dd2c2dea2153552c93fb2dd5e763",
+      "proposedCandidateHash": "7855833b2f4d28f95b4dabce45c8e3fe33552c365be7464235ac80e725acde20",
+      "reviewResultHash": "320ad510ada4d407c453cc689c48ef592048e1080a939aae8349d84a0f89a1fd",
+      "verdict": "KEEP"
+    }
+  ],
+  "investigation": "source-lot-back-end-service",
+  "kind": "decision",
+  "previousEntryHash": "e6fef008024ae5f40954e5fe2a830430c537f89ed54c4172214754384fc55a85",
+  "sequence": 18,
+  "statement": "Discard this exact five-performance/seven-commercial campaign and do not apply it to the incumbent Blueprint. The immutable locked review remains KEEP against the old greenfield Benchmark, proving compliance and resilience, but its separate current-factory boundary is REGRESSED by 5.501245 aggregate and every locked case loses 4.023046 to 5.747647 points. Run 109 confirms the causal trade: eight more low-value devices and no terminal Burn-in tail are outweighed by twelve less gross portfolio value and 2.170767 more average Objective-equivalent WIP. Retain the finite campaign mechanism and chronology evidence as reusable design capability; retire only this authored schedule, and require future back-end timing proposals to improve the current factory rather than merely remain above a historical baseline.",
+  "version": 1
+}

@@ -1434,6 +1434,26 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
         message: `Every operation on campaign-controlled Device '${instance.id}' must preserve tracked lot identities`,
       });
     }
+    if (instance.policy?.recipeCampaign) {
+      const campaignPath = `${path}/policy/recipeCampaign`;
+      for (const [stepIndex, step] of instance.policy.recipeCampaign.steps.entries()) {
+        const qualified = processPlans.filter((plan) =>
+          plan.definition.id === step.process && plan.mode.id === step.mode);
+        if (qualified.length !== 1) issues.push({
+          path: `${campaignPath}/steps/${stepIndex}`, code: "production.recipe-campaign-operation",
+          message: `Finite recipe campaign on '${instance.id}' requires exactly one qualified operation for Process '${step.process}' mode '${step.mode}'`,
+        });
+      }
+      for (const [field, configured] of [
+        ["recipeDispatch", instance.policy.recipeDispatch],
+        ["cadenceControl", instance.policy.cadenceControl],
+        ["setupCampaign", instance.policy.setupCampaign],
+        ["batchFormation", instance.policy.batchFormation],
+      ] as const) if (configured !== undefined) issues.push({
+        path: `${campaignPath}`, code: "production.recipe-campaign-exclusive",
+        message: `Finite recipe campaign on '${instance.id}' cannot combine with '${field}' selection control`,
+      });
+    }
     if (instance.policy?.recipeDispatch === "least-slack" && (!processPlans.length || processPlans.some((plan) =>
       plan.lotTransfers.length === 0 && plan.lotTerminations.length === 0))) issues.push({
       path: `${path}/policy/recipeDispatch`, code: "production.route-dispatch-tracking-required",

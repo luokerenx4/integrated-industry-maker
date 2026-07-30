@@ -42,6 +42,7 @@ export * from "./objective-constraints";
 export * from "./operation-execution";
 export * from "./studio-source-identity";
 export * from "./execution-identity";
+export * from "./source-lot-service";
 
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";

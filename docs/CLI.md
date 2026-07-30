@@ -238,7 +238,9 @@ inm simulate examples/ironworks \
   --json
 ```
 
-For explicitly lineage-bearing product, human output reports created, delivered, discarded, commingled, and final-WIP totals plus every exact final source-lot set and physical location. JSON retains the complete `metrics.sourceLotLineage` object, including per-source-set Resource flow and final Buffer/job/local-transit/station-transit locations. This is immutable Run evidence from [[docs/design/source-lot-product-lineage]], not a reconstruction from tracked Route lots.
+For explicitly lineage-bearing product, human output reports created, delivered, discarded, commingled, and final-WIP totals plus every exact final source-lot set and physical location. JSON retains the complete `metrics.sourceLotLineage` object, including per-source-set Resource flow and final Buffer/job/local-transit/station-transit locations. `inm inspect <path> --section source-lot-service --json` derives one hash-identified chronology per qualified lineage-bearing Device input from the immutable Run events, metrics, and terminal state: source creation, first/full/last batch arrival, service start/finish and queue, delivery, terminal WIP age, plus the complete Process/changeover work-center timeline and remaining horizon. Observation, Workbench, and Studio use the same analysis object and hash. This is immutable Run evidence from [[docs/design/source-lot-product-lineage]], not a reconstruction from tracked Route lots or UI labels.
+
+When a Blueprint Device owns a finite `recipeCampaign`, simulation output reports its exact authored steps, current step/job progress, total completed jobs, completion tick, and completion state. Human output and Studio project the same evaluator-owned record; the CLI does not infer or generate a replacement schedule. See [[docs/design/recipe-campaign-scheduling]].
 
 The response includes artifact path, cache status, run key, result hash, every metric, score breakdown, and final score.
 
