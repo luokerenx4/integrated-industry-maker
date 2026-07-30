@@ -151,6 +151,8 @@ A Resource asset describes a kind of flow. Runtime quantities are `(resource id,
 
 An identity-preserving WIP Resource adds `"tracking": { "kind": "lot", "family": "dram-wafer", "route": "dram-front-end" }`. Every route-stage Resource for the same physical lot uses the same family and project-local Route. Tracked Resources must be discrete. They are normally transformed one-for-one; an explicit terminating Process may instead end the source lot while producing untracked outputs. Their ids, priorities, due dates, locations, elapsed-state clocks, and explicit Route state survive until that boundary. See [[docs/design/lot-tracking]], [[docs/design/product-routes]], and [[docs/design/industrial-boundaries]].
 
+A discrete fungible product may separately add `"lineage": { "kind": "source-lot" }`. It cannot also be tracked or used as generator fuel. It may enter execution only from a complete lot-terminating output or a downstream Process that consumes already valid source-lot product. World supply, Scenario initial Buffer inventory, Production Plan material delivery, and initial treatment inventory are rejected for this Resource because they have no exact source lot. Runtime preserves quantity-qualified ancestry through Buffers, jobs, transport, treatment, transformation, discard, and delivery without granting Route identity or inventing individual serials. See [[docs/design/source-lot-product-lineage]].
+
 ## Routes
 
 `routes/*.route.json` freezes the evaluator-owned process sequence for tracked products:

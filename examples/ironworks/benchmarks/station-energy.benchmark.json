@@ -23,8 +23,8 @@
     "cases": {
       "cold-station": {
         "blueprintHash": "bcee904329bb9c02e09e8544f1f98299d8b44cf02ff97c80de7c96ba56cae415",
-        "engineVersion": "inm-sim/0.91.0",
-        "executionHash": "0264aad556c9a000d6ef331f9c39c99ad002813ecdbbcd609f9b1520da850b01",
+        "engineVersion": "inm-sim/0.92.0",
+        "executionHash": "5e7928e3fc9ed14974d9d5be9a786ad08dcbbe196b09644f0c2804411723cbef",
         "objectiveHash": "8f797af70982a5fa1363919ba58a840ca5b6fb613abb1f8ee309bec7018b9f70",
         "productionPlanHash": "fa712887abe4b19945a3cd4b6cc508eb5846bc37964d48784f13e916ee02ad48",
         "scenarioHash": "ba90230fc2542e93f3729dd95927af96ba3c37f2c52e53abf6717945f20a8c83",

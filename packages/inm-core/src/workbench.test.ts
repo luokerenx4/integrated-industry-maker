@@ -46,7 +46,7 @@ async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
 
 test("shared workbench snapshot orients an operator with stable diagnostics and operations", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/ironworks"));
-  expect(snapshot.version).toBe(14);
+    expect(snapshot.version).toBe(15);
   expect(snapshot.project.id).toBe("ironworks");
   expect(snapshot.selection).toEqual(expect.objectContaining({
     world: expect.objectContaining({ id: "main" }),
@@ -99,7 +99,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 8, infoCount: 9 },
-    evidence: { state: "current", runId: "102-simulate" },
+    evidence: { state: "current", runId: "105-simulate" },
     review: { state: "stale", pendingCount: 0, staleCount: 24, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
@@ -113,7 +113,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.objective.wipAccounting.resources.map((entry) => entry.resource))
     .not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "102-simulate",
+    runId: "105-simulate",
     wipEquivalentUnit: "dram-device-equivalent",
     averageRawWipInventory: 28.039358333333332,
     averageWipEquivalentUnits: 49.1905,
@@ -132,8 +132,29 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     buffer: "package-input",
     averageInventory: 9.465691666666666,
   }));
+  expect(snapshot.sourceLotLineage).toEqual(expect.objectContaining({
+    runId: "105-simulate",
+    createdUnits: 96,
+    deliveredUnits: 88,
+    discardedUnits: 0,
+    commingledJobs: 0,
+    finalWipUnits: 8,
+  }));
+  expect(snapshot.sourceLotLineage?.sourceSets.find((sourceSet) =>
+    sourceSet.sourceLotIds.length === 1 && sourceSet.sourceLotIds[0] === "dram-lot-08"))
+    .toEqual(expect.objectContaining({
+      delivered: {},
+      finalWip: [{
+        kind: "buffer",
+        device: "burn-in-1",
+        buffer: "package-input",
+        resource: "packaged-dram-device",
+        count: 8,
+        sourceLotIds: ["dram-lot-08"],
+      }],
+    }));
   expect(snapshot.objectiveEvidence).toEqual(expect.objectContaining({
-    runId: "102-simulate",
+    runId: "105-simulate",
     finalScore: 0.19840972805554147,
     dominantPenalty: { id: "wip", contribution: -73.78575000000001, role: "penalty" },
     wip: expect.objectContaining({
@@ -669,7 +690,7 @@ test("an active physical loss still outranks current Objective Design evidence",
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true });
   await rm(join(projectDir, "design-runs/front-end-queue-convergence"), { recursive: true, force: true });
   const snapshot = await openProjectWorkbenchSnapshot(projectDir);
-  expect(snapshot.version).toBe(14);
+    expect(snapshot.version).toBe(15);
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.input-starvation")).toBeTrue();
   const currentInspection = snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")?.evidence;
   if (currentInspection?.authorityRunId === "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06") {
@@ -1289,7 +1310,7 @@ test("a pre-contract Candidate and Design lineage remain historical after apply"
   expect(snapshot.lossDispositions.some((disposition) =>
     disposition.source.programId === "inspection-supply-path")).toBeFalse();
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    title: "Measure the current selection",
+    title: "Refresh incompatible run evidence",
     actionLabel: "RUN SIMULATION",
     effect: "creates-artifact",
     target: expect.objectContaining({ kind: "operation", operationId: "simulate" }),

@@ -21,7 +21,7 @@ export interface FactoryObservationView {
 }
 
 export interface FactoryObservationBrief {
-  version: 3;
+  version: 4;
   id: string;
   status: "ready" | "needs-run";
   authority: "human-or-agent";
@@ -42,6 +42,7 @@ export interface FactoryObservationBrief {
       score: number;
       decision: ProjectWorkbenchSnapshot["runs"][number]["decision"];
     };
+    sourceLotLineage: ProjectWorkbenchSnapshot["sourceLotLineage"];
   };
   leadingDiagnostic: null | Pick<WorkbenchDiagnostic, "id" | "code" | "severity" | "message" | "subjects" | "evidence">;
   leadingObjectiveTradeoff: null | {
@@ -212,7 +213,7 @@ export function buildFactoryObservationBrief(
     views: views.map((view) => ({ id: view.id, route: view.studioRoute })),
   };
   return {
-    version: 3,
+    version: 4,
     id: hashValue(identity),
     status: run ? "ready" : "needs-run",
     authority: "human-or-agent",
@@ -222,6 +223,9 @@ export function buildFactoryObservationBrief(
     evidence: {
       state: run ? "compatible" : "missing",
       run: run ? { id: run.id, resultHash: run.resultHash, score: run.score, decision: run.decision } : null,
+      sourceLotLineage: run && snapshot.sourceLotLineage?.runId === run.id
+        ? structuredClone(snapshot.sourceLotLineage)
+        : null,
     },
     leadingDiagnostic: leadingDiagnostic ? {
       id: leadingDiagnostic.id,

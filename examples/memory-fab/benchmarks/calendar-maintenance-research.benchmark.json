@@ -23,8 +23,8 @@
     "cases": {
       "calendar-maintenance-window": {
         "blueprintHash": "f684c6b465f956460f806b07c23a1f623fcde34fc3b2ad88a6791c8f49e7c0db",
-        "engineVersion": "inm-sim/0.91.0",
-        "executionHash": "9f38f4f7c0c69aab4a1b05525782371f6c5ad8b93491850996acfbddf44de27d",
+        "engineVersion": "inm-sim/0.92.0",
+        "executionHash": "589972ee5ce24f0552e527e5ee65109b605f707f53521c532b427b0feeb3b047",
         "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
         "productionPlanHash": "2cf09195346e93e7db0b9bd8e874a7b5b2760bce6ab01612b36d8e3452d0a3bc",
         "scenarioHash": "2ae33742b5b7069d76a33d705eaa400842d832d06ee8bc691cc14582d21faacc",

@@ -5,7 +5,7 @@ import { connectionDispatchProfiles, effectiveDispatchPolicy, resourceCriticalDe
 import type {
   ActiveDeviceJob, BeltTransit, CarrierMission, CompiledConnection, CompiledDevice, CompiledFactoryProject, DeviceProgramContext, DeviceProgramDecision,
   DeviceRuntimeState, FactoryEvent, FactoryState, InputSupplyObservation, MaintenanceCause, MaintenanceTrigger, MaterialInputShortage,
-  ResourceBufferQuantity, ResourceTransit, SimulationResult, Tick, TransportBlockCause, TransportBlockStage,
+  ResourceBufferQuantity, ResourceTransit, SimulationResult, SourceLotLineageBatch, SourceLotMaterialBatch, Tick, TransportBlockCause, TransportBlockStage,
 } from "./types";
 import { hashValue } from "./utils";
 import { projectEvidenceHashes } from "./execution-identity";
@@ -136,11 +136,12 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
       buffer, Object.fromEntries(Object.entries(inventory).filter(([, count]) => count > 0).map(([resource, count]) => [resource, { "0": count }])),
     ]));
     const lotIds = Object.fromEntries(Object.keys(buffers).map((buffer) => [buffer, {}]));
+    const sourceLotBatches = Object.fromEntries(Object.keys(buffers).map((buffer) => [buffer, {}]));
     const storage = project.devices[id]!.storagePlan;
     const stationEnergy = project.devices[id]!.stationEnergyPlan;
     const initialMilliJoules = project.scenario.initialEnergyMilliJoules?.[id] ?? 0;
     devices[id] = {
-      status: "idle", idlePowered: project.devices[id]!.assetDef.power.idleMilliWatts === 0, buffers, materialBatches, lotIds,
+      status: "idle", idlePowered: project.devices[id]!.assetDef.power.idleMilliWatts === 0, buffers, materialBatches, lotIds, sourceLotBatches,
       ...(project.devices[id]!.policy?.cadenceControl ? { cadenceControl: {
         coverageDeficitSinceTick: null,
         coverageDeficitEpisodes: 0,
@@ -296,6 +297,61 @@ export function createInitialFactoryState(project: CompiledFactoryProject): Fact
     carrierMissions: 0, carrierReturns: 0,
     materialTreatment: { treated: {}, agentsConsumed: {} },
   };
+}
+
+function assertSourceLotLineageState(project: CompiledFactoryProject, state: FactoryState): void {
+  const assertBatches = (resource: string, count: number, batches: readonly SourceLotLineageBatch[] | undefined, location: string) => {
+    const requiresLineage = project.resources[resource]?.lineage?.kind === "source-lot";
+    const lineageCount = (batches ?? []).reduce((sum, batch) => sum + batch.count, 0);
+    if (requiresLineage && lineageCount !== count) {
+      throw new Error(`Source-lot lineage at ${location}/${resource} accounts for ${lineageCount} of ${count} units`);
+    }
+    if (!requiresLineage && lineageCount > 0) {
+      throw new Error(`Non-lineage Resource '${resource}' carries source-lot ancestry at ${location}`);
+    }
+    for (const batch of batches ?? []) {
+      if (!batch.sourceLotIds.length || new Set(batch.sourceLotIds).size !== batch.sourceLotIds.length
+        || [...batch.sourceLotIds].sort().join("\0") !== batch.sourceLotIds.join("\0")) {
+        throw new Error(`Source-lot lineage at ${location}/${resource} is not a non-empty sorted source set`);
+      }
+      for (const lotId of batch.sourceLotIds) if (!state.lots[lotId]) {
+        throw new Error(`Source-lot lineage at ${location}/${resource} references unknown lot '${lotId}'`);
+      }
+    }
+  };
+  for (const [deviceId, runtime] of Object.entries(state.devices)) {
+    for (const [bufferId, inventory] of Object.entries(runtime.buffers)) {
+      const resources = new Set([...Object.keys(inventory), ...Object.keys(runtime.sourceLotBatches[bufferId] ?? {})]);
+      for (const resource of resources) assertBatches(
+        resource,
+        inventory[resource] ?? 0,
+        runtime.sourceLotBatches[bufferId]?.[resource],
+        `${deviceId}/${bufferId}`,
+      );
+    }
+    if (runtime.activeJob) {
+      const expected = new Map<string, number>();
+      for (const input of runtime.activeJob.processInputs ?? []) if (project.resources[input.resource]?.lineage) {
+        expected.set(input.resource, (expected.get(input.resource) ?? 0) + input.count);
+      }
+      const actual = new Map<string, number>();
+      for (const batch of runtime.activeJob.sourceLotInputs ?? []) {
+        actual.set(batch.resource, (actual.get(batch.resource) ?? 0) + batch.count);
+        assertBatches(batch.resource, batch.count, [batch], `${deviceId}/${runtime.activeJob.operation}`);
+      }
+      for (const resource of new Set([...expected.keys(), ...actual.keys()])) {
+        if ((expected.get(resource) ?? 0) !== (actual.get(resource) ?? 0)) {
+          throw new Error(`Source-lot lineage in ${deviceId}/${runtime.activeJob.operation}/${resource} accounts for ${actual.get(resource) ?? 0} of ${expected.get(resource) ?? 0} in-process units`);
+        }
+      }
+    }
+  }
+  for (const [connection, transits] of Object.entries(state.transports)) for (const transit of transits) {
+    assertBatches(transit.resource, transit.count, transit.sourceLotBatches, `connection:${connection}/${transit.id}`);
+  }
+  for (const [network, transits] of Object.entries(state.logisticsTransports)) for (const transit of transits) {
+    assertBatches(transit.resource, transit.count, transit.sourceLotBatches, `network:${network}/${transit.id}`);
+  }
 }
 
 export function runUntil(project: CompiledFactoryProject, initialState = createInitialFactoryState(project), options: RunOptions = {}): SimulationResult {
@@ -1254,10 +1310,53 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     return selected;
   };
   const isTracked = (resource: string): boolean => Boolean(project.resources[resource]?.tracking);
+  const isSourceLotLineage = (resource: string): boolean => project.resources[resource]?.lineage?.kind === "source-lot";
+  const sourceLotLedger = (device: string, buffer: string, resource: string): readonly SourceLotLineageBatch[] =>
+    state.devices[device]!.sourceLotBatches[buffer]?.[resource] ?? [];
+  const takeSourceLotBatches = (
+    device: string,
+    buffer: string,
+    resource: string,
+    count: number,
+    minimumTreatmentLevel = 0,
+    exactTreatmentLevel?: number,
+  ): SourceLotLineageBatch[] => {
+    const eligible = sourceLotLedger(device, buffer, resource)
+      .map((batch, index) => ({ batch, index }))
+      .filter(({ batch }) => batch.treatmentLevel >= minimumTreatmentLevel
+        && (exactTreatmentLevel === undefined || batch.treatmentLevel === exactTreatmentLevel))
+      .sort((left, right) => left.batch.treatmentLevel - right.batch.treatmentLevel || left.index - right.index);
+    const selected: SourceLotLineageBatch[] = [];
+    let remaining = count;
+    for (const { batch } of eligible) {
+      if (remaining <= 0) break;
+      const selectedCount = Math.min(remaining, batch.count);
+      selected.push({ sourceLotIds: [...batch.sourceLotIds], count: selectedCount, treatmentLevel: batch.treatmentLevel });
+      remaining -= selectedCount;
+    }
+    if (remaining > 0) {
+      throw new Error(`Source-lot lineage Resource '${resource}' in ${device}/${buffer} has ${count - remaining} attributable items for ${count} requested`);
+    }
+    return selected;
+  };
   const trackedJobLotIds = (job: ActiveDeviceJob): string[] => [
     ...(job.lotTransfers?.flatMap((transfer) => transfer.lotIds) ?? []),
     ...(job.lotTerminations?.flatMap((termination) => termination.lotIds) ?? []),
   ];
+  const sourceLotOutputBatches = (job: ActiveDeviceJob, output: ResourceBufferQuantity): SourceLotLineageBatch[] => {
+    if (!isSourceLotLineage(output.resource)) return [];
+    const sourceLotIds = job.lotOutput
+      ? [job.lotOutput.lotId]
+      : [...new Set((job.sourceLotInputs ?? []).flatMap((batch) => batch.sourceLotIds))].sort();
+    if (!sourceLotIds.length) {
+      throw new Error(`Lineage output '${output.resource}' from '${job.operation}' has no exact source-lot ancestry`);
+    }
+    return [{
+      sourceLotIds,
+      count: output.count,
+      treatmentLevel: output.treatmentLevel ?? 0,
+    }];
+  };
   const rankedLotIds = (device: CompiledDevice, buffer: string, resource: string, treatmentLevel?: number): string[] => {
     const ids = [...(state.devices[device.id]!.lotIds[buffer]?.[resource] ?? [])]
       .filter((id) => treatmentLevel === undefined || state.lots[id]!.treatmentLevel === treatmentLevel);
@@ -1478,13 +1577,20 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       if (count <= 0) continue;
       const transitId = `transit-${String(transitSequence++).padStart(6, "0")}`;
       const lotIds = isTracked(resource) ? takeLotIds(connection.fromDevice, connection.fromPort.buffer, resource, count, sourceLevel) : [];
+      const sourceLotBatches = isSourceLotLineage(resource)
+        ? takeSourceLotBatches(connection.from.device, connection.fromPort.buffer, resource, count, sourceLevel, sourceLevel) : [];
       if (lotIds.length) mutateFactoryState(state, {
         kind: "lot.depart", lotIds, device: connection.from.device, buffer: connection.fromPort.buffer,
         nextStatus: "transport", nextLocation: { kind: "transit", transit: transitId },
       });
+      else if (sourceLotBatches.length) mutateFactoryState(state, {
+        kind: "buffer", device: connection.from.device, buffer: connection.fromPort.buffer, resource,
+        delta: -count, treatmentLevel: sourceLevel, sourceLotBatches,
+      });
       else mutateFactoryState(state, { kind: "buffer", device: connection.from.device, buffer: connection.fromPort.buffer, resource, delta: -count, treatmentLevel: sourceLevel });
       const transit: BeltTransit = {
         id: transitId, resource, count, treatmentLevel: sourceLevel, ...(lotIds.length ? { lotIds } : {}),
+        ...(sourceLotBatches.length ? { sourceLotBatches: structuredClone(sourceLotBatches) } : {}),
         from: connection.from.device, fromBuffer: connection.fromPort.buffer,
         to: connection.to.device, toBuffer: connection.toPort.buffer,
         departTick: state.tick, arriveTick: state.tick + connection.travelTicks,
@@ -1618,9 +1724,15 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         });
         const transitId = `transit-${String(transitSequence++).padStart(6, "0")}`;
         const lotIds = isTracked(route.resource) ? takeLotIds(project.devices[route.from]!, route.fromBuffer, route.resource, count, sourceLevel) : [];
+        const sourceLotBatches = isSourceLotLineage(route.resource)
+          ? takeSourceLotBatches(route.from, route.fromBuffer, route.resource, count, sourceLevel, sourceLevel) : [];
         if (lotIds.length) mutateFactoryState(state, {
           kind: "lot.depart", lotIds, device: route.from, buffer: route.fromBuffer,
           nextStatus: "transport", nextLocation: { kind: "transit", transit: transitId },
+        });
+        else if (sourceLotBatches.length) mutateFactoryState(state, {
+          kind: "buffer", device: route.from, buffer: route.fromBuffer, resource: route.resource,
+          delta: -count, treatmentLevel: sourceLevel, sourceLotBatches,
         });
         else mutateFactoryState(state, { kind: "buffer", device: route.from, buffer: route.fromBuffer, resource: route.resource, delta: -count, treatmentLevel: sourceLevel });
         const transit: ResourceTransit = {
@@ -1629,6 +1741,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           count,
           treatmentLevel: sourceLevel,
           ...(lotIds.length ? { lotIds } : {}),
+          ...(sourceLotBatches.length ? { sourceLotBatches: structuredClone(sourceLotBatches) } : {}),
           from: route.from,
           fromBuffer: route.fromBuffer,
           to: route.to,
@@ -1721,8 +1834,19 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     const profile = plan.lotOutputProfiles.find((candidate) => candidate.defectsAny.some((defect) => defects.includes(defect)));
     return { lotId, defects, profile: profile?.id ?? "nominal", outputs: structuredClone(profile?.outputs ?? plan.outputs) };
   };
-  const applyConsume = (device: CompiledDevice, amounts: ResourceBufferQuantity[], disposition: "process" | "deliver" | "scrap", process?: string): Record<string, string[]> => {
+  const applyConsume = (
+    device: CompiledDevice,
+    amounts: ResourceBufferQuantity[],
+    disposition: "process" | "deliver" | "scrap",
+    process?: string,
+  ): {
+    lotIds: Record<string, string[]>;
+    sourceLotBatches: Record<string, SourceLotLineageBatch[]>;
+    sourceLotInputs: SourceLotMaterialBatch[];
+  } => {
     const consumedLots: Record<string, string[]> = {};
+    const consumedSourceLotBatches: Record<string, SourceLotLineageBatch[]> = {};
+    const sourceLotInputs: SourceLotMaterialBatch[] = [];
     for (const amount of amounts) {
       if (isTracked(amount.resource)) {
         const lotIds = (process
@@ -1749,6 +1873,20 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           kind: "lot.depart", lotIds, device: device.id, buffer: amount.buffer,
           nextStatus: "processing", nextLocation: { kind: "device", device: device.id },
         });
+      } else if (isSourceLotLineage(amount.resource)) {
+        const batches = takeSourceLotBatches(
+          device.id,
+          amount.buffer,
+          amount.resource,
+          amount.count,
+          amount.minimumTreatmentLevel ?? 0,
+        );
+        consumedSourceLotBatches[amountKey(amount)] = structuredClone(batches);
+        sourceLotInputs.push(...batches.map((batch) => ({ resource: amount.resource, ...structuredClone(batch) })));
+        for (const batch of batches) mutateFactoryState(state, {
+          kind: "buffer", device: device.id, buffer: amount.buffer, resource: amount.resource,
+          delta: -batch.count, treatmentLevel: batch.treatmentLevel, sourceLotBatches: [batch],
+        });
       } else {
         let remaining = amount.count;
         let minimumTreatmentLevel = amount.minimumTreatmentLevel ?? 0;
@@ -1769,10 +1907,21 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         mutateFactoryState(state, { kind: "orders", count: amount.count });
         const regional = stats.consumedByRegion[device.region] ??= {};
         regional[amount.resource] = (regional[amount.resource] ?? 0) + amount.count;
-        emit({ type: "resource.consumed", tick: state.tick, device: device.id, resource: amount.resource, count: amount.count, ...(consumedLots[amountKey(amount)]?.length ? { lotIds: consumedLots[amountKey(amount)] } : {}) });
+        emit({
+          type: "resource.consumed", tick: state.tick, device: device.id, resource: amount.resource, count: amount.count,
+          ...(consumedLots[amountKey(amount)]?.length ? { lotIds: consumedLots[amountKey(amount)] } : {}),
+          ...(consumedSourceLotBatches[amountKey(amount)]?.length
+            ? { sourceLotBatches: structuredClone(consumedSourceLotBatches[amountKey(amount)]!) } : {}),
+        });
+      } else if (disposition === "scrap" && consumedSourceLotBatches[amountKey(amount)]?.length) {
+        emit({
+          type: "source-lot.discarded", tick: state.tick, device: device.id,
+          operation: process ?? "material-sink", reason: "material-scrap",
+          batches: consumedSourceLotBatches[amountKey(amount)]!.map((batch) => ({ resource: amount.resource, ...structuredClone(batch) })),
+        });
       }
     }
-    return consumedLots;
+    return { lotIds: consumedLots, sourceLotBatches: consumedSourceLotBatches, sourceLotInputs };
   };
   const tryDecision = (
     device: CompiledDevice,
@@ -1864,9 +2013,19 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       }
       const treatmentLotIds = isTracked(decision.resource)
         ? takeLotIds(device, plan.inputBuffer, decision.resource, decision.count, decision.inputTreatmentLevel) : [];
+      const treatmentSourceLotBatches = isSourceLotLineage(decision.resource)
+        ? takeSourceLotBatches(
+          device.id, plan.inputBuffer, decision.resource, decision.count,
+          decision.inputTreatmentLevel, decision.inputTreatmentLevel,
+        ) : [];
       if (treatmentLotIds.length) mutateFactoryState(state, {
         kind: "lot.depart", lotIds: treatmentLotIds, device: device.id, buffer: plan.inputBuffer,
         nextStatus: "processing", nextLocation: { kind: "device", device: device.id },
+      });
+      else if (treatmentSourceLotBatches.length) mutateFactoryState(state, {
+        kind: "buffer", device: device.id, buffer: plan.inputBuffer, resource: decision.resource,
+        delta: -decision.count, treatmentLevel: decision.inputTreatmentLevel,
+        sourceLotBatches: treatmentSourceLotBatches,
       });
       else mutateFactoryState(state, {
         kind: "buffer", device: device.id, buffer: plan.inputBuffer, resource: decision.resource,
@@ -1884,6 +2043,9 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           count: decision.count,
           treatmentLevel: decision.inputTreatmentLevel,
         }],
+        ...(treatmentSourceLotBatches.length ? { sourceLotInputs: treatmentSourceLotBatches.map((batch) => ({
+          resource: decision.resource, ...structuredClone(batch),
+        })) } : {}),
         treatment: {
           resource: decision.resource, fromLevel: decision.inputTreatmentLevel, toLevel: plan.mode.level, count: decision.count,
           agentResource: agent.resource, agentCount: agent.count,
@@ -1892,7 +2054,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       };
       setStatus(device.id, "processing"); mutateFactoryState(state, { kind: "job.start", device: device.id, job });
       emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation, durationTicks: decision.durationTicks,
-        ...(treatmentLotIds.length ? { lotIds: treatmentLotIds } : {}) });
+        ...(treatmentLotIds.length ? { lotIds: treatmentLotIds } : {}),
+        ...(treatmentSourceLotBatches.length ? { sourceLotInputs: treatmentSourceLotBatches.map((batch) => ({
+          resource: decision.resource, ...structuredClone(batch),
+        })) } : {}) });
       schedule(state.tick + decision.durationTicks, 20, { kind: "complete", device: device.id, generation: generations[device.id]! });
       return true;
     }
@@ -1991,7 +2156,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       rankedProcessLotIds(device, input.buffer, input.resource, selectedProcessPlan!.definition.id, input.minimumTreatmentLevel ?? 0)
         .slice(0, input.count)
         .map((id) => [id, state.lots[id]!.status === "queued" ? state.tick - state.lots[id]!.statusSinceTick : 0])));
-    const consumedLots = applyConsume(device, decision.consume, "process", selectedProcessPlan?.definition.id);
+    const consumedIdentity = applyConsume(device, decision.consume, "process", selectedProcessPlan?.definition.id);
+    const consumedLots = consumedIdentity.lotIds;
     let lotTransfers = selectedProcessPlan?.lotTransfers.map((transfer) => ({
       lotIds: consumedLots[amountKey(transfer.input)] ?? [],
       output: { ...transfer.output },
@@ -2030,6 +2196,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       remainingTicks: effectiveDurationTicks, workedTicks: 0, resumedAt: state.tick, powerSatisfactionPpm: POWER_SATISFACTION_SCALE,
       powerMilliWatts: required, produce: actualProduce,
       processInputs: structuredClone(decision.consume),
+      ...(consumedIdentity.sourceLotInputs.length ? { sourceLotInputs: structuredClone(consumedIdentity.sourceLotInputs) } : {}),
       ...(toolingProvider && selectedProcessPlan ? { tooling: {
         provider: toolingProvider.device, amounts: structuredClone(selectedProcessPlan.tooling),
       } } : {}),
@@ -2072,6 +2239,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     emit({ type: "device.start", tick: state.tick, device: device.id, operation: decision.operation,
       ...(selectedProcessPlan ? { mode: selectedProcessPlan.mode.id } : {}), durationTicks: effectiveDurationTicks,
       ...(jobLotIds.length ? { lotIds: jobLotIds } : {}),
+      ...(consumedIdentity.sourceLotInputs.length ? { sourceLotInputs: structuredClone(consumedIdentity.sourceLotInputs) } : {}),
       ...(routeDispatchLot && selectedProcessPlan ? { routeDispatch: {
         policy: "least-slack", lot: routeDispatchLot,
         remainingRouteTicks: remainingRouteTicks(routeDispatchLot, selectedProcessPlan),
@@ -3434,8 +3602,10 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           tooling: structuredClone(job.tooling.amounts), occupiedTicks, outcome: "completed",
         });
       }
+      const completedSourceLotOutputs: SourceLotMaterialBatch[] = [];
       for (const output of job.produce) {
         const transfer = job.lotTransfers?.find((candidate) => candidate.output.buffer === output.buffer && candidate.output.resource === output.resource);
+        const lineageBatches = sourceLotOutputBatches(job, output);
         if (isTracked(output.resource)) {
           if (!transfer || transfer.lotIds.length !== output.count) throw new Error(`Tracked output '${output.resource}' from '${event.device}' has no identity-preserving lot transfer`);
           if (project.processes[job.operation]) for (const lotId of transfer.lotIds) {
@@ -3457,7 +3627,16 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
             kind: "lot.arrive", lotIds: transfer.lotIds, device: event.device, buffer: output.buffer,
             resource: output.resource, treatmentLevel: output.treatmentLevel,
           });
-        } else mutateFactoryState(state, { kind: "buffer", device: event.device, buffer: output.buffer, resource: output.resource, delta: output.count, treatmentLevel: output.treatmentLevel });
+        } else mutateFactoryState(state, {
+          kind: "buffer", device: event.device, buffer: output.buffer, resource: output.resource,
+          delta: output.count, treatmentLevel: output.treatmentLevel,
+          ...(lineageBatches.length ? { sourceLotBatches: structuredClone(lineageBatches) } : {}),
+        });
+        completedSourceLotOutputs.push(...lineageBatches.map((batch) => ({ resource: output.resource, ...structuredClone(batch) })));
+        if (job.lotOutput && lineageBatches.length) emit({
+          type: "source-lot.created", tick: state.tick, device: event.device, process: job.operation,
+          resource: output.resource, sourceLotIds: [...lineageBatches[0]!.sourceLotIds], count: output.count,
+        });
         mutateFactoryState(state, { kind: "produced", resource: output.resource, count: output.count });
       }
       if (job.lotOutput) {
@@ -3572,7 +3751,8 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
       markDeviceIdle(project.devices[event.device]!); mutateFactoryState(state, { kind: "job.finish", device: event.device });
       emit({ type: "device.finish", tick: state.tick, device: event.device, operation: job.operation,
         ...(job.productionMode ? { mode: job.productionMode } : {}), produced: structuredClone(job.produce),
-        ...(trackedJobLotIds(job).length ? { lotIds: trackedJobLotIds(job) } : {}) });
+        ...(trackedJobLotIds(job).length ? { lotIds: trackedJobLotIds(job) } : {}),
+        ...(completedSourceLotOutputs.length ? { sourceLotOutputs: completedSourceLotOutputs } : {}) });
       }
     } else if (event.kind === "belt-step") {
       const transit = state.transports[event.connection]?.find((item) => item.id === event.transitId);
@@ -3698,7 +3878,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         kind: "lot.arrive", lotIds: transit.lotIds, device: transit.to, buffer: transit.toBuffer,
         resource: transit.resource, treatmentLevel: transit.treatmentLevel,
       });
-      else mutateFactoryState(state, { kind: "buffer", device: transit.to, buffer: transit.toBuffer, resource: transit.resource, delta: transit.count, treatmentLevel: transit.treatmentLevel });
+      else mutateFactoryState(state, {
+        kind: "buffer", device: transit.to, buffer: transit.toBuffer, resource: transit.resource,
+        delta: transit.count, treatmentLevel: transit.treatmentLevel,
+        ...(transit.sourceLotBatches?.length ? { sourceLotBatches: structuredClone(transit.sourceLotBatches) } : {}),
+      });
       stats.connectionDeliveredItems[event.connection] = (stats.connectionDeliveredItems[event.connection] ?? 0) + transit.count;
       const deliveredByResource = stats.connectionDeliveredByResource[event.connection] ??= {};
       deliveredByResource[transit.resource] = (deliveredByResource[transit.resource] ?? 0) + transit.count;
@@ -3715,7 +3899,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
         kind: "lot.arrive", lotIds: transit.lotIds, device: transit.to, buffer: transit.toBuffer,
         resource: transit.resource, treatmentLevel: transit.treatmentLevel,
       });
-      else mutateFactoryState(state, { kind: "buffer", device: transit.to, buffer: transit.toBuffer, resource: transit.resource, delta: transit.count, treatmentLevel: transit.treatmentLevel });
+      else mutateFactoryState(state, {
+        kind: "buffer", device: transit.to, buffer: transit.toBuffer, resource: transit.resource,
+        delta: transit.count, treatmentLevel: transit.treatmentLevel,
+        ...(transit.sourceLotBatches?.length ? { sourceLotBatches: structuredClone(transit.sourceLotBatches) } : {}),
+      });
       emit({ type: "logistics.arrive", tick: state.tick, transit: { ...transit }, network: event.network, route: event.route });
     } else if (event.kind === "carrier-return") {
       const mission = state.logisticsMissions[event.network]!.find((item) => item.id === event.missionId);
@@ -3812,6 +4000,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
               });
             }
           }
+          if (job.sourceLotInputs?.length) emit({
+            type: "source-lot.discarded", tick: state.tick, device: deviceId,
+            operation: job.operation, reason: "facility-interlock",
+            batches: structuredClone(job.sourceLotInputs),
+          });
           mutateFactoryState(state, { kind: "job.finish", device: deviceId });
           markDeviceIdle(project.devices[deviceId]!);
         }
@@ -3878,6 +4071,11 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
           emit({ type: "lot.scrapped", tick: state.tick, device: event.device, lot: id, family: lot.family, resource: lot.resource, reason: "equipment-breakdown" });
         }
       }
+      if (activeJob?.sourceLotInputs?.length) emit({
+        type: "source-lot.discarded", tick: state.tick, device: event.device,
+        operation: activeJob.operation, reason: "equipment-breakdown",
+        batches: structuredClone(activeJob.sourceLotInputs),
+      });
       if (activeJob) mutateFactoryState(state, { kind: "job.finish", device: event.device });
       for (const connection of Object.values(project.connections).sort((left, right) => left.id.localeCompare(right.id))) {
         for (const stageName of ["loader", "unloader"] as const) {
@@ -3954,6 +4152,7 @@ export function runUntil(project: CompiledFactoryProject, initialState = createI
     }
   }
   mutateFactoryState(state, { kind: "lot.checkpoint", lotIds: Object.keys(state.lots).sort() });
+  assertSourceLotLineageState(project, state);
   const reason = publicEventCount >= maxEvents ? "max-events" : "until-tick";
   emit({ type: "simulation.completed", tick: state.tick, reason });
   const metrics = evaluateFactory(project, state, stats, events);

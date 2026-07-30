@@ -1954,6 +1954,58 @@ describe("blueprint compiler", () => {
     expect(interrupted.events.filter((event) => event.type === "lot.scrapped" && event.reason === "equipment-breakdown")).toHaveLength(1);
   }, 60_000);
 
+  test("source-lot product lineage survives fungible back-end flow and identifies terminal WIP", async () => {
+    const source = await loadFactoryProject(memoryFab, {
+      world: "cleanroom",
+      blueprint: "generated-dram-fab",
+      productionPlan: "production-window",
+      scenario: "production-window",
+      objective: "dram-output",
+    });
+    const result = runUntil(compileFactoryProject(source), undefined, { seed: 42 });
+    expect(result.metrics.sourceLotLineage).toEqual(expect.objectContaining({
+      sourceLots: Array.from({ length: 12 }, (_, index) => `dram-lot-${String(index + 1).padStart(2, "0")}`),
+      createdUnits: 96,
+      deliveredUnits: 88,
+      discardedUnits: 0,
+      finalWipUnits: 8,
+    }));
+    expect(result.state.devices["burn-in-1"]!.sourceLotBatches["package-input"]!["packaged-dram-device"]).toEqual([{
+      sourceLotIds: ["dram-lot-08"],
+      count: 8,
+      treatmentLevel: 0,
+    }]);
+    expect(result.metrics.sourceLotLineage.sourceSets.find((entry) => entry.sourceLotIds.join() === "dram-lot-08")!.finalWip).toEqual([{
+      kind: "buffer",
+      resource: "packaged-dram-device",
+      device: "burn-in-1",
+      buffer: "package-input",
+      sourceLotIds: ["dram-lot-08"],
+      count: 8,
+    }]);
+    expect(result.events.filter((event) => event.type === "source-lot.created")).toHaveLength(12);
+    expect(result.events.filter((event) => event.type === "resource.consumed")
+      .reduce((sum, event) => sum + (event.sourceLotBatches?.reduce((batchSum, batch) => batchSum + batch.count, 0) ?? 0), 0)).toBe(88);
+
+    const commingledSource = { ...source, processes: structuredClone(source.processes) };
+    commingledSource.processes["probe-sort-dram-standard"]!.outputs[0]!.count = 5;
+    commingledSource.processes["probe-sort-dram-standard"]!.lotOutputProfiles![0]!.outputCounts["known-good-dram-die"] = 3;
+    const commingled = runUntil(compileFactoryProject(commingledSource), undefined, { seed: 42 });
+    expect(commingled.metrics.sourceLotLineage.commingledJobs).toBeGreaterThan(0);
+    expect(commingled.metrics.sourceLotLineage.sourceSets.some((entry) => entry.sourceLotIds.length > 1)).toBeTrue();
+
+    const anonymousInitial = { ...source, scenario: structuredClone(source.scenario) };
+    anonymousInitial.scenario.initialBuffers = {
+      ...anonymousInitial.scenario.initialBuffers,
+      "burn-in-1": { "package-input": { "packaged-dram-device": 1 } },
+    };
+    expect(issueCodes(() => compileFactoryProject(anonymousInitial))).toContain("source-lot.initial-inventory");
+
+    const unsourced = { ...source, resources: structuredClone(source.resources) };
+    delete unsourced.resources["known-good-dram-die"]!.lineage;
+    expect(issueCodes(() => compileFactoryProject(unsourced))).toContain("source-lot.unsourced-output");
+  }, 60_000);
+
   test("advanced pattern recovery repairs particle contamination without hiding latent electrical damage", async () => {
     const source = await loadFactoryProject(memoryFab, {
       blueprint: "generated-dram-fab",

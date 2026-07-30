@@ -247,7 +247,7 @@ export interface WorkbenchObjectiveEvidence {
 }
 
 export interface ProjectWorkbenchSnapshot {
-  version: 14;
+  version: 15;
   project: {
     id: string;
     name: string;
@@ -274,6 +274,7 @@ export interface ProjectWorkbenchSnapshot {
     }>;
   };
   inventoryAccounting: (FactoryMetrics["inventoryAccounting"] & { runId: string }) | null;
+  sourceLotLineage: (FactoryMetrics["sourceLotLineage"] & { runId: string }) | null;
   objectiveEvidence: WorkbenchObjectiveEvidence | null;
   status: {
     capacity: {
@@ -1256,7 +1257,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const snapshot = {
-    version: 14 as const,
+    version: 15 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },
@@ -1269,6 +1270,9 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     },
     inventoryAccounting: currentMetrics
       ? { ...structuredClone(currentMetrics.inventoryAccounting), runId: currentArtifact!.name }
+      : null,
+    sourceLotLineage: currentMetrics
+      ? { ...structuredClone(currentMetrics.sourceLotLineage), runId: currentArtifact!.name }
       : null,
     objectiveEvidence: currentMetrics
       ? buildWorkbenchObjectiveEvidence(project, currentArtifact!.name, currentMetrics)

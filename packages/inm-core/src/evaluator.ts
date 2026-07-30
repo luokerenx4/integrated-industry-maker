@@ -320,6 +320,93 @@ export function evaluateFactory(
     nominalUnits, actualUnits, lostUnits: Math.max(0, nominalUnits - actualUnits), outputRatio: nominalUnits ? actualUnits / nominalUnits : 1,
     nominalOutputs, actualOutputs, lostOutputs, processes: lotOutputProcesses,
   };
+  const sourceSetEntries = new Map<string, FactoryMetrics["sourceLotLineage"]["sourceSets"][number]>();
+  const sourceSetEntry = (sourceLotIds: readonly string[]) => {
+    const normalized = [...new Set(sourceLotIds)].sort();
+    const key = normalized.join("\0");
+    let entry = sourceSetEntries.get(key);
+    if (!entry) {
+      entry = { sourceLotIds: normalized, created: {}, produced: {}, delivered: {}, discarded: {}, finalWip: [] };
+      sourceSetEntries.set(key, entry);
+    }
+    return entry;
+  };
+  const addLineageCount = (
+    target: Record<string, number>,
+    resource: string,
+    count: number,
+  ) => { target[resource] = (target[resource] ?? 0) + count; };
+  for (const event of events) {
+    if (event.type === "source-lot.created") {
+      addLineageCount(sourceSetEntry(event.sourceLotIds).created, event.resource, event.count);
+    } else if (event.type === "device.finish") {
+      for (const batch of event.sourceLotOutputs ?? []) {
+        addLineageCount(sourceSetEntry(batch.sourceLotIds).produced, batch.resource, batch.count);
+      }
+    } else if (event.type === "resource.consumed") {
+      for (const batch of event.sourceLotBatches ?? []) {
+        addLineageCount(sourceSetEntry(batch.sourceLotIds).delivered, event.resource, batch.count);
+      }
+    } else if (event.type === "source-lot.discarded") {
+      for (const batch of event.batches) {
+        addLineageCount(sourceSetEntry(batch.sourceLotIds).discarded, batch.resource, batch.count);
+      }
+    }
+  }
+  const addFinalLineage = (
+    sourceLotIds: readonly string[],
+    count: number,
+    location: WipInventoryLocationIdentity,
+  ) => {
+    const entry = sourceSetEntry(sourceLotIds);
+    const id = wipInventoryLocationId(location);
+    const existing = entry.finalWip.find((item) => wipInventoryLocationId(item) === id);
+    if (existing) existing.count += count;
+    else entry.finalWip.push({ ...location, sourceLotIds: [...new Set(sourceLotIds)].sort(), count });
+  };
+  for (const [deviceId, runtime] of Object.entries(state.devices)) {
+    for (const [bufferId, resources] of Object.entries(runtime.sourceLotBatches)) {
+      for (const [resource, batches] of Object.entries(resources)) for (const batch of batches) {
+        addFinalLineage(batch.sourceLotIds, batch.count, bufferInventoryLocation(resource, deviceId, bufferId));
+      }
+    }
+    for (const batch of runtime.activeJob?.sourceLotInputs ?? []) {
+      addFinalLineage(batch.sourceLotIds, batch.count, inProcessInventoryLocation(batch.resource, deviceId, runtime.activeJob!.operation));
+    }
+  }
+  for (const [connection, transits] of Object.entries(state.transports)) for (const transit of transits) {
+    for (const batch of transit.sourceLotBatches ?? []) {
+      addFinalLineage(batch.sourceLotIds, batch.count, localTransitInventoryLocation(transit.resource, connection, transit.phase));
+    }
+  }
+  for (const [network, transits] of Object.entries(state.logisticsTransports)) for (const transit of transits) {
+    for (const batch of transit.sourceLotBatches ?? []) {
+      addFinalLineage(batch.sourceLotIds, batch.count, stationTransitInventoryLocation(transit.resource, network, transit.logisticsRoute ?? "unknown"));
+    }
+  }
+  const sourceSets = [...sourceSetEntries.values()]
+    .map((entry) => ({
+      ...entry,
+      created: Object.fromEntries(Object.entries(entry.created).sort(([left], [right]) => left.localeCompare(right))),
+      produced: Object.fromEntries(Object.entries(entry.produced).sort(([left], [right]) => left.localeCompare(right))),
+      delivered: Object.fromEntries(Object.entries(entry.delivered).sort(([left], [right]) => left.localeCompare(right))),
+      discarded: Object.fromEntries(Object.entries(entry.discarded).sort(([left], [right]) => left.localeCompare(right))),
+      finalWip: entry.finalWip.sort((left, right) => wipInventoryLocationId(left).localeCompare(wipInventoryLocationId(right))),
+    }))
+    .sort((left, right) => left.sourceLotIds.join("\0").localeCompare(right.sourceLotIds.join("\0")));
+  const lineageUnits = (field: "created" | "produced" | "delivered" | "discarded") =>
+    sourceSets.reduce((total, entry) => total + Object.values(entry[field]).reduce((sum, count) => sum + count, 0), 0);
+  const sourceLotLineage: FactoryMetrics["sourceLotLineage"] = {
+    sourceLots: [...new Set(sourceSets.flatMap((entry) => entry.sourceLotIds))].sort(),
+    createdUnits: lineageUnits("created"),
+    producedUnits: lineageUnits("produced"),
+    deliveredUnits: lineageUnits("delivered"),
+    discardedUnits: lineageUnits("discarded"),
+    commingledJobs: events.filter((event) => event.type === "device.finish"
+      && (event.sourceLotOutputs ?? []).some((batch) => batch.sourceLotIds.length > 1)).length,
+    finalWipUnits: sourceSets.reduce((total, entry) => total + entry.finalWip.reduce((sum, location) => sum + location.count, 0), 0),
+    sourceSets,
+  };
   const machineUtilization: Record<string, number> = {};
   const idleTime: Record<string, Tick> = {};
   const sleepingTime: Record<string, Tick> = {};
@@ -835,7 +922,7 @@ export function evaluateFactory(
     produced: { ...state.produced }, consumed: { ...state.consumed }, extracted, resourceNodes, throughputPerMinute, deliveryPortfolio,
     completedOrders: state.completedOrders, highSpeedMissions: state.highSpeedMissions,
     carrierMissions: state.carrierMissions, carrierReturns: state.carrierReturns, stationFleets,
-    onTimeDelivery, lotFlow, routeFlow, releaseFlow, qualityFlow, lotOutputFlow, batchFlow, cadenceControl, energyConsumedMilliJoules: state.energy.consumedMilliJoules, electricityCosts, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
+    onTimeDelivery, lotFlow, routeFlow, releaseFlow, qualityFlow, lotOutputFlow, sourceLotLineage, batchFlow, cadenceControl, energyConsumedMilliJoules: state.energy.consumedMilliJoules, electricityCosts, energyStorage, stationEnergy, fuelConsumed: { ...state.energy.fuelConsumed },
     powerGrids: Object.fromEntries(Object.entries(stats.powerGrids).map(([grid, power]) => [grid, {
       generatedMilliJoules: power.generatedMilliJoules, demandMilliJoules: power.demandMilliJoules,
       servedMilliJoules: power.servedMilliJoules, unservedMilliJoules: power.unservedMilliJoules, curtailedMilliJoules: power.curtailedMilliJoules,

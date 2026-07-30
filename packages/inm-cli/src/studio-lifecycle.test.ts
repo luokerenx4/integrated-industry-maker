@@ -340,7 +340,7 @@ test("one command enters the exact phase-aware Investigation Design Session", as
   try {
     const entered = await runCli([
       "session", project,
-      "--investigation", "back-end-wip-next-step",
+      "--investigation", "source-lot-back-end-service",
       "--port", String(port),
       "--no-open",
       "--json",
@@ -358,40 +358,40 @@ test("one command enters the exact phase-aware Investigation Design Session", as
         target: {
           kind: "investigation",
           investigation: expect.objectContaining({
-            id: "back-end-wip-next-step",
+            id: "source-lot-back-end-service",
             state: "current",
-            entryCount: 10,
+            entryCount: 2,
           }),
           handoff: expect.objectContaining({
-            phase: "form-hypothesis",
+            phase: "author-candidate",
             sourceEntry: expect.objectContaining({
-              id: "resume-after-cadence-discard",
-              sequence: 10,
-              kind: "observation",
+              id: "parallel-burn-in-overflow",
+              sequence: 2,
+              kind: "hypothesis",
             }),
             evidenceIds: [
-              "five-second-cadence-run-comparison",
-              "post-plan-discard-current-factory",
-              "post-cadence-discard-current-factory",
+              "operating-run",
+              "diagnostic",
+              "source-lot-tail-run-105",
             ],
             authorship: expect.objectContaining({
-              kind: "investigation-entry",
-              entryKind: "hypothesis",
+              kind: "candidate",
+              hypothesisEntryId: "parallel-burn-in-overflow",
             }),
           }),
         },
-        route: "/memory-fab/investigations/back-end-wip-next-step#investigation-authoring",
-        url: `http://127.0.0.1:${port}/memory-fab/investigations/back-end-wip-next-step#investigation-authoring`,
+        route: "/memory-fab/investigations/source-lot-back-end-service#investigation-authoring",
+        url: `http://127.0.0.1:${port}/memory-fab/investigations/source-lot-back-end-service#investigation-authoring`,
         operation: null,
       }),
       nextActions: [
         expect.objectContaining({
-          actionLabel: "FORM HYPOTHESIS",
+          actionLabel: "AUTHOR CANDIDATE",
           target: expect.objectContaining({
             kind: "investigation",
-            investigationId: "back-end-wip-next-step",
-            phase: "form-hypothesis",
-            sourceEntryId: "resume-after-cadence-discard",
+            investigationId: "source-lot-back-end-service",
+            phase: "author-candidate",
+            sourceEntryId: "parallel-burn-in-overflow",
           }),
         }),
       ],

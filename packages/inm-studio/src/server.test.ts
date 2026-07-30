@@ -250,13 +250,17 @@ test("Studio exposes the shared immutable Run comparison and reopens each Run's 
     expect(historicalObservation.status).toBe(200);
     expect(await historicalObservation.json()).toEqual(expect.objectContaining({
       status: "ready",
-      evidence: {
+      evidence: expect.objectContaining({
         state: "compatible",
         run: expect.objectContaining({
           id: fromRunId,
           resultHash: fromRun.data.resultHash,
         }),
-      },
+        sourceLotLineage: expect.objectContaining({
+          runId: fromRunId,
+          finalWipUnits: 8,
+        }),
+      }),
     }));
 
     const invalidResponse = await fetch(

@@ -54,6 +54,7 @@ export const resourceAssetSchema = z.object({
   unit: z.object({ kind: z.enum(["discrete", "continuous"]), symbol: z.string().min(1), precision: nonNegativeInt }).strict(),
   transport: z.object({ stackSize: positiveInt }).strict(),
   tracking: z.object({ kind: z.literal("lot"), family: id, route: id }).strict().optional(),
+  lineage: z.object({ kind: z.literal("source-lot") }).strict().optional(),
   fuel: z.object({ energyMilliJoules: positiveInt }).strict().optional(),
   files: z.object({ visual: relativeAssetFile }).strict(),
 }).strict();

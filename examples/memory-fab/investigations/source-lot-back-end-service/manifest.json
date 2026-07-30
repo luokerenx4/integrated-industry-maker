@@ -1,0 +1,78 @@
+{
+  "anchors": [
+    {
+      "id": "operating-run",
+      "kind": "operating-run",
+      "resultHash": "353061d1b81789346483a196dd373568d2cacd67ea12b05e9374cec675fe2f8e",
+      "runId": "105-simulate"
+    },
+    {
+      "code": "fab-loss.input-starvation",
+      "diagnosticId": "fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:24b42c0afc",
+      "id": "diagnostic",
+      "kind": "diagnostic",
+      "loss": {
+        "bucket": "input-starvation",
+        "contributorId": "device:inspection-1:material-input-shortage"
+      },
+      "message": "Productive-equipment input starvation is ranked 1 in compatible run 105-simulate (signal 0.2090). 9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking.",
+      "priority": 90,
+      "runId": "105-simulate",
+      "severity": "warning",
+      "subjects": [
+        {
+          "id": "inspection-1",
+          "kind": "device"
+        },
+        {
+          "id": "etch-to-inspection",
+          "kind": "connection"
+        },
+        {
+          "id": "etch-l2",
+          "kind": "device"
+        },
+        {
+          "id": "rework-to-inspection",
+          "kind": "connection"
+        },
+        {
+          "id": "rework-1",
+          "kind": "device"
+        }
+      ],
+      "summary": "9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
+    }
+  ],
+  "authority": "human-or-agent",
+  "hashes": {
+    "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+    "engineVersion": "inm-sim/0.92.0",
+    "executionHash": "b8b5653fd5fa7a0481cc632deb8a4e3bf23cb1e71923734db74941e48880d6d4",
+    "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+    "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+    "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+    "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+  },
+  "id": "source-lot-back-end-service",
+  "initialNextAction": {
+    "actionLabel": "OPEN DESIGN LOOP",
+    "effect": "read-only",
+    "id": "design.inspect:inspection-supply-path:fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:24b42c0afc",
+    "reason": "Productive-equipment input starvation is ranked 1 in compatible run 105-simulate (signal 0.2090). 9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking. Open the aligned Design Program brief before choosing whether to create bounded locked-case evidence.",
+    "studioRoute": "/memory-fab/designs/inspection-supply-path",
+    "title": "Investigate the leading loss with Inspection Supply Path Convergence"
+  },
+  "manifestHash": "b044659484502494dfd05421422a3647e36690f23f1844d0c030b37a1b04edbe",
+  "name": "Source-lot back-end service",
+  "project": "memory-fab",
+  "question": "Can one bounded parallel burn-in service intervention complete the exact dram-lot-08 eight-device tail inside the production window without deleting planned memory supply, weakening delivery, on-time service, quality, or interruption resilience, or replaying rejected global cadence and small-batch changes?",
+  "selection": {
+    "blueprint": "generated-dram-fab",
+    "objective": "dram-output",
+    "productionPlan": "production-window",
+    "scenario": "production-window",
+    "world": "cleanroom"
+  },
+  "version": 1
+}

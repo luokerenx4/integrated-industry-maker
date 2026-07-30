@@ -1,10 +1,10 @@
-import type { ActiveDeviceJob, BeltTransit, CarrierMission, DeviceStatus, FactoryState, LotReleaseBlockReason, MaintenanceCause, MaintenanceTrigger, ProcessAmount, ResourceTransit, Tick, TransportBlockCause, TransportBlockStage, WorkLot, WorkLotStatus } from "./types";
+import type { ActiveDeviceJob, BeltTransit, CarrierMission, DeviceStatus, FactoryState, LotReleaseBlockReason, MaintenanceCause, MaintenanceTrigger, ProcessAmount, ResourceTransit, SourceLotLineageBatch, Tick, TransportBlockCause, TransportBlockStage, WorkLot, WorkLotStatus } from "./types";
 
 export type FactoryStateMutation =
   | { kind: "tick"; tick: Tick }
   | { kind: "status"; device: string; status: DeviceStatus }
   | { kind: "idle-power"; device: string; powered: boolean }
-  | { kind: "buffer"; device: string; buffer: string; resource: string; delta: number; treatmentLevel?: number }
+  | { kind: "buffer"; device: string; buffer: string; resource: string; delta: number; treatmentLevel?: number; sourceLotBatches?: SourceLotLineageBatch[] }
   | { kind: "lot.release-control"; open: boolean }
   | { kind: "lot.release-block"; lotId: string; reason: LotReleaseBlockReason | null }
   | { kind: "lot.release"; lotId: string; device: string; buffer: string }
@@ -84,10 +84,83 @@ export type FactoryStateMutation =
   | { kind: "power.satisfaction"; grid: string; satisfactionPpm: number }
   | { kind: "progress"; device: string; progressTicks: Tick };
 
-function mutateBufferQuantity(state: FactoryState, device: string, buffer: string, resource: string, delta: number, treatmentLevel = 0): void {
+function sameSourceLots(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
+function normalizedSourceLotBatch(batch: SourceLotLineageBatch): SourceLotLineageBatch {
+  const sourceLotIds = [...new Set(batch.sourceLotIds)].sort();
+  if (!sourceLotIds.length) throw new Error("Source-lot lineage batch requires at least one source lot");
+  if (!Number.isInteger(batch.count) || batch.count <= 0) throw new Error("Source-lot lineage batch count must be a positive integer");
+  if (!Number.isInteger(batch.treatmentLevel) || batch.treatmentLevel < 0) throw new Error("Source-lot lineage treatment level must be a non-negative integer");
+  return { sourceLotIds, count: batch.count, treatmentLevel: batch.treatmentLevel };
+}
+
+function mutateSourceLotBatches(
+  state: FactoryState,
+  device: string,
+  buffer: string,
+  resource: string,
+  delta: number,
+  sourceLotBatches: SourceLotLineageBatch[] | undefined,
+): void {
+  const runtime = state.devices[device]!;
+  const byBuffer = runtime.sourceLotBatches[buffer] ??= {};
+  const existing = byBuffer[resource] ?? [];
+  if (!sourceLotBatches) {
+    if (existing.length) throw new Error(`Source-lot lineage required for ${device}/${buffer}/${resource}`);
+    return;
+  }
+  const normalized = sourceLotBatches.map(normalizedSourceLotBatch);
+  const declared = normalized.reduce((sum, batch) => sum + batch.count, 0);
+  if (declared !== Math.abs(delta)) {
+    throw new Error(`Source-lot lineage count ${declared} does not match buffer delta ${delta} for ${device}/${buffer}/${resource}`);
+  }
+  const ledger = structuredClone(existing);
+  if (delta > 0) {
+    for (const batch of normalized) {
+      const tail = ledger.at(-1);
+      if (tail && tail.treatmentLevel === batch.treatmentLevel && sameSourceLots(tail.sourceLotIds, batch.sourceLotIds)) tail.count += batch.count;
+      else ledger.push(structuredClone(batch));
+    }
+    byBuffer[resource] = ledger;
+    return;
+  }
+  if (!existing.length) throw new Error(`Missing source-lot lineage for ${device}/${buffer}/${resource}`);
+  for (const removal of normalized) {
+    let remaining = removal.count;
+    while (remaining > 0) {
+      const index = ledger.findIndex((batch) =>
+        batch.treatmentLevel === removal.treatmentLevel && sameSourceLots(batch.sourceLotIds, removal.sourceLotIds));
+      if (index < 0) throw new Error(`Missing source-lot lineage batch for ${device}/${buffer}/${resource}`);
+      const batch = ledger[index]!;
+      const removed = Math.min(remaining, batch.count);
+      batch.count -= removed;
+      remaining -= removed;
+      if (batch.count === 0) ledger.splice(index, 1);
+    }
+  }
+  if (ledger.length) byBuffer[resource] = ledger;
+  else delete byBuffer[resource];
+}
+
+function mutateBufferQuantity(
+  state: FactoryState,
+  device: string,
+  buffer: string,
+  resource: string,
+  delta: number,
+  treatmentLevel = 0,
+  sourceLotBatches?: SourceLotLineageBatch[],
+): void {
   const runtime = state.devices[device]!;
   const inventory = runtime.buffers[buffer];
   if (!inventory) throw new Error(`Unknown buffer for ${device}/${buffer}`);
+  const existingBatch = runtime.materialBatches[buffer]?.[resource]?.[String(treatmentLevel)] ?? 0;
+  const existingTotal = inventory[resource] ?? 0;
+  if (existingBatch + delta < 0) throw new Error(`Negative material batch for ${device}/${buffer}/${resource}@${treatmentLevel}`);
+  if (existingTotal + delta < 0) throw new Error(`Negative buffer quantity for ${device}/${buffer}/${resource}`);
+  mutateSourceLotBatches(state, device, buffer, resource, delta, sourceLotBatches);
   const materialInventory = runtime.materialBatches[buffer] ??= {};
   const batches = materialInventory[resource] ??= {};
   const level = String(treatmentLevel);
@@ -143,7 +216,7 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
     case "status": state.devices[mutation.device]!.status = mutation.status; return;
     case "idle-power": state.devices[mutation.device]!.idlePowered = mutation.powered; return;
     case "buffer": {
-      mutateBufferQuantity(state, mutation.device, mutation.buffer, mutation.resource, mutation.delta, mutation.treatmentLevel);
+      mutateBufferQuantity(state, mutation.device, mutation.buffer, mutation.resource, mutation.delta, mutation.treatmentLevel, mutation.sourceLotBatches);
       return;
     }
     case "lot.release-control": state.lotReleaseControl.open = mutation.open; return;

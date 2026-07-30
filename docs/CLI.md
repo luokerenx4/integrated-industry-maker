@@ -233,6 +233,8 @@ inm simulate examples/ironworks \
   --json
 ```
 
+For explicitly lineage-bearing product, human output reports created, delivered, discarded, commingled, and final-WIP totals plus every exact final source-lot set and physical location. JSON retains the complete `metrics.sourceLotLineage` object, including per-source-set Resource flow and final Buffer/job/local-transit/station-transit locations. This is immutable Run evidence from [[docs/design/source-lot-product-lineage]], not a reconstruction from tracked Route lots.
+
 The response includes artifact path, cache status, run key, result hash, every metric, score breakdown, and final score.
 
 ### `inm test <project-or-workspace-dir> [--project ID]`

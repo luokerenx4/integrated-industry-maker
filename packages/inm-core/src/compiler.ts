@@ -71,8 +71,19 @@ function recipeBufferRequirements(
 
 function validateAssets(resources: Record<string, ResourceAsset>, processes: Record<string, IndustrialProcess>, devices: Record<string, DeviceAsset>): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  for (const [id, resource] of Object.entries(resources)) if (resource.tracking && resource.unit.kind !== "discrete") {
-    issues.push({ path: `assets/resources/${id}/asset.json/tracking`, code: "lot.discrete-required", message: `Tracked Resource '${id}' must use a discrete unit` });
+  for (const [id, resource] of Object.entries(resources)) {
+    if (resource.tracking && resource.unit.kind !== "discrete") {
+      issues.push({ path: `assets/resources/${id}/asset.json/tracking`, code: "lot.discrete-required", message: `Tracked Resource '${id}' must use a discrete unit` });
+    }
+    if (resource.lineage && resource.unit.kind !== "discrete") {
+      issues.push({ path: `assets/resources/${id}/asset.json/lineage`, code: "source-lot.discrete-required", message: `Source-lot lineage Resource '${id}' must use a discrete unit` });
+    }
+    if (resource.lineage && resource.tracking) {
+      issues.push({ path: `assets/resources/${id}/asset.json/lineage`, code: "source-lot.fungible-required", message: `Resource '${id}' cannot be both Route-tracked and fungible source-lot lineage` });
+    }
+    if (resource.lineage && resource.fuel) {
+      issues.push({ path: `assets/resources/${id}/asset.json/fuel`, code: "source-lot.fuel", message: `Source-lot lineage Resource '${id}' cannot be consumed as fuel` });
+    }
   }
   for (const [id, process] of Object.entries(processes)) {
     for (const side of ["inputs", "outputs"] as const) {
@@ -180,6 +191,46 @@ function validateAssets(resources: Record<string, ResourceAsset>, processes: Rec
     } else if (process.quality?.kind === "rework" && new Set(process.quality.repairs).size !== process.quality.repairs.length) {
       issues.push({ path: `processes/${id}.process.json/quality/repairs`, code: "quality.duplicate-defect", message: `Rework Process '${id}' declares a defect class more than once` });
     }
+  }
+  const lineageResources = Object.values(resources).filter((resource) => resource.lineage?.kind === "source-lot");
+  const lineageResourceIds = new Set(lineageResources.map((resource) => resource.id));
+  const reachableLineage = new Set<string>();
+  for (const process of Object.values(processes)) {
+    if (process.lotTermination?.terminal === "complete" && process.inputs.some((amount) => resources[amount.resource]?.tracking)) {
+      for (const output of process.outputs) if (lineageResourceIds.has(output.resource)) reachableLineage.add(output.resource);
+    }
+  }
+  let lineageChanged = true;
+  while (lineageChanged) {
+    lineageChanged = false;
+    for (const process of Object.values(processes)) {
+      if (!process.inputs.some((amount) => reachableLineage.has(amount.resource))) continue;
+      for (const output of process.outputs) if (lineageResourceIds.has(output.resource) && !reachableLineage.has(output.resource)) {
+        reachableLineage.add(output.resource);
+        lineageChanged = true;
+      }
+    }
+  }
+  for (const resource of lineageResources) {
+    const path = `assets/resources/${resource.id}/asset.json/lineage`;
+    const producers = Object.values(processes).filter((process) => process.outputs.some((output) => output.resource === resource.id));
+    if (!producers.length) issues.push({
+      path, code: "source-lot.producer-required",
+      message: `Source-lot lineage Resource '${resource.id}' requires a Process producer`,
+    });
+    for (const producer of producers) {
+      const exactLotSource = producer.lotTermination?.terminal === "complete"
+        && producer.inputs.some((amount) => resources[amount.resource]?.tracking);
+      const downstreamSource = producer.inputs.some((amount) => resources[amount.resource]?.lineage?.kind === "source-lot");
+      if (!exactLotSource && !downstreamSource) issues.push({
+        path: `processes/${producer.id}.process.json/outputs`, code: "source-lot.unsourced-output",
+        message: `Process '${producer.id}' produces lineage Resource '${resource.id}' without terminating a tracked lot or consuming lineage-bearing input`,
+      });
+    }
+    if (!reachableLineage.has(resource.id)) issues.push({
+      path, code: "source-lot.unreachable-source",
+      message: `Source-lot lineage Resource '${resource.id}' has no production path from a completed tracked lot`,
+    });
   }
   for (const [id, asset] of Object.entries(devices)) {
     if (asset.power.idleMilliWatts > asset.power.activeMilliWatts) issues.push({
@@ -912,6 +963,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     else if (node.position.x >= region.bounds.width || node.position.y >= region.bounds.height) issues.push({ path: `${path}/position`, code: "geometry.out-of-bounds", message: `Resource node '${node.id}' is outside region '${node.region}' bounds` });
     if (!loaded.resources[node.resource]) issues.push({ path: `${path}/resource`, code: "reference.resource", message: `Unknown resource '${node.resource}'` });
     else if (loaded.resources[node.resource]!.tracking) issues.push({ path: `${path}/resource`, code: "lot.extraction", message: `Tracked Resource '${node.resource}' must enter through explicit Production Plan lots, not a fungible resource node` });
+    else if (loaded.resources[node.resource]!.lineage) issues.push({ path: `${path}/resource`, code: "source-lot.extraction", message: `Source-lot lineage Resource '${node.resource}' must originate from a terminating tracked lot, not a resource node` });
   }
   const devices: Record<string, CompiledDevice> = {};
   const ids = new Set<string>();
@@ -1917,6 +1969,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
       for (const resource of Object.keys(inventory)) {
         if (!loaded.resources[resource]) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "reference.resource", message: `Unknown resource '${resource}'` });
         else if (loaded.resources[resource]!.tracking) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "lot.explicit-required", message: `Tracked Resource '${resource}' must be declared through lotReleases` });
+        else if (loaded.resources[resource]!.lineage) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "source-lot.initial-inventory", message: `Source-lot lineage Resource '${resource}' cannot enter through anonymous initial inventory` });
         else if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(resource)) issues.push({ path: `scenario/initialBuffers/${deviceId}/${bufferId}/${resource}`, code: "buffer.resource-contract", message: `Buffer '${bufferId}' does not accept '${resource}'` });
         const resourceCapacity = buffer?.resourceCapacities?.[resource];
         if (resourceCapacity !== undefined && inventory[resource]! > resourceCapacity) issues.push({
@@ -1939,6 +1992,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     else if (!buffer) issues.push({ path: `${path}/buffer`, code: "reference.buffer", message: `Unknown buffer '${delivery.buffer}'` });
     if (!resource) issues.push({ path: `${path}/resource`, code: "reference.resource", message: `Unknown Resource '${delivery.resource}'` });
     else if (resource.tracking) issues.push({ path: `${path}/resource`, code: "material.untracked-required", message: `Tracked Resource '${delivery.resource}' must use lotReleases instead of materialDeliveries` });
+    else if (resource.lineage) issues.push({ path: `${path}/resource`, code: "source-lot.material-delivery", message: `Source-lot lineage Resource '${delivery.resource}' cannot enter through an anonymous material delivery` });
     else if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(delivery.resource)) issues.push({ path: `${path}/resource`, code: "buffer.resource-contract", message: `Buffer '${delivery.buffer}' does not accept '${delivery.resource}'` });
     if (buffer && delivery.count > buffer.capacity) issues.push({ path: `${path}/count`, code: "buffer.capacity", message: `Delivery count ${delivery.count} exceeds buffer capacity ${buffer.capacity}` });
     const resourceCapacity = buffer?.resourceCapacities?.[delivery.resource];
@@ -2016,6 +2070,7 @@ export function compileFactoryProject(loaded: LoadedFactoryProject): CompiledFac
     if (!device) issues.push({ path: `${path}/device`, code: "reference.device-instance", message: `Unknown device instance '${treatment.device}'` });
     else if (!buffer) issues.push({ path: `${path}/buffer`, code: "reference.buffer", message: `Unknown buffer '${treatment.buffer}'` });
     if (!loaded.resources[treatment.resource]) issues.push({ path: `${path}/resource`, code: "reference.resource", message: `Unknown Resource '${treatment.resource}'` });
+    else if (loaded.resources[treatment.resource]!.lineage) issues.push({ path: `${path}/resource`, code: "source-lot.initial-treatment", message: `Source-lot lineage Resource '${treatment.resource}' cannot enter through anonymous initial treatment inventory` });
     else if (buffer && !buffer.accepts.includes("*") && !buffer.accepts.includes(treatment.resource)) {
       issues.push({ path: `${path}/resource`, code: "buffer.resource-contract", message: `Buffer '${treatment.buffer}' does not accept '${treatment.resource}'` });
     }

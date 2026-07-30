@@ -70,6 +70,11 @@ export interface ResourceAssetManifest {
   transport: { stackSize: number };
   /** Makes every discrete unit an identity-preserving industrial work lot. */
   tracking?: { kind: "lot"; family: string; route: RouteId };
+  /**
+   * Keeps conservative source-lot ancestry after a tracked lot terminates into
+   * fungible product. This is batch provenance, not Route or serial identity.
+   */
+  lineage?: { kind: "source-lot" };
   fuel?: { energyMilliJoules: number };
   files: { visual: string };
 }
@@ -1086,6 +1091,8 @@ export interface ActiveDeviceJob {
   produce: ResourceBufferQuantity[];
   /** Material physically loaded into this production job until it completes or is cancelled. */
   processInputs?: ResourceBufferQuantity[];
+  /** Exact source-lot-bearing material physically loaded into this job. */
+  sourceLotInputs?: SourceLotMaterialBatch[];
   extraction?: { node: string; count: number };
   generationMilliWatts?: number;
   fuel?: { resource: ResourceId; count: number; energyMilliJoules: number };
@@ -1195,6 +1202,11 @@ export interface DeviceRuntimeState {
   materialBatches: Record<BufferId, Record<ResourceId, Record<string, number>>>;
   /** FIFO-preserving identities for Resources whose tracking kind is lot. */
   lotIds: Record<BufferId, Record<ResourceId, string[]>>;
+  /**
+   * FIFO-preserving conservative ancestry for fungible Resources whose lineage
+   * kind is source-lot. Per-Resource counts exactly cover the matching buffer.
+   */
+  sourceLotBatches: Record<BufferId, Record<ResourceId, SourceLotLineageBatch[]>>;
   cadenceControl?: {
     /** Start of the current continuous below-boundary interval, or null while coverage is healthy. */
     coverageDeficitSinceTick: Tick | null;
@@ -1335,6 +1347,7 @@ export interface ResourceTransit {
   count: number;
   treatmentLevel: number;
   lotIds?: string[];
+  sourceLotBatches?: SourceLotLineageBatch[];
   from: DeviceInstanceId;
   fromBuffer: BufferId;
   to: DeviceInstanceId;
@@ -1406,6 +1419,18 @@ export type WipInventoryLocationAccounting = WipInventoryLocationIdentity & {
   averageWipEquivalentUnits: number;
   peakWipEquivalentUnits: number;
   finalWipEquivalentUnits: number;
+};
+export interface SourceLotLineageBatch {
+  sourceLotIds: string[];
+  count: number;
+  treatmentLevel: number;
+}
+export interface SourceLotMaterialBatch extends SourceLotLineageBatch {
+  resource: ResourceId;
+}
+export type SourceLotLineageLocation = WipInventoryLocationIdentity & {
+  sourceLotIds: string[];
+  count: number;
 };
 export interface FactoryState {
   tick: Tick;
@@ -1480,8 +1505,8 @@ export type FactoryEvent =
   | { type: "device.campaign-released"; tick: Tick; device: DeviceInstanceId; from: string; to: string; readyLots: number; heldTicks: Tick; cause: "minimum-ready-lots" | "maximum-hold" }
   | { type: "device.batch-held"; tick: Tick; device: DeviceInstanceId; preferredProcess: ProcessId; readyLots: number; preferredLots: number; deadlineTick: Tick }
   | { type: "device.batch-released"; tick: Tick; device: DeviceInstanceId; preferredProcess: ProcessId; readyLots: number; heldTicks: Tick; cause: "preferred-ready" | "maximum-wait" }
-  | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; mode?: string; durationTicks: Tick; lotIds?: string[]; routeDispatch?: { policy: "least-slack"; lot: string; remainingRouteTicks: Tick; slackTicks: Tick } }
-  | { type: "device.finish"; tick: Tick; device: DeviceInstanceId; operation: string; mode?: string; produced: ResourceBufferQuantity[]; lotIds?: string[] }
+  | { type: "device.start"; tick: Tick; device: DeviceInstanceId; operation: string; mode?: string; durationTicks: Tick; lotIds?: string[]; sourceLotInputs?: SourceLotMaterialBatch[]; routeDispatch?: { policy: "least-slack"; lot: string; remainingRouteTicks: Tick; slackTicks: Tick } }
+  | { type: "device.finish"; tick: Tick; device: DeviceInstanceId; operation: string; mode?: string; produced: ResourceBufferQuantity[]; lotIds?: string[]; sourceLotOutputs?: SourceLotMaterialBatch[] }
   | { type: "transport.stage-start"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; transitId: string; durationTicks: Tick }
   | { type: "transport.stage-finish"; tick: Tick; device: DeviceInstanceId; connection: ConnectionId; stage: "loader" | "unloader"; transitId: string }
   | { type: "resource.extracted"; tick: Tick; device: DeviceInstanceId; node: string; resource: ResourceId; count: number; remaining: number }
@@ -1498,7 +1523,9 @@ export type FactoryEvent =
   | { type: "logistics.energy-shortage"; tick: Tick; device: DeviceInstanceId; network: string; route: string; requiredMilliJoules: number; storedMilliJoules: number }
   | { type: "logistics.energy-spent"; tick: Tick; device: DeviceInstanceId; network: string; route: string; energyMilliJoules: number; storedMilliJoules: number }
   | { type: "logistics.energy-full"; tick: Tick; device: DeviceInstanceId; grid: string; storedMilliJoules: number }
-  | { type: "resource.consumed"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number; lotIds?: string[] }
+  | { type: "resource.consumed"; tick: Tick; device: DeviceInstanceId; resource: ResourceId; count: number; lotIds?: string[]; sourceLotBatches?: SourceLotLineageBatch[] }
+  | { type: "source-lot.created"; tick: Tick; device: DeviceInstanceId; process: ProcessId; resource: ResourceId; sourceLotIds: string[]; count: number }
+  | { type: "source-lot.discarded"; tick: Tick; device: DeviceInstanceId; operation: string; reason: "equipment-breakdown" | "facility-interlock" | "material-scrap"; batches: SourceLotMaterialBatch[] }
   | { type: "lot.completed"; tick: Tick; device: DeviceInstanceId; lot: string; family: string; resource: ResourceId; cycleTicks: Tick; tardinessTicks: Tick }
   | {
     type: "lot.quality-excursion";
@@ -1726,6 +1753,23 @@ export interface FactoryMetrics {
       nominalOutputs: Record<ResourceId, number>;
       actualOutputs: Record<ResourceId, number>;
       lostOutputs: Record<ResourceId, number>;
+    }>;
+  };
+  sourceLotLineage: {
+    sourceLots: string[];
+    createdUnits: number;
+    producedUnits: number;
+    deliveredUnits: number;
+    discardedUnits: number;
+    commingledJobs: number;
+    finalWipUnits: number;
+    sourceSets: Array<{
+      sourceLotIds: string[];
+      created: Record<ResourceId, number>;
+      produced: Record<ResourceId, number>;
+      delivered: Record<ResourceId, number>;
+      discarded: Record<ResourceId, number>;
+      finalWip: SourceLotLineageLocation[];
     }>;
   };
   batchFlow: {

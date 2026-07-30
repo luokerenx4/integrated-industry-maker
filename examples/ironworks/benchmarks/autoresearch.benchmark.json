@@ -43,8 +43,8 @@
     "cases": {
       "intermittent-power": {
         "blueprintHash": "e140905b32a71485bd71f4d9f72b54282f92b44d4c050f5b75ad1d9c68a4d7a4",
-        "engineVersion": "inm-sim/0.91.0",
-        "executionHash": "b99c426d027bdeac5e3117ec527b9d634328231b3149bbd1321288e4e419c954",
+        "engineVersion": "inm-sim/0.92.0",
+        "executionHash": "c369ce012c6355319f29d332160342c882436cf6e2f7b6cbc260ecca0d3c69a0",
         "objectiveHash": "8f797af70982a5fa1363919ba58a840ca5b6fb613abb1f8ee309bec7018b9f70",
         "productionPlanHash": "fa712887abe4b19945a3cd4b6cc508eb5846bc37964d48784f13e916ee02ad48",
         "scenarioHash": "d571978bf17c26135e3ebaebc489c99ed08ea080b4395879a555816a552d7aa7",
@@ -52,8 +52,8 @@
       },
       "normal-production": {
         "blueprintHash": "e140905b32a71485bd71f4d9f72b54282f92b44d4c050f5b75ad1d9c68a4d7a4",
-        "engineVersion": "inm-sim/0.91.0",
-        "executionHash": "cff7c2b91c436070e73715e6001270949c54a2f801aeedd0586a5e01900025bb",
+        "engineVersion": "inm-sim/0.92.0",
+        "executionHash": "6908084d5cee75186ba1ca394725b0aee9ff09a467923ac6079b918f4203727d",
         "objectiveHash": "8f797af70982a5fa1363919ba58a840ca5b6fb613abb1f8ee309bec7018b9f70",
         "productionPlanHash": "fa712887abe4b19945a3cd4b6cc508eb5846bc37964d48784f13e916ee02ad48",
         "scenarioHash": "ba90230fc2542e93f3729dd95927af96ba3c37f2c52e53abf6717945f20a8c83",
@@ -61,8 +61,8 @@
       },
       "smelter-outage": {
         "blueprintHash": "e140905b32a71485bd71f4d9f72b54282f92b44d4c050f5b75ad1d9c68a4d7a4",
-        "engineVersion": "inm-sim/0.91.0",
-        "executionHash": "fdaf1085abc94ecdd615525c1297a797190defa0b3523f072c8466916cb90aba",
+        "engineVersion": "inm-sim/0.92.0",
+        "executionHash": "6c5898178e0c35501f71cf46236be5594196ca43e25dd77b0ccfd1ee6114b5b9",
         "objectiveHash": "8f797af70982a5fa1363919ba58a840ca5b6fb613abb1f8ee309bec7018b9f70",
         "productionPlanHash": "fa712887abe4b19945a3cd4b6cc508eb5846bc37964d48784f13e916ee02ad48",
         "scenarioHash": "d9f7788a6c41bb31d3c38a01f61726aec663b33bc5b6269d33a204cc31700803",

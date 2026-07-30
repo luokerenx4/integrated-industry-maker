@@ -343,6 +343,30 @@ interface Metrics {
       profiles: Record<string, number>; nominalOutputs: Record<string, number>; actualOutputs: Record<string, number>; lostOutputs: Record<string, number>;
     }>;
   };
+  sourceLotLineage: {
+    sourceLots: string[]; createdUnits: number; producedUnits: number; deliveredUnits: number;
+    discardedUnits: number; commingledJobs: number; finalWipUnits: number;
+    sourceSets: Array<{
+      sourceLotIds: string[];
+      created: Record<string, number>;
+      produced: Record<string, number>;
+      delivered: Record<string, number>;
+      discarded: Record<string, number>;
+      finalWip: Array<{
+        kind: "buffer" | "in-process" | "local-transit" | "station-transit";
+        resource: string;
+        sourceLotIds: string[];
+        count: number;
+        device?: string;
+        buffer?: string;
+        process?: string;
+        connection?: string;
+        phase?: string;
+        network?: string;
+        route?: string;
+      }>;
+    }>;
+  };
   batchFlow: {
     batchOperations: number; jobs: number; lots: number; averageLotsPerJob: number; meanQueueWaitTicksPerLot: number;
     formationHolds: number; formationHoldTicks: number; preferredReleases: number; timeoutReleases: number;
@@ -1472,6 +1496,9 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
   const energyManagement = data.metrics?.equipmentEnergyManagement.devices[device.id];
   const maintenanceProvider = data.metrics?.equipmentMaintenance.providers[device.id];
   const qualityControl = data.metrics?.qualityFlow.qualityControl.devices[device.id];
+  const sourceLotWip = data.metrics?.sourceLotLineage.sourceSets.flatMap((entry) =>
+    entry.finalWip.filter((location) => location.device === device.id)
+      .map((location) => ({ sourceLotIds: entry.sourceLotIds, location }))) ?? [];
   const activeDrift = device.maintenance?.drift?.filter((stage) => (maintenance?.jobsSinceMaintenance ?? 0) >= stage.afterJobs).at(-1);
   const statusTimes = data.metrics ? [
     ["IDLE", data.metrics.idleTime[device.id] ?? 0],
@@ -1569,6 +1596,15 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
         <div className="inspector-section-title"><span>BUFFER CONTRACTS</span><b>{buffers.length}</b></div>
         <div className="inspector-buffer-list">{buffers.map((buffer) => <div key={buffer.buffer}><span><b>{buffer.buffer}</b><small>{buffer.role}</small></span><code>CAP {buffer.capacity}</code><p>{buffer.accepts.map((resource) => buffer.resourceCapacities?.[resource] === undefined ? resource : `${resource} ≤ ${buffer.resourceCapacities[resource]}`).join(" · ") || "CLOSED"}</p></div>)}</div>
       </div>
+      {sourceLotWip.length > 0 && <div className="inspector-section" data-testid={`source-lot-lineage-${device.id}`}>
+        <div className="inspector-section-title"><span>FINAL SOURCE-LOT WIP</span><b>{sourceLotWip.reduce((sum, item) => sum + item.location.count, 0)}</b></div>
+        <div className="inspector-buffer-list">{sourceLotWip.map(({ sourceLotIds, location }, index) =>
+          <div key={`${sourceLotIds.join("+")}-${location.resource}-${index}`}>
+            <span><b>{location.count}× {location.resource}</b><small>{location.kind}</small></span>
+            <code>{location.buffer ?? location.process ?? "RESIDENT"}</code>
+            <p>SOURCE {sourceLotIds.join(" + ")}</p>
+          </div>)}</div>
+      </div>}
       <div className="inspector-section">
         <div className="inspector-section-title"><span>PHYSICAL PORT CONTRACTS</span><b>{ports.length}</b></div>
         <div className="inspector-buffer-list">{ports.map((port) => <div key={port.port}><span><b>{port.port}</b><small>{port.direction} → {port.buffer}</small></span><p>{port.accepts.join(" · ") || "CLOSED"}</p></div>)}</div>
@@ -3813,6 +3849,24 @@ function App() {
                   label="DIE OUTPUT LOST"
                   value={String(data.metrics.lotOutputFlow.lostUnits)}
                 />
+              </div>
+            </div>
+          )}
+          {data.metrics && data.metrics.sourceLotLineage.sourceLots.length > 0 && (
+            <div className="panel" data-testid="source-lot-lineage-summary">
+              <h2>Source-lot product lineage</h2>
+              <div className="metrics">
+                <Metric label="SOURCE LOTS" value={String(data.metrics.sourceLotLineage.sourceLots.length)} />
+                <Metric label="DELIVERED / FINAL WIP" value={`${data.metrics.sourceLotLineage.deliveredUnits} / ${data.metrics.sourceLotLineage.finalWipUnits}`} accent />
+                <Metric label="COMMINGLED JOBS" value={String(data.metrics.sourceLotLineage.commingledJobs)} />
+              </div>
+              <div className="analysis-list">
+                {data.metrics.sourceLotLineage.sourceSets.flatMap((entry) => entry.finalWip.map((location, index) =>
+                  <div key={`${entry.sourceLotIds.join("+")}-${location.resource}-${index}`}>
+                    <strong>{location.count}× {location.resource}</strong>
+                    <span>{location.device ? `${location.device}.${location.buffer ?? location.process ?? ""}` : location.connection ?? `${location.network}.${location.route}`}</span>
+                    <code>{entry.sourceLotIds.join(" + ")}</code>
+                  </div>))}
               </div>
             </div>
           )}

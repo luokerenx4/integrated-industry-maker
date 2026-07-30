@@ -13,12 +13,15 @@ const memoryFab = resolve("examples/memory-fab");
 test("immutable Run comparison explains the commissioned compact inspection-rework cell", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-run-comparison-"));
   const projectDir = join(root, "memory-fab");
+  const beforeBlueprint = await readFile(join(memoryFab, "runs/100-simulate/blueprint.json"), "utf8");
+  const afterBlueprint = await readFile(join(memoryFab, "runs/101-simulate/blueprint.json"), "utf8");
   await cp(memoryFab, projectDir, { recursive: true });
   try {
+    await rm(join(projectDir, "runs"), { recursive: true, force: true });
     const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
-    await writeFile(blueprintPath, await readFile(join(projectDir, "runs/100-simulate/blueprint.json"), "utf8"));
+    await writeFile(blueprintPath, beforeBlueprint);
     const fromOperation = await simulateProjectOperation(projectDir, {}, { seed: 42 });
-    await writeFile(blueprintPath, await readFile(join(projectDir, "runs/101-simulate/blueprint.json"), "utf8"));
+    await writeFile(blueprintPath, afterBlueprint);
     const toOperation = await simulateProjectOperation(projectDir, {}, { seed: 42 });
     const fromRunId = fromOperation.data.run.id;
     const toRunId = toOperation.data.run.id;
@@ -28,7 +31,7 @@ test("immutable Run comparison explains the commissioned compact inspection-rewo
     version: 2,
     project: { id: "memory-fab" },
     context: {
-      engineVersion: "inm-sim/0.91.0",
+      engineVersion: "inm-sim/0.92.0",
       seed: 42,
       durationTicks: 240_000,
     },

@@ -2,7 +2,7 @@
 
 Status: explicit Objective-owned equivalent-unit WIP integration, raw resident/transit/in-process physical conservation, score semantics, immutable evidence, comparison, CLI, workbench, and Studio projection implemented.
 
-Related: [[docs/design/simulation-runtime]], [[docs/design/lot-tracking]], [[docs/design/industrial-boundaries]], [[docs/design/blueprint-comparison]], [[docs/design/operator-workbench]], [[docs/design/agent-cli-contract]], [[docs/PROJECT_FORMAT]], and [[docs/CLI]].
+Related: [[docs/design/simulation-runtime]], [[docs/design/lot-tracking]], [[docs/design/source-lot-product-lineage]], [[docs/design/industrial-boundaries]], [[docs/design/blueprint-comparison]], [[docs/design/operator-workbench]], [[docs/design/agent-cli-contract]], [[docs/PROJECT_FORMAT]], and [[docs/CLI]].
 
 ## Why WIP is not total inventory
 
@@ -28,6 +28,8 @@ At every deterministic measurement boundary, Core groups inventory by Resource a
 - station-network cargo in flight.
 
 Each physical item appears in exactly one of those locations. Moving material therefore does not disappear from inventory and is not counted twice. For every observed Resource, the runtime integrates raw item-ticks, records raw peak quantity, and captures raw final quantity. For Objective WIP Resources it simultaneously multiplies each boundary observation by the fixed Objective factor and integrates equivalent-unit WIP. Total and excluded inventory remain raw physical item counts.
+
+An explicitly lineage-bearing fungible Resource carries source-lot batches through those same locations. Quantity accounting remains Objective-owned and Resource-qualified; source ancestry is a separate causal projection under [[docs/design/source-lot-product-lineage]]. Neither projection changes the other's physical total or turns a source set into a tracked Route lot.
 
 For every Resource in that Objective scope, Core simultaneously integrates one stable physical location identity:
 

@@ -100,6 +100,9 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     .filter(([, accounting]) => accounting.averageInventory > 0 || accounting.peakInventory > 0 || accounting.finalInventory > 0)
     .sort(([, left], [, right]) => right.averageWipEquivalentUnits - left.averageWipEquivalentUnits)
     .map(([id, accounting]) => `| ${id} | ${accounting.resource} | ${accounting.kind} | ${describeWipInventoryLocation(accounting)} | ×${accounting.equivalentUnitsPerItem} | ${accounting.averageInventory.toFixed(3)} | ${accounting.peakInventory.toFixed(3)} | ${accounting.finalInventory.toFixed(3)} | ${accounting.averageWipEquivalentUnits.toFixed(3)} | ${accounting.peakWipEquivalentUnits.toFixed(3)} | ${accounting.finalWipEquivalentUnits.toFixed(3)} |`);
+  const sourceLotLineageRows = result.metrics.sourceLotLineage.sourceSets.flatMap((entry) =>
+    entry.finalWip.map((location) =>
+      `| ${entry.sourceLotIds.join(" + ")} | ${location.resource} | ${location.kind} | ${describeWipInventoryLocation(location)} | ${location.count} |`));
   const totalUnpoweredTicks = Object.values(result.metrics.unpoweredTime).reduce((sum, ticks) => sum + ticks, 0);
   const treatedMaterials = Object.entries(result.metrics.materialTreatment.treated)
     .flatMap(([resource, levels]) => Object.entries(levels).map(([level, count]) => `${count} ${resource}@${level}`));
@@ -124,6 +127,7 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     `- Lot service: ${(result.metrics.onTimeDelivery * 100).toFixed(1)}% on time · mean cycle ${(result.metrics.lotFlow.meanCycleTimeTicks / 1000).toFixed(3)} s · p95 ${(result.metrics.lotFlow.p95CycleTimeTicks / 1000).toFixed(3)} s · mean tardiness ${(result.metrics.lotFlow.meanTardinessTicks / 1000).toFixed(3)} s`,
     `- Quality flow: ${(result.metrics.qualityFlow.goodYield * 100).toFixed(1)}% good yield · ${(result.metrics.qualityFlow.firstPassYield * 100).toFixed(1)}% first-pass · ${result.metrics.qualityFlow.qualityControl.preventedDefectInstances}/${result.metrics.qualityFlow.qualityControl.authoredDefectInstances} authored excursion defects prevented · ${result.metrics.qualityFlow.totalInspections} inspections · ${result.metrics.qualityFlow.totalReworkCycles} rework cycles · ${result.metrics.qualityFlow.scrapDispositions} scrap dispositions · ${result.metrics.qualityFlow.escapedDefects} escapes`,
     `- Lot-derived output: ${result.metrics.lotOutputFlow.actualUnits} / ${result.metrics.lotOutputFlow.nominalUnits} actual / nominal units · ${(result.metrics.lotOutputFlow.outputRatio * 100).toFixed(1)}% realization · ${result.metrics.lotOutputFlow.lostUnits} lost`,
+    `- Source-lot lineage: ${result.metrics.sourceLotLineage.sourceLots.length} source lots · ${result.metrics.sourceLotLineage.createdUnits} created · ${result.metrics.sourceLotLineage.deliveredUnits} delivered · ${result.metrics.sourceLotLineage.discardedUnits} discarded · ${result.metrics.sourceLotLineage.finalWipUnits} final WIP · ${result.metrics.sourceLotLineage.commingledJobs} commingled jobs`,
     `- Route Q-time: ${routeQueueTime.violations} violations across ${routeQueueTime.violatedLots} lots · ${(routeQueueTime.maximumOverrunTicks / 1000).toFixed(3)} s maximum overrun`,
     `- Batch processing: ${result.metrics.batchFlow.jobs} jobs · ${result.metrics.batchFlow.lots} lots · ${result.metrics.batchFlow.averageLotsPerJob.toFixed(3)} lots/job · ${(result.metrics.batchFlow.meanQueueWaitTicksPerLot / 1000).toFixed(3)} s mean device wait/lot · ${result.metrics.batchFlow.formationHolds} formation holds / ${(result.metrics.batchFlow.formationHoldTicks / 1000).toFixed(3)} s (${result.metrics.batchFlow.preferredReleases} full-batch / ${result.metrics.batchFlow.timeoutReleases} timeout)`,
     `- Equipment setup: ${result.metrics.equipmentSetups.totalChangeovers} changeovers · ${(result.metrics.equipmentSetups.totalSetupTicks / 1000).toFixed(3)} s work · ${result.metrics.equipmentSetups.totalCampaignHolds} campaign holds / ${(result.metrics.equipmentSetups.totalCampaignHoldTicks / 1000).toFixed(3)} s (${result.metrics.equipmentSetups.campaignMinimumLotReleases} lot-ready / ${result.metrics.equipmentSetups.campaignMaximumHoldReleases} timeout)`,
@@ -165,6 +169,13 @@ export async function writeRunArtifact(project: CompiledFactoryProject, result: 
     "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...wipLocationRows,
     "", "Raw and equivalent location averages and final quantities both conserve to Objective WIP. Per-location peaks are exact but not additive because locations can peak at different times.",
+    "", "## Source-lot product lineage", "",
+    ...(sourceLotLineageRows.length ? [
+      "| Exact source-lot set | Resource | Kind | Physical location | Final units |",
+      "| --- | --- | --- | --- | ---: |",
+      ...sourceLotLineageRows,
+    ] : ["No source-lot-bearing product remains in physical WIP at the final boundary."]),
+    "", "A commingled job retains its complete source-lot set; this report never invents per-unit ancestry inside a mixed batch.",
     "", "## Score breakdown", "",
     "```json", stableStringify(result.metrics.scoreBreakdown, 2), "```", "",
   ].join("\n");

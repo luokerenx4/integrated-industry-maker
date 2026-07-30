@@ -68,6 +68,7 @@ Read the relevant linked document before changing a subsystem:
 - Finite reusable tools, spatial providers, whole-job reservation, and failure trapping: [[docs/design/reusable-production-tooling]]
 - Latent lot defects, inline inspection, selective rework, scrap, yield, and quality escapes: [[docs/design/quality-flow]]
 - Lot-dependent terminating output, wafer Probe yield, and nominal-versus-realized production: [[docs/design/lot-derived-output]]
+- Source-lot ancestry through fungible downstream product, physical state, and immutable evidence: [[docs/design/source-lot-product-lineage]]
 - Physical belts, sorters, junctions, stacking, and station fleets: [[docs/design/logistics]]
 - Spatial grids, coverage, generation, fuel, and synthesis: [[docs/design/power]]
 - Scenario-owned time-of-use electricity prices and regional peak-demand charges: [[docs/design/electricity-tariffs]]

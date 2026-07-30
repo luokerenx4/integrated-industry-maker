@@ -2,7 +2,7 @@
 
 Status: deterministic lot-dependent output profiles, runtime metrics, and the DRAM wafer-Probe optimization benchmark are implemented in `inm-sim/0.68.0`.
 
-Related: [[docs/design/quality-flow]], [[docs/design/industrial-boundaries]], [[docs/design/delivery-contracts]], [[docs/design/lot-tracking]], [[docs/design/coding-agent-optimization]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
+Related: [[docs/design/quality-flow]], [[docs/design/industrial-boundaries]], [[docs/design/delivery-contracts]], [[docs/design/lot-tracking]], [[docs/design/source-lot-product-lineage]], [[docs/design/coding-agent-optimization]], [[docs/design/simulation-runtime]], [[docs/PROJECT_FORMAT]], [[examples/memory-fab]].
 
 ## Why output quantity belongs to the terminating lot
 
@@ -33,6 +33,8 @@ INM keeps these questions separate. `Process.quality` owns identity-preserving d
 At physical job start the simulator combines the selected incoming lot's existing defects with any queue-time defects assessed for that route step. The first authored profile whose `defectsAny` intersects that set wins; otherwise the nominal output applies. The selected counts are held on the active job, reserve real destination capacity, and become the only outputs on successful completion. Later equipment-breakdown behavior follows the ordinary active-job invariant.
 
 Production-mode `outputCycles` scales nominal and profiled counts together. Static analysis and target-rate capacity planning deliberately use nominal output because they solve the installed engineering envelope. Locked event simulation is authoritative for realized output under fixed Production Plan lots.
+
+An output Resource with `lineage: { "kind": "source-lot" }` additionally receives the exact terminating lot id. That source ancestry then follows fungible downstream product under [[docs/design/source-lot-product-lineage]]; it does not keep the terminated Route lot alive.
 
 ## Metrics and events
 

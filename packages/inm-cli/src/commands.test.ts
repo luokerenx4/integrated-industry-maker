@@ -768,8 +768,8 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
   const projectDir = join(repository, "examples/memory-fab");
   const before = await Bun.file(join(projectDir, "blueprints/generated-dram-fab.blueprint.json")).text();
   const [machine, human, help] = await Promise.all([
-    runCli(["observe", projectDir, "--run", "102-simulate", "--json"]),
-    runCli(["observe", projectDir, "--run", "102-simulate"]),
+    runCli(["observe", projectDir, "--run", "105-simulate", "--json"]),
+    runCli(["observe", projectDir, "--run", "105-simulate"]),
     runCli(["help", "--json"]),
   ]);
   expect({ machine: machine.exitCode, human: human.exitCode, machineStderr: machine.stderr, humanStderr: human.stderr })
@@ -792,28 +792,36 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
     data: expect.objectContaining({
       status: "ready",
       authority: "human-or-agent",
-      evidence: { state: "compatible", run: expect.objectContaining({ id: "102-simulate" }) },
+      evidence: expect.objectContaining({
+        state: "compatible",
+        run: expect.objectContaining({ id: "105-simulate" }),
+        sourceLotLineage: expect.objectContaining({
+          runId: "105-simulate",
+          deliveredUnits: 88,
+          finalWipUnits: 8,
+        }),
+      }),
       leadingObjectiveTradeoff: expect.objectContaining({
         component: "wip",
         contribution: -73.78575000000001,
-        runId: "102-simulate",
+        runId: "105-simulate",
         interpretation: "objective-accounting-not-causal-loss",
       }),
       views: expect.arrayContaining([
-        expect.objectContaining({ studioRoute: "/memory-fab/factory?run=102-simulate" }),
-        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/burn-in-1?run=102-simulate" }),
-        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/packaging-1?run=102-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory?run=105-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/burn-in-1?run=105-simulate" }),
+        expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/packaging-1?run=105-simulate" }),
       ]),
     }),
   }));
   expect(envelope.nextActions[0]).toEqual(expect.objectContaining({
     id: "author-observation-hypothesis",
     effect: "read-only",
-    studioRoute: "/memory-fab/factory?run=102-simulate",
+    studioRoute: "/memory-fab/factory?run=105-simulate",
     argv: expect.arrayContaining(["--section", "objective"]),
   }));
   expect(human.stdout).toContain("observation brief");
-  expect(human.stdout).toContain("/memory-fab/factory?run=102-simulate");
+  expect(human.stdout).toContain("/memory-fab/factory?run=105-simulate");
   expect(human.stdout).toContain("Leading Objective tradeoff: wip -73.786");
   expect(human.stdout).not.toContain("analysis.material-deficit");
   const observeCapability = JSON.parse(help.stdout).data.commands.find((command: { id: string }) => command.id === "observe");
@@ -2007,7 +2015,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
   const currentInspection = result.designPrograms.find((item: { id: string }) => item.id === "inspection-supply-path");
   if (currentInspection?.evidence.state === "missing"
     && currentInspection.evidence.historicalRuns === 5
-    && result.objectiveEvidence?.runId === "102-simulate") {
+    && result.objectiveEvidence?.runId === "105-simulate") {
     expect(currentInspection).toEqual(expect.objectContaining({
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({
@@ -2031,7 +2039,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
       }),
     }));
     expect(JSON.parse(objective.stdout).data.result).toEqual(expect.objectContaining({
-      runId: "102-simulate",
+      runId: "105-simulate",
       dominantPenalty: { id: "wip", contribution: -73.78575000000001, role: "penalty" },
     }));
     expect(JSON.parse(dispositions.stdout).data.result).toHaveLength(0);

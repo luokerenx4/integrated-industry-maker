@@ -17,6 +17,9 @@
   "transport": {
     "stackSize": 32
   },
+  "lineage": {
+    "kind": "source-lot"
+  },
   "files": {
     "visual": "visual.json"
   }
