@@ -19,6 +19,7 @@ import { projectEvidenceHashes } from "./execution-identity";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
 import {
   openProjectWorkbenchSnapshot,
+  openRunProjectWorkbenchSnapshot,
   type ProjectWorkbenchSnapshot,
   type WorkbenchDiagnostic,
   type WorkbenchNextAction,
@@ -26,6 +27,12 @@ import {
 } from "./workbench";
 import { compileFactoryProject } from "./compiler";
 import { atomicWriteJson, hashValue, pathExists, readJson, stableStringify } from "./utils";
+import {
+  compareFactoryRuns,
+  factoryRunComparisonEvidenceHash,
+  RunComparisonError,
+  type FactoryRunComparison,
+} from "./run-comparison";
 
 const idSchema = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase kebab-case");
 const hashSchema = z.string().regex(/^[0-9a-f]{64}$/);
@@ -112,12 +119,34 @@ const factoryObservationAnchorSchema = z.object({
   }),
 }).strict();
 
+const runComparisonSideSchema = z.object({
+  runId: z.string().min(1),
+  resultHash: hashSchema,
+  blueprintHash: hashSchema,
+}).strict();
+
+const runComparisonAnchorSchema = z.object({
+  id: idSchema,
+  kind: z.literal("run-comparison"),
+  from: runComparisonSideSchema,
+  to: runComparisonSideSchema,
+  comparisonHash: hashSchema,
+  selection: selectionSchema,
+  hashes: evidenceHashesSchema,
+  diagnostic: diagnosticAnchorSchema.omit({
+    id: true,
+    kind: true,
+    runId: true,
+  }),
+}).strict();
+
 export const investigationEvidenceAnchorSchema = z.discriminatedUnion("kind", [
   operatingRunAnchorSchema,
   diagnosticAnchorSchema,
   designLineageAnchorSchema,
   candidateReviewAnchorSchema,
   factoryObservationAnchorSchema,
+  runComparisonAnchorSchema,
 ]);
 export type InvestigationEvidenceAnchor = z.infer<typeof investigationEvidenceAnchorSchema>;
 
@@ -156,6 +185,7 @@ const entryBaseSchema = z.object({
   introducedAnchors: z.array(z.discriminatedUnion("kind", [
     candidateReviewAnchorSchema,
     factoryObservationAnchorSchema,
+    runComparisonAnchorSchema,
   ])).max(1),
   previousEntryHash: hashSchema.nullable(),
 });
@@ -186,6 +216,12 @@ export type InvestigationIntroducedEvidenceInput =
   | {
     id: string;
     kind: "factory-observation";
+  }
+  | {
+    id: string;
+    kind: "run-comparison";
+    fromRunId: string;
+    toRunId: string;
   };
 type EntryInputCommon = {
   id: string;
@@ -380,7 +416,8 @@ function hypothesisOperatingContext(
     .flatMap((entry) => entry.introducedAnchors)
     .reverse()
     .find((anchor) =>
-      anchor.kind === "factory-observation" && hypothesis.evidence.includes(anchor.id));
+      (anchor.kind === "factory-observation" || anchor.kind === "run-comparison")
+      && hypothesis.evidence.includes(anchor.id));
   if (checkpoint?.kind === "factory-observation") {
     return {
       source: "factory-observation",
@@ -388,6 +425,19 @@ function hypothesisOperatingContext(
       selection: { ...checkpoint.selection },
       hashes: { ...checkpoint.hashes },
       run: { id: checkpoint.runId, resultHash: checkpoint.resultHash },
+      diagnostic: {
+        id: checkpoint.diagnostic.diagnosticId,
+        code: checkpoint.diagnostic.code,
+      },
+    };
+  }
+  if (checkpoint?.kind === "run-comparison") {
+    return {
+      source: "run-comparison",
+      anchorId: checkpoint.id,
+      selection: { ...checkpoint.selection },
+      hashes: { ...checkpoint.hashes },
+      run: { id: checkpoint.to.runId, resultHash: checkpoint.to.resultHash },
       diagnostic: {
         id: checkpoint.diagnostic.diagnosticId,
         code: checkpoint.diagnostic.code,
@@ -404,6 +454,34 @@ function hypothesisOperatingContext(
     run: { id: operating.runId, resultHash: operating.resultHash },
     diagnostic: { id: diagnostic.diagnosticId, code: diagnostic.code },
   };
+}
+
+function sameRunComparisonEvidence(
+  anchor: z.infer<typeof runComparisonAnchorSchema>,
+  comparison: FactoryRunComparison,
+): boolean {
+  return comparison.from.run.id === anchor.from.runId
+    && comparison.from.run.resultHash === anchor.from.resultHash
+    && comparison.from.hashes.blueprintHash === anchor.from.blueprintHash
+    && comparison.to.run.id === anchor.to.runId
+    && comparison.to.run.resultHash === anchor.to.resultHash
+    && comparison.to.hashes.blueprintHash === anchor.to.blueprintHash
+    && stableStringify(comparison.to.selection) === stableStringify(anchor.selection)
+    && stableStringify(comparison.to.hashes) === stableStringify(anchor.hashes)
+    && factoryRunComparisonEvidenceHash(comparison) === anchor.comparisonHash;
+}
+
+function sameRunComparisonDiagnostic(
+  anchor: z.infer<typeof runComparisonAnchorSchema>,
+  snapshot: ProjectWorkbenchSnapshot,
+): boolean {
+  const diagnostic = snapshot.diagnostics.find((item) =>
+    item.id === anchor.diagnostic.diagnosticId);
+  return diagnostic?.evidence.runId === anchor.to.runId
+    && diagnostic.code === anchor.diagnostic.code
+    && diagnostic.message === anchor.diagnostic.message
+    && diagnostic.evidence.summary === anchor.diagnostic.summary
+    && stableStringify(diagnostic.subjects) === stableStringify(anchor.diagnostic.subjects);
 }
 
 export async function resolveIndustrialInvestigationHypothesisSource(
@@ -483,6 +561,36 @@ export async function resolveIndustrialInvestigationHypothesisSource(
       throw new IndustrialInvestigationError(
         "investigation.source-context-unavailable",
         `Investigation hypothesis '${entry.id}' factory observation '${checkpoint.id}' is ${unavailable}`,
+      );
+    }
+  }
+  if (operatingContext.source === "run-comparison") {
+    const checkpoint = entries
+      .flatMap((item) => item.introducedAnchors)
+      .find((anchor) => anchor.id === operatingContext.anchorId);
+    if (!checkpoint || checkpoint.kind !== "run-comparison") {
+      throw new IndustrialInvestigationError(
+        "investigation.source-context-missing",
+        `Investigation hypothesis '${entry.id}' references unavailable Run comparison '${operatingContext.anchorId}'`,
+      );
+    }
+    try {
+      const comparison = await compareFactoryRuns(
+        projectDir,
+        checkpoint.from.runId,
+        checkpoint.to.runId,
+      );
+      if (!sameRunComparisonEvidence(checkpoint, comparison)) {
+        throw new IndustrialInvestigationError(
+          "investigation.source-context-unavailable",
+          `Investigation hypothesis '${entry.id}' Run comparison '${checkpoint.id}' is invalid`,
+        );
+      }
+    } catch (error) {
+      if (error instanceof IndustrialInvestigationError) throw error;
+      throw new IndustrialInvestigationError(
+        "investigation.source-context-unavailable",
+        `Investigation hypothesis '${entry.id}' Run comparison '${checkpoint.id}' cannot be verified: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -725,10 +833,12 @@ export async function appendIndustrialInvestigationEntry(
       `Investigation entry '${input.id}' already exists`,
     );
   }
-  if (input.introduceEvidence?.kind === "factory-observation" && input.kind !== "observation") {
+  if ((input.introduceEvidence?.kind === "factory-observation"
+    || input.introduceEvidence?.kind === "run-comparison")
+    && input.kind !== "observation") {
     throw new IndustrialInvestigationError(
       "investigation.observation-entry-required",
-      "Factory-observation evidence can only be introduced by an observation entry",
+      "Factory-observation and Run-comparison evidence can only be introduced by an observation entry",
     );
   }
   const introducedAnchors = input.introduceEvidence
@@ -803,6 +913,7 @@ async function resolveIntroducedEvidenceAnchor(
 ): Promise<
   z.infer<typeof candidateReviewAnchorSchema>
   | z.infer<typeof factoryObservationAnchorSchema>
+  | z.infer<typeof runComparisonAnchorSchema>
 > {
   if (!idSchema.safeParse(input.id).success
     || (input.kind === "candidate-review" && !idSchema.safeParse(input.candidateId).success)) {
@@ -843,6 +954,54 @@ async function resolveIntroducedEvidenceAnchor(
       hashes: projectEvidenceHashes(snapshot.hashes),
       runId: run.id,
       resultHash: run.resultHash,
+      diagnostic: {
+        diagnosticId: diagnostic.id,
+        code: diagnostic.code,
+        severity: diagnostic.severity,
+        priority: diagnostic.priority,
+        message: diagnostic.message,
+        summary: diagnostic.evidence.summary,
+        subjects: diagnostic.subjects.map((subject) => ({ ...subject })),
+        loss: bucket ? {
+          bucket: bucket.id,
+          contributorId: bucket.contributors[0]?.id ?? null,
+        } : null,
+      },
+    };
+  }
+  if (input.kind === "run-comparison") {
+    const comparison = await compareFactoryRuns(projectDir, input.fromRunId, input.toRunId);
+    const snapshot = await openRunProjectWorkbenchSnapshot(projectDir, input.toRunId);
+    const diagnostic = selectedDiagnostic(snapshot);
+    if (!diagnostic || diagnostic.evidence.source !== "compatible-run"
+      || diagnostic.evidence.runId !== input.toRunId) {
+      throw new IndustrialInvestigationError(
+        "investigation.no-comparison-diagnostic",
+        `Capturing Run comparison evidence requires TO Run '${input.toRunId}' to reproduce one Run-backed diagnostic`,
+      );
+    }
+    const bucketId = diagnostic.code.startsWith("fab-loss.")
+      ? diagnostic.code.slice("fab-loss.".length)
+      : null;
+    const bucket = bucketId
+      ? snapshot.lossAttribution?.buckets.find((item) => item.id === bucketId) ?? null
+      : null;
+    return {
+      id: input.id,
+      kind: "run-comparison",
+      from: {
+        runId: comparison.from.run.id,
+        resultHash: comparison.from.run.resultHash,
+        blueprintHash: comparison.from.hashes.blueprintHash,
+      },
+      to: {
+        runId: comparison.to.run.id,
+        resultHash: comparison.to.run.resultHash,
+        blueprintHash: comparison.to.hashes.blueprintHash,
+      },
+      comparisonHash: factoryRunComparisonEvidenceHash(comparison),
+      selection: { ...comparison.to.selection },
+      hashes: { ...comparison.to.hashes },
       diagnostic: {
         diagnosticId: diagnostic.id,
         code: diagnostic.code,
@@ -940,9 +1099,97 @@ function anchorNavigation(
     argv: ["inm", "observe", projectDir, "--run", anchor.runId, "--json"],
     studioRoute: `/${encodeURIComponent(projectId)}/factory?run=${encodeURIComponent(anchor.runId)}`,
   };
+  if (anchor.kind === "run-comparison") return {
+    argv: [
+      "inm",
+      "compare",
+      projectDir,
+      "--from-run",
+      anchor.from.runId,
+      "--to-run",
+      anchor.to.runId,
+      "--json",
+    ],
+    studioRoute: `/${encodeURIComponent(projectId)}/runs?from=${encodeURIComponent(anchor.from.runId)}&to=${encodeURIComponent(anchor.to.runId)}`,
+  };
   return {
     argv: ["inm", "design", projectDir, "--program", anchor.programId, "--run-id", anchor.runId, "--json"],
     studioRoute: `/${encodeURIComponent(projectId)}/designs/${encodeURIComponent(anchor.programId)}/runs/${encodeURIComponent(anchor.runId)}`,
+  };
+}
+
+async function inspectRunComparisonAnchor(
+  projectDir: string,
+  projectId: string,
+  anchor: z.infer<typeof runComparisonAnchorSchema>,
+  currentSnapshot: ProjectWorkbenchSnapshot,
+): Promise<InspectedInvestigationAnchor> {
+  const navigation = anchorNavigation(projectDir, projectId, anchor);
+  let comparison: FactoryRunComparison;
+  try {
+    comparison = await compareFactoryRuns(
+      projectDir,
+      anchor.from.runId,
+      anchor.to.runId,
+    );
+  } catch (error) {
+    if (error instanceof RunComparisonError && error.code === "run-comparison.unknown-run") {
+      const absentRunId = error.details.runId
+        ?? [anchor.from.runId, anchor.to.runId].find((runId) =>
+          !currentSnapshot.runs.some((run) => run.id === runId))
+        ?? anchor.to.runId;
+      const runPath = join(resolve(projectDir), "runs", absentRunId);
+      const exists = await pathExists(runPath);
+      return {
+        anchor,
+        state: exists ? "invalid" : "missing",
+        message: exists
+          ? `Run comparison '${anchor.id}' references Run '${absentRunId}', which exists but is not valid completed evidence.`
+          : `Run comparison '${anchor.id}' references absent Run '${absentRunId}'.`,
+        navigation,
+      };
+    }
+    return {
+      anchor,
+      state: "invalid",
+      message: `Run comparison '${anchor.id}' cannot be verified: ${error instanceof Error ? error.message : String(error)}`,
+      navigation,
+    };
+  }
+  if (!sameRunComparisonEvidence(anchor, comparison)) return {
+    anchor,
+    state: "invalid",
+    message: `Run comparison '${anchor.id}' no longer matches its exact FROM, TO, or comparison identity.`,
+    navigation,
+  };
+  let toSnapshot: ProjectWorkbenchSnapshot;
+  try {
+    toSnapshot = await openRunProjectWorkbenchSnapshot(projectDir, anchor.to.runId);
+  } catch (error) {
+    return {
+      anchor,
+      state: "invalid",
+      message: `Run comparison '${anchor.id}' TO context cannot be reproduced: ${error instanceof Error ? error.message : String(error)}`,
+      navigation,
+    };
+  }
+  if (!sameRunComparisonDiagnostic(anchor, toSnapshot)) return {
+    anchor,
+    state: "invalid",
+    message: `Run comparison '${anchor.id}' TO diagnostic no longer reproduces its exact evidence identity.`,
+    navigation,
+  };
+  const current = sameRecordedSelection(anchor.selection, currentSnapshot)
+    && sameRecordedHashes(anchor.hashes, currentSnapshot)
+    && currentSnapshot.status.evidence.state === "current"
+    && currentSnapshot.status.evidence.runId === anchor.to.runId;
+  return {
+    anchor,
+    state: current ? "current" : "historical",
+    message: current
+      ? `Run comparison '${anchor.from.runId} → ${anchor.to.runId}' is exact and its TO Run is the current selected factory (${comparison.verdict}, score ${comparison.delta.score >= 0 ? "+" : ""}${comparison.delta.score.toFixed(3)}).`
+      : `Run comparison '${anchor.from.runId} → ${anchor.to.runId}' remains exact history; its TO Run is no longer the current selected factory.`,
+    navigation,
   };
 }
 
@@ -1004,6 +1251,9 @@ async function inspectAnchor(
   const selectedIdentityCurrent = sameSelection(manifest, snapshot) && sameHashes(manifest, snapshot);
   if (anchor.kind === "factory-observation") {
     return inspectFactoryObservationAnchor(projectDir, manifest.project, anchor, snapshot);
+  }
+  if (anchor.kind === "run-comparison") {
+    return inspectRunComparisonAnchor(projectDir, manifest.project, anchor, snapshot);
   }
   if (anchor.kind === "operating-run") {
     const runPath = join(resolve(projectDir), "runs", anchor.runId);
@@ -1197,7 +1447,8 @@ export async function inspectIndustrialInvestigation(
   const latestCheckpoint = entries
     .flatMap((entry) => entry.introducedAnchors)
     .reverse()
-    .find((anchor) => anchor.kind === "factory-observation");
+    .find((anchor) =>
+      anchor.kind === "factory-observation" || anchor.kind === "run-comparison");
   const latestOperatingState = latestCheckpoint
     ? anchors.find((item) => item.anchor.id === latestCheckpoint.id)?.state
     : manifest.anchors

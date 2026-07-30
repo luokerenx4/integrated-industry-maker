@@ -43,6 +43,8 @@ Patch generation walks object keys in lexical order and arrays in index order. A
 
 Run comparison adds the complete exact FROM/TO Run, result, execution, and Blueprint identities; the same semantic/spatial changes and replayable patch; persisted metric and capacity snapshots; full fab-loss attribution on both sides; per-bucket score and leading-contributor changes; and stable URLs for both complete factories plus every changed Device or Connection. Zero deltas, unchanged delivery/quality outcomes, capacity state, and Objective constraints remain present so a higher score cannot hide a surrendered industrial guardrail. `verdict` is evidence classification only: neither Core nor either projection chooses the next intervention.
 
+`factoryRunComparisonEvidenceHash()` is the compact persistence identity for this object. It commits every industrial evidence field and the project id while excluding the local project root, display name, and navigation. An explicit Investigation observation can retain that hash plus exact FROM/TO and TO-context identities without copying the dense comparison. Reopening the Investigation recomputes the comparison from both Runs; missing, corrupt, or incompatible evidence fails closed. See [[docs/design/industrial-investigations]].
+
 ## Read-only boundary
 
 Comparison never writes either Blueprint, never updates a revision, and never creates a run artifact. Blueprint mode performs an ephemeral pair of evaluations and does not reuse historical Runs. Run mode reads and verifies two existing immutable artifacts and never replays them. A user explicitly persists new evidence with `inm simulate`, or enters the guarded Candidate/Design workflow.

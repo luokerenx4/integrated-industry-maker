@@ -32,6 +32,7 @@ function anchorTitle(anchor: InvestigationEvidenceAnchor): string {
   if (anchor.kind === "diagnostic") return `DIAGNOSTIC · ${anchor.code}`;
   if (anchor.kind === "candidate-review") return `CANDIDATE REVIEW · ${anchor.candidateId} · ${anchor.verdict}`;
   if (anchor.kind === "factory-observation") return `FACTORY OBSERVATION · ${anchor.runId} · ${anchor.diagnostic.code}`;
+  if (anchor.kind === "run-comparison") return `RUN COMPARISON · ${anchor.from.runId} → ${anchor.to.runId}`;
   return `COMMISSIONED DESIGN · ${anchor.candidateId}`;
 }
 
@@ -55,6 +56,11 @@ export function InvestigationWorkbench({
   onClose: () => void;
 }) {
   const returnCandidateId = new URLSearchParams(window.location.search).get("candidate")?.trim() || null;
+  const comparisonFromRunId = new URLSearchParams(window.location.search).get("from")?.trim() || null;
+  const comparisonToRunId = new URLSearchParams(window.location.search).get("to")?.trim() || null;
+  const returnedComparison = comparisonFromRunId && comparisonToRunId
+    ? { fromRunId: comparisonFromRunId, toRunId: comparisonToRunId }
+    : null;
   const requestedDisposition = new URLSearchParams(window.location.search).get("disposition");
   const suggestedDisposition = requestedDisposition === "keep"
     || requestedDisposition === "revise"
@@ -73,11 +79,19 @@ export function InvestigationWorkbench({
     anchor.kind === "candidate-review" && anchor.candidateId === returnCandidateId));
   const prefillCandidateId = returnAlreadyRecorded ? null : returnCandidateId;
   const suggestedAnchorId = prefillCandidateId ? `${prefillCandidateId}-review` : "";
+  const comparisonAlreadyRecorded = Boolean(returnedComparison && inspection?.anchors.some(({ anchor }) =>
+    anchor.kind === "run-comparison"
+    && anchor.from.runId === returnedComparison.fromRunId
+    && anchor.to.runId === returnedComparison.toRunId));
+  const prefillComparison = comparisonAlreadyRecorded ? null : returnedComparison;
+  const suggestedComparisonAnchorId = prefillComparison
+    ? `${prefillComparison.fromRunId}-to-${prefillComparison.toRunId}`
+    : "";
 
   useEffect(() => {
     if (prefillCandidateId) setEntryKind("decision");
-    else if (returnAlreadyRecorded) setEntryKind("observation");
-  }, [prefillCandidateId, returnAlreadyRecorded]);
+    else if (returnAlreadyRecorded || returnedComparison) setEntryKind("observation");
+  }, [prefillCandidateId, returnAlreadyRecorded, comparisonFromRunId, comparisonToRunId]);
 
   const loadList = useCallback(async () => {
     const value = await responseJson<{ investigations: IndustrialInvestigationSummary[] }>(
@@ -148,12 +162,25 @@ export function InvestigationWorkbench({
     const introducedAnchorId = String(fields.get("introducedAnchorId") ?? "").trim();
     const introducedCandidateId = String(fields.get("introducedCandidateId") ?? "").trim();
     const introducedObservationId = String(fields.get("introducedObservationId") ?? "").trim();
+    const introducedComparisonId = String(fields.get("introducedComparisonId") ?? "").trim();
+    const introducedComparisonFrom = String(fields.get("introducedComparisonFrom") ?? "").trim();
+    const introducedComparisonTo = String(fields.get("introducedComparisonTo") ?? "").trim();
     if (Boolean(introducedAnchorId) !== Boolean(introducedCandidateId)) {
       setError("An introduced Candidate review requires both its Investigation anchor id and Candidate id.");
       return;
     }
     if (introducedObservationId && (introducedAnchorId || introducedCandidateId)) {
       setError("Capture a factory observation or introduce a Candidate review in one entry, not both.");
+      return;
+    }
+    if (Boolean(introducedComparisonId)
+      !== Boolean(introducedComparisonFrom && introducedComparisonTo)) {
+      setError("A Run comparison requires an evidence anchor id plus exact FROM and TO Run ids.");
+      return;
+    }
+    if (introducedComparisonId
+      && (introducedObservationId || introducedAnchorId || introducedCandidateId)) {
+      setError("Capture one Run comparison, factory observation, or Candidate review per entry.");
       return;
     }
     const evidence = fields.getAll("evidence").map(String);
@@ -163,13 +190,23 @@ export function InvestigationWorkbench({
     if (introducedObservationId && !evidence.includes(introducedObservationId)) {
       evidence.push(introducedObservationId);
     }
+    if (introducedComparisonId && !evidence.includes(introducedComparisonId)) {
+      evidence.push(introducedComparisonId);
+    }
     const common = {
       id: fields.get("id"),
       author: fields.get("author"),
       kind: entryKind,
       statement: fields.get("statement"),
       evidence,
-      introduceEvidence: introducedObservationId
+      introduceEvidence: introducedComparisonId
+        ? {
+          id: introducedComparisonId,
+          kind: "run-comparison",
+          fromRunId: introducedComparisonFrom,
+          toRunId: introducedComparisonTo,
+        }
+        : introducedObservationId
         ? {
           id: introducedObservationId,
           kind: "factory-observation",
@@ -313,10 +350,16 @@ export function InvestigationWorkbench({
             ? "This exact Candidate already has retained review evidence in the Investigation hash chain. The ordinary reasoning form remains available without duplicate evidence prefill."
             : "The Candidate review is immutable evidence. Candidate id, evidence anchor, and suggested disposition are prepared below; authorship and the decision statement remain yours."}</p>
         </section>}
+        {returnedComparison && <section className="investigation-return-context" data-testid="investigation-comparison-context">
+          <div><span className="eyebrow">{comparisonAlreadyRecorded ? "COMPARISON ALREADY RETAINED" : "EXACT RUN COMPARISON RETURNED"}</span><strong>{returnedComparison.fromRunId} → {returnedComparison.toRunId}</strong></div>
+          <p>{comparisonAlreadyRecorded
+            ? "This exact Run pair already exists in the append-only Investigation chain. The ordinary reasoning form remains available without duplicate evidence prefill."
+            : "The comparison remains read-only until you append an authored observation. Core will derive and verify both Run identities, the deterministic comparison hash, and the TO operating context."}</p>
+        </section>}
 
         <form
           className="investigation-entry-form"
-          key={`${returnCandidateId ?? "ordinary-entry"}:${returnAlreadyRecorded ? "recorded" : "new"}`}
+          key={`${returnCandidateId ?? "ordinary-entry"}:${returnedComparison?.fromRunId ?? "no-from"}:${returnedComparison?.toRunId ?? "no-to"}:${returnAlreadyRecorded || comparisonAlreadyRecorded ? "recorded" : "new"}`}
           onSubmit={(event) => { void append(event); }}
         >
           <header><span>APPEND REASONING</span><b>EXPLICIT AUTHORSHIP</b></header>
@@ -328,6 +371,9 @@ export function InvestigationWorkbench({
             {entryKind === "hypothesis" && <label className="wide">EXPECTED EFFECT<textarea name="expectedEffect" required placeholder="What exact measured behavior should change if this is true?" /></label>}
             {entryKind === "decision" && <label>DISPOSITION<select name="disposition" defaultValue={prefillCandidateId ? suggestedDisposition : "keep"}><option value="keep">KEEP</option><option value="revise">REVISE</option><option value="defer">DEFER</option><option value="discard">DISCARD</option></select></label>}
             {entryKind === "observation" && <label>CAPTURE CURRENT FACTORY AS<input name="introducedObservationId" pattern="[a-z0-9][a-z0-9-]*" placeholder="post-change-factory" /></label>}
+            {entryKind === "observation" && <label>CAPTURE RUN COMPARISON AS<input name="introducedComparisonId" defaultValue={suggestedComparisonAnchorId} pattern="[a-z0-9][a-z0-9-]*" placeholder="compact-cell-comparison" /></label>}
+            {entryKind === "observation" && <label>FROM RUN<input name="introducedComparisonFrom" defaultValue={prefillComparison?.fromRunId ?? ""} placeholder="100-simulate" /></label>}
+            {entryKind === "observation" && <label>TO RUN<input name="introducedComparisonTo" defaultValue={prefillComparison?.toRunId ?? ""} placeholder="101-simulate" /></label>}
             <label>INTRODUCE REVIEW AS<input name="introducedAnchorId" defaultValue={suggestedAnchorId} placeholder="metrology-standby-review" /></label>
             <label>REVIEWED CANDIDATE<input name="introducedCandidateId" defaultValue={prefillCandidateId ?? ""} placeholder="metrology-low-power-standby" /></label>
           </div>

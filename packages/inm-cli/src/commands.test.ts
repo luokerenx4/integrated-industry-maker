@@ -38,6 +38,7 @@ async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
     "0018-compact-inspection-rework-cell-east-port.entry.json",
     "0019-keep-compact-inspection-rework-cell-east-port.entry.json",
     "0020-compact-inspection-rework-cell-current-factory.entry.json",
+    "0021-compact-cell-run-comparison-retained.entry.json",
   ]) {
     await rm(join(projectDir, "investigations/inspection-starvation-next-step/entries", entry), { force: true });
   }
@@ -182,6 +183,160 @@ test("compare command explains two exact immutable memory-fab Runs for humans an
   expect(compareCapability.usage).toContain("--from-run ID --to-run ID");
   expect(compareCapability.outputSections).toEqual(["summary", "changes", "evaluation", "losses", "all"]);
 });
+
+test("investigate captures one exact immutable Run comparison for later human or Agent reasoning", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-cli-run-comparison-investigation-"));
+  const projectDir = join(root, "memory-fab");
+  try {
+    await cp(join(repository, "examples/memory-fab"), projectDir, {
+      recursive: true,
+      filter: (source) => {
+        const segments = source.split("/");
+        if ([".inm", "design-runs", "candidate-reviews", "investigations"]
+          .some((directory) => segments.includes(directory))) return false;
+        const runsIndex = segments.lastIndexOf("runs");
+        return runsIndex < 0
+          || segments[runsIndex + 1] === undefined
+          || segments[runsIndex + 1] === "100-simulate"
+          || segments[runsIndex + 1] === "101-simulate";
+      },
+    });
+
+    const create = await runCli([
+      "investigate",
+      projectDir,
+      "--investigation",
+      "compact-cell-evidence",
+      "--create",
+      "--name",
+      "Compact cell evidence",
+      "--question",
+      "What did the compact inspection and rework cell change?",
+      "--json",
+    ]);
+    expect({ exitCode: create.exitCode, stderr: create.stderr })
+      .toEqual({ exitCode: 0, stderr: "" });
+
+    const captured = await runCli([
+      "investigate",
+      projectDir,
+      "--investigation",
+      "compact-cell-evidence",
+      "--entry",
+      "compact-cell-compared",
+      "--kind",
+      "observation",
+      "--author",
+      "agent",
+      "--statement",
+      "Run 101 preserves delivery and quality while reducing the compact-cell footprint and inspection starvation.",
+      "--evidence",
+      "operating-run,diagnostic",
+      "--capture-comparison",
+      "compact-cell-comparison",
+      "--from-run",
+      "100-simulate",
+      "--to-run",
+      "101-simulate",
+      "--json",
+    ]);
+    expect({ exitCode: captured.exitCode, stderr: captured.stderr })
+      .toEqual({ exitCode: 0, stderr: "" });
+    expect(JSON.parse(captured.stdout).data.result).toEqual(expect.objectContaining({
+      action: "appended",
+      state: "current",
+      lastEntry: expect.objectContaining({
+        id: "compact-cell-compared",
+        evidence: ["operating-run", "diagnostic", "compact-cell-comparison"],
+        introducedAnchors: [
+          expect.objectContaining({
+            id: "compact-cell-comparison",
+            kind: "run-comparison",
+            from: expect.objectContaining({ runId: "100-simulate" }),
+            to: expect.objectContaining({ runId: "101-simulate" }),
+            comparisonHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+          }),
+        ],
+      }),
+      anchors: expect.arrayContaining([
+        expect.objectContaining({
+          id: "compact-cell-comparison",
+          kind: "run-comparison",
+          state: "current",
+        }),
+      ]),
+    }));
+
+    const [human, anchors] = await Promise.all([runCli([
+      "investigate",
+      projectDir,
+      "--investigation",
+      "compact-cell-evidence",
+    ]), runCli([
+      "investigate",
+      projectDir,
+      "--investigation",
+      "compact-cell-evidence",
+      "--section",
+      "anchors",
+      "--json",
+    ])]);
+    expect({ exitCode: human.exitCode, stderr: human.stderr })
+      .toEqual({ exitCode: 0, stderr: "" });
+    expect({ exitCode: anchors.exitCode, stderr: anchors.stderr })
+      .toEqual({ exitCode: 0, stderr: "" });
+    expect(JSON.parse(anchors.stdout).data.result).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        anchor: expect.objectContaining({
+          id: "compact-cell-comparison",
+          kind: "run-comparison",
+        }),
+        state: "current",
+        navigation: {
+          argv: [
+            "inm",
+            "compare",
+            projectDir,
+            "--from-run",
+            "100-simulate",
+            "--to-run",
+            "101-simulate",
+            "--json",
+          ],
+          studioRoute: "/memory-fab/runs?from=100-simulate&to=101-simulate",
+        },
+      }),
+    ]));
+    expect(human.stdout).toContain(
+      "compact-cell-comparison · Run comparison '100-simulate → 101-simulate' is exact",
+    );
+    expect(human.stdout).toContain("introduced: compact-cell-comparison:run-comparison");
+
+    const incomplete = await runCli([
+      "investigate",
+      projectDir,
+      "--investigation",
+      "compact-cell-evidence",
+      "--entry",
+      "invalid-comparison",
+      "--kind",
+      "observation",
+      "--author",
+      "agent",
+      "--statement",
+      "This request is deliberately incomplete.",
+      "--capture-comparison",
+      "invalid-comparison",
+      "--from-run",
+      "100-simulate",
+      "--json",
+    ]);
+    expect(incomplete.exitCode).toBe(2);
+    expect(incomplete.stderr).toContain("--capture-comparison requires --from-run and --to-run");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}, 30_000);
 
 test("CLI-only operator discovers, inspects, previews, applies, and verifies an outcome-guarded Candidate", async () => {
   const parent = await mkdtemp(join(tmpdir(), "inm-candidate-cli-")); const projectDir = join(parent, "memory-fab");
@@ -900,7 +1055,7 @@ test("public investigate preserves and resumes exact project-local human/Agent r
   ]);
   expect({ exitCode: candidateHuman.exitCode, stderr: candidateHuman.stderr })
     .toEqual({ exitCode: 0, stderr: "" });
-  expect(candidateHuman.stdout).toContain("factory operating-run / 098-simulate · CURRENT");
+  expect(candidateHuman.stdout).toContain("context investigation-creation operating-run / 098-simulate · CURRENT");
 
   const decided = await runCli([
     "investigate",
@@ -1109,7 +1264,7 @@ test("public investigate preserves and resumes exact project-local human/Agent r
     "post-decision-candidate",
   ]);
   expect(continuedCandidateHuman.stdout)
-    .toContain("factory post-decision-factory / 098-simulate · CURRENT");
+    .toContain("context factory-observation post-decision-factory / 098-simulate · CURRENT");
 
   const invalid = await runCli([
     "investigate",

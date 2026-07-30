@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { resolve } from "node:path";
-import { compareFactoryRuns } from "./run-comparison";
+import {
+  compareFactoryRuns,
+  factoryRunComparisonEvidenceHash,
+} from "./run-comparison";
 
 const memoryFab = resolve("examples/memory-fab");
 
@@ -93,6 +96,17 @@ test("immutable Run comparison explains the commissioned compact inspection-rewo
     toFactoryRoute: "/memory-fab/factory?run=101-simulate",
   }));
   expect(comparison.navigation.changedSubjects).toHaveLength(5);
+  const evidenceHash = factoryRunComparisonEvidenceHash(comparison);
+  expect(evidenceHash).toMatch(/^[0-9a-f]{64}$/);
+  expect(factoryRunComparisonEvidenceHash({
+    ...comparison,
+    project: { ...comparison.project, name: "Copied project", rootDir: "/copied/project" },
+    navigation: { ...comparison.navigation, studioRoute: "/presentation-only-route" },
+  })).toBe(evidenceHash);
+  expect(factoryRunComparisonEvidenceHash({
+    ...comparison,
+    delta: { ...comparison.delta, score: comparison.delta.score + 1 },
+  })).not.toBe(evidenceHash);
 });
 
 test("immutable Run comparison rejects missing and identical evidence identities", async () => {

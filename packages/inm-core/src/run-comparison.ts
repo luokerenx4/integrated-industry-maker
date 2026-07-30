@@ -119,6 +119,20 @@ export interface FactoryRunComparison {
   navigation: FactoryRunComparisonNavigation;
 }
 
+export function factoryRunComparisonEvidenceHash(
+  comparison: FactoryRunComparison,
+): string {
+  const {
+    project,
+    navigation: _navigation,
+    ...evidence
+  } = comparison;
+  return hashValue({
+    ...evidence,
+    project: { id: project.id },
+  });
+}
+
 interface LoadedFactoryRun {
   summary: RunSummary;
   blueprint: Blueprint;

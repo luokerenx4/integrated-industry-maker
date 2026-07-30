@@ -333,7 +333,7 @@ export function ExperimentWorkbench({
               onClick={() => onInvestigationSource(investigationSource.investigation)}
             >
               <span><small>IMMUTABLE INVESTIGATION SOURCE</small><strong>{sourceEvidence?.investigationName ?? investigationSource.investigation}</strong></span>
-              <code>HYPOTHESIS {investigationSource.entry} · {shortHash(investigationSource.entryHash)}{sourceEvidence ? ` · FACTORY ${sourceEvidence.operatingContext.anchorId} / ${sourceEvidence.operatingContext.run.id}` : ""}</code>
+              <code>HYPOTHESIS {investigationSource.entry} · {shortHash(investigationSource.entryHash)}{sourceEvidence ? ` · CONTEXT ${sourceEvidence.operatingContext.source} ${sourceEvidence.operatingContext.anchorId} / ${sourceEvidence.operatingContext.run.id}` : ""}</code>
               <b>{sourceEvidence ? `${sourceEvidence.state.toUpperCase()} · OPEN REASONING →` : decisionState === "invalid" ? "SOURCE INVALID" : "VERIFYING HASH CHAIN…"}</b>
             </button>}
             {candidatePreview?.sourceEvidence && recordedInvestigationAnchor === false && <button

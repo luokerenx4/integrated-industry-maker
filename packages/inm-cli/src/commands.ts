@@ -976,6 +976,9 @@ export async function investigateCommand(
     evidence?: string;
     attachCandidate?: string;
     captureObservation?: string;
+    captureComparison?: string;
+    fromRun?: string;
+    toRun?: string;
     anchorId?: string;
     createCandidate?: string;
     hypothesisEntry?: string;
@@ -993,7 +996,8 @@ export async function investigateCommand(
   if (!options.investigationId && (options.create || options.entryId || options.createCandidate
     || options.name || options.question || options.kind || options.author || options.statement
     || options.expectedEffect || options.disposition || options.evidence
-    || options.attachCandidate || options.captureObservation || options.anchorId
+    || options.attachCandidate || options.captureObservation || options.captureComparison
+    || options.fromRun || options.toRun || options.anchorId
     || options.hypothesisEntry || options.benchmark
     || options.candidateName || options.patchFile)) {
     throw new Error(`${usage}\nInvestigation mutation requires --investigation ID.`);
@@ -1025,6 +1029,7 @@ export async function investigateCommand(
     }
     if (options.kind || options.author || options.statement || options.expectedEffect || options.disposition
       || options.evidence || options.attachCandidate || options.captureObservation
+      || options.captureComparison || options.fromRun || options.toRun
       || options.anchorId || options.createCandidate
       || options.hypothesisEntry || options.benchmark || options.candidateName || options.patchFile) {
       throw new Error(`${usage}\nEntry fields require --entry ID.`);
@@ -1062,15 +1067,31 @@ export async function investigateCommand(
     if (options.captureObservation && options.kind !== "observation") {
       throw new Error(`${usage}\n--capture-observation belongs only to an observation entry.`);
     }
+    if (options.captureComparison && options.kind !== "observation") {
+      throw new Error(`${usage}\n--capture-comparison belongs only to an observation entry.`);
+    }
+    if (options.captureComparison && (!options.fromRun || !options.toRun)) {
+      throw new Error(`${usage}\n--capture-comparison requires --from-run and --to-run.`);
+    }
+    if (!options.captureComparison && (options.fromRun || options.toRun)) {
+      throw new Error(`${usage}\n--from-run and --to-run require --capture-comparison.`);
+    }
     if (options.anchorId && !options.attachCandidate) {
       throw new Error(`${usage}\n--anchor-id requires --attach-candidate.`);
     }
-    if (options.attachCandidate && options.captureObservation) {
-      throw new Error(`${usage}\n--attach-candidate and --capture-observation are mutually exclusive.`);
+    const evidenceIntroductionModes = [
+      options.attachCandidate,
+      options.captureObservation,
+      options.captureComparison,
+    ].filter(Boolean).length;
+    if (evidenceIntroductionModes > 1) {
+      throw new Error(`${usage}\n--attach-candidate, --capture-observation, and --capture-comparison are mutually exclusive.`);
     }
-    const introducedAnchorId = options.captureObservation ?? (options.attachCandidate
-      ? options.anchorId ?? `${options.attachCandidate}-review`
-      : undefined);
+    const introducedAnchorId = options.captureComparison
+      ?? options.captureObservation
+      ?? (options.attachCandidate
+        ? options.anchorId ?? `${options.attachCandidate}-review`
+        : undefined);
     const evidence = options.evidence
       ? options.evidence.split(",").map((item) => item.trim()).filter(Boolean)
       : [];
@@ -1080,7 +1101,14 @@ export async function investigateCommand(
       author: options.author as "human" | "agent",
       statement: options.statement,
       evidence,
-      introduceEvidence: options.captureObservation
+      introduceEvidence: options.captureComparison
+        ? {
+          id: options.captureComparison,
+          kind: "run-comparison" as const,
+          fromRunId: options.fromRun!,
+          toRunId: options.toRun!,
+        }
+        : options.captureObservation
         ? {
           id: options.captureObservation,
           kind: "factory-observation" as const,
@@ -1119,7 +1147,8 @@ export async function investigateCommand(
     }
     if (options.name || options.question || options.kind || options.author || options.statement
       || options.expectedEffect || options.disposition || options.evidence
-      || options.attachCandidate || options.captureObservation || options.anchorId) {
+      || options.attachCandidate || options.captureObservation || options.captureComparison
+      || options.fromRun || options.toRun || options.anchorId) {
       throw new Error(`${usage}\nInvestigation and entry fields cannot be combined with --create-candidate.`);
     }
     let patch: unknown;
@@ -1144,7 +1173,8 @@ export async function investigateCommand(
     };
   } else if (options.name || options.question || options.kind || options.author
     || options.statement || options.expectedEffect || options.disposition || options.evidence
-    || options.attachCandidate || options.captureObservation || options.anchorId
+    || options.attachCandidate || options.captureObservation || options.captureComparison
+    || options.fromRun || options.toRun || options.anchorId
     || options.hypothesisEntry || options.benchmark
     || options.candidateName || options.patchFile) {
     throw new Error(`${usage}\nMutation fields require --create, --entry ID, or --create-candidate ID.`);
@@ -1222,7 +1252,7 @@ export async function investigateCommand(
     ] : ["Reasoning log: empty"]),
     ...(candidateCreation ? [
       `Candidate: ${candidateCreation.candidate.id} · ${candidateCreation.candidate.benchmark}`,
-      `  Source: hypothesis ${candidateCreation.sourceEvidence.entry} · ${candidateCreation.sourceEvidence.entryHash.slice(0, 12)} · factory ${candidateCreation.sourceEvidence.operatingContext.anchorId} / ${candidateCreation.sourceEvidence.operatingContext.run.id} · ${candidateCreation.sourceEvidence.state.toUpperCase()}`,
+      `  Source: hypothesis ${candidateCreation.sourceEvidence.entry} · ${candidateCreation.sourceEvidence.entryHash.slice(0, 12)} · context ${candidateCreation.sourceEvidence.operatingContext.source} ${candidateCreation.sourceEvidence.operatingContext.anchorId} / ${candidateCreation.sourceEvidence.operatingContext.run.id} · ${candidateCreation.sourceEvidence.state.toUpperCase()}`,
       `  Review: inm candidate <path> --candidate ${candidateCreation.candidate.id} --review`,
     ] : []),
     `Next: ${inspection.currentNextAction.title}`,
@@ -1945,7 +1975,7 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
       write([
         `${candidate.name} · ${decision.state.toUpperCase()}`,
         ...(decision.sourceEvidence
-          ? [`Source: Investigation ${decision.sourceEvidence.investigation} / ${decision.sourceEvidence.entry} · factory ${decision.sourceEvidence.operatingContext.anchorId} / ${decision.sourceEvidence.operatingContext.run.id} · ${decision.sourceEvidence.state.toUpperCase()}`]
+          ? [`Source: Investigation ${decision.sourceEvidence.investigation} / ${decision.sourceEvidence.entry} · context ${decision.sourceEvidence.operatingContext.source} ${decision.sourceEvidence.operatingContext.anchorId} / ${decision.sourceEvidence.operatingContext.run.id} · ${decision.sourceEvidence.state.toUpperCase()}`]
           : []),
         ...(decision.error ? [`Invalid source: [${decision.error.code}] ${decision.error.message}`] : []),
         `No recorded review for proposal ${decision.proposalHash.slice(0, 12)}.`,
@@ -1958,7 +1988,7 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
       `${preview.candidate.name} · recorded candidate review`,
       `${decision.state.toUpperCase()} · ${preview.result.verdict} · proposal ${preview.proposalHash.slice(0, 12)}`,
       ...(preview.sourceEvidence
-        ? [`Source: Investigation ${preview.sourceEvidence.investigation} / ${preview.sourceEvidence.entry} · factory ${preview.sourceEvidence.operatingContext.anchorId} / ${preview.sourceEvidence.operatingContext.run.id} · ${preview.sourceEvidence.state.toUpperCase()}`]
+        ? [`Source: Investigation ${preview.sourceEvidence.investigation} / ${preview.sourceEvidence.entry} · context ${preview.sourceEvidence.operatingContext.source} ${preview.sourceEvidence.operatingContext.anchorId} / ${preview.sourceEvidence.operatingContext.run.id} · ${preview.sourceEvidence.state.toUpperCase()}`]
         : []),
       `Locked compliance Δ ${signed(preview.result.scoreDelta, 6)}`,
       ...(preview.currentFactory.status === "evaluated"
@@ -2059,7 +2089,7 @@ export async function candidateCommand(projectDir: string, candidateId: string, 
     `${preview.candidate.benchmark} · ${preview.currentCandidateHash.slice(0, 12)} → ${preview.proposedCandidateHash.slice(0, 12)}`,
     `Hypothesis: ${preview.candidate.hypothesis}`,
     ...(preview.sourceEvidence
-      ? [`Source: Investigation ${preview.sourceEvidence.investigation} / ${preview.sourceEvidence.entry} · factory ${preview.sourceEvidence.operatingContext.anchorId} / ${preview.sourceEvidence.operatingContext.run.id} · ${preview.sourceEvidence.state.toUpperCase()}`]
+      ? [`Source: Investigation ${preview.sourceEvidence.investigation} / ${preview.sourceEvidence.entry} · context ${preview.sourceEvidence.operatingContext.source} ${preview.sourceEvidence.operatingContext.anchorId} / ${preview.sourceEvidence.operatingContext.run.id} · ${preview.sourceEvidence.state.toUpperCase()}`]
       : []),
     `Patch: ${preview.candidate.patch.length} authored ops · ${preview.result.changes.length} semantic changes`,
     `Locked compliance: ${preview.result.baselineScore.toFixed(6)} → ${preview.result.candidateScore.toFixed(6)} · Δ ${signed(preview.result.scoreDelta, 6)} · ${preview.result.verdict}`,

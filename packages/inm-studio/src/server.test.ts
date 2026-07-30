@@ -24,6 +24,10 @@ async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
   await rm(join(projectDir, "runs/099-simulate"), { recursive: true, force: true });
   await rm(join(projectDir, "runs/100-simulate"), { recursive: true, force: true });
   await rm(join(projectDir, "runs/101-simulate"), { recursive: true, force: true });
+  await rm(join(
+    projectDir,
+    "investigations/inspection-starvation-next-step/entries/0021-compact-cell-run-comparison-retained.entry.json",
+  ), { force: true });
 }
 
 async function terminalStudioOperation<TResult>(
@@ -148,6 +152,69 @@ test("Studio exposes the shared immutable Run comparison and reopens each Run's 
       navigation: expect.objectContaining({
         studioRoute: "/memory-fab/runs?from=100-simulate&to=101-simulate",
       }),
+    }));
+
+    const createdInvestigation = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/investigations`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: "comparison-retention-api",
+          name: "Comparison retention API",
+          question: "Can an exact Run comparison survive the browser session?",
+        }),
+      },
+    );
+    expect(createdInvestigation.status).toBe(201);
+    const capturedComparison = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/investigations/comparison-retention-api/entries`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: "compact-cell-compared",
+          author: "agent",
+          kind: "observation",
+          statement: "Run 101 preserves delivery and quality while reducing compact-cell footprint and inspection starvation.",
+          evidence: ["operating-run", "diagnostic", "compact-cell-comparison"],
+          introduceEvidence: {
+            id: "compact-cell-comparison",
+            kind: "run-comparison",
+            fromRunId: "100-simulate",
+            toRunId: "101-simulate",
+          },
+        }),
+      },
+    );
+    expect(capturedComparison.status).toBe(201);
+    expect(await capturedComparison.json()).toEqual(expect.objectContaining({
+      state: "current",
+      anchors: expect.arrayContaining([
+        expect.objectContaining({
+          state: "current",
+          anchor: expect.objectContaining({
+            id: "compact-cell-comparison",
+            kind: "run-comparison",
+            comparisonHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+            from: expect.objectContaining({ runId: "100-simulate" }),
+            to: expect.objectContaining({ runId: "101-simulate" }),
+          }),
+          navigation: {
+            argv: [
+              "inm",
+              "compare",
+              projectDir,
+              "--from-run",
+              "100-simulate",
+              "--to-run",
+              "101-simulate",
+              "--json",
+            ],
+            studioRoute: "/memory-fab/runs?from=100-simulate&to=101-simulate",
+          },
+        }),
+      ]),
     }));
 
     const historicalResponse = await fetch(

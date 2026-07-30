@@ -1,0 +1,81 @@
+{
+  "author": "agent",
+  "entryHash": "b1c876c39bfa864cf224ca3d26d67fb8751e102f639eeb1747db07aadd060ab6",
+  "evidence": [
+    "compact-inspection-rework-cell-east-port-review",
+    "compact-inspection-rework-cell-factory",
+    "compact-cell-run-comparison"
+  ],
+  "id": "compact-cell-run-comparison-retained",
+  "introducedAnchors": [
+    {
+      "comparisonHash": "aa7ccfd4d88d0f10d7b1f6366c45de0b1cec220caa872c317308d10c71fcb846",
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:099e06e6d3",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:inspection-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 101-simulate (signal 0.2090). 9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "inspection-1",
+            "kind": "device"
+          },
+          {
+            "id": "etch-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "etch-l2",
+            "kind": "device"
+          },
+          {
+            "id": "rework-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "rework-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
+      },
+      "from": {
+        "blueprintHash": "6b8b0ce24a75de511162b1d090c4c15fedd0e976dd1764d173e918d76a5832fe",
+        "resultHash": "5302c842062cb8f5785dff1387f89a26439f3b510ca86126b621ac3fca013a06",
+        "runId": "100-simulate"
+      },
+      "hashes": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "engineVersion": "inm-sim/0.90.0",
+        "executionHash": "0476628653a3469ce918a2646a39b6160f17ca7536bf13a949ee32381b129723",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "scenarioHash": "b6cfa14ecff26487e959f7f1b38230f2e003a3eaf04bd8b587ed268c9fc8eafe",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "compact-cell-run-comparison",
+      "kind": "run-comparison",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "to": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "resultHash": "d0a140643718af750433d62a12f0fb1ba668408daa16142c1cfb13d552b33b3e",
+        "runId": "101-simulate"
+      }
+    }
+  ],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "observation",
+  "previousEntryHash": "2a982bad091c9e7c0924d1066f4e2f22fcfee31ddf15267cb8043e5717c1e301",
+  "sequence": 21,
+  "statement": "The exact immutable Run 100-simulate → 101-simulate comparison retains the commissioned compact cell as an improved physical-economy intervention: score +0.505000, build cost -100, occupied area -10, mean lot movement -0.166667 seconds, and inspection starvation -1.000 second, with 88 delivered devices, 12/12 on-time lots, 100% good yield, two repaired lots, zero scrap, and zero quality escapes unchanged. The leading fab-loss contributor moves from etch-1 to probe-1, which is observed context rather than an automatic next-intervention decision.",
+  "version": 1
+}

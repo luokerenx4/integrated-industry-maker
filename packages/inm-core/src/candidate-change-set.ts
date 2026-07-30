@@ -91,7 +91,7 @@ export interface CandidateInvestigationSourceEvidence {
   expectedEffect: string;
   evidence: string[];
   operatingContext: {
-    source: "investigation-creation" | "factory-observation";
+    source: "investigation-creation" | "factory-observation" | "run-comparison";
     anchorId: string;
     selection: {
       world: string;
