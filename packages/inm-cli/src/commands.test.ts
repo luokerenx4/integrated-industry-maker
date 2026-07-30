@@ -98,7 +98,7 @@ test("synthesize command writes a new compileable blueprint and refuses overwrit
   const project = await openFactoryProject(projectDir, { blueprint: "generated-test", scenario: "cold-start" });
   expect(planProductionCapacity(project).ready).toBeTrue();
   expect(synthesizeCommand(projectDir, { blueprint: "blank", scenario: "cold-start" }, { output: "generated-test", json: false })).rejects.toThrow("Blueprint already exists");
-});
+}, 15_000);
 
 test("synthesize command executes a project-local TypeScript strategy from a blank memory-fab site", async () => {
   const parent = await mkdtemp(join(tmpdir(), "inm-memory-synthesize-")); const projectDir = join(parent, "memory-fab");

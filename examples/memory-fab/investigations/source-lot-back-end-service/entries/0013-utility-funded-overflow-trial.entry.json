@@ -1,0 +1,87 @@
+{
+  "author": "agent",
+  "entryHash": "3278a359b4ebc39e5643fc308552373101f6c6a1d24348d21f9282ff0f64dddc",
+  "evidence": [
+    "post-batch-coherent-current-factory",
+    "utility-funded-overflow-comparison"
+  ],
+  "id": "utility-funded-overflow-trial",
+  "introducedAnchors": [
+    {
+      "comparisonHash": "1a6a8f7f7b0784bc22db753874be48df2f8afaa5f7acd000558d63a18ff047a0",
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:furnace-1+connection:deposition-to-batch-furnace+device:deposition-1:85ae1a5483",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:furnace-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 108-candidate-trial-preserve-failure-target-utility- (signal 0.2158). 8/11 active flow Devices accumulated 288.7 explicit material-shortage device-s inside 1338.1 device-s of repeated production opportunity; 58.3 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1076.8 of 1365.5 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "furnace-1",
+            "kind": "device"
+          },
+          {
+            "id": "deposition-to-batch-furnace",
+            "kind": "connection"
+          },
+          {
+            "id": "deposition-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "8/11 active flow Devices accumulated 288.7 explicit material-shortage device-s inside 1338.1 device-s of repeated production opportunity; 58.3 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1076.8 of 1365.5 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
+      },
+      "from": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "353061d1b81789346483a196dd373568d2cacd67ea12b05e9374cec675fe2f8e",
+        "runId": "105-simulate"
+      },
+      "hashes": {
+        "blueprintHash": "0529293000e4c4a2daff0e2f40fb361296a24718d416c0f7486bfb1585e28d3c",
+        "engineVersion": "inm-sim/0.92.0",
+        "executionHash": "355a1e0e8d44f7759e9bb9a49b662454ea6d203de71b818bf6015043459f7945",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "utility-funded-overflow-comparison",
+      "intervention": {
+        "from": {
+          "hash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+          "id": "generated-dram-fab"
+        },
+        "kind": "blueprint",
+        "to": {
+          "hash": "0529293000e4c4a2daff0e2f40fb361296a24718d416c0f7486bfb1585e28d3c",
+          "id": "generated-dram-fab"
+        }
+      },
+      "kind": "run-comparison",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "to": {
+        "blueprintHash": "0529293000e4c4a2daff0e2f40fb361296a24718d416c0f7486bfb1585e28d3c",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "428722d748dd69d324297a401e2e5f61fb0e5098e724a3f343e070f1d1e8a4d0",
+        "runId": "108-candidate-trial-preserve-failure-target-utility-"
+      }
+    }
+  ],
+  "investigation": "source-lot-back-end-service",
+  "kind": "observation",
+  "previousEntryHash": "814cfe074a8fcdb9545416ac3f4df7814d999fd4eb8f1fdf359112a664c99a0f",
+  "sequence": 13,
+  "statement": "Run 108 proves the capital-neutral overflow hardware can clear the last 8 packaged devices: delivery rises 88→96, final WIP falls 8→0, commingled jobs remain 0, shipping power reaches 1,200 W with zero deficit, and build cost falls 229,840→228,710. The trade is temporal and service-related: on-time lots fall 12→11, mean queue time rises 5.600→10.571 s, and the sole utility plant causes 22.166 s across 10 input blocks. The locked Candidate review also rejects the design because facility-interruption on-time service falls 9→5.",
+  "version": 1
+}

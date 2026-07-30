@@ -902,7 +902,7 @@ function openBrowser(url: string): void {
 async function responseJson<T>(url: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(url, { ...init, signal: AbortSignal.timeout(5_000) });
+    response = await fetch(url, { ...init, signal: AbortSignal.timeout(START_TIMEOUT_MS) });
   } catch (error) {
     throw new CliCommandError(
       "session.studio-unavailable",

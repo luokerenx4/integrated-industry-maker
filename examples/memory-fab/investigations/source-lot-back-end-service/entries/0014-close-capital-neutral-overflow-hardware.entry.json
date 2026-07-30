@@ -1,0 +1,30 @@
+{
+  "author": "agent",
+  "disposition": "discard",
+  "entryHash": "fac7c61bb0a98d8abdaeb45acd7710a996f216062f7ab8fb2ad09431b7817a5b",
+  "evidence": [
+    "utility-funded-overflow-comparison",
+    "post-batch-coherent-current-factory",
+    "utility-funded-overflow-review"
+  ],
+  "id": "close-capital-neutral-overflow-hardware",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "preserve-failure-target-utility-funded-overflow",
+      "currentCandidateHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+      "id": "utility-funded-overflow-review",
+      "kind": "candidate-review",
+      "proposalHash": "de002b559fa52239e2f6962ca464094bad378fde0324741a19ff58d35c2679f8",
+      "proposedCandidateHash": "0529293000e4c4a2daff0e2f40fb361296a24718d416c0f7486bfb1585e28d3c",
+      "reviewResultHash": "0d17cf9d32b53dd2b388d4f304f7652f11ee092fbf9a5091776d267a42ea56a3",
+      "verdict": "DISCARD"
+    }
+  ],
+  "investigation": "source-lot-back-end-service",
+  "kind": "decision",
+  "previousEntryHash": "3278a359b4ebc39e5643fc308552373101f6c6a1d24348d21f9282ff0f64dddc",
+  "sequence": 14,
+  "statement": "Discard the capital-neutral parallel Burn-in design and close this hardware-expansion branch under the unchanged 230,000 capital and locked service boundary. The only feasible offset removes two utility plants; Run 108 proves that trade can clear nominal back-end WIP, but the immutable review fails preserve-on-time-service under facility interruption (5 on-time lots versus the required 9) and nominal operation already loses one on-time lot. The next bounded intervention should stay on the incumbent rack and test release or operating timing against the exact tail, not add another rack or weaken utility resilience.",
+  "version": 1
+}

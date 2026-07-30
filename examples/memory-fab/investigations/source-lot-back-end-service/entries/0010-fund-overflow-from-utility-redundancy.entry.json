@@ -1,0 +1,19 @@
+{
+  "author": "agent",
+  "entryHash": "e80acf914491d7ff1b2f7ca667d9d9d7f4e40c97a88f22278266e0013e1584c3",
+  "evidence": [
+    "post-batch-coherent-current-factory",
+    "batch-coherent-burn-in-overflow-comparison",
+    "batch-coherent-burn-in-overflow-review"
+  ],
+  "expectedEffect": "Keep build cost at or below 230,000 and nominal utility waits at zero, power the overflow rack through active screening, eliminate the final eight-device Burn-in tail, and raise delivery from 88 toward the physical 96-device ceiling; reject the intervention if any locked delivery, on-time, quality, or facility-interruption outcome regresses.",
+  "id": "fund-overflow-from-utility-redundancy",
+  "intervention": "blueprint",
+  "introducedAnchors": [],
+  "investigation": "source-lot-back-end-service",
+  "kind": "hypothesis",
+  "previousEntryHash": "54307fbef2b7819e5047a13b4fef46b2190396b822c19f8a33ab7fc36c0293cb",
+  "sequence": 10,
+  "statement": "Retire fab-utility-plant-1 and the nominally unused fab-utility-plant-2, preserve fab-utility-plant-3 whose authored high-vacuum 6 and hazardous-exhaust 2 capacities equal Run 105's observed peak reservations, and spend the recovered 18,000 on the proven batch-coherent second Burn-in rack topology plus one explicit 600 W shipping-grid turbine. Preserve every production recipe, lot release, service policy, power priority, source-lot route, customer, and Objective; the locked facility-interruption case retains veto authority over the reduced utility redundancy.",
+  "version": 1
+}

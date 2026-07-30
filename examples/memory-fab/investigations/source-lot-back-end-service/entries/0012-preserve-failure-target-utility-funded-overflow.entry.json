@@ -1,0 +1,19 @@
+{
+  "author": "agent",
+  "entryHash": "814cfe074a8fcdb9545416ac3f4df7814d999fd4eb8f1fdf359112a664c99a0f",
+  "evidence": [
+    "post-batch-coherent-current-factory",
+    "batch-coherent-burn-in-overflow-comparison",
+    "batch-coherent-burn-in-overflow-review"
+  ],
+  "expectedEffect": "Keep build cost at or below 230,000, retain zero nominal utility waits, supply the overflow rack's 384 W active load, and raise delivery from 88 toward 96; locked facility-interruption should explicitly quantify and veto any service regression rather than being bypassed by deleting its failure target.",
+  "id": "preserve-failure-target-utility-funded-overflow",
+  "intervention": "blueprint",
+  "introducedAnchors": [],
+  "investigation": "source-lot-back-end-service",
+  "kind": "hypothesis",
+  "previousEntryHash": "704bf03565a28f824f180a377461936914b1eda1ddfdb04f23d2a43aceb26838",
+  "sequence": 12,
+  "statement": "Retain scenario-addressed fab-utility-plant-1, retire identical fab-utility-plant-2 and fab-utility-plant-3, and fund the proven batch-coherent second Burn-in rack topology plus one explicit 600 W shipping-grid turbine from the recovered 18,000. Plant-1's authored high-vacuum 6 and hazardous-exhaust 2 capacities equal the exact Run 105 peak reservation envelope, so nominal work may remain feasible; the unchanged facility-interruption case must measure the loss of all utility service when that sole provider fails.",
+  "version": 1
+}

@@ -1,0 +1,74 @@
+{
+  "author": "agent",
+  "entryHash": "54307fbef2b7819e5047a13b4fef46b2190396b822c19f8a33ab7fc36c0293cb",
+  "evidence": [
+    "batch-coherent-burn-in-overflow-comparison",
+    "batch-coherent-burn-in-overflow-review",
+    "post-batch-coherent-current-factory"
+  ],
+  "id": "post-batch-coherent-current-factory",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:24b42c0afc",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:inspection-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 105-simulate (signal 0.2090). 9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "inspection-1",
+            "kind": "device"
+          },
+          {
+            "id": "etch-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "etch-l2",
+            "kind": "device"
+          },
+          {
+            "id": "rework-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "rework-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
+      },
+      "hashes": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "engineVersion": "inm-sim/0.92.0",
+        "executionHash": "b8b5653fd5fa7a0481cc632deb8a4e3bf23cb1e71923734db74941e48880d6d4",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "post-batch-coherent-current-factory",
+      "kind": "factory-observation",
+      "resultHash": "353061d1b81789346483a196dd373568d2cacd67ea12b05e9374cec675fe2f8e",
+      "runId": "105-simulate",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      }
+    }
+  ],
+  "investigation": "source-lot-back-end-service",
+  "kind": "observation",
+  "previousEntryHash": "e7dd049783ab52e845b71400eb4e001b402cff78bb53882867186ac0c5f01b7e",
+  "sequence": 9,
+  "statement": "The editable factory remains exact Run 105 after rejecting Run 107: twelve lots complete on time, 88 devices deliver, and the final eight-device source lot remains together at the incumbent Burn-in input. A second rack now has a structural feasibility boundary: only 160 currency remains under the 230,000 capital limit, while the rack alone costs 14,000, the proven fan-out adds 1,470, and one 600 W turbine adds 1,400 to cover the observed active-load deficit. The next inquiry must identify and verify at least 16,710 of safe capital offsets under unchanged service and power contracts, or close this hardware branch and pivot to an incumbent-rack operating intervention.",
+  "version": 1
+}

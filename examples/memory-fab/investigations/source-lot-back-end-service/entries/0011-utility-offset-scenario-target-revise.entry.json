@@ -1,0 +1,18 @@
+{
+  "author": "agent",
+  "disposition": "revise",
+  "entryHash": "704bf03565a28f824f180a377461936914b1eda1ddfdb04f23d2a43aceb26838",
+  "evidence": [
+    "post-batch-coherent-current-factory",
+    "batch-coherent-burn-in-overflow-comparison",
+    "batch-coherent-burn-in-overflow-review"
+  ],
+  "id": "utility-offset-scenario-target-revise",
+  "introducedAnchors": [],
+  "investigation": "source-lot-back-end-service",
+  "kind": "decision",
+  "previousEntryHash": "e80acf914491d7ff1b2f7ca667d9d9d7f4e40c97a88f22278266e0013e1584c3",
+  "sequence": 11,
+  "statement": "REVISE before review. The proposed retirement of fab-utility-plant-1 cannot enter the locked evidence boundary because facility-interruption explicitly fails that exact authored Device; deleting it makes the Scenario reference invalid instead of measuring degraded service. Retain plant-1 as the addressed failure object, discard the unreviewed invalid Candidate, and only reconsider the same capital trade by retiring identical plant-2 and plant-3 while preserving every locked input.",
+  "version": 1
+}

@@ -387,20 +387,19 @@ test("one command enters the exact phase-aware Investigation Design Session", as
           investigation: expect.objectContaining({
             id: "source-lot-back-end-service",
             state: "historical",
-            entryCount: 8,
+            entryCount: 14,
           }),
           handoff: expect.objectContaining({
             phase: "observe-current-factory",
             sourceEntry: expect.objectContaining({
-              id: "batch-coherent-overflow-revise",
-              sequence: 8,
+              id: "close-capital-neutral-overflow-hardware",
+              sequence: 14,
               kind: "decision",
             }),
             evidenceIds: [
-              "batch-coherent-burn-in-overflow-comparison",
-              "post-overflow-current-factory",
-              "parallel-burn-in-overflow-review",
-              "batch-coherent-burn-in-overflow-review",
+              "utility-funded-overflow-comparison",
+              "post-batch-coherent-current-factory",
+              "utility-funded-overflow-review",
             ],
             authorship: expect.objectContaining({
               kind: "investigation-entry",
@@ -419,7 +418,7 @@ test("one command enters the exact phase-aware Investigation Design Session", as
             kind: "investigation",
             investigationId: "source-lot-back-end-service",
             phase: "observe-current-factory",
-            sourceEntryId: "batch-coherent-overflow-revise",
+            sourceEntryId: "close-capital-neutral-overflow-hardware",
           }),
         }),
       ],

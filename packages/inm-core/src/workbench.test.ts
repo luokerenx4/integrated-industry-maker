@@ -503,6 +503,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     { id: "parallel-burn-in-overflow", benchmark: "greenfield-dram-design", patchOperations: 19, state: "reviewed-discard", verdict: "DISCARD" },
     { id: "planned-lithography-maintenance", benchmark: "greenfield-dram-design", patchOperations: 2, state: "stale", verdict: undefined },
     { id: "portfolio-aware-dram-dispatch", benchmark: "greenfield-dram-design", patchOperations: 1, state: "stale", verdict: undefined },
+    { id: "preserve-failure-target-utility-funded-overflow", benchmark: "greenfield-dram-design", patchOperations: 22, state: "reviewed-discard", verdict: "DISCARD" },
     { id: "recovered-output-high-throughput", benchmark: "greenfield-dram-design", patchOperations: 7, state: "stale", verdict: undefined },
     { id: "stable-furnace-sleep", benchmark: "equipment-energy-research", patchOperations: 1, state: "reviewed-discard", verdict: "DISCARD" },
     { id: "vacuum-lithography-etch-handoff", benchmark: "greenfield-dram-design", patchOperations: 3, state: "stale", verdict: "KEEP" },
