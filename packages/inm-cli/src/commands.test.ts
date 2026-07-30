@@ -1273,6 +1273,133 @@ test("public investigate preserves and resumes exact project-local human/Agent r
   await rm(root, { recursive: true, force: true });
 }, 30_000);
 
+test("public investigate authors a source-pinned Production Plan revision", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-cli-production-plan-revision-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => {
+      const segments = source.split("/");
+      return !segments.includes(".inm") && !segments.includes("investigations");
+    },
+  });
+  try {
+    const investigationId = "cadence-plan-revision";
+    const created = await runCli([
+      "investigate", projectDir,
+      "--investigation", investigationId,
+      "--create",
+      "--name", "Cadence plan revision",
+      "--question", "Can an authored cadence preserve all twelve planned lots?",
+      "--json",
+    ]);
+    expect({ exitCode: created.exitCode, stderr: created.stderr })
+      .toEqual({ exitCode: 0, stderr: "" });
+    const hypothesis = await runCli([
+      "investigate", projectDir,
+      "--investigation", investigationId,
+      "--entry", "compress-cadence",
+      "--kind", "hypothesis",
+      "--author", "agent",
+      "--statement", "Compress lot and substrate release cadence without removing work.",
+      "--intervention", "production-plan",
+      "--expected-effect", "Make downstream material available earlier while preserving all twelve lots.",
+      "--evidence", "operating-run",
+      "--json",
+    ]);
+    expect({ exitCode: hypothesis.exitCode, stderr: hypothesis.stderr })
+      .toEqual({ exitCode: 0, stderr: "" });
+
+    const base = JSON.parse(await readFile(
+      join(projectDir, "production-plans/production-window.production-plan.json"),
+      "utf8",
+    ));
+    const proposed = structuredClone(base);
+    proposed.id = "cli-compressed-cadence";
+    proposed.name = "CLI compressed cadence";
+    proposed.lotReleases = proposed.lotReleases.map((lot: object, index: number) => ({
+      ...lot,
+      releaseTick: index * 5_000,
+    }));
+    proposed.materialDeliveries = proposed.materialDeliveries.map((
+      delivery: object,
+      index: number,
+    ) => ({
+      ...delivery,
+      releaseTick: index * 5_000,
+    }));
+    const inputPath = join(root, "cli-compressed-cadence.production-plan.json");
+    await writeFile(inputPath, `${JSON.stringify(proposed, null, 2)}\n`);
+    const authored = await runCli([
+      "investigate", projectDir,
+      "--investigation", investigationId,
+      "--create-production-plan", proposed.id,
+      "--hypothesis-entry", "compress-cadence",
+      "--production-plan-file", inputPath,
+      "--json",
+    ]);
+    expect({ exitCode: authored.exitCode, stderr: authored.stderr })
+      .toEqual({ exitCode: 0, stderr: "" });
+    const envelope = JSON.parse(authored.stdout);
+    expect(envelope).toEqual(expect.objectContaining({
+      data: {
+        section: "summary",
+        result: expect.objectContaining({
+          action: "production-plan-created",
+          productionPlanRevision: expect.objectContaining({
+            revision: expect.objectContaining({
+              id: proposed.id,
+              source: expect.objectContaining({
+                investigation: investigationId,
+                hypothesisEntry: "compress-cadence",
+              }),
+              result: expect.objectContaining({
+                id: proposed.id,
+                hash: hashValue(proposed),
+              }),
+            }),
+          }),
+          handoff: expect.objectContaining({
+            phase: "simulate-production-plan",
+            productionPlanRevision: expect.objectContaining({ id: proposed.id }),
+          }),
+        }),
+      },
+      artifacts: expect.arrayContaining([
+        expect.objectContaining({
+          kind: "production-plan-revision",
+          id: proposed.id,
+          immutable: true,
+        }),
+        expect.objectContaining({
+          kind: "production-plan",
+          id: proposed.id,
+          immutable: false,
+        }),
+      ]),
+      nextActions: [expect.objectContaining({
+        target: expect.objectContaining({
+          phase: "simulate-production-plan",
+        }),
+        argv: expect.arrayContaining([
+          "--production-plan",
+          proposed.id,
+        ]),
+      })],
+    }));
+    expect(await pathExists(join(
+      projectDir,
+      `production-plan-revisions/${proposed.id}.revision.json`,
+    ))).toBeTrue();
+    expect(await pathExists(join(
+      projectDir,
+      `production-plans/${proposed.id}.production-plan.json`,
+    ))).toBeTrue();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}, 30_000);
+
 test("public inspect rejects an invalid explicit selection", async () => {
   const projectDir = join(repository, "examples/ironworks");
   const { stdout, stderr, exitCode } = await runCli(["inspect", projectDir, "--blueprint", "missing-blueprint", "--json"]);

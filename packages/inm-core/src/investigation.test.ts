@@ -5,10 +5,13 @@ import { expect, test } from "bun:test";
 import {
   appendIndustrialInvestigationEntry,
   createInvestigationCandidate,
+  createInvestigationProductionPlanRevision,
   createIndustrialInvestigation,
   inspectIndustrialInvestigation,
+  inspectProductionPlanRevision,
   listIndustrialInvestigationEntries,
   listIndustrialInvestigations,
+  productionPlanRevisionDraft,
   resolveIndustrialInvestigationHypothesisSource,
 } from "./investigation";
 import { inspectCandidateDecision } from "./candidate-review";
@@ -465,6 +468,147 @@ test("a Production Plan hypothesis hands off to plan authoring and cannot source
     await rm(root, { recursive: true, force: true });
   }
 }, 30_000);
+
+test("a Production Plan revision retains exact hypothesis, schedule, Run, and comparison identity", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-investigation-plan-revision-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => {
+      const segments = source.split("/");
+      return !segments.includes(".inm") && !segments.includes("investigations");
+    },
+  });
+  try {
+    const created = await createIndustrialInvestigation(
+      projectDir,
+      "cadence-revision",
+      {
+        name: "Cadence revision",
+        question: "Can an explicit release cadence improve the complete twelve-lot plan?",
+      },
+    );
+    const hypothesis = await appendIndustrialInvestigationEntry(
+      projectDir,
+      created.manifest.id,
+      {
+        id: "compress-release-cadence",
+        author: "agent",
+        kind: "hypothesis",
+        intervention: "production-plan",
+        statement: "Compress each planned lot and substrate release without removing planned production.",
+        expectedEffect: "Pull back-end material availability forward while preserving twelve scheduled lots.",
+        evidence: ["operating-run"],
+      },
+    );
+    const draft = await productionPlanRevisionDraft(projectDir, created.manifest.id);
+    expect(draft).toEqual(expect.objectContaining({
+      hypothesisEntry: hypothesis.entry.id,
+      hypothesisEntryHash: hypothesis.entry.entryHash,
+      controlRunId: created.manifest.anchors.find((anchor) => anchor.id === "operating-run")
+        && (created.manifest.anchors.find((anchor) => anchor.id === "operating-run") as { runId: string }).runId,
+      productionPlan: expect.objectContaining({ id: created.manifest.selection.productionPlan }),
+    }));
+
+    const metadataOnly = structuredClone(draft.productionPlan);
+    metadataOnly.id = "metadata-only";
+    metadataOnly.name = "Metadata only";
+    await expect(createInvestigationProductionPlanRevision(projectDir, {
+      investigation: created.manifest.id,
+      hypothesisEntry: hypothesis.entry.id,
+      productionPlan: metadataOnly,
+    })).rejects.toEqual(expect.objectContaining({
+      code: "production-plan-revision.no-schedule-change",
+    }));
+
+    const proposed = structuredClone(draft.productionPlan);
+    proposed.id = "compressed-twelve-lot-cadence";
+    proposed.name = "Compressed twelve-lot cadence";
+    proposed.lotReleases = proposed.lotReleases?.map((lot, index) => ({
+      ...lot,
+      releaseTick: index * 5_000,
+    }));
+    proposed.materialDeliveries = proposed.materialDeliveries?.map((delivery, index) => ({
+      ...delivery,
+      releaseTick: index * 5_000,
+    }));
+    const createdRevision = await createInvestigationProductionPlanRevision(projectDir, {
+      investigation: created.manifest.id,
+      hypothesisEntry: hypothesis.entry.id,
+      productionPlan: proposed,
+    });
+    expect(createdRevision.revision).toEqual(expect.objectContaining({
+      id: proposed.id,
+      source: expect.objectContaining({
+        hypothesisEntry: hypothesis.entry.id,
+        hypothesisEntryHash: hypothesis.entry.entryHash,
+        control: expect.objectContaining({
+          runId: draft.controlRunId,
+          seed: draft.controlSeed,
+        }),
+      }),
+      base: expect.objectContaining({
+        id: draft.productionPlan.id,
+        hash: draft.baseProductionPlanHash,
+      }),
+      result: expect.objectContaining({
+        id: proposed.id,
+        hash: hashValue(proposed),
+      }),
+      patch: expect.arrayContaining([
+        expect.objectContaining({ op: "replace" }),
+      ]),
+    }));
+    expect(createdRevision.changes.some((change) => change.kind === "lot-release")).toBe(true);
+    expect((await inspectIndustrialInvestigation(projectDir, created.manifest.id)).handoff)
+      .toEqual(expect.objectContaining({
+        phase: "simulate-production-plan",
+        productionPlanRevision: expect.objectContaining({
+          id: proposed.id,
+          controlRunId: draft.controlRunId,
+          interventionRunId: null,
+        }),
+      }));
+    await expect(createInvestigationProductionPlanRevision(projectDir, {
+      investigation: created.manifest.id,
+      hypothesisEntry: hypothesis.entry.id,
+      productionPlan: proposed,
+    })).rejects.toEqual(expect.objectContaining({
+      code: "production-plan-revision.already-exists",
+    }));
+
+    const simulation = await simulateProjectOperation(projectDir, {
+      ...createdRevision.revision.source.control.selection,
+      productionPlan: proposed.id,
+    }, { seed: draft.controlSeed });
+    const comparable = await inspectIndustrialInvestigation(projectDir, created.manifest.id);
+    expect(comparable.handoff).toEqual(expect.objectContaining({
+      phase: "compare-production-plan",
+      productionPlanRevision: expect.objectContaining({
+        id: proposed.id,
+        controlRunId: draft.controlRunId,
+        interventionRunId: simulation.data.run.id,
+      }),
+      nextAction: expect.objectContaining({
+        studioRoute: expect.stringContaining(`from=${draft.controlRunId}&to=${simulation.data.run.id}`),
+      }),
+    }));
+
+    const planPath = join(projectDir, "production-plans", `${proposed.id}.production-plan.json`);
+    const originalPlan = await readFile(planPath, "utf8");
+    const modified = structuredClone(proposed);
+    modified.name = "Modified outside the revision";
+    await writeFile(planPath, `${JSON.stringify(modified, null, 2)}\n`);
+    await expect(inspectProductionPlanRevision(projectDir, proposed.id)).rejects.toEqual(
+      expect.objectContaining({ code: "production-plan-revision.result-modified" }),
+    );
+    await writeFile(planPath, originalPlan);
+    expect((await inspectProductionPlanRevision(projectDir, proposed.id)).revision.revisionHash)
+      .toBe(createdRevision.revision.revisionHash);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}, 60_000);
 
 test("an Investigation hypothesis creates a strictly sourced Candidate without caller-authored hashes or prose", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-investigation-candidate-"));

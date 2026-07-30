@@ -1,0 +1,96 @@
+{
+  "author": "agent",
+  "entryHash": "0f4371bd89ff47295cdd24a7d86dcc6a9eee43d8868748d8f78a347a28905872",
+  "evidence": [
+    "eleven-lot-burn-in-horizon-comparison",
+    "post-plan-discard-current-factory",
+    "five-second-cadence-run-comparison"
+  ],
+  "id": "five-second-cadence-comparison",
+  "introducedAnchors": [
+    {
+      "comparisonHash": "9c573ffa144641d6e583da16f7a0561aab30d3fdccb7ae9051b65af7106b1d3e",
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:06a35697fa",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:inspection-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 104-simulate (signal 0.2090). 9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "inspection-1",
+            "kind": "device"
+          },
+          {
+            "id": "etch-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "etch-l2",
+            "kind": "device"
+          },
+          {
+            "id": "rework-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "rework-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
+      },
+      "from": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "60df0d91986f0cd609845cf6566df2990ce5a9e4601f5d7c1ddce85d6bec7d31",
+        "runId": "102-simulate"
+      },
+      "hashes": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "engineVersion": "inm-sim/0.91.0",
+        "executionHash": "a9e2657539c7a375285f576c2a0649dfa53ed861c6f7150ccfa443a159aff02c",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "1c3596b70dda2f8c7e55d05cee29066d972dd79cd5817aca441247eb6ac95fa9",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "five-second-cadence-run-comparison",
+      "intervention": {
+        "from": {
+          "hash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+          "id": "production-window"
+        },
+        "kind": "production-plan",
+        "to": {
+          "hash": "1c3596b70dda2f8c7e55d05cee29066d972dd79cd5817aca441247eb6ac95fa9",
+          "id": "twelve-lot-five-second-cadence"
+        }
+      },
+      "kind": "run-comparison",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "twelve-lot-five-second-cadence",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "to": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "productionPlanHash": "1c3596b70dda2f8c7e55d05cee29066d972dd79cd5817aca441247eb6ac95fa9",
+        "resultHash": "6f6317c6b429941ea6b42b613d8a1816a52678b53fe0ebedf1da3a095929de4c",
+        "runId": "104-simulate"
+      }
+    }
+  ],
+  "investigation": "back-end-wip-next-step",
+  "kind": "observation",
+  "previousEntryHash": "a85760a31c6928ddcefcd1ce41f998aa6a51ab9558ef7eaf5fd27cc0373fe9dd",
+  "sequence": 8,
+  "statement": "Exact Run 102→104 comparison preserves twelve scheduled, released, completed, and on-time lots plus 88 delivered devices, but the five-second cadence does not complete the twelfth burn-in batch. Average WIP rises from 49.1905 to 49.6905 DRAM-device-equivalents, mean lot cycle time rises by 1.25 seconds, mean release delay rises by 4.25 seconds, CONWIP control-blocked release time rises by 51 seconds, and Objective score regresses by 0.791667. The unchanged burn-in/customer tail and unchanged leading input-starvation evidence show that earlier external availability is absorbed by admission and queue waiting rather than back-end throughput.",
+  "version": 1
+}

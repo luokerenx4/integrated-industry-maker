@@ -867,6 +867,8 @@ Planned work is a separate project-local artifact at `production-plans/<id>.prod
 }
 ```
 
+An Investigation-authored alternative additionally owns `production-plan-revisions/<id>.revision.json`. This immutable receipt retains the exact source Investigation/hypothesis hashes, authored statement and expected effect, cited evidence, control Run/result/seed/selection/execution hashes, complete base and result Production Plans with hashes, a derived RFC 6902 patch, and `revisionHash`. Its id and result-plan id are identical. The plan file remains separately selectable; changing it invalidates the old receipt. Revision inspection rejects a non-current or non-plan source, missing or changed result, altered control, mismatched patch/hash, duplicate hypothesis result, unchanged schedule, or invalid compiled plan. This pre-release format has no compatibility or migration path for stale receipts.
+
 Scenario initial quantities and operating conditions address devices and buffers explicitly:
 
 ```json

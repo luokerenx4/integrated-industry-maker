@@ -2383,6 +2383,8 @@ function RunsOverview({
   onCompare: (fromRunId: string, toRunId: string) => void;
   onOpenFactory: (runId: string) => void;
 }) {
+  const sourceInvestigation = new URLSearchParams(window.location.search)
+    .get("investigation")?.trim() || null;
   const newestRun = snapshot.runs.at(-1)?.id ?? "";
   const previousRun = snapshot.runs.at(-2)?.id ?? "";
   const [fromRunId, setFromRunId] = useState(comparisonIds.fromRunId ?? previousRun);
@@ -2453,7 +2455,7 @@ function RunsOverview({
             <div className="run-loss-list">{changedLosses.length ? changedLosses.map((bucket) => <article key={bucket.id}><b>{bucket.label}</b><strong>{bucket.from?.score.toFixed(6) ?? "—"} <i>→</i> {bucket.to?.score.toFixed(6) ?? "—"} <em>{signedRunDelta(bucket.scoreDelta, 6)}</em></strong><span>LEADER {bucket.from?.leadingContributor?.label ?? "—"} → {bucket.to?.leadingContributor?.label ?? "—"}</span></article>) : <p>No ranked loss score or leading contributor changed.</p>}</div>
           </section>
         </div>
-        <footer><span>This comparison is observed evidence. It does not choose the next factory intervention.</span><nav><a href={comparison.navigation.fromFactoryRoute}>OPEN CONTROL FACTORY</a><a href={comparison.navigation.toFactoryRoute}>OPEN INTERVENTION FACTORY</a><a href={`/${encodeURIComponent(snapshot.project.id)}/investigations?from=${encodeURIComponent(comparison.from.run.id)}&to=${encodeURIComponent(comparison.to.run.id)}`}>RETAIN IN INVESTIGATION</a></nav></footer>
+        <footer><span>This comparison is observed evidence. It does not choose the next factory intervention.</span><nav><a href={comparison.navigation.fromFactoryRoute}>OPEN CONTROL FACTORY</a><a href={comparison.navigation.toFactoryRoute}>OPEN INTERVENTION FACTORY</a><a href={`/${encodeURIComponent(snapshot.project.id)}/investigations${sourceInvestigation ? `/${encodeURIComponent(sourceInvestigation)}` : ""}?from=${encodeURIComponent(comparison.from.run.id)}&to=${encodeURIComponent(comparison.to.run.id)}`}>RETAIN IN INVESTIGATION</a></nav></footer>
       </div>}
     </section>}
     {snapshot.runs.length ? <div className="runs-table"><div className="runs-head"><span>RUN</span><span>SELECTION</span><span>DECISION</span><span>SCORE</span><span>RESULT HASH</span></div>{[...snapshot.runs].reverse().map((run) => <button key={run.id} data-testid={`run-${run.id}`} title="Open this exact saved Factory replay" onClick={() => onOpenFactory(run.id)}><strong>{run.id}</strong><span>{run.selection.blueprint}<small>{run.selection.world} / {run.selection.productionPlan ?? "historical"} / {run.selection.scenario} / {run.selection.objective}{run.compatible ? " · CURRENT CONTEXT" : " · SAVED CONTEXT"}</small></span><b className={run.decision.toLowerCase()}>{run.decision}</b><em>{run.score.toFixed(3)}</em><code>{run.resultHash.slice(0, 16)}</code></button>)}</div> : <div className="runs-empty"><b>NO COMPLETED RUNS</b><p>Run <code>inm simulate {snapshot.project.rootDir} --json</code>, then refresh.</p></div>}

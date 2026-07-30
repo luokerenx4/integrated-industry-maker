@@ -1,6 +1,6 @@
 # Production plans
 
-Status: selected artifact, execution identity, and Investigation comparison loop implemented.
+Status: selected artifact, execution identity, source-pinned Investigation revision session, and exact comparison loop implemented.
 
 Related: [[docs/design/lot-release-scheduling]], [[docs/design/fab-capacity-planning]], [[docs/design/delivery-contracts]], [[docs/ARCHITECTURE]], [[docs/design/industrial-investigations]], [[docs/design/project-boundaries]], [[docs/PROJECT_FORMAT]], and [[docs/CLI]].
 
@@ -29,6 +29,8 @@ Every project owns:
 ```text
 production-plans/
   <id>.production-plan.json
+production-plan-revisions/
+  <id>.revision.json
 ```
 
 The strict V1 artifact owns:
@@ -51,6 +53,8 @@ Unselected plan files are descriptive project inventory and do not invalidate ev
 
 Plans are selected alternatives, not mutable promotion targets. Authoring or simulating another plan never changes `defaultProductionPlan`. The durable experiment identity is the plan id/hash inside an immutable Run and an exact Run comparison, not a Candidate apply receipt.
 
+When a current Investigation hypothesis causes a plan to be authored, Core also writes one immutable revision receipt. The receipt owns the exact Investigation manifest and hypothesis entry hashes, authored statement and expected effect, directly cited evidence ids, control Run/result/seed/selection/hashes, complete base and result plans, their hashes, a derived semantic JSON patch, and a receipt hash. The result plan remains an ordinary selectable project artifact; modifying it after authoring invalidates the receipt. Core rejects a historical or non-plan hypothesis, reused base id, duplicate result, metadata-only edit, invalid schedule, or identity mismatch. The receipt explains provenance and continuity; it is not approval and does not make the result plan default.
+
 ## Runtime and planning
 
 Before its plan tick, a tracked lot is scheduled outside factory WIP. At that tick it becomes eligible for the existing physical and Blueprint-owned admission controls. Purchased material appears only at its named receiving boundary and tick. Capacity planning treats both as finite scheduled external supply. Objective demand and service guardrails remain unchanged.
@@ -67,15 +71,17 @@ The Production Plan therefore states intent while retaining all existing causal 
 
 CLI is the structured surface for text-only Agents: schema discovery, explicit selection, validation, planning, simulation, observation, and retained evidence all expose the plan id/hash.
 
-Studio is the spatial and human-facing projection. It shows the selected plan beside the other effective inputs and uses the same project-qualified selection query. Run comparison labels a positive verdict as score improvement and adds an explicit production-intent warning whenever scheduled, released, completed, on-time, or delivered output falls; green score presentation must not masquerade as plan approval. A future editor may author plan JSON through a guarded form, but the engine must never fabricate plan content merely because a page opened.
+Studio is the spatial and human-facing projection. It shows the selected plan beside the other effective inputs and uses the same project-qualified selection query. For a current plan hypothesis, its structured revision editor begins from the verified complete control plan and lets the author edit lot releases, material deliveries, id, and name. Opening the form writes nothing; only explicit create and simulate actions advance the session. Run comparison labels a positive verdict as score improvement and adds an explicit production-intent warning whenever scheduled, released, completed, on-time, or delivered output falls; green score presentation must not masquerade as plan approval.
 
-An Investigation hypothesis must explicitly declare whether its controlled intervention is `blueprint` or `production-plan`; Core never infers that boundary from prose. A Production Plan hypothesis yields `author-production-plan`, not `author-candidate`, and a Blueprint Candidate cannot source it. The author writes a new file, validates/plans it, simulates it through explicit selection, retains an exact Run comparison, and records `keep`, `revise`, `defer`, or `discard`. Selection is the experiment action; no plan is automatically applied or made default.
+An Investigation hypothesis must explicitly declare whether its controlled intervention is `blueprint` or `production-plan`; Core never infers that boundary from prose. A Production Plan hypothesis progresses through `author-production-plan`, `simulate-production-plan`, and `compare-production-plan`, not `author-candidate`, and a Blueprint Candidate cannot source it. Core discovers a continuation Run only when it has the exact control seed, result plan id/hash, unchanged non-plan selection, and a strict one-variable comparison. The author then retains an observation and records `keep`, `revise`, `defer`, or `discard`. Selection is the experiment action; no plan is automatically applied or made default.
 
 ## Memory-fab north star
 
 The control `production-window` plan preserves twelve six-second wafer starts and twelve eight-substrate deliveries. Run `102-simulate` completes all twelve lots, packages 96 devices, performs eleven fixed-eight burn-in batches, delivers 88 devices, and leaves eight packaged devices queued at burn-in.
 
 The separately selected `eleven-lot-burn-in-horizon` plan removes only `dram-lot-12` and `substrate-delivery-12`; Run `103-simulate` preserves 88 delivered devices and lowers average WIP by `4.732567` equivalent units, so its Objective score rises by `7.193077`. Exact comparison also shows scheduled, released, completed, and on-time lots each fall from twelve to eleven. The `back-end-wip-next-step` Investigation therefore records `DISCARD`: the apparent improvement horizon-crops real memory production rather than improving the factory. It then captures Run `102-simulate` again as the current twelve-lot checkpoint. This negative result is retained as reusable evidence, while the default plan remains unchanged.
+
+The next source-pinned revision `twelve-lot-five-second-cadence` preserves every lot and all 96 substrates while moving releases `0…66 s` to `0…55 s`. Receipt `409a4a81fb3e…` binds the plan to Investigation hypothesis `compress-twelve-lot-cadence`, control Run `102-simulate`, seed `42`, and complete before/after schedules. Run `104-simulate` still delivers 88 devices and completes the same twelve lots, but average WIP rises `49.1905 → 49.6905`, mean cycle time rises `1.25 s`, accumulated control-blocked release time rises `51 s`, and score falls `0.791667`. The unchanged burn-in/customer tail proves the earlier intent was absorbed by CONWIP admission and queues rather than converted into another burn-in batch. The Investigation records `DISCARD`, restores Run `102-simulate` as current, and retains simple uniform release compression as bounded negative evidence.
 
 ## Verification
 

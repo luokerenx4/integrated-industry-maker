@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/investigation-production-plan-revision-session]] | Turn a current Production Plan hypothesis into a source-pinned plan revision, immutable Run comparison, and explicit decision without reconstructing identity by hand. | 2026-07-31 |
 | [[plans/production-plan-run-comparison-loop]] | Carry one memory-fab Production Plan hypothesis through an exact controlled Run comparison and append-only Investigation decision. | 2026-07-31 |
 | [[plans/explicit-production-plan-contract]] | Make planned factory work a separately selected, hash-identified project artifact shared by humans, Agents, simulation, and retained evidence. | 2026-07-31 |
 | [[plans/objective-dominant-wip-continuation]] | Close the bounded inspection inquiry and continue from exact current evidence into a separate Objective-equivalent WIP Investigation. | 2026-07-30 |

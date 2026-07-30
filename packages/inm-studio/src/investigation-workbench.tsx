@@ -4,7 +4,12 @@ import type {
   IndustrialInvestigationInspection,
   IndustrialInvestigationSummary,
   InvestigationEvidenceAnchor,
+  ProductionPlan,
 } from "@inm/core";
+import {
+  followStudioOperation,
+  startStudioOperation,
+} from "./studio-operation-client";
 
 class InvestigationResponseError extends Error {
   constructor(public readonly code: string | null, detail: string) {
@@ -40,6 +45,206 @@ function entryDetail(entry: IndustrialInvestigationEntry): string | null {
   if (entry.kind === "hypothesis") return `INTERVENTION · ${(entry.intervention ?? "blueprint").toUpperCase()} · EXPECTED · ${entry.expectedEffect}`;
   if (entry.kind === "decision") return `DISPOSITION · ${entry.disposition.toUpperCase()}`;
   return null;
+}
+
+interface ProductionPlanRevisionDraft {
+  investigation: string;
+  hypothesisEntry: string;
+  hypothesisEntryHash: string;
+  statement: string;
+  expectedEffect: string;
+  controlRunId: string;
+  controlSeed: number;
+  baseProductionPlanHash: string;
+  productionPlan: ProductionPlan;
+}
+
+function ProductionPlanRevisionSession({
+  projectId,
+  inspection,
+  onRefresh,
+}: {
+  projectId: string;
+  inspection: IndustrialInvestigationInspection;
+  onRefresh: () => Promise<void>;
+}) {
+  const [draft, setDraft] = useState<ProductionPlanRevisionDraft | null>(null);
+  const [plan, setPlan] = useState<ProductionPlan | null>(null);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const revision = inspection.handoff.productionPlanRevision;
+  const api = `${apiRoot(projectId)}/${encodeURIComponent(inspection.manifest.id)}/production-plan`;
+
+  useEffect(() => {
+    if (inspection.handoff.phase !== "author-production-plan") return;
+    let active = true;
+    setError(null);
+    void fetch(api).then((response) => responseJson<ProductionPlanRevisionDraft>(response)).then((value) => {
+      if (!active) return;
+      setDraft(value);
+      setPlan({
+        ...structuredClone(value.productionPlan),
+        id: `${value.productionPlan.id}-revision`,
+        name: `${value.productionPlan.name} revision`,
+      });
+    }).catch((nextError) => {
+      if (active) setError(nextError instanceof Error ? nextError.message : String(nextError));
+    });
+    return () => { active = false; };
+  }, [api, inspection.handoff.phase, inspection.handoff.sourceEntry?.entryHash]);
+
+  const setLot = (
+    index: number,
+    field: "releaseTick" | "dueTick" | "priority",
+    value: string,
+  ) => setPlan((current) => {
+    if (!current) return current;
+    const lotReleases = structuredClone(current.lotReleases ?? []);
+    const lot = lotReleases[index];
+    if (!lot) return current;
+    if (field === "dueTick" || field === "priority") {
+      if (value === "") delete lot[field];
+      else lot[field] = Number(value);
+    } else lot[field] = Number(value);
+    return { ...current, lotReleases };
+  });
+  const setDelivery = (
+    index: number,
+    field: "releaseTick" | "count",
+    value: string,
+  ) => setPlan((current) => {
+    if (!current) return current;
+    const materialDeliveries = structuredClone(current.materialDeliveries ?? []);
+    const delivery = materialDeliveries[index];
+    if (!delivery) return current;
+    delivery[field] = Number(value);
+    return { ...current, materialDeliveries };
+  });
+
+  const create = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!draft || !plan) return;
+    setWorking(true);
+    setError(null);
+    try {
+      await responseJson(await fetch(api, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          hypothesisEntry: draft.hypothesisEntry,
+          productionPlan: plan,
+        }),
+      }));
+      await onRefresh();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const simulate = async () => {
+    if (!revision) return;
+    setWorking(true);
+    setError(null);
+    try {
+      const started = await startStudioOperation(
+        `/api/projects/${encodeURIComponent(projectId)}/operations/simulate`,
+        {
+          selection: {
+            ...revision.selection,
+            productionPlan: revision.result.id,
+          },
+          seed: revision.controlSeed,
+        },
+      );
+      const completed = await followStudioOperation(
+        projectId,
+        started.operation,
+        () => {},
+        new AbortController().signal,
+      );
+      if (completed.status !== "completed") {
+        throw new Error(completed.error?.message ?? `Simulation ${completed.status}`);
+      }
+      await onRefresh();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  if (inspection.handoff.phase === "compare-production-plan" && revision) {
+    return <section className="production-plan-session ready" id="production-plan-session" data-testid="production-plan-session">
+      <header><span>PRODUCTION PLAN REVISION</span><b>RUN READY</b></header>
+      <div className="production-plan-session-identity">
+        <strong>{revision.base.id} → {revision.result.id}</strong>
+        <code>{revision.revisionHash.slice(0, 16)} · {revision.controlRunId} → {revision.interventionRunId}</code>
+      </div>
+      <p>The exact one-variable Run pair is ready for quantitative and visual judgment. No disposition has been inferred.</p>
+      <a className="production-plan-primary" href={inspection.handoff.nextAction.studioRoute}>REVIEW EXACT COMPARISON →</a>
+    </section>;
+  }
+
+  if (inspection.handoff.phase === "simulate-production-plan" && revision) {
+    return <section className="production-plan-session ready" id="production-plan-session" data-testid="production-plan-session">
+      <header><span>PRODUCTION PLAN REVISION</span><b>SOURCE PINNED</b></header>
+      <div className="production-plan-session-identity">
+        <strong>{revision.base.id} → {revision.result.id}</strong>
+        <code>{revision.revisionHash.slice(0, 16)} · control {revision.controlRunId}</code>
+      </div>
+      <p>The authored plan is separate from the project default. Run it with the exact control seed and unchanged non-plan selection.</p>
+      {error && <div className="investigation-error" role="alert">{error}</div>}
+      <button className="production-plan-primary" disabled={working} onClick={() => { void simulate(); }}>
+        {working ? "SIMULATING…" : "SIMULATE AUTHORED PLAN"}
+      </button>
+    </section>;
+  }
+
+  if (inspection.handoff.phase !== "author-production-plan") return null;
+  return <section className="production-plan-session" id="production-plan-session" data-testid="production-plan-session">
+    <header><span>AUTHOR PRODUCTION PLAN</span><b>HUMAN / AGENT OWNED</b></header>
+    {!draft || !plan ? <p>{error ?? "Loading exact control schedule…"}</p> : <form onSubmit={(event) => { void create(event); }}>
+      <div className="production-plan-source">
+        <small>HYPOTHESIS · {draft.hypothesisEntry} · {draft.hypothesisEntryHash.slice(0, 12)}</small>
+        <strong>{draft.statement}</strong>
+        <p>Expected: {draft.expectedEffect}</p>
+        <code>CONTROL {draft.controlRunId} · PLAN {draft.productionPlan.id} {draft.baseProductionPlanHash.slice(0, 12)}</code>
+      </div>
+      <div className="production-plan-meta">
+        <label>NEW PLAN ID<input required pattern="[a-z0-9][a-z0-9-]*" value={plan.id} onChange={(event) => setPlan({ ...plan, id: event.target.value })} /></label>
+        <label>NAME<input required value={plan.name} onChange={(event) => setPlan({ ...plan, name: event.target.value })} /></label>
+      </div>
+      <div className="production-plan-schedules">
+        <section>
+          <header><span>LOT RELEASES</span><b>{plan.lotReleases?.length ?? 0}</b></header>
+          <div className="production-plan-table">
+            <div className="production-plan-row headings"><span>LOT</span><span>RELEASE</span><span>DUE</span><span>PRIORITY</span></div>
+            {(plan.lotReleases ?? []).map((lot, index) => <div className="production-plan-row" key={lot.id}>
+              <code>{lot.id}</code>
+              <input aria-label={`${lot.id} release tick`} type="number" min="0" step="1" value={lot.releaseTick} onChange={(event) => setLot(index, "releaseTick", event.target.value)} />
+              <input aria-label={`${lot.id} due tick`} type="number" min="0" step="1" value={lot.dueTick ?? ""} onChange={(event) => setLot(index, "dueTick", event.target.value)} />
+              <input aria-label={`${lot.id} priority`} type="number" step="1" value={lot.priority ?? ""} onChange={(event) => setLot(index, "priority", event.target.value)} />
+            </div>)}
+          </div>
+        </section>
+        <section>
+          <header><span>MATERIAL DELIVERIES</span><b>{plan.materialDeliveries?.length ?? 0}</b></header>
+          <div className="production-plan-table deliveries">
+            <div className="production-plan-row headings"><span>DELIVERY</span><span>RELEASE</span><span>COUNT</span></div>
+            {(plan.materialDeliveries ?? []).map((delivery, index) => <div className="production-plan-row" key={delivery.id}>
+              <code>{delivery.id}</code>
+              <input aria-label={`${delivery.id} release tick`} type="number" min="0" step="1" value={delivery.releaseTick} onChange={(event) => setDelivery(index, "releaseTick", event.target.value)} />
+              <input aria-label={`${delivery.id} count`} type="number" min="1" step="1" value={delivery.count} onChange={(event) => setDelivery(index, "count", event.target.value)} />
+            </div>)}
+          </div>
+        </section>
+      </div>
+      {error && <div className="investigation-error" role="alert">{error}</div>}
+      <button className="production-plan-primary" disabled={working} type="submit">{working ? "VERIFYING…" : "CREATE SOURCE-PINNED REVISION"}</button>
+    </form>}
+  </section>;
 }
 
 export function InvestigationWorkbench({
@@ -339,6 +544,12 @@ export function InvestigationWorkbench({
             </small>}
           </div>
         </section>
+
+        <ProductionPlanRevisionSession
+          projectId={projectId}
+          inspection={inspection}
+          onRefresh={() => loadSelected(inspection.manifest.id)}
+        />
 
         <section className="investigation-anchors">
           <header><span>EVIDENCE ANCHORS</span><b>FAIL CLOSED</b></header>

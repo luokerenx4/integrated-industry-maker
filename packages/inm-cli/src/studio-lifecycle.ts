@@ -468,7 +468,8 @@ async function waitForManagedOutcome(
         && state.supervisor.failure
         && state.supervisor.failure.at !== previousFailureAt) return { health: probe.health, state };
       if (probe.health.sourceHash === sourceHash
-        && state.supervisor.phase === "current") return { health: probe.health, state };
+        && state.supervisor.phase === "current"
+        && probe.health.supervisor.phase === "current") return { health: probe.health, state };
     }
     if (probe.kind === "foreign") throw new CliCommandError(
       "studio.port-owned-by-unknown-service",

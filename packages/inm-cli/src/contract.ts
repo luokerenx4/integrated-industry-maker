@@ -19,7 +19,7 @@ export type CliContext =
   };
 
 export interface CliArtifact {
-  kind: "workspace" | "project" | "blueprint" | "production-plan" | "run" | "benchmark-lock" | "candidate" | "candidate-review" | "design-run" | "investigation" | "investigation-entry";
+  kind: "workspace" | "project" | "blueprint" | "production-plan" | "production-plan-revision" | "run" | "benchmark-lock" | "candidate" | "candidate-review" | "design-run" | "investigation" | "investigation-entry";
   id: string;
   path: string;
   immutable: boolean;

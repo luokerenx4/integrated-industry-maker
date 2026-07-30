@@ -2,11 +2,11 @@ import { cp, mkdir, readdir, readFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
-  CandidateChangeSetError, DesignRunError, IndustrialInvestigationError, InmValidationError, RunComparisonError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, appendIndustrialInvestigationEntry, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compareFactoryRuns, compileFactoryProject, continueDesignRun, createIndustrialInvestigation, createInvestigationCandidate, describeWipInventoryLocation, evaluateBenchmarkOperation, inspectCandidateDecision, inspectDesignProgramEvidence, inspectIndustrialInvestigation, listDesignPrograms, listIndustrialInvestigations, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadBlueprintBenchmark, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, recommendedDesignProgramEvidenceAction, runDesignProgram, simulateProjectOperation, validateProjectOperation,
+  CandidateChangeSetError, DesignRunError, IndustrialInvestigationError, InmValidationError, RunComparisonError, SCORE_BREAKDOWN_COMPONENTS, WORKSPACE_MANIFEST, analyzeProduction, analyzeProjectOperation, appendIndustrialInvestigationEntry, applyCandidateOperation, atomicWriteJson, buildDesignProgramBrief, compareFactoryBlueprints, compareFactoryRuns, compileFactoryProject, continueDesignRun, createIndustrialInvestigation, createInvestigationCandidate, createInvestigationProductionPlanRevision, describeWipInventoryLocation, evaluateBenchmarkOperation, inspectCandidateDecision, inspectDesignProgramEvidence, inspectIndustrialInvestigation, listDesignPrograms, listIndustrialInvestigations, listProjectArtifactSchemaKinds, listRuns, listWorkspaceProjects, loadBlueprintBenchmark, loadCandidateChangeSet, loadDesignRun, loadFactoryProject, loadWorkspace, lockBlueprintBenchmark, manifestSchema, openFactoryObservationBrief, openFactoryProject, openProjectWorkbenchSnapshot, pathExists, planProjectOperation, previewCandidateOperation, projectArtifactJsonSchema, promoteDesignRun, readJson, recommendedDesignProgramEvidenceAction, runDesignProgram, simulateProjectOperation, validateProjectOperation,
   planProductionCapacity,
   researchFactory, runUntil, stableStringify, synthesizeProjectBlueprint, ExternalCommandResearchAgent,
   TRANSPORT_BLOCK_CAUSES, TRANSPORT_BLOCK_CAUSE_LABELS, transportBlockCauseTotals,
-  type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type CandidateChangeSetPreview, type CandidateCurrentFactoryComparison, type CandidatePatch, type CandidateRevisionBrief, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FabLossContributorMechanism, type FactoryEvent, type FactoryMetrics, type IndustrialInvestigationEntryInput, type InmManifest, type InmWorkspaceManifest, type ObjectiveConstraintEvidence, type ProjectSelection, type ScoreBreakdown,
+  type BlueprintBenchmarkProgress, type BlueprintBenchmarkResult, type BlueprintMetricSnapshot, type CandidateChangeSetPreview, type CandidateCurrentFactoryComparison, type CandidatePatch, type CandidateRevisionBrief, type DesignRunIteration, type DesignRunProgress, type DesignRunResult, type DesignSearchExhaustionEvidence, type FabLossContributorMechanism, type FactoryEvent, type FactoryMetrics, type IndustrialInvestigationEntryInput, type InmManifest, type InmWorkspaceManifest, type ObjectiveConstraintEvidence, type ProductionPlan, type ProjectSelection, type ScoreBreakdown,
 } from "@inm/core";
 import { CLI_COMMANDS } from "./capabilities";
 import {
@@ -990,26 +990,34 @@ export async function investigateCommand(
     toRun?: string;
     anchorId?: string;
     createCandidate?: string;
+    createProductionPlan?: string;
     hypothesisEntry?: string;
     benchmark?: string;
     candidateName?: string;
     patchFile?: string;
+    productionPlanFile?: string;
     json: boolean;
     section?: string;
   },
 ): Promise<void> {
-  const usage = "Usage: inm investigate <project-or-workspace-dir> [--investigation ID [--create | --entry ID]] [options]";
-  const mutationModes = [options.create, Boolean(options.entryId), Boolean(options.createCandidate)]
+  const usage =
+    "Usage: inm investigate <project-or-workspace-dir> [--investigation ID [--create | --entry ID | --create-candidate ID | --create-production-plan ID]] [options]";
+  const mutationModes = [
+    options.create,
+    Boolean(options.entryId),
+    Boolean(options.createCandidate),
+    Boolean(options.createProductionPlan),
+  ]
     .filter(Boolean).length;
-  if (mutationModes > 1) throw new Error(`${usage}\n--create, --entry, and --create-candidate are mutually exclusive.`);
-  if (!options.investigationId && (options.create || options.entryId || options.createCandidate
+  if (mutationModes > 1) throw new Error(`${usage}\n--create, --entry, --create-candidate, and --create-production-plan are mutually exclusive.`);
+  if (!options.investigationId && (options.create || options.entryId || options.createCandidate || options.createProductionPlan
     || options.name || options.question || options.kind || options.author || options.statement
     || options.intervention
     || options.expectedEffect || options.disposition || options.evidence
     || options.attachCandidate || options.captureObservation || options.captureComparison
     || options.fromRun || options.toRun || options.anchorId
     || options.hypothesisEntry || options.benchmark
-    || options.candidateName || options.patchFile)) {
+    || options.candidateName || options.patchFile || options.productionPlanFile)) {
     throw new Error(`${usage}\nInvestigation mutation requires --investigation ID.`);
   }
   if (!options.investigationId) {
@@ -1031,8 +1039,14 @@ export async function investigateCommand(
     return;
   }
 
-  let artifact: { kind: "investigation" | "investigation-entry" | "candidate"; id: string; path: string; immutable: true } | null = null;
+  let artifact: {
+    kind: "investigation" | "investigation-entry" | "candidate" | "production-plan-revision";
+    id: string;
+    path: string;
+    immutable: true;
+  } | null = null;
   let candidateCreation: Awaited<ReturnType<typeof createInvestigationCandidate>> | null = null;
+  let productionPlanCreation: Awaited<ReturnType<typeof createInvestigationProductionPlanRevision>> | null = null;
   if (options.create) {
     if (!options.name?.trim() || !options.question?.trim()) {
       throw new Error(`${usage}\n--create requires --name and --question.`);
@@ -1040,8 +1054,9 @@ export async function investigateCommand(
     if (options.kind || options.author || options.statement || options.intervention || options.expectedEffect || options.disposition
       || options.evidence || options.attachCandidate || options.captureObservation
       || options.captureComparison || options.fromRun || options.toRun
-      || options.anchorId || options.createCandidate
-      || options.hypothesisEntry || options.benchmark || options.candidateName || options.patchFile) {
+      || options.anchorId || options.createCandidate || options.createProductionPlan
+      || options.hypothesisEntry || options.benchmark || options.candidateName || options.patchFile
+      || options.productionPlanFile) {
       throw new Error(`${usage}\nEntry fields require --entry ID.`);
     }
     const created = await createIndustrialInvestigation(projectDir, options.investigationId, {
@@ -1056,6 +1071,10 @@ export async function investigateCommand(
       immutable: true,
     };
   } else if (options.entryId) {
+    if (options.name || options.question || options.hypothesisEntry || options.benchmark
+      || options.candidateName || options.patchFile || options.productionPlanFile) {
+      throw new Error(`${usage}\nCreation fields cannot be combined with --entry.`);
+    }
     if (!options.kind || !["observation", "hypothesis", "decision"].includes(options.kind)
       || !options.author || !["human", "agent"].includes(options.author)
       || !options.statement?.trim()) {
@@ -1171,7 +1190,7 @@ export async function investigateCommand(
     if (options.name || options.question || options.kind || options.author || options.statement
       || options.intervention || options.expectedEffect || options.disposition || options.evidence
       || options.attachCandidate || options.captureObservation || options.captureComparison
-      || options.fromRun || options.toRun || options.anchorId) {
+      || options.fromRun || options.toRun || options.anchorId || options.productionPlanFile) {
       throw new Error(`${usage}\nInvestigation and entry fields cannot be combined with --create-candidate.`);
     }
     let patch: unknown;
@@ -1194,13 +1213,45 @@ export async function investigateCommand(
       path: candidateCreation.path,
       immutable: true,
     };
+  } else if (options.createProductionPlan) {
+    if (!options.hypothesisEntry || !options.productionPlanFile) {
+      throw new Error(`${usage}\n--create-production-plan requires --hypothesis-entry and --production-plan-file.`);
+    }
+    if (options.name || options.question || options.kind || options.author || options.statement
+      || options.intervention || options.expectedEffect || options.disposition || options.evidence
+      || options.attachCandidate || options.captureObservation || options.captureComparison
+      || options.fromRun || options.toRun || options.anchorId
+      || options.benchmark || options.candidateName || options.patchFile) {
+      throw new Error(`${usage}\nInvestigation and Candidate fields cannot be combined with --create-production-plan.`);
+    }
+    let productionPlan: unknown;
+    try {
+      productionPlan = JSON.parse(await readFile(resolve(options.productionPlanFile), "utf8"));
+    } catch (error) {
+      throw new Error(`${usage}\nCannot read Production Plan '${options.productionPlanFile}': ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (!productionPlan || typeof productionPlan !== "object"
+      || (productionPlan as { id?: unknown }).id !== options.createProductionPlan) {
+      throw new Error(`${usage}\n--create-production-plan must match the id inside --production-plan-file.`);
+    }
+    productionPlanCreation = await createInvestigationProductionPlanRevision(projectDir, {
+      investigation: options.investigationId,
+      hypothesisEntry: options.hypothesisEntry,
+      productionPlan: productionPlan as ProductionPlan,
+    });
+    artifact = {
+      kind: "production-plan-revision",
+      id: productionPlanCreation.revision.id,
+      path: productionPlanCreation.path,
+      immutable: true,
+    };
   } else if (options.name || options.question || options.kind || options.author
     || options.statement || options.intervention || options.expectedEffect || options.disposition || options.evidence
     || options.attachCandidate || options.captureObservation || options.captureComparison
     || options.fromRun || options.toRun || options.anchorId
     || options.hypothesisEntry || options.benchmark
-    || options.candidateName || options.patchFile) {
-    throw new Error(`${usage}\nMutation fields require --create, --entry ID, or --create-candidate ID.`);
+    || options.candidateName || options.patchFile || options.productionPlanFile) {
+    throw new Error(`${usage}\nMutation fields require --create, --entry ID, --create-candidate ID, or --create-production-plan ID.`);
   }
 
   const inspection = await inspectIndustrialInvestigation(projectDir, options.investigationId);
@@ -1213,6 +1264,8 @@ export async function investigateCommand(
           ? "appended"
           : artifact?.kind === "candidate"
             ? "candidate-created"
+            : artifact?.kind === "production-plan-revision"
+              ? "production-plan-created"
           : "inspect",
       investigation: {
         id: inspection.manifest.id,
@@ -1241,6 +1294,16 @@ export async function investigateCommand(
           path: candidateCreation.path,
         }
         : null,
+      productionPlanRevision: productionPlanCreation
+        ? {
+          ...productionPlanCreation,
+          productionPlanPath: join(
+            resolve(projectDir),
+            "production-plans",
+            `${productionPlanCreation.revision.result.id}.production-plan.json`,
+          ),
+        }
+        : null,
     }),
     anchors: () => inspection.anchors,
     entries: () => inspection.entries,
@@ -1249,7 +1312,19 @@ export async function investigateCommand(
   if (options.json) {
     writeSuccess("investigate", data, {
       context: workbenchContext(snapshot),
-      artifacts: artifact ? [artifact] : [],
+      artifacts: artifact ? [
+        artifact,
+        ...(productionPlanCreation ? [{
+          kind: "production-plan" as const,
+          id: productionPlanCreation.revision.result.id,
+          path: join(
+            resolve(projectDir),
+            "production-plans",
+            `${productionPlanCreation.revision.result.id}.production-plan.json`,
+          ),
+          immutable: false,
+        }] : []),
+      ] : [],
       nextActions: candidateCreation
         ? [nextAction(
           "candidate.review",
@@ -1278,6 +1353,12 @@ export async function investigateCommand(
       `Candidate: ${candidateCreation.candidate.id} · ${candidateCreation.candidate.benchmark}`,
       `  Source: hypothesis ${candidateCreation.sourceEvidence.entry} · ${candidateCreation.sourceEvidence.entryHash.slice(0, 12)} · context ${candidateCreation.sourceEvidence.operatingContext.source} ${candidateCreation.sourceEvidence.operatingContext.anchorId} / ${candidateCreation.sourceEvidence.operatingContext.run.id} · ${candidateCreation.sourceEvidence.state.toUpperCase()}`,
       `  Review: inm candidate <path> --candidate ${candidateCreation.candidate.id} --review`,
+    ] : []),
+    ...(productionPlanCreation ? [
+      `Production Plan revision: ${productionPlanCreation.revision.id} · ${productionPlanCreation.revision.revisionHash.slice(0, 12)}`,
+      `  Source: hypothesis ${productionPlanCreation.sourceEvidence.entry} · control ${productionPlanCreation.revision.source.control.runId}`,
+      `  Plan: ${productionPlanCreation.revision.base.id} ${productionPlanCreation.revision.base.hash.slice(0, 12)} → ${productionPlanCreation.revision.result.id} ${productionPlanCreation.revision.result.hash.slice(0, 12)}`,
+      `  Changes: ${productionPlanCreation.changes.filter((change) => change.kind !== "production-plan").length} schedule changes · ${productionPlanCreation.revision.patch.length} patch operations`,
     ] : []),
     `Design Session: ${inspection.handoff.phase.toUpperCase()}${inspection.handoff.sourceEntry ? ` · ${String(inspection.handoff.sourceEntry.sequence).padStart(4, "0")} ${inspection.handoff.sourceEntry.id}` : ""}`,
     ...(inspection.handoff.evidenceIds.length

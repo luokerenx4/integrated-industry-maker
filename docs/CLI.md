@@ -48,7 +48,7 @@ The brief identifies the leading active Workbench diagnostic and returns stable 
 
 Observation is read-only and never captures screenshots, creates a run, authors a proposal, or claims that pixels were understood. A browser-capable Agent opens the returned routes directly; a CLI-only Agent may use Playwright, MCP, or an equivalent screenshot-capable browser. When no compatible run exists, status is `needs-run` and the exact next action is simulation rather than fabricated runtime interpretation.
 
-### `inm investigate <project-or-workspace-dir> [--project ID] [--investigation ID [--create | --entry ID]] [--json]`
+### `inm investigate <project-or-workspace-dir> [--project ID] [--investigation ID [--create | --entry ID | --create-candidate ID | --create-production-plan ID]] [--json]`
 
 Lists, creates, reopens, or appends to a persistent project-local [[docs/design/industrial-investigations]] record. Creating requires `--investigation`, `--name`, and `--question`; Core freezes the exact current selection/hashes, compatible operating Run, Run-backed Workbench diagnostic, and verified commissioned Design/Candidate lineage when present. It fails rather than inventing evidence when that current boundary is unavailable.
 
@@ -81,6 +81,13 @@ inm investigate examples/memory-fab \
   --attach-candidate metrology-low-power-standby \
   --anchor-id metrology-standby-review \
   --evidence diagnostic,design-lineage,metrology-standby-review
+
+inm investigate examples/memory-fab \
+  --investigation back-end-wip-next-step \
+  --create-production-plan twelve-lot-five-second-cadence \
+  --hypothesis-entry compress-twelve-lot-cadence \
+  --production-plan-file /path/to/twelve-lot-five-second-cadence.production-plan.json \
+  --json
 ```
 
 Continue the same inquiry from the exact current factory after a revision or decision:
@@ -97,7 +104,7 @@ inm investigate examples/memory-fab \
   --json
 ```
 
-Flagless project mode lists Investigations. Supplying `--investigation` reopens one and resolves every evidence anchor as `current`, `historical`, `missing`, or `invalid`. Valid old evidence may remain historical while the newest factory-observation or Run-comparison checkpoint makes the ongoing Investigation current; any missing or invalid anchor still degrades the chain. A hypothesis-sourced Candidate reports whether it inherited the creation context or a directly cited checkpoint, including context kind, exact anchor, and Run identity. JSON defaults to `summary`; `anchors`, `entries`, and `all` are explicit sections. Inspection derives one phase-aware Design Session handoff: `repair-evidence`, `observe-current-factory`, `form-hypothesis`, `author-candidate`, `author-production-plan`, or `resume-project`. A Blueprint hypothesis yields Candidate fields; a Production Plan hypothesis yields plan id/file fields and is rejected by `--create-candidate`. The handoff carries the exact source entry/hash and inherited evidence ids. The envelope's sole next action enters that handoff; each anchor retains its exact evidence route and argv. The command never authors a Blueprint or Production Plan, starts a simulation, invents required field values, or chooses an industrial decision.
+Flagless project mode lists Investigations. Supplying `--investigation` reopens one and resolves every evidence anchor as `current`, `historical`, `missing`, or `invalid`. Valid old evidence may remain historical while the newest factory-observation or Run-comparison checkpoint makes the ongoing Investigation current; any missing or invalid anchor still degrades the chain. A hypothesis-sourced artifact reports its exact source and operating context. JSON defaults to `summary`; `anchors`, `entries`, and `all` are explicit sections. Inspection derives one phase-aware Design Session handoff: `repair-evidence`, `observe-current-factory`, `form-hypothesis`, `author-candidate`, `author-production-plan`, `simulate-production-plan`, `compare-production-plan`, or `resume-project`. `--create-production-plan` consumes one complete caller-authored JSON file, verifies that it answers the current plan hypothesis, and emits an immutable provenance receipt plus the separately selectable plan. Core derives hashes, patch, control Run, seed, and continuation; the command never invents plan content, starts the simulation itself, changes the default, or chooses an industrial decision.
 
 `validate`, `analyze`, `plan`, `simulate`, `benchmark`, and `candidate` invoke the named Core [[docs/design/operation-workbench]] operations. Their JSON envelope keeps the requested summary/detail section in `data.result` and places shared industrial-result metadata in `data.operation`: effect, duration, exact context/hashes, diagnostics, artifacts, actual write set, and recommended verification. Long evaluations additionally use top-level `execution` for transient lifecycle identity; dense industrial data is not duplicated into it.
 

@@ -360,18 +360,19 @@ test("one command enters the exact phase-aware Investigation Design Session", as
           investigation: expect.objectContaining({
             id: "back-end-wip-next-step",
             state: "current",
-            entryCount: 6,
+            entryCount: 10,
           }),
           handoff: expect.objectContaining({
             phase: "form-hypothesis",
             sourceEntry: expect.objectContaining({
-              id: "resume-twelve-lot-production-window",
-              sequence: 6,
+              id: "resume-after-cadence-discard",
+              sequence: 10,
               kind: "observation",
             }),
             evidenceIds: [
-              "eleven-lot-burn-in-horizon-comparison",
+              "five-second-cadence-run-comparison",
               "post-plan-discard-current-factory",
+              "post-cadence-discard-current-factory",
             ],
             authorship: expect.objectContaining({
               kind: "investigation-entry",
@@ -390,7 +391,7 @@ test("one command enters the exact phase-aware Investigation Design Session", as
             kind: "investigation",
             investigationId: "back-end-wip-next-step",
             phase: "form-hypothesis",
-            sourceEntryId: "resume-twelve-lot-production-window",
+            sourceEntryId: "resume-after-cadence-discard",
           }),
         }),
       ],

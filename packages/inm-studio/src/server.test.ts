@@ -511,6 +511,143 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
   }
 }, 30_000);
 
+test("Studio authors the same source-pinned Production Plan revision session", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-studio-production-plan-revision-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => {
+      const segments = source.split("/");
+      return !segments.includes(".inm") && !segments.includes("investigations");
+    },
+  });
+  const port = 46_900 + process.pid % 300;
+  const child = Bun.spawn([
+    process.execPath, join(repository, "packages/inm-studio/src/server.ts"), projectDir,
+    "--port", String(port), "--no-open",
+  ], { cwd: repository, stdout: "pipe", stderr: "pipe" });
+  try {
+    const reader = child.stdout.getReader();
+    let output = "";
+    while (!output.includes("INM Studio:")) {
+      const chunk = await reader.read();
+      if (chunk.done) throw new Error(`Studio stopped before startup: ${output}`);
+      output += new TextDecoder().decode(chunk.value);
+    }
+    reader.releaseLock();
+
+    const investigationId = "cadence-plan-revision";
+    expect((await fetch(`http://localhost:${port}/api/projects/memory-fab/investigations`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        id: investigationId,
+        name: "Cadence plan revision",
+        question: "Can an authored cadence preserve all planned production?",
+      }),
+    })).status).toBe(201);
+    const hypothesis = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/investigations/${investigationId}/entries`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: "compress-cadence",
+          author: "agent",
+          kind: "hypothesis",
+          intervention: "production-plan",
+          statement: "Compress lot and substrate cadence without removing planned work.",
+          expectedEffect: "Make downstream material available earlier while preserving twelve lots.",
+          evidence: ["operating-run"],
+        }),
+      },
+    );
+    expect(hypothesis.status).toBe(201);
+    expect(await hypothesis.json()).toEqual(expect.objectContaining({
+      handoff: expect.objectContaining({
+        phase: "author-production-plan",
+        authorship: expect.objectContaining({ kind: "production-plan" }),
+      }),
+    }));
+
+    const revisionUrl = `http://localhost:${port}/api/projects/memory-fab/investigations/${investigationId}/production-plan`;
+    const draftResponse = await fetch(revisionUrl);
+    expect(draftResponse.status).toBe(200);
+    const draft = await draftResponse.json() as {
+      hypothesisEntry: string;
+      controlRunId: string;
+      productionPlan: {
+        id: string;
+        name: string;
+        lotReleases: Array<Record<string, unknown>>;
+        materialDeliveries: Array<Record<string, unknown>>;
+      };
+    };
+    expect(draft).toEqual(expect.objectContaining({
+      hypothesisEntry: "compress-cadence",
+      controlRunId: expect.any(String),
+      productionPlan: expect.objectContaining({ id: "production-window" }),
+    }));
+    const proposed = structuredClone(draft.productionPlan);
+    proposed.id = "studio-compressed-cadence";
+    proposed.name = "Studio compressed cadence";
+    proposed.lotReleases = proposed.lotReleases.map((lot, index) => ({
+      ...lot,
+      releaseTick: index * 5_000,
+    }));
+    proposed.materialDeliveries = proposed.materialDeliveries.map((delivery, index) => ({
+      ...delivery,
+      releaseTick: index * 5_000,
+    }));
+    const authored = await fetch(revisionUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        hypothesisEntry: draft.hypothesisEntry,
+        productionPlan: proposed,
+      }),
+    });
+    expect(authored.status).toBe(201);
+    expect(await authored.json()).toEqual({
+      created: expect.objectContaining({
+        revision: expect.objectContaining({
+          id: proposed.id,
+          source: expect.objectContaining({
+            investigation: investigationId,
+            hypothesisEntry: draft.hypothesisEntry,
+          }),
+        }),
+      }),
+      investigation: expect.objectContaining({
+        handoff: expect.objectContaining({
+          phase: "simulate-production-plan",
+          productionPlanRevision: expect.objectContaining({
+            id: proposed.id,
+            controlRunId: draft.controlRunId,
+            interventionRunId: null,
+          }),
+        }),
+      }),
+    });
+    const duplicate = await fetch(revisionUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        hypothesisEntry: draft.hypothesisEntry,
+        productionPlan: proposed,
+      }),
+    });
+    expect(duplicate.status).toBe(409);
+    expect(await duplicate.json()).toEqual(expect.objectContaining({
+      code: "production-plan-revision.already-exists",
+    }));
+  } finally {
+    child.kill();
+    await child.exited;
+    await rm(root, { recursive: true, force: true });
+  }
+}, 30_000);
+
 test("Studio keeps a recorded memory-fab revision handoff visible after its base becomes stale", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-studio-revision-"));
   const projectDir = join(root, "memory-fab");
@@ -788,8 +925,11 @@ test("Studio file watching uses WebSockets without occupying project API connect
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ seed: 42 }),
     });
-    expect(simulated.status).toBe(200);
-    const simulation = await simulated.json() as { data: { run: { id: string } } };
+    const simulation = await completedStudioOperation<{ data: { run: { id: string } } }>(
+      port,
+      "ironworks",
+      simulated,
+    );
     expect(await Promise.race([
       Promise.all(runRefreshes),
       Bun.sleep(5_000).then(() => { throw new Error("Completed Run refresh was not published"); }),
@@ -798,13 +938,13 @@ test("Studio file watching uses WebSockets without occupying project API connect
       type: "project-refresh",
       projectId: "ironworks",
       reason: "run",
-      artifactId: simulation.data.run.id,
+      artifactId: simulation.result!.data.run.id,
     })));
     const exactRun = await fetch(
-      `http://localhost:${port}/api/projects/ironworks/data?run=${encodeURIComponent(simulation.data.run.id)}`,
+      `http://localhost:${port}/api/projects/ironworks/data?run=${encodeURIComponent(simulation.result!.data.run.id)}`,
     );
     expect(exactRun.status).toBe(200);
-    expect(await exactRun.json()).toEqual(expect.objectContaining({ selectedRun: simulation.data.run.id }));
+    expect(await exactRun.json()).toEqual(expect.objectContaining({ selectedRun: simulation.result!.data.run.id }));
   } finally {
     for (const socket of sockets) socket.close();
     child.kill();

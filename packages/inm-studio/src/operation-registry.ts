@@ -44,7 +44,7 @@ export interface StudioOperationRunnerContext {
 }
 
 const OPERATION_ID = /^[0-9a-z-]{12,80}$/;
-const OPERATION_KINDS = new Set(["benchmark", "candidate-preview", "candidate-apply", "design-run", "design-continue"]);
+const OPERATION_KINDS = new Set(["simulate", "benchmark", "candidate-preview", "candidate-apply", "design-run", "design-continue"]);
 const OPERATION_STATUSES = new Set(["queued", "running", "completed", "failed", "cancelled", "interrupted"]);
 
 function operationDirectory(projectDir: string): string {

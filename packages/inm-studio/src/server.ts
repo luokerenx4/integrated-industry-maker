@@ -17,6 +17,7 @@ import {
   compileFactoryProject,
   continueDesignRun,
   createIndustrialInvestigation,
+  createInvestigationProductionPlanRevision,
   ENGINE_VERSION,
   evaluateBenchmarkOperation,
   inspectCandidateDecision,
@@ -41,6 +42,7 @@ import {
   pathExists,
   planProjectOperation,
   planProductionCapacity,
+  productionPlanRevisionDraft,
   previewCandidateOperation,
   promoteDesignRun,
   appendIndustrialInvestigationEntry,
@@ -54,6 +56,7 @@ import {
   validateProjectOperation,
   type ProjectSelection,
   type IndustrialInvestigationEntryInput,
+  type ProductionPlan,
 } from "@inm/core";
 import { StudioOperationRegistry } from "./operation-registry";
 import { completedProjectRefresh, projectRefreshProbePath } from "./evidence-watch";
@@ -759,6 +762,39 @@ const server = Bun.serve({
         return Response.json(await inspectIndustrialInvestigation(projectDir, investigationId), { status: 201 });
       }
 
+      const investigationProductionPlanMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/investigations\/([^/]+)\/production-plan$/);
+      if (investigationProductionPlanMatch) {
+        const projectDir = await projectDirectory(decoded(investigationProductionPlanMatch[1]!));
+        const investigationId = decoded(investigationProductionPlanMatch[2]!);
+        if (request.method === "GET") {
+          return Response.json(await productionPlanRevisionDraft(projectDir, investigationId));
+        }
+        if (request.method !== "POST") {
+          return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        }
+        const body = await request.json().catch(() => ({})) as {
+          hypothesisEntry?: unknown;
+          productionPlan?: unknown;
+        };
+        if (typeof body.hypothesisEntry !== "string"
+          || !body.productionPlan
+          || typeof body.productionPlan !== "object") {
+          throw new IndustrialInvestigationError(
+            "production-plan-revision.invalid-request",
+            "Production Plan authoring requires hypothesisEntry and a complete caller-authored productionPlan",
+          );
+        }
+        const created = await createInvestigationProductionPlanRevision(projectDir, {
+          investigation: investigationId,
+          hypothesisEntry: body.hypothesisEntry,
+          productionPlan: body.productionPlan as ProductionPlan,
+        });
+        return Response.json({
+          created,
+          investigation: await inspectIndustrialInvestigation(projectDir, investigationId),
+        }, { status: 201 });
+      }
+
       const dataMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/data$/);
       if (dataMatch) {
         if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
@@ -784,7 +820,7 @@ const server = Bun.serve({
         return Response.json(await compareFactoryRuns(projectDir, fromRunId, toRunId));
       }
 
-      const operationMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/operations\/(validate|analyze|plan|simulate)$/);
+      const operationMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/operations\/(validate|analyze|plan)$/);
       if (operationMatch) {
         if (request.method !== "POST") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
         const projectDir = await projectDirectory(decoded(operationMatch[1]!));
@@ -797,12 +833,49 @@ const server = Bun.serve({
         const selection = body.selection ?? {};
         if (operationMatch[2] === "validate") return Response.json(await validateProjectOperation(projectDir, selection));
         if (operationMatch[2] === "analyze") return Response.json(await analyzeProjectOperation(projectDir, selection));
-        if (operationMatch[2] === "plan") return Response.json(await planProjectOperation(projectDir, selection));
-        return Response.json(await simulateProjectOperation(projectDir, selection, {
-          ...(body.seed === undefined ? {} : { seed: body.seed }),
-          ...(body.untilTick === undefined ? {} : { untilTick: body.untilTick }),
-          ...(body.maxEvents === undefined ? {} : { maxEvents: body.maxEvents }),
-        }));
+        return Response.json(await planProjectOperation(projectDir, selection));
+      }
+
+      const simulationMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/operations\/simulate$/);
+      if (simulationMatch) {
+        if (request.method !== "POST") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectId = decoded(simulationMatch[1]!);
+        const projectDir = await projectDirectory(projectId);
+        const body = await request.json().catch(() => ({})) as {
+          selection?: ProjectSelection;
+          seed?: number;
+          untilTick?: number;
+          maxEvents?: number;
+        };
+        const selection = body.selection ?? {};
+        const seed = body.seed ?? 0;
+        const untilTick = body.untilTick ?? null;
+        const maxEvents = body.maxEvents ?? null;
+        const started = await operationRegistry.start(projectDir, projectId, {
+          kind: "simulate",
+          selection,
+          seed,
+          untilTick,
+          maxEvents,
+        }, async ({ signal }) => {
+          signal.throwIfAborted();
+          const operation = await simulateProjectOperation(projectDir, selection, {
+            seed,
+            ...(untilTick === null ? {} : { untilTick }),
+            ...(maxEvents === null ? {} : { maxEvents }),
+          });
+          signal.throwIfAborted();
+          return {
+            result: operation,
+            artifacts: operation.artifacts.map((artifact) => ({
+              kind: "run" as const,
+              id: artifact.id,
+              path: artifact.path,
+              immutable: artifact.immutable,
+            })),
+          };
+        });
+        return Response.json(started, { status: started.reused ? 200 : 202 });
       }
 
       const experimentsMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/experiments$/);

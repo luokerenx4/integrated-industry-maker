@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { readdir, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import { listRuns } from "./artifacts";
@@ -17,6 +17,10 @@ import {
 } from "./candidate-review";
 import { projectEvidenceHashes } from "./execution-identity";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
+import { createJsonPatch } from "./blueprint-comparison";
+import { productionPlanSchema } from "./schema";
+import type { JsonPatchOperation } from "./artifacts";
+import type { ProductionPlan } from "./types";
 import {
   openProjectWorkbenchSnapshot,
   openRunProjectWorkbenchSnapshot,
@@ -29,9 +33,11 @@ import { compileFactoryProject } from "./compiler";
 import { atomicWriteJson, hashValue, pathExists, readJson, stableStringify } from "./utils";
 import {
   compareFactoryRuns,
+  compareProductionPlanSemantics,
   factoryRunComparisonEvidenceHash,
   RunComparisonError,
   type FactoryRunComparison,
+  type ProductionPlanSemanticChange,
 } from "./run-comparison";
 
 const idSchema = z.string().min(1).regex(/^[a-z0-9][a-z0-9-]*$/, "must use lowercase kebab-case");
@@ -56,6 +62,63 @@ const evidenceHashesSchema = z.object({
   scenarioHash: hashSchema,
   objectiveHash: hashSchema,
 }).strict();
+const jsonPatchOperationSchema = z.object({
+  op: z.enum(["add", "remove", "replace"]),
+  path: z.string(),
+  value: z.unknown().optional(),
+}).strict();
+const productionPlanRevisionSourceSchema = z.object({
+  kind: z.literal("investigation-hypothesis"),
+  project: idSchema,
+  investigation: idSchema,
+  manifestHash: hashSchema,
+  hypothesisEntry: idSchema,
+  hypothesisEntryHash: hashSchema,
+  statement: z.string().min(1),
+  expectedEffect: z.string().min(1),
+  evidence: z.array(idSchema),
+  control: z.object({
+    source: z.enum(["investigation-creation", "factory-observation", "run-comparison"]),
+    anchorId: idSchema,
+    runId: z.string().min(1),
+    resultHash: hashSchema,
+    seed: z.number().int(),
+    selection: selectionSchema,
+    hashes: evidenceHashesSchema,
+  }).strict(),
+}).strict();
+export const productionPlanRevisionSchema = z.object({
+  version: z.literal(1),
+  id: idSchema,
+  project: idSchema,
+  source: productionPlanRevisionSourceSchema,
+  base: z.object({
+    id: idSchema,
+    hash: hashSchema,
+    productionPlan: productionPlanSchema,
+  }).strict(),
+  result: z.object({
+    id: idSchema,
+    hash: hashSchema,
+    productionPlan: productionPlanSchema,
+  }).strict(),
+  patch: z.array(jsonPatchOperationSchema).min(1),
+  revisionHash: hashSchema,
+}).strict();
+export type ProductionPlanRevision = z.infer<typeof productionPlanRevisionSchema>;
+
+export interface InspectedProductionPlanRevision {
+  revision: ProductionPlanRevision;
+  path: string;
+  sourceEvidence: CandidateInvestigationSourceEvidence;
+  changes: ProductionPlanSemanticChange[];
+}
+
+export interface CreateInvestigationProductionPlanRevisionInput {
+  investigation: string;
+  hypothesisEntry: string;
+  productionPlan: ProductionPlan;
+}
 
 const operatingRunAnchorSchema = z.object({
   id: idSchema,
@@ -278,6 +341,8 @@ export type IndustrialInvestigationPhase =
   | "form-hypothesis"
   | "author-candidate"
   | "author-production-plan"
+  | "simulate-production-plan"
+  | "compare-production-plan"
   | "resume-project";
 
 export interface IndustrialInvestigationHandoff {
@@ -301,6 +366,23 @@ export interface IndustrialInvestigationHandoff {
     hypothesisEntryId: string;
     hypothesisEntryHash: string;
     requiredFields: Array<"production-plan-id" | "production-plan-file">;
+  };
+  productionPlanRevision: null | {
+    id: string;
+    revisionHash: string;
+    path: string;
+    base: { id: string; hash: string };
+    result: { id: string; hash: string };
+    controlRunId: string;
+    controlSeed: number;
+    selection: {
+      world: string;
+      blueprint: string;
+      productionPlan?: string;
+      scenario: string;
+      objective: string;
+    };
+    interventionRunId: string | null;
   };
   nextAction: WorkbenchNextAction;
 }
@@ -542,7 +624,11 @@ function sameRunComparisonDiagnostic(
 export async function resolveIndustrialInvestigationHypothesisSource(
   projectDir: string,
   source: InvestigationHypothesisCandidateSource,
-  expected?: { hypothesis: string; expectedEffect?: string },
+  expected?: {
+    hypothesis?: string;
+    expectedEffect?: string;
+    intervention?: "blueprint" | "production-plan";
+  },
 ): Promise<CandidateInvestigationSourceEvidence> {
   const manifest = await loadIndustrialInvestigationManifest(projectDir, source.investigation);
   if (manifest.project !== source.project) {
@@ -577,15 +663,18 @@ export async function resolveIndustrialInvestigationHypothesisSource(
       `Investigation entry '${source.entry}' is '${entry.kind}', not a hypothesis`,
     );
   }
-  if (entry.intervention === "production-plan") {
+  const expectedIntervention = expected?.intervention ?? "blueprint";
+  if ((entry.intervention ?? "blueprint") !== expectedIntervention) {
     throw new IndustrialInvestigationError(
-      "investigation.source-not-blueprint-hypothesis",
-      `Investigation hypothesis '${source.entry}' controls a Production Plan and cannot source a Blueprint Candidate`,
+      expectedIntervention === "blueprint"
+        ? "investigation.source-not-blueprint-hypothesis"
+        : "investigation.source-not-production-plan-hypothesis",
+      `Investigation hypothesis '${source.entry}' controls a ${(entry.intervention ?? "blueprint") === "blueprint" ? "Blueprint" : "Production Plan"}, not a ${expectedIntervention === "blueprint" ? "Blueprint" : "Production Plan"} intervention`,
     );
   }
   if (expected && (
-    expected.hypothesis.trim() !== entry.statement
-    || expected.expectedEffect?.trim() !== entry.expectedEffect
+    (expected.hypothesis !== undefined && expected.hypothesis.trim() !== entry.statement)
+    || (expected.expectedEffect !== undefined && expected.expectedEffect.trim() !== entry.expectedEffect)
   )) {
     throw new IndustrialInvestigationError(
       "investigation.source-text-mismatch",
@@ -718,6 +807,7 @@ export async function createInvestigationCandidate(
   const sourceEvidence = await resolveIndustrialInvestigationHypothesisSource(projectDir, source, {
     hypothesis: hypothesis.statement,
     expectedEffect: hypothesis.expectedEffect,
+    intervention: "blueprint",
   });
   const benchmark = await loadBlueprintBenchmark(projectDir, input.benchmark);
   const firstCase = benchmark.cases[0];
@@ -752,6 +842,380 @@ export async function createInvestigationCandidate(
   };
   const path = await writeCandidateChangeSet(projectDir, candidate);
   return { candidate, sourceEvidence, path };
+}
+
+function productionPlanRevisionDirectory(projectDir: string): string {
+  return join(resolve(projectDir), "production-plan-revisions");
+}
+
+function productionPlanRevisionPath(projectDir: string, revisionId: string): string {
+  if (!idSchema.safeParse(revisionId).success) {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.invalid-id",
+      "Production Plan revision id must use lowercase kebab-case",
+    );
+  }
+  return join(productionPlanRevisionDirectory(projectDir), `${revisionId}.revision.json`);
+}
+
+function productionPlanPath(projectDir: string, productionPlanId: string): string {
+  if (!idSchema.safeParse(productionPlanId).success) {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.invalid-plan-id",
+      "Production Plan id must use lowercase kebab-case",
+    );
+  }
+  return join(resolve(projectDir), "production-plans", `${productionPlanId}.production-plan.json`);
+}
+
+function productionPlanRevisionHashInput(
+  revision: Omit<ProductionPlanRevision, "revisionHash">,
+): unknown {
+  return revision;
+}
+
+async function loadProductionPlanRevision(
+  projectDir: string,
+  revisionId: string,
+): Promise<{ revision: ProductionPlanRevision; path: string }> {
+  const path = productionPlanRevisionPath(projectDir, revisionId);
+  const parsed = productionPlanRevisionSchema.safeParse(await readJson(path));
+  if (!parsed.success) {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.invalid",
+      `Invalid Production Plan revision '${revisionId}': ${parsed.error.issues.map((issue) =>
+        `${issue.path.join("/") || "root"} ${issue.message}`).join("; ")}`,
+    );
+  }
+  const revision = parsed.data;
+  const { revisionHash, ...withoutHash } = revision;
+  if (revision.id !== revisionId
+    || revision.result.id !== revisionId
+    || revision.result.productionPlan.id !== revisionId
+    || hashValue(productionPlanRevisionHashInput(withoutHash)) !== revisionHash) {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.identity-mismatch",
+      `Production Plan revision '${revisionId}' does not match its filename, plan id, or revision hash`,
+    );
+  }
+  return { revision, path };
+}
+
+function revisionSourceReference(revision: ProductionPlanRevision): InvestigationHypothesisCandidateSource {
+  return {
+    kind: "investigation-hypothesis",
+    project: revision.source.project,
+    investigation: revision.source.investigation,
+    manifestHash: revision.source.manifestHash,
+    entry: revision.source.hypothesisEntry,
+    entryHash: revision.source.hypothesisEntryHash,
+  };
+}
+
+export async function inspectProductionPlanRevision(
+  projectDir: string,
+  revisionId: string,
+): Promise<InspectedProductionPlanRevision> {
+  const { revision, path } = await loadProductionPlanRevision(projectDir, revisionId);
+  const sourceEvidence = await resolveIndustrialInvestigationHypothesisSource(
+    projectDir,
+    revisionSourceReference(revision),
+    {
+      hypothesis: revision.source.statement,
+      expectedEffect: revision.source.expectedEffect,
+      intervention: "production-plan",
+    },
+  );
+  const expectedSource = {
+    kind: "investigation-hypothesis" as const,
+    project: sourceEvidence.project,
+    investigation: sourceEvidence.investigation,
+    manifestHash: sourceEvidence.manifestHash,
+    hypothesisEntry: sourceEvidence.entry,
+    hypothesisEntryHash: sourceEvidence.entryHash,
+    statement: sourceEvidence.statement,
+    expectedEffect: sourceEvidence.expectedEffect,
+    evidence: sourceEvidence.evidence,
+    control: {
+      source: sourceEvidence.operatingContext.source,
+      anchorId: sourceEvidence.operatingContext.anchorId,
+      runId: sourceEvidence.operatingContext.run.id,
+      resultHash: sourceEvidence.operatingContext.run.resultHash,
+      seed: revision.source.control.seed,
+      selection: sourceEvidence.operatingContext.selection,
+      hashes: sourceEvidence.operatingContext.hashes,
+    },
+  };
+  if (stableStringify(revision.source) !== stableStringify(expectedSource)) {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.source-mismatch",
+      `Production Plan revision '${revisionId}' no longer matches its exact Investigation hypothesis and control context`,
+    );
+  }
+  const controlRun = (await listRuns(projectDir)).find((run) =>
+    run.name === revision.source.control.runId);
+  if (!controlRun
+    || controlRun.manifest.resultHash !== revision.source.control.resultHash
+    || controlRun.manifest.seed !== revision.source.control.seed
+    || stableStringify(controlRun.manifest.selection) !== stableStringify(revision.source.control.selection)
+    || stableStringify(controlRun.manifest.hashes) !== stableStringify(revision.source.control.hashes)) {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.control-run-invalid",
+      `Production Plan revision '${revisionId}' cannot re-verify control Run '${revision.source.control.runId}'`,
+    );
+  }
+  if (hashValue(revision.base.productionPlan) !== revision.base.hash
+    || revision.base.id !== revision.base.productionPlan.id
+    || hashValue(revision.result.productionPlan) !== revision.result.hash) {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.plan-hash-mismatch",
+      `Production Plan revision '${revisionId}' does not reproduce its retained base/result plan hashes`,
+    );
+  }
+  const expectedPatch = createJsonPatch(
+    revision.base.productionPlan,
+    revision.result.productionPlan,
+  );
+  if (stableStringify(expectedPatch) !== stableStringify(revision.patch)) {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.patch-mismatch",
+      `Production Plan revision '${revisionId}' patch does not reproduce its retained plan change`,
+    );
+  }
+  let currentPlan: ProductionPlan;
+  try {
+    currentPlan = productionPlanSchema.parse(
+      await readJson(productionPlanPath(projectDir, revision.result.id)),
+    ) as ProductionPlan;
+  } catch (error) {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.result-unavailable",
+      `Production Plan revision '${revisionId}' result file is unavailable or invalid: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (hashValue(currentPlan) !== revision.result.hash) {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.result-modified",
+      `Production Plan '${revision.result.id}' no longer matches revision '${revisionId}'`,
+    );
+  }
+  const loaded = await loadFactoryProject(projectDir, {
+    ...revision.source.control.selection,
+    productionPlan: revision.base.id,
+  });
+  compileFactoryProject({ ...loaded, productionPlan: revision.result.productionPlan });
+  return {
+    revision,
+    path,
+    sourceEvidence,
+    changes: compareProductionPlanSemantics(
+      revision.base.productionPlan,
+      revision.result.productionPlan,
+    ),
+  };
+}
+
+async function matchingProductionPlanRevision(
+  projectDir: string,
+  investigationId: string,
+  hypothesisEntryId: string,
+  hypothesisEntryHash: string,
+): Promise<InspectedProductionPlanRevision | null> {
+  let files: string[];
+  try {
+    files = (await readdir(productionPlanRevisionDirectory(projectDir)))
+      .filter((file) => /^[a-z0-9][a-z0-9-]*\.revision\.json$/.test(file))
+      .sort();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+  let matched: string | null = null;
+  for (const file of files) {
+    const id = file.slice(0, -".revision.json".length);
+    const value = await readJson(productionPlanRevisionPath(projectDir, id));
+    const source = value && typeof value === "object"
+      ? (value as { source?: Partial<ProductionPlanRevision["source"]> }).source
+      : undefined;
+    if (source?.investigation !== investigationId
+      || source.hypothesisEntry !== hypothesisEntryId
+      || source.hypothesisEntryHash !== hypothesisEntryHash) continue;
+    if (matched) {
+      throw new IndustrialInvestigationError(
+        "production-plan-revision.multiple-results",
+        `Investigation hypothesis '${hypothesisEntryId}' has multiple Production Plan revisions '${matched}' and '${id}'`,
+      );
+    }
+    matched = id;
+  }
+  return matched ? inspectProductionPlanRevision(projectDir, matched) : null;
+}
+
+export async function productionPlanRevisionDraft(
+  projectDir: string,
+  investigationId: string,
+): Promise<{
+  investigation: string;
+  hypothesisEntry: string;
+  hypothesisEntryHash: string;
+  statement: string;
+  expectedEffect: string;
+  controlRunId: string;
+  controlSeed: number;
+  baseProductionPlanHash: string;
+  productionPlan: ProductionPlan;
+}> {
+  const manifest = await loadIndustrialInvestigationManifest(projectDir, investigationId);
+  const entries = await listIndustrialInvestigationEntries(projectDir, investigationId);
+  const hypothesis = entries.at(-1);
+  if (!hypothesis || hypothesis.kind !== "hypothesis" || hypothesis.intervention !== "production-plan") {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.no-current-hypothesis",
+      `Investigation '${investigationId}' does not end at a Production Plan hypothesis`,
+    );
+  }
+  const sourceEvidence = await resolveIndustrialInvestigationHypothesisSource(projectDir, {
+    kind: "investigation-hypothesis",
+    project: manifest.project,
+    investigation: manifest.id,
+    manifestHash: manifest.manifestHash,
+    entry: hypothesis.id,
+    entryHash: hypothesis.entryHash,
+  }, {
+    hypothesis: hypothesis.statement,
+    expectedEffect: hypothesis.expectedEffect,
+    intervention: "production-plan",
+  });
+  if (sourceEvidence.state !== "current") {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.historical-source",
+      `Investigation hypothesis '${hypothesis.id}' is historical; capture the current factory before authoring a plan`,
+    );
+  }
+  const controlRun = (await listRuns(projectDir)).find((run) =>
+    run.name === sourceEvidence.operatingContext.run.id);
+  if (!controlRun || controlRun.manifest.resultHash !== sourceEvidence.operatingContext.run.resultHash) {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.control-run-invalid",
+      `Investigation hypothesis '${hypothesis.id}' cannot re-verify its control Run`,
+    );
+  }
+  const loaded = await loadFactoryProject(projectDir, sourceEvidence.operatingContext.selection);
+  return {
+    investigation: manifest.id,
+    hypothesisEntry: hypothesis.id,
+    hypothesisEntryHash: hypothesis.entryHash,
+    statement: hypothesis.statement,
+    expectedEffect: hypothesis.expectedEffect,
+    controlRunId: controlRun.name,
+    controlSeed: controlRun.manifest.seed,
+    baseProductionPlanHash: hashValue(loaded.productionPlan),
+    productionPlan: structuredClone(loaded.productionPlan),
+  };
+}
+
+export async function createInvestigationProductionPlanRevision(
+  projectDir: string,
+  input: CreateInvestigationProductionPlanRevisionInput,
+): Promise<InspectedProductionPlanRevision> {
+  const draft = await productionPlanRevisionDraft(projectDir, input.investigation);
+  if (input.hypothesisEntry !== draft.hypothesisEntry) {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.hypothesis-mismatch",
+      `Production Plan revision must answer current hypothesis '${draft.hypothesisEntry}', not '${input.hypothesisEntry}'`,
+    );
+  }
+  const proposed = productionPlanSchema.parse(input.productionPlan) as ProductionPlan;
+  if (proposed.id === draft.productionPlan.id) {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.base-id-reused",
+      `Production Plan revision must use a new id instead of replacing control plan '${draft.productionPlan.id}'`,
+    );
+  }
+  const planPath = productionPlanPath(projectDir, proposed.id);
+  const revisionPath = productionPlanRevisionPath(projectDir, proposed.id);
+  if (await pathExists(planPath) || await pathExists(revisionPath)) {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.already-exists",
+      `Production Plan or revision '${proposed.id}' already exists`,
+    );
+  }
+  const semanticChanges = compareProductionPlanSemantics(draft.productionPlan, proposed);
+  if (!semanticChanges.some((change) => change.kind !== "production-plan")) {
+    throw new IndustrialInvestigationError(
+      "production-plan-revision.no-schedule-change",
+      "A Production Plan revision must change at least one lot release or material delivery, not only id/name metadata",
+    );
+  }
+  const manifest = await loadIndustrialInvestigationManifest(projectDir, input.investigation);
+  const entries = await listIndustrialInvestigationEntries(projectDir, input.investigation);
+  const hypothesis = entries.at(-1)! as Extract<IndustrialInvestigationEntry, { kind: "hypothesis" }>;
+  const sourceEvidence = await resolveIndustrialInvestigationHypothesisSource(projectDir, {
+    kind: "investigation-hypothesis",
+    project: manifest.project,
+    investigation: manifest.id,
+    manifestHash: manifest.manifestHash,
+    entry: hypothesis.id,
+    entryHash: hypothesis.entryHash,
+  }, {
+    hypothesis: hypothesis.statement,
+    expectedEffect: hypothesis.expectedEffect,
+    intervention: "production-plan",
+  });
+  const controlRun = (await listRuns(projectDir)).find((run) => run.name === draft.controlRunId)!;
+  const loaded = await loadFactoryProject(projectDir, sourceEvidence.operatingContext.selection);
+  compileFactoryProject({ ...loaded, productionPlan: proposed });
+  const withoutHash: Omit<ProductionPlanRevision, "revisionHash"> = {
+    version: 1,
+    id: proposed.id,
+    project: manifest.project,
+    source: {
+      kind: "investigation-hypothesis",
+      project: manifest.project,
+      investigation: manifest.id,
+      manifestHash: manifest.manifestHash,
+      hypothesisEntry: hypothesis.id,
+      hypothesisEntryHash: hypothesis.entryHash,
+      statement: hypothesis.statement,
+      expectedEffect: hypothesis.expectedEffect,
+      evidence: [...hypothesis.evidence],
+      control: {
+        source: sourceEvidence.operatingContext.source,
+        anchorId: sourceEvidence.operatingContext.anchorId,
+        runId: controlRun.name,
+        resultHash: controlRun.manifest.resultHash,
+        seed: controlRun.manifest.seed,
+        selection: { ...controlRun.manifest.selection },
+        hashes: { ...controlRun.manifest.hashes },
+      },
+    },
+    base: {
+      id: loaded.productionPlan.id,
+      hash: hashValue(loaded.productionPlan),
+      productionPlan: structuredClone(loaded.productionPlan),
+    },
+    result: {
+      id: proposed.id,
+      hash: hashValue(proposed),
+      productionPlan: structuredClone(proposed),
+    },
+    patch: createJsonPatch(loaded.productionPlan, proposed) as JsonPatchOperation[],
+  };
+  const revision: ProductionPlanRevision = {
+    ...withoutHash,
+    revisionHash: hashValue(productionPlanRevisionHashInput(withoutHash)),
+  };
+  try {
+    await atomicWriteJson(planPath, proposed);
+    await atomicWriteJson(revisionPath, revision);
+  } catch (error) {
+    await Promise.all([
+      rm(planPath, { force: true }),
+      rm(revisionPath, { force: true }),
+    ]);
+    throw error;
+  }
+  return inspectProductionPlanRevision(projectDir, revision.id);
 }
 
 function recordedNextAction(action: WorkbenchNextAction): z.infer<typeof recordedNextActionSchema> {
@@ -1535,6 +1999,11 @@ export async function inspectIndustrialInvestigation(
       ? "current"
       : "historical";
   const state: InvestigationAnchorState = broken?.state ?? latestOperatingState ?? "invalid";
+  const latestEntry = entries.at(-1);
+  const productionPlanContinuation = latestEntry?.kind === "hypothesis"
+    && latestEntry.intervention === "production-plan"
+    ? await resolveProductionPlanContinuation(projectDir, manifest, latestEntry)
+    : null;
   const handoff = buildIndustrialInvestigationHandoff({
     projectDir,
     manifest,
@@ -1542,6 +2011,7 @@ export async function inspectIndustrialInvestigation(
     anchors,
     state,
     projectNextAction: snapshot.nextAction,
+    productionPlanContinuation,
   });
   return {
     manifest,
@@ -1554,6 +2024,49 @@ export async function inspectIndustrialInvestigation(
   };
 }
 
+interface ProductionPlanContinuation {
+  inspected: InspectedProductionPlanRevision | null;
+  interventionRunId: string | null;
+}
+
+async function resolveProductionPlanContinuation(
+  projectDir: string,
+  manifest: IndustrialInvestigationManifest,
+  hypothesis: Extract<IndustrialInvestigationEntry, { kind: "hypothesis" }>,
+): Promise<ProductionPlanContinuation> {
+  const inspected = await matchingProductionPlanRevision(
+    projectDir,
+    manifest.id,
+    hypothesis.id,
+    hypothesis.entryHash,
+  );
+  if (!inspected) return { inspected: null, interventionRunId: null };
+  const { revision } = inspected;
+  const runs = await listRuns(projectDir);
+  for (const run of [...runs].reverse()) {
+    if (run.manifest.seed !== revision.source.control.seed
+      || run.manifest.selection.productionPlan !== revision.result.id
+      || run.manifest.hashes.productionPlanHash !== revision.result.hash) continue;
+    try {
+      const comparison = await compareFactoryRuns(
+        projectDir,
+        revision.source.control.runId,
+        run.name,
+      );
+      if (comparison.intervention.kind === "production-plan"
+        && comparison.intervention.from.id === revision.base.id
+        && comparison.intervention.from.hash === revision.base.hash
+        && comparison.intervention.to.id === revision.result.id
+        && comparison.intervention.to.hash === revision.result.hash) {
+        return { inspected, interventionRunId: run.name };
+      }
+    } catch {
+      // A Run is continuation evidence only after the strict comparison reopens it.
+    }
+  }
+  return { inspected, interventionRunId: null };
+}
+
 function buildIndustrialInvestigationHandoff(input: {
   projectDir: string;
   manifest: IndustrialInvestigationManifest;
@@ -1561,6 +2074,7 @@ function buildIndustrialInvestigationHandoff(input: {
   anchors: InspectedInvestigationAnchor[];
   state: InvestigationAnchorState;
   projectNextAction: WorkbenchNextAction;
+  productionPlanContinuation: ProductionPlanContinuation | null;
 }): IndustrialInvestigationHandoff {
   const latest = input.entries.at(-1) ?? null;
   const sourceEntry = latest
@@ -1576,7 +2090,8 @@ function buildIndustrialInvestigationHandoff(input: {
     : input.anchors
       .filter((item) => item.state === "current")
       .map((item) => item.anchor.id);
-  const route = `/${input.manifest.project}/investigations/${input.manifest.id}#investigation-authoring`;
+  const investigationRoute = `/${input.manifest.project}/investigations/${input.manifest.id}`;
+  const route = `${investigationRoute}#investigation-authoring`;
   const inspectArgv = [
     "inm",
     "investigate",
@@ -1590,16 +2105,21 @@ function buildIndustrialInvestigationHandoff(input: {
     title: string,
     reason: string,
     actionLabel: string,
+    options: {
+      argv?: string[];
+      studioRoute?: string;
+      effect?: WorkbenchNextAction["effect"];
+    } = {},
   ): WorkbenchNextAction => ({
     id: `investigation.${phase}:${input.manifest.id}:${latest?.entryHash.slice(0, 12) ?? input.manifest.manifestHash.slice(0, 12)}`,
     tone: phase === "repair-evidence" ? "blocking" : phase === "observe-current-factory" ? "evidence" : "attention",
     title,
     reason,
     actionLabel,
-    effect: "read-only",
+    effect: options.effect ?? "read-only",
     requiresConfirmation: false,
-    argv: inspectArgv,
-    studioRoute: route,
+    argv: options.argv ?? inspectArgv,
+    studioRoute: options.studioRoute ?? route,
     target: {
       kind: "investigation",
       investigationId: input.manifest.id,
@@ -1622,6 +2142,7 @@ function buildIndustrialInvestigationHandoff(input: {
       sourceEntry,
       evidenceIds,
       authorship: null,
+      productionPlanRevision: null,
       nextAction,
     };
   }
@@ -1646,6 +2167,7 @@ function buildIndustrialInvestigationHandoff(input: {
         entryKind: "observation",
         requiredFields: ["entry-id", "author", "statement"],
       },
+      productionPlanRevision: null,
       nextAction,
     };
   }
@@ -1666,16 +2188,106 @@ function buildIndustrialInvestigationHandoff(input: {
         entryKind: "hypothesis",
         requiredFields: ["entry-id", "author", "statement", "intervention", "expected-effect"],
       },
+      productionPlanRevision: null,
       nextAction,
     };
   }
 
   if (latest.kind === "hypothesis") {
     if (latest.intervention === "production-plan") {
+      const continuation = input.productionPlanContinuation;
+      const inspected = continuation?.inspected ?? null;
+      const revisionSummary = inspected ? {
+        id: inspected.revision.id,
+        revisionHash: inspected.revision.revisionHash,
+        path: inspected.path,
+        base: {
+          id: inspected.revision.base.id,
+          hash: inspected.revision.base.hash,
+        },
+        result: {
+          id: inspected.revision.result.id,
+          hash: inspected.revision.result.hash,
+        },
+        controlRunId: inspected.revision.source.control.runId,
+        controlSeed: inspected.revision.source.control.seed,
+        selection: { ...inspected.revision.source.control.selection },
+        interventionRunId: continuation?.interventionRunId ?? null,
+      } : null;
+      if (inspected && continuation?.interventionRunId) {
+        const comparisonRoute = `/${encodeURIComponent(input.manifest.project)}/runs?from=${encodeURIComponent(inspected.revision.source.control.runId)}&to=${encodeURIComponent(continuation.interventionRunId)}&investigation=${encodeURIComponent(input.manifest.id)}`;
+        const nextAction = action(
+          "compare-production-plan",
+          `Compare Production Plan '${inspected.revision.result.id}' with its exact control`,
+          `Run '${continuation.interventionRunId}' re-verifies revision ${inspected.revision.revisionHash.slice(0, 12)} against control Run '${inspected.revision.source.control.runId}'. Inspect the quantitative and visual tradeoffs, then append an authored observation and decision.`,
+          "REVIEW EXACT COMPARISON",
+          {
+            argv: [
+              "inm",
+              "compare",
+              resolve(input.projectDir),
+              "--from-run",
+              inspected.revision.source.control.runId,
+              "--to-run",
+              continuation.interventionRunId,
+              "--json",
+            ],
+            studioRoute: comparisonRoute,
+          },
+        );
+        return {
+          phase: "compare-production-plan",
+          sourceEntry,
+          evidenceIds,
+          authorship: null,
+          productionPlanRevision: revisionSummary,
+          nextAction,
+        };
+      }
+      if (inspected) {
+        const selection = inspected.revision.source.control.selection;
+        const simulationArgv = [
+          "inm",
+          "simulate",
+          resolve(input.projectDir),
+          "--world",
+          selection.world,
+          "--blueprint",
+          selection.blueprint,
+          "--production-plan",
+          inspected.revision.result.id,
+          "--scenario",
+          selection.scenario,
+          "--objective",
+          selection.objective,
+          "--seed",
+          String(inspected.revision.source.control.seed),
+          "--json",
+        ];
+        const nextAction = action(
+          "simulate-production-plan",
+          `Simulate Production Plan '${inspected.revision.result.id}'`,
+          `Revision ${inspected.revision.revisionHash.slice(0, 12)} exactly answers hypothesis '${latest.id}' and preserves control Run '${inspected.revision.source.control.runId}'. Execute the separately selected plan; INM will discover only a complete comparable immutable Run.`,
+          "RUN AUTHORED PLAN",
+          {
+            argv: simulationArgv,
+            studioRoute: `${investigationRoute}#production-plan-session`,
+            effect: "creates-artifact",
+          },
+        );
+        return {
+          phase: "simulate-production-plan",
+          sourceEntry,
+          evidenceIds,
+          authorship: null,
+          productionPlanRevision: revisionSummary,
+          nextAction,
+        };
+      }
       const nextAction = action(
         "author-production-plan",
         `Author a Production Plan for hypothesis ${String(latest.sequence).padStart(4, "0")}`,
-        `Hypothesis '${latest.id}' is current and pinned by ${latest.entryHash.slice(0, 12)}. Author one new self-contained Production Plan without replacing the project default, simulate it through an explicit selection, and compare its immutable Run with the cited control.`,
+        `Hypothesis '${latest.id}' is current and pinned by ${latest.entryHash.slice(0, 12)}. Author one new self-contained Production Plan revision; Core will retain the exact hypothesis, control Run, complete before/after plans, hashes, and derived patch without replacing the project default.`,
         "AUTHOR PRODUCTION PLAN",
       );
       return {
@@ -1688,6 +2300,7 @@ function buildIndustrialInvestigationHandoff(input: {
           hypothesisEntryHash: latest.entryHash,
           requiredFields: ["production-plan-id", "production-plan-file"],
         },
+        productionPlanRevision: null,
         nextAction,
       };
     }
@@ -1707,6 +2320,7 @@ function buildIndustrialInvestigationHandoff(input: {
         hypothesisEntryHash: latest.entryHash,
         requiredFields: ["candidate-id", "candidate-name", "benchmark", "patch-file"],
       },
+      productionPlanRevision: null,
       nextAction,
     };
   }
@@ -1716,6 +2330,7 @@ function buildIndustrialInvestigationHandoff(input: {
     sourceEntry,
     evidenceIds,
     authorship: null,
+    productionPlanRevision: null,
     nextAction: input.projectNextAction,
   };
 }

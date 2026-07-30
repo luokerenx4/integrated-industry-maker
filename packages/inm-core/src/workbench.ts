@@ -122,7 +122,9 @@ export type WorkbenchNextActionTarget =
       | "observe-current-factory"
       | "form-hypothesis"
       | "author-candidate"
-      | "author-production-plan";
+      | "author-production-plan"
+      | "simulate-production-plan"
+      | "compare-production-plan";
     sourceEntryId: string | null;
   }
   | { kind: "design-program"; programId: string; diagnosticId: string }

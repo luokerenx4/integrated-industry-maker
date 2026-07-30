@@ -1,11 +1,19 @@
 import type { BlueprintBenchmarkProgress } from "./benchmark";
 import type { DesignRunProgress } from "./design-run";
+import type { ProjectSelection } from "./loader";
 
-export type OperationExecutionKind = "benchmark" | "candidate-preview" | "candidate-apply" | "design-run" | "design-continue";
+export type OperationExecutionKind = "simulate" | "benchmark" | "candidate-preview" | "candidate-apply" | "design-run" | "design-continue";
 export type OperationExecutionStatus = "queued" | "running" | "completed" | "failed" | "cancelled" | "interrupted";
 export type OperationExecutionProgress = BlueprintBenchmarkProgress | DesignRunProgress;
 
 export type OperationExecutionSubject =
+  | {
+    kind: "simulate";
+    selection: ProjectSelection;
+    seed: number;
+    untilTick: number | null;
+    maxEvents: number | null;
+  }
   | { kind: "benchmark"; benchmarkId: string }
   | { kind: "candidate-preview"; benchmarkId: string; candidateId: string }
   | { kind: "candidate-apply"; benchmarkId: string; candidateId: string }

@@ -1,0 +1,17 @@
+{
+  "author": "agent",
+  "disposition": "discard",
+  "entryHash": "2d4d0d6602050d47f19858c6e46fcac2b24cd357be7db5c7e0f1e2989e7477ea",
+  "evidence": [
+    "five-second-cadence-run-comparison",
+    "post-plan-discard-current-factory"
+  ],
+  "id": "discard-five-second-cadence",
+  "introducedAnchors": [],
+  "investigation": "back-end-wip-next-step",
+  "kind": "decision",
+  "previousEntryHash": "0f4371bd89ff47295cdd24a7d86dcc6a9eee43d8868748d8f78a347a28905872",
+  "sequence": 9,
+  "statement": "Discard this Production Plan alternative. It preserves the complete twelve-lot production intent, so it is a valid comparison, but earlier arrival cannot overcome the fixed burn-in horizon and instead lengthens admission/queue exposure. Keep the six-second production-window plan as the selected default and treat simple release compression as bounded negative evidence; a subsequent intervention must change the back-end service boundary or intentionally reshape cadence rather than merely advance every release.",
+  "version": 1
+}

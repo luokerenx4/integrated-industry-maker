@@ -1,0 +1,599 @@
+{
+  "base": {
+    "hash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+    "id": "production-window",
+    "productionPlan": {
+      "id": "production-window",
+      "lotReleases": [
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 240000,
+          "id": "dram-lot-01",
+          "priority": 1,
+          "releaseTick": 0,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 230000,
+          "id": "dram-lot-02",
+          "priority": 1,
+          "releaseTick": 6000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 220000,
+          "id": "dram-lot-03",
+          "priority": 1,
+          "releaseTick": 12000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 210000,
+          "id": "dram-lot-04",
+          "priority": 1,
+          "releaseTick": 18000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 200000,
+          "id": "dram-lot-05",
+          "priority": 1,
+          "releaseTick": 24000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 190000,
+          "id": "dram-lot-06",
+          "priority": 1,
+          "releaseTick": 30000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 180000,
+          "id": "dram-lot-07",
+          "priority": 5,
+          "releaseTick": 36000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 170000,
+          "id": "dram-lot-08",
+          "priority": 5,
+          "releaseTick": 42000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 160000,
+          "id": "dram-lot-09",
+          "priority": 5,
+          "releaseTick": 48000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 150000,
+          "id": "dram-lot-10",
+          "priority": 10,
+          "releaseTick": 54000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 140000,
+          "id": "dram-lot-11",
+          "priority": 10,
+          "releaseTick": 60000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 130000,
+          "id": "dram-lot-12",
+          "priority": 10,
+          "releaseTick": 66000,
+          "resource": "blank-dram-wafer-lot"
+        }
+      ],
+      "materialDeliveries": [
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-01",
+          "releaseTick": 0,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-02",
+          "releaseTick": 6000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-03",
+          "releaseTick": 12000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-04",
+          "releaseTick": 18000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-05",
+          "releaseTick": 24000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-06",
+          "releaseTick": 30000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-07",
+          "releaseTick": 36000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-08",
+          "releaseTick": 42000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-09",
+          "releaseTick": 48000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-10",
+          "releaseTick": 54000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-11",
+          "releaseTick": 60000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-12",
+          "releaseTick": 66000,
+          "resource": "dram-package-substrate"
+        }
+      ],
+      "name": "Four-minute mixed-quality DRAM production window production plan",
+      "version": 1
+    }
+  },
+  "id": "twelve-lot-five-second-cadence",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/id",
+      "value": "twelve-lot-five-second-cadence"
+    },
+    {
+      "op": "replace",
+      "path": "/lotReleases/1/releaseTick",
+      "value": 5000
+    },
+    {
+      "op": "replace",
+      "path": "/lotReleases/2/releaseTick",
+      "value": 10000
+    },
+    {
+      "op": "replace",
+      "path": "/lotReleases/3/releaseTick",
+      "value": 15000
+    },
+    {
+      "op": "replace",
+      "path": "/lotReleases/4/releaseTick",
+      "value": 20000
+    },
+    {
+      "op": "replace",
+      "path": "/lotReleases/5/releaseTick",
+      "value": 25000
+    },
+    {
+      "op": "replace",
+      "path": "/lotReleases/6/releaseTick",
+      "value": 30000
+    },
+    {
+      "op": "replace",
+      "path": "/lotReleases/7/releaseTick",
+      "value": 35000
+    },
+    {
+      "op": "replace",
+      "path": "/lotReleases/8/releaseTick",
+      "value": 40000
+    },
+    {
+      "op": "replace",
+      "path": "/lotReleases/9/releaseTick",
+      "value": 45000
+    },
+    {
+      "op": "replace",
+      "path": "/lotReleases/10/releaseTick",
+      "value": 50000
+    },
+    {
+      "op": "replace",
+      "path": "/lotReleases/11/releaseTick",
+      "value": 55000
+    },
+    {
+      "op": "replace",
+      "path": "/materialDeliveries/1/releaseTick",
+      "value": 5000
+    },
+    {
+      "op": "replace",
+      "path": "/materialDeliveries/2/releaseTick",
+      "value": 10000
+    },
+    {
+      "op": "replace",
+      "path": "/materialDeliveries/3/releaseTick",
+      "value": 15000
+    },
+    {
+      "op": "replace",
+      "path": "/materialDeliveries/4/releaseTick",
+      "value": 20000
+    },
+    {
+      "op": "replace",
+      "path": "/materialDeliveries/5/releaseTick",
+      "value": 25000
+    },
+    {
+      "op": "replace",
+      "path": "/materialDeliveries/6/releaseTick",
+      "value": 30000
+    },
+    {
+      "op": "replace",
+      "path": "/materialDeliveries/7/releaseTick",
+      "value": 35000
+    },
+    {
+      "op": "replace",
+      "path": "/materialDeliveries/8/releaseTick",
+      "value": 40000
+    },
+    {
+      "op": "replace",
+      "path": "/materialDeliveries/9/releaseTick",
+      "value": 45000
+    },
+    {
+      "op": "replace",
+      "path": "/materialDeliveries/10/releaseTick",
+      "value": 50000
+    },
+    {
+      "op": "replace",
+      "path": "/materialDeliveries/11/releaseTick",
+      "value": 55000
+    },
+    {
+      "op": "replace",
+      "path": "/name",
+      "value": "Twelve-lot five-second wafer and substrate cadence"
+    }
+  ],
+  "project": "memory-fab",
+  "result": {
+    "hash": "1c3596b70dda2f8c7e55d05cee29066d972dd79cd5817aca441247eb6ac95fa9",
+    "id": "twelve-lot-five-second-cadence",
+    "productionPlan": {
+      "id": "twelve-lot-five-second-cadence",
+      "lotReleases": [
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 240000,
+          "id": "dram-lot-01",
+          "priority": 1,
+          "releaseTick": 0,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 230000,
+          "id": "dram-lot-02",
+          "priority": 1,
+          "releaseTick": 5000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 220000,
+          "id": "dram-lot-03",
+          "priority": 1,
+          "releaseTick": 10000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 210000,
+          "id": "dram-lot-04",
+          "priority": 1,
+          "releaseTick": 15000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 200000,
+          "id": "dram-lot-05",
+          "priority": 1,
+          "releaseTick": 20000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 190000,
+          "id": "dram-lot-06",
+          "priority": 1,
+          "releaseTick": 25000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 180000,
+          "id": "dram-lot-07",
+          "priority": 5,
+          "releaseTick": 30000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 170000,
+          "id": "dram-lot-08",
+          "priority": 5,
+          "releaseTick": 35000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 160000,
+          "id": "dram-lot-09",
+          "priority": 5,
+          "releaseTick": 40000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 150000,
+          "id": "dram-lot-10",
+          "priority": 10,
+          "releaseTick": 45000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 140000,
+          "id": "dram-lot-11",
+          "priority": 10,
+          "releaseTick": 50000,
+          "resource": "blank-dram-wafer-lot"
+        },
+        {
+          "buffer": "storage",
+          "device": "lot-release",
+          "dueTick": 130000,
+          "id": "dram-lot-12",
+          "priority": 10,
+          "releaseTick": 55000,
+          "resource": "blank-dram-wafer-lot"
+        }
+      ],
+      "materialDeliveries": [
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-01",
+          "releaseTick": 0,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-02",
+          "releaseTick": 5000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-03",
+          "releaseTick": 10000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-04",
+          "releaseTick": 15000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-05",
+          "releaseTick": 20000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-06",
+          "releaseTick": 25000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-07",
+          "releaseTick": 30000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-08",
+          "releaseTick": 35000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-09",
+          "releaseTick": 40000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-10",
+          "releaseTick": 45000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-11",
+          "releaseTick": 50000,
+          "resource": "dram-package-substrate"
+        },
+        {
+          "buffer": "storage",
+          "count": 8,
+          "device": "substrate-receiving",
+          "id": "substrate-delivery-12",
+          "releaseTick": 55000,
+          "resource": "dram-package-substrate"
+        }
+      ],
+      "name": "Twelve-lot five-second wafer and substrate cadence",
+      "version": 1
+    }
+  },
+  "revisionHash": "409a4a81fb3e2d311024461d9d6057434b2eef7d0bb0ba4be42ef7c087d155e7",
+  "source": {
+    "control": {
+      "anchorId": "post-plan-discard-current-factory",
+      "hashes": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "engineVersion": "inm-sim/0.91.0",
+        "executionHash": "41df7ec6c0428da47d1a30d0e9d00d7b68f849e6df639a540806d4821b3d9fd6",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "resultHash": "60df0d91986f0cd609845cf6566df2990ce5a9e4601f5d7c1ddce85d6bec7d31",
+      "runId": "102-simulate",
+      "seed": 42,
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "source": "factory-observation"
+    },
+    "evidence": [
+      "eleven-lot-burn-in-horizon-comparison",
+      "post-plan-discard-current-factory"
+    ],
+    "expectedEffect": "Make the complete twelve-lot front-end and packaging supply available eleven seconds earlier, increasing the chance that the twelfth fixed-eight burn-in batch completes inside the 240-second horizon without reducing scheduled, released, completed, on-time, or packaged output; if burn-in remains the binding batch boundary, delivered output will stay flat and earlier release may only increase WIP.",
+    "hypothesisEntry": "compress-twelve-lot-cadence",
+    "hypothesisEntryHash": "a85760a31c6928ddcefcd1ce41f998aa6a51ab9558ef7eaf5fd27cc0373fe9dd",
+    "investigation": "back-end-wip-next-step",
+    "kind": "investigation-hypothesis",
+    "manifestHash": "2c6b35787525f9f98310b4a059218fd29f483154adcc9a166b334b08a417951c",
+    "project": "memory-fab",
+    "statement": "Compress all twelve wafer-lot releases and all twelve substrate deliveries from six-second to five-second cadence without removing planned memory production."
+  },
+  "version": 1
+}

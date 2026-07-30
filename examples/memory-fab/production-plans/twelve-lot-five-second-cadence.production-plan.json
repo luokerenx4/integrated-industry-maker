@@ -1,0 +1,213 @@
+{
+  "id": "twelve-lot-five-second-cadence",
+  "lotReleases": [
+    {
+      "buffer": "storage",
+      "device": "lot-release",
+      "dueTick": 240000,
+      "id": "dram-lot-01",
+      "priority": 1,
+      "releaseTick": 0,
+      "resource": "blank-dram-wafer-lot"
+    },
+    {
+      "buffer": "storage",
+      "device": "lot-release",
+      "dueTick": 230000,
+      "id": "dram-lot-02",
+      "priority": 1,
+      "releaseTick": 5000,
+      "resource": "blank-dram-wafer-lot"
+    },
+    {
+      "buffer": "storage",
+      "device": "lot-release",
+      "dueTick": 220000,
+      "id": "dram-lot-03",
+      "priority": 1,
+      "releaseTick": 10000,
+      "resource": "blank-dram-wafer-lot"
+    },
+    {
+      "buffer": "storage",
+      "device": "lot-release",
+      "dueTick": 210000,
+      "id": "dram-lot-04",
+      "priority": 1,
+      "releaseTick": 15000,
+      "resource": "blank-dram-wafer-lot"
+    },
+    {
+      "buffer": "storage",
+      "device": "lot-release",
+      "dueTick": 200000,
+      "id": "dram-lot-05",
+      "priority": 1,
+      "releaseTick": 20000,
+      "resource": "blank-dram-wafer-lot"
+    },
+    {
+      "buffer": "storage",
+      "device": "lot-release",
+      "dueTick": 190000,
+      "id": "dram-lot-06",
+      "priority": 1,
+      "releaseTick": 25000,
+      "resource": "blank-dram-wafer-lot"
+    },
+    {
+      "buffer": "storage",
+      "device": "lot-release",
+      "dueTick": 180000,
+      "id": "dram-lot-07",
+      "priority": 5,
+      "releaseTick": 30000,
+      "resource": "blank-dram-wafer-lot"
+    },
+    {
+      "buffer": "storage",
+      "device": "lot-release",
+      "dueTick": 170000,
+      "id": "dram-lot-08",
+      "priority": 5,
+      "releaseTick": 35000,
+      "resource": "blank-dram-wafer-lot"
+    },
+    {
+      "buffer": "storage",
+      "device": "lot-release",
+      "dueTick": 160000,
+      "id": "dram-lot-09",
+      "priority": 5,
+      "releaseTick": 40000,
+      "resource": "blank-dram-wafer-lot"
+    },
+    {
+      "buffer": "storage",
+      "device": "lot-release",
+      "dueTick": 150000,
+      "id": "dram-lot-10",
+      "priority": 10,
+      "releaseTick": 45000,
+      "resource": "blank-dram-wafer-lot"
+    },
+    {
+      "buffer": "storage",
+      "device": "lot-release",
+      "dueTick": 140000,
+      "id": "dram-lot-11",
+      "priority": 10,
+      "releaseTick": 50000,
+      "resource": "blank-dram-wafer-lot"
+    },
+    {
+      "buffer": "storage",
+      "device": "lot-release",
+      "dueTick": 130000,
+      "id": "dram-lot-12",
+      "priority": 10,
+      "releaseTick": 55000,
+      "resource": "blank-dram-wafer-lot"
+    }
+  ],
+  "materialDeliveries": [
+    {
+      "buffer": "storage",
+      "count": 8,
+      "device": "substrate-receiving",
+      "id": "substrate-delivery-01",
+      "releaseTick": 0,
+      "resource": "dram-package-substrate"
+    },
+    {
+      "buffer": "storage",
+      "count": 8,
+      "device": "substrate-receiving",
+      "id": "substrate-delivery-02",
+      "releaseTick": 5000,
+      "resource": "dram-package-substrate"
+    },
+    {
+      "buffer": "storage",
+      "count": 8,
+      "device": "substrate-receiving",
+      "id": "substrate-delivery-03",
+      "releaseTick": 10000,
+      "resource": "dram-package-substrate"
+    },
+    {
+      "buffer": "storage",
+      "count": 8,
+      "device": "substrate-receiving",
+      "id": "substrate-delivery-04",
+      "releaseTick": 15000,
+      "resource": "dram-package-substrate"
+    },
+    {
+      "buffer": "storage",
+      "count": 8,
+      "device": "substrate-receiving",
+      "id": "substrate-delivery-05",
+      "releaseTick": 20000,
+      "resource": "dram-package-substrate"
+    },
+    {
+      "buffer": "storage",
+      "count": 8,
+      "device": "substrate-receiving",
+      "id": "substrate-delivery-06",
+      "releaseTick": 25000,
+      "resource": "dram-package-substrate"
+    },
+    {
+      "buffer": "storage",
+      "count": 8,
+      "device": "substrate-receiving",
+      "id": "substrate-delivery-07",
+      "releaseTick": 30000,
+      "resource": "dram-package-substrate"
+    },
+    {
+      "buffer": "storage",
+      "count": 8,
+      "device": "substrate-receiving",
+      "id": "substrate-delivery-08",
+      "releaseTick": 35000,
+      "resource": "dram-package-substrate"
+    },
+    {
+      "buffer": "storage",
+      "count": 8,
+      "device": "substrate-receiving",
+      "id": "substrate-delivery-09",
+      "releaseTick": 40000,
+      "resource": "dram-package-substrate"
+    },
+    {
+      "buffer": "storage",
+      "count": 8,
+      "device": "substrate-receiving",
+      "id": "substrate-delivery-10",
+      "releaseTick": 45000,
+      "resource": "dram-package-substrate"
+    },
+    {
+      "buffer": "storage",
+      "count": 8,
+      "device": "substrate-receiving",
+      "id": "substrate-delivery-11",
+      "releaseTick": 50000,
+      "resource": "dram-package-substrate"
+    },
+    {
+      "buffer": "storage",
+      "count": 8,
+      "device": "substrate-receiving",
+      "id": "substrate-delivery-12",
+      "releaseTick": 55000,
+      "resource": "dram-package-substrate"
+    }
+  ],
+  "name": "Twelve-lot five-second wafer and substrate cadence",
+  "version": 1
+}

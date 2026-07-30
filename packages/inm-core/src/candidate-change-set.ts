@@ -271,6 +271,7 @@ export async function resolveCandidateInvestigationSource(
     return await resolveIndustrialInvestigationHypothesisSource(projectDir, candidate.source, {
       hypothesis: candidate.hypothesis,
       expectedEffect: candidate.expectedEffect,
+      intervention: "blueprint",
     });
   } catch (error) {
     if (error instanceof CandidateChangeSetError) throw error;

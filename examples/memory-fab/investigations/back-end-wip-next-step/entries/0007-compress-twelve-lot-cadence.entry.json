@@ -1,0 +1,18 @@
+{
+  "author": "agent",
+  "entryHash": "a85760a31c6928ddcefcd1ce41f998aa6a51ab9558ef7eaf5fd27cc0373fe9dd",
+  "evidence": [
+    "eleven-lot-burn-in-horizon-comparison",
+    "post-plan-discard-current-factory"
+  ],
+  "expectedEffect": "Make the complete twelve-lot front-end and packaging supply available eleven seconds earlier, increasing the chance that the twelfth fixed-eight burn-in batch completes inside the 240-second horizon without reducing scheduled, released, completed, on-time, or packaged output; if burn-in remains the binding batch boundary, delivered output will stay flat and earlier release may only increase WIP.",
+  "id": "compress-twelve-lot-cadence",
+  "intervention": "production-plan",
+  "introducedAnchors": [],
+  "investigation": "back-end-wip-next-step",
+  "kind": "hypothesis",
+  "previousEntryHash": "59d919b017a8e2979250b85e3783f5e2b2d2e226ed290e929fcb9509589ebe50",
+  "sequence": 7,
+  "statement": "Compress all twelve wafer-lot releases and all twelve substrate deliveries from six-second to five-second cadence without removing planned memory production.",
+  "version": 1
+}

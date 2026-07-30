@@ -1,0 +1,74 @@
+{
+  "author": "agent",
+  "entryHash": "ebaad5d4fcab7aa63e090b00dbb40e8f3007fcac904fb960c4ff7c11a1263b5b",
+  "evidence": [
+    "five-second-cadence-run-comparison",
+    "post-plan-discard-current-factory",
+    "post-cadence-discard-current-factory"
+  ],
+  "id": "resume-after-cadence-discard",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:inspection-1+connection:etch-to-inspection+device:etch-l2+connection:rework-to-inspection+device:rework-1:0c176b6503",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:inspection-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 102-simulate (signal 0.2090). 9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "inspection-1",
+            "kind": "device"
+          },
+          {
+            "id": "etch-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "etch-l2",
+            "kind": "device"
+          },
+          {
+            "id": "rework-to-inspection",
+            "kind": "connection"
+          },
+          {
+            "id": "rework-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/10 active flow Devices accumulated 244.0 explicit material-shortage device-s inside 1167.8 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1120.2 of 1364.2 flow input-wait device-s remained outside ranked shortage intervals, with 232.0 additional exception-only device-s excluded from ranking."
+      },
+      "hashes": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "engineVersion": "inm-sim/0.91.0",
+        "executionHash": "41df7ec6c0428da47d1a30d0e9d00d7b68f849e6df639a540806d4821b3d9fd6",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "post-cadence-discard-current-factory",
+      "kind": "factory-observation",
+      "resultHash": "60df0d91986f0cd609845cf6566df2990ce5a9e4601f5d7c1ddce85d6bec7d31",
+      "runId": "102-simulate",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      }
+    }
+  ],
+  "investigation": "back-end-wip-next-step",
+  "kind": "observation",
+  "previousEntryHash": "2d4d0d6602050d47f19858c6e46fcac2b24cd357be7db5c7e0f1e2989e7477ea",
+  "sequence": 10,
+  "statement": "After discarding simple cadence compression, the selected factory remains the twelve-lot six-second production-window plan at compatible Run 102. Continue from this exact current checkpoint; the retained boundary now excludes both deleting planned lots and uniformly advancing all releases as useful ways to improve the fixed burn-in horizon.",
+  "version": 1
+}
