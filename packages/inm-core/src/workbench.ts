@@ -337,6 +337,7 @@ export interface ProjectWorkbenchSnapshot {
       proposedCandidateHash?: string;
       verdict?: "KEEP" | "DISCARD" | "UNCHANGED";
       resultHash?: string;
+      error?: { code: string; message: string };
     };
   }>;
   diagnostics: WorkbenchDiagnostic[];
@@ -1095,6 +1096,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
         ...(decision.proposedCandidateHash ? { proposedCandidateHash: decision.proposedCandidateHash } : {}),
         ...(decision.verdict ? { verdict: decision.verdict } : {}),
         ...(decision.resultHash ? { resultHash: decision.resultHash } : {}),
+        ...(decision.error ? { error: { ...decision.error } } : {}),
       },
     };
   });

@@ -1,0 +1,30 @@
+{
+  "author": "agent",
+  "disposition": "discard",
+  "entryHash": "a6d165f99d4f6c11d5daa03149cd4aa61834d2b9746507570558ab7f1242d82d",
+  "evidence": [
+    "diagnostic",
+    "design-lineage",
+    "metrology-standby-review"
+  ],
+  "id": "metrology-standby-rejected",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "metrology-low-power-standby",
+      "currentCandidateHash": "8281c50706c578b823b7d8cc3f5d4f94cef230fefbee210c8a3756a6a9a9563a",
+      "id": "metrology-standby-review",
+      "kind": "candidate-review",
+      "proposalHash": "0a666ec26a4a6e2d6955b6eaa9a5ffb76625fb4e67f26b32e55e6a4e9082869e",
+      "proposedCandidateHash": "270521ff24a6a0625431e27a5f564ca2e1b2b81a6208fe2644cf979acdc0e150",
+      "reviewResultHash": "816f065fd250ddfe40fba4b65b0821be458cf97223309b3564240912651bf7f0",
+      "verdict": "DISCARD"
+    }
+  ],
+  "investigation": "inspection-starvation-next-step",
+  "kind": "decision",
+  "previousEntryHash": "fe0a8d067272f1edbb7a76e27dc86c24a877b44fa0a6fb32860c3967dd2d2ceb",
+  "sequence": 3,
+  "statement": "Discard the ten-second low-power metrology Candidate: it preserves a small energy benefit but introduces constraint penalties in every current-factory case and reduces facility-interruption on-time lots from nine to seven.",
+  "version": 1
+}

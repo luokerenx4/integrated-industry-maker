@@ -2,6 +2,11 @@ import { readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import { listRuns } from "./artifacts";
+import { loadCandidateChangeSet } from "./candidate-change-set";
+import {
+  inspectCandidateDecision,
+  loadCandidateReviewReceipt,
+} from "./candidate-review";
 import { projectEvidenceHashes } from "./execution-identity";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
 import {
@@ -36,14 +41,14 @@ const evidenceHashesSchema = z.object({
 }).strict();
 
 const operatingRunAnchorSchema = z.object({
-  id: z.literal("operating-run"),
+  id: idSchema,
   kind: z.literal("operating-run"),
   runId: z.string().min(1),
   resultHash: hashSchema,
 }).strict();
 
 const diagnosticAnchorSchema = z.object({
-  id: z.literal("diagnostic"),
+  id: idSchema,
   kind: z.literal("diagnostic"),
   diagnosticId: z.string().min(1),
   code: z.string().min(1),
@@ -60,7 +65,7 @@ const diagnosticAnchorSchema = z.object({
 }).strict();
 
 const designLineageAnchorSchema = z.object({
-  id: z.literal("design-lineage"),
+  id: idSchema,
   kind: z.literal("design-lineage"),
   programId: idSchema,
   runId: hashSchema,
@@ -73,10 +78,23 @@ const designLineageAnchorSchema = z.object({
   reviewResultHash: hashSchema,
 }).strict();
 
+const candidateReviewAnchorSchema = z.object({
+  id: idSchema,
+  kind: z.literal("candidate-review"),
+  candidateId: idSchema,
+  benchmark: idSchema,
+  proposalHash: hashSchema,
+  reviewResultHash: hashSchema,
+  verdict: z.enum(["KEEP", "DISCARD", "UNCHANGED"]),
+  currentCandidateHash: hashSchema,
+  proposedCandidateHash: hashSchema,
+}).strict();
+
 export const investigationEvidenceAnchorSchema = z.discriminatedUnion("kind", [
   operatingRunAnchorSchema,
   diagnosticAnchorSchema,
   designLineageAnchorSchema,
+  candidateReviewAnchorSchema,
 ]);
 export type InvestigationEvidenceAnchor = z.infer<typeof investigationEvidenceAnchorSchema>;
 
@@ -112,6 +130,7 @@ const entryBaseSchema = z.object({
   author: z.enum(["human", "agent"]),
   statement: z.string().min(1),
   evidence: z.array(idSchema),
+  introducedAnchors: z.array(candidateReviewAnchorSchema).max(1),
   previousEntryHash: hashSchema.nullable(),
 });
 
@@ -132,10 +151,22 @@ export const industrialInvestigationEntrySchema = z.discriminatedUnion("kind", [
   }).strict(),
 ]);
 export type IndustrialInvestigationEntry = z.infer<typeof industrialInvestigationEntrySchema>;
+export type InvestigationIntroducedEvidenceInput = {
+  id: string;
+  kind: "candidate-review";
+  candidateId: string;
+};
+type EntryInputCommon = {
+  id: string;
+  author: "human" | "agent";
+  statement: string;
+  evidence?: string[];
+  introduceEvidence?: InvestigationIntroducedEvidenceInput;
+};
 export type IndustrialInvestigationEntryInput =
-  | { id: string; author: "human" | "agent"; kind: "observation"; statement: string; evidence?: string[] }
-  | { id: string; author: "human" | "agent"; kind: "hypothesis"; statement: string; expectedEffect: string; evidence?: string[] }
-  | { id: string; author: "human" | "agent"; kind: "decision"; statement: string; disposition: "keep" | "revise" | "defer" | "discard"; evidence?: string[] };
+  | EntryInputCommon & { kind: "observation" }
+  | EntryInputCommon & { kind: "hypothesis"; expectedEffect: string }
+  | EntryInputCommon & { kind: "decision"; disposition: "keep" | "revise" | "defer" | "discard" };
 
 export type InvestigationAnchorState = "current" | "historical" | "missing" | "invalid";
 
@@ -216,9 +247,10 @@ function parseManifest(value: unknown, investigationId: string): IndustrialInves
     );
   }
   const anchorIds = manifest.anchors.map((anchor) => anchor.id);
+  const anchorKinds = manifest.anchors.map((anchor) => anchor.kind);
   if (new Set(anchorIds).size !== anchorIds.length
-    || !anchorIds.includes("operating-run")
-    || !anchorIds.includes("diagnostic")) {
+    || !anchorKinds.includes("operating-run")
+    || !anchorKinds.includes("diagnostic")) {
     throw new IndustrialInvestigationError(
       "investigation.invalid-anchors",
       `Investigation '${investigationId}' must contain unique operating-run and diagnostic anchors`,
@@ -252,8 +284,8 @@ export async function listIndustrialInvestigationEntries(
 ): Promise<IndustrialInvestigationEntry[]> {
   const manifest = await loadIndustrialInvestigationManifest(projectDir, investigationId);
   const files = await listEntryFiles(projectDir, investigationId);
-  const anchorIds = new Set<string>(manifest.anchors.map((anchor) => anchor.id));
   const entries: IndustrialInvestigationEntry[] = [];
+  const anchorIds = new Set<string>(manifest.anchors.map((anchor) => anchor.id));
   let previousEntryHash: string | null = null;
   for (const [index, file] of files.entries()) {
     const parsed = industrialInvestigationEntrySchema.safeParse(
@@ -270,12 +302,16 @@ export async function listIndustrialInvestigationEntries(
     const expectedSequence = index + 1;
     const expectedFile = `${String(expectedSequence).padStart(4, "0")}-${entry.id}.entry.json`;
     const { entryHash, ...withoutHash } = entry;
+    const introducedIds = entry.introducedAnchors.map((anchor) => anchor.id);
+    const availableAnchorIds = new Set([...anchorIds, ...introducedIds]);
     if (entry.investigation !== investigationId
       || entry.sequence !== expectedSequence
       || file !== expectedFile
       || entry.previousEntryHash !== previousEntryHash
       || hashValue(entryHashInput(withoutHash)) !== entryHash
-      || entry.evidence.some((anchorId) => !anchorIds.has(anchorId))
+      || new Set(introducedIds).size !== introducedIds.length
+      || introducedIds.some((anchorId) => anchorIds.has(anchorId))
+      || entry.evidence.some((anchorId) => !availableAnchorIds.has(anchorId))
       || new Set(entry.evidence).size !== entry.evidence.length) {
       throw new IndustrialInvestigationError(
         "investigation.invalid-entry-chain",
@@ -283,6 +319,7 @@ export async function listIndustrialInvestigationEntries(
       );
     }
     entries.push(entry);
+    for (const anchorId of introducedIds) anchorIds.add(anchorId);
     previousEntryHash = entry.entryHash;
   }
   return entries;
@@ -434,9 +471,22 @@ export async function appendIndustrialInvestigationEntry(
       `Investigation entry '${input.id}' already exists`,
     );
   }
+  const introducedAnchors = input.introduceEvidence
+    ? [await resolveIntroducedEvidenceAnchor(projectDir, input.introduceEvidence)]
+    : [];
   const evidence = input.evidence ?? [];
-  const anchorIds = new Set<string>(manifest.anchors.map((anchor) => anchor.id));
-  if (evidence.some((anchorId) => !anchorIds.has(anchorId)) || new Set(evidence).size !== evidence.length) {
+  const anchorIds = new Set<string>([
+    ...manifest.anchors.map((anchor) => anchor.id),
+    ...entries.flatMap((entry) => entry.introducedAnchors.map((anchor) => anchor.id)),
+  ]);
+  if (introducedAnchors.some((anchor) => anchorIds.has(anchor.id))) {
+    throw new IndustrialInvestigationError(
+      "investigation.anchor-exists",
+      `Investigation evidence anchor '${introducedAnchors[0]!.id}' already exists`,
+    );
+  }
+  const availableAnchorIds = new Set([...anchorIds, ...introducedAnchors.map((anchor) => anchor.id)]);
+  if (evidence.some((anchorId) => !availableAnchorIds.has(anchorId)) || new Set(evidence).size !== evidence.length) {
     throw new IndustrialInvestigationError(
       "investigation.unknown-evidence",
       `Investigation entry references an unknown or duplicate evidence anchor`,
@@ -451,6 +501,7 @@ export async function appendIndustrialInvestigationEntry(
     author: input.author,
     statement: input.statement.trim(),
     evidence,
+    introducedAnchors,
     previousEntryHash: entries.at(-1)?.entryHash ?? null,
   };
   const withoutHash = input.kind === "hypothesis"
@@ -485,6 +536,46 @@ export async function appendIndustrialInvestigationEntry(
   return { entry, path };
 }
 
+async function resolveIntroducedEvidenceAnchor(
+  projectDir: string,
+  input: InvestigationIntroducedEvidenceInput,
+): Promise<z.infer<typeof candidateReviewAnchorSchema>> {
+  if (!idSchema.safeParse(input.id).success || !idSchema.safeParse(input.candidateId).success) {
+    throw new IndustrialInvestigationError(
+      "investigation.invalid-anchor",
+      "Introduced evidence id and Candidate id must use lowercase kebab-case",
+    );
+  }
+  try {
+    const candidate = await loadCandidateChangeSet(projectDir, input.candidateId);
+    const proposalHash = hashValue(candidate);
+    const receipt = await loadCandidateReviewReceipt(projectDir, input.candidateId, proposalHash);
+    if (!receipt) {
+      throw new IndustrialInvestigationError(
+        "investigation.unreviewed-candidate",
+        `Candidate '${input.candidateId}' has no exact immutable review receipt`,
+      );
+    }
+    return {
+      id: input.id,
+      kind: "candidate-review",
+      candidateId: receipt.candidate,
+      benchmark: receipt.benchmark,
+      proposalHash: receipt.proposalHash,
+      reviewResultHash: receipt.resultHash,
+      verdict: receipt.verdict,
+      currentCandidateHash: receipt.currentCandidateHash,
+      proposedCandidateHash: receipt.proposedCandidateHash,
+    };
+  } catch (error) {
+    if (error instanceof IndustrialInvestigationError) throw error;
+    throw new IndustrialInvestigationError(
+      "investigation.candidate-evidence-unavailable",
+      `Candidate '${input.candidateId}' cannot supply exact review evidence: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
 function sameSelection(
   manifest: IndustrialInvestigationManifest,
   snapshot: ProjectWorkbenchSnapshot,
@@ -514,6 +605,10 @@ function anchorNavigation(
   if (anchor.kind === "diagnostic") return {
     argv: ["inm", "inspect", projectDir, "--section", "diagnostics", "--json"],
     studioRoute: `/${encodeURIComponent(projectId)}/analysis/diagnostics/${encodeURIComponent(anchor.diagnosticId)}`,
+  };
+  if (anchor.kind === "candidate-review") return {
+    argv: ["inm", "candidate", projectDir, "--candidate", anchor.candidateId, "--json"],
+    studioRoute: `/${encodeURIComponent(projectId)}/experiments/${encodeURIComponent(anchor.benchmark)}/candidates/${encodeURIComponent(anchor.candidateId)}`,
   };
   return {
     argv: ["inm", "design", projectDir, "--program", anchor.programId, "--run-id", anchor.runId, "--json"],
@@ -583,6 +678,62 @@ async function inspectAnchor(
         : `Diagnostic '${anchor.code}' remains recorded but no longer matches the current Workbench evidence.`,
       navigation,
     };
+  }
+  if (anchor.kind === "candidate-review") {
+    try {
+      const candidate = await loadCandidateChangeSet(projectDir, anchor.candidateId);
+      const candidateProposalHash = hashValue(candidate);
+      const receipt = await loadCandidateReviewReceipt(
+        projectDir,
+        anchor.candidateId,
+        anchor.proposalHash,
+      );
+      if (!receipt) return {
+        anchor,
+        state: "missing",
+        message: `Candidate review '${anchor.candidateId}' / '${anchor.proposalHash.slice(0, 12)}' is absent.`,
+        navigation,
+      };
+      const exact = receipt.benchmark === anchor.benchmark
+        && receipt.proposalHash === anchor.proposalHash
+        && receipt.resultHash === anchor.reviewResultHash
+        && receipt.verdict === anchor.verdict
+        && receipt.currentCandidateHash === anchor.currentCandidateHash
+        && receipt.proposedCandidateHash === anchor.proposedCandidateHash;
+      if (!exact) return {
+        anchor,
+        state: "invalid",
+        message: `Candidate review '${anchor.candidateId}' no longer matches the Investigation anchor.`,
+        navigation,
+      };
+      if (candidateProposalHash !== anchor.proposalHash) return {
+        anchor,
+        state: "historical",
+        message: `Candidate review '${anchor.candidateId}' remains valid but the project now authors a different proposal under that id.`,
+        navigation,
+      };
+      const decision = await inspectCandidateDecision(projectDir, anchor.candidateId);
+      const current = decision.proposalHash === anchor.proposalHash
+        && decision.resultHash === anchor.reviewResultHash
+        && decision.state !== "stale";
+      return {
+        anchor,
+        state: current ? "current" : "historical",
+        message: current
+          ? `Candidate '${anchor.candidateId}' still resolves to the exact ${anchor.verdict} review evidence.`
+          : `Candidate '${anchor.candidateId}' review remains valid but its Blueprint decision state is historical.`,
+        navigation,
+      };
+    } catch (error) {
+      return {
+        anchor,
+        state: await pathExists(join(resolve(projectDir), "candidates", `${anchor.candidateId}.candidate.json`))
+          ? "invalid"
+          : "missing",
+        message: `Candidate review '${anchor.candidateId}' cannot be resolved: ${error instanceof Error ? error.message : String(error)}`,
+        navigation,
+      };
+    }
   }
   const program = snapshot.designPrograms.find((item) => item.id === anchor.programId);
   if (!program) return {
@@ -654,7 +805,11 @@ export async function inspectIndustrialInvestigation(
     listIndustrialInvestigationEntries(projectDir, investigationId),
     openProjectWorkbenchSnapshot(projectDir, manifest.selection),
   ]);
-  const anchors = await Promise.all(manifest.anchors.map((anchor) =>
+  const evidenceAnchors = [
+    ...manifest.anchors,
+    ...entries.flatMap((entry) => entry.introducedAnchors),
+  ];
+  const anchors = await Promise.all(evidenceAnchors.map((anchor) =>
     inspectAnchor(projectDir, manifest, snapshot, anchor)));
   const rank: Record<InvestigationAnchorState, number> = {
     current: 0,

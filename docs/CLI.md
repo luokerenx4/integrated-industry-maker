@@ -52,7 +52,7 @@ Observation is read-only and never captures screenshots, creates a run, authors 
 
 Lists, creates, reopens, or appends to a persistent project-local [[docs/design/industrial-investigations]] record. Creating requires `--investigation`, `--name`, and `--question`; Core freezes the exact current selection/hashes, compatible operating Run, Run-backed Workbench diagnostic, and verified commissioned Design/Candidate lineage when present. It fails rather than inventing evidence when that current boundary is unavailable.
 
-Appending requires an explicit `--author human|agent`, `--kind observation|hypothesis|decision`, `--statement`, and entry id. A hypothesis additionally requires `--expected-effect`; a decision requires `--disposition keep|revise|defer|discard`. `--evidence` is a comma-separated list of the manifest's anchor ids. Entries are separate immutable files in a verified hash chain and cannot rewrite prior reasoning.
+Appending requires an explicit `--author human|agent`, `--kind observation|hypothesis|decision`, `--statement`, and entry id. A hypothesis additionally requires `--expected-effect`; a decision requires `--disposition keep|revise|defer|discard`. `--evidence` is a comma-separated list of available anchor ids. `--attach-candidate <id> --anchor-id <id>` may introduce one exact reviewed Candidate anchor; both flags are required together, and Core resolves the Benchmark, proposal/review hashes, verdict, and current/proposed Blueprint hashes. The new anchor may be cited by that same entry. Entries are separate immutable files in a verified hash chain and cannot rewrite prior reasoning.
 
 ```bash
 inm investigate examples/memory-fab \
@@ -69,6 +69,17 @@ inm investigate examples/memory-fab \
   --statement "Use long empty intervals as qualified low-power standby windows." \
   --expected-effect "Reduce energy without weakening delivery, quality, Q-time, or starvation." \
   --evidence operating-run,diagnostic,design-lineage
+
+inm investigate examples/memory-fab \
+  --investigation inspection-starvation-next-step \
+  --entry metrology-standby-rejected \
+  --kind decision \
+  --author agent \
+  --statement "Discard: the energy benefit is dominated by service regressions." \
+  --disposition discard \
+  --attach-candidate metrology-low-power-standby \
+  --anchor-id metrology-standby-review \
+  --evidence diagnostic,design-lineage,metrology-standby-review
 ```
 
 Flagless project mode lists Investigations. Supplying `--investigation` reopens one and resolves every evidence anchor as `current`, `historical`, `missing`, or `invalid`. JSON defaults to `summary`; `anchors`, `entries`, and `all` are explicit sections. The envelope's sole next action is the current Core Workbench handoff, while each anchor retains its exact evidence route and argv. The command never authors a Blueprint, starts a simulation, or chooses an industrial decision.

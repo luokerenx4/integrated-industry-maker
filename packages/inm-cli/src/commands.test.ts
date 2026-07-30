@@ -678,6 +678,52 @@ test("public investigate preserves and resumes exact project-local human/Agent r
   ]);
   expect({ exitCode: hypothesized.exitCode, stderr: hypothesized.stderr }).toEqual({ exitCode: 0, stderr: "" });
 
+  const decided = await runCli([
+    "investigate",
+    projectDir,
+    "--investigation",
+    investigationId,
+    "--entry",
+    "retain-commissioned-supply-path",
+    "--kind",
+    "decision",
+    "--author",
+    "agent",
+    "--statement",
+    "Retain the commissioned supply-path intervention as the exact boundary for the next physically distinct hypothesis.",
+    "--disposition",
+    "keep",
+    "--attach-candidate",
+    "inspection-supply-path-966127dd",
+    "--anchor-id",
+    "supply-path-review",
+    "--evidence",
+    "design-lineage,supply-path-review",
+    "--json",
+  ]);
+  expect({ exitCode: decided.exitCode, stderr: decided.stderr }).toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(decided.stdout).data.result).toEqual(expect.objectContaining({
+    entryCount: 3,
+    anchors: expect.arrayContaining([
+      expect.objectContaining({
+        id: "supply-path-review",
+        kind: "candidate-review",
+        state: "current",
+      }),
+    ]),
+    lastEntry: expect.objectContaining({
+      id: "retain-commissioned-supply-path",
+      evidence: ["design-lineage", "supply-path-review"],
+      introducedAnchors: [
+        expect.objectContaining({
+          id: "supply-path-review",
+          candidateId: "inspection-supply-path-966127dd",
+          verdict: "KEEP",
+        }),
+      ],
+    }),
+  }));
+
   const [inspection, entries, list, human, help, schemas] = await Promise.all([
     runCli(["investigate", projectDir, "--investigation", investigationId, "--json"]),
     runCli(["investigate", projectDir, "--investigation", investigationId, "--section", "entries", "--json"]),
@@ -691,25 +737,28 @@ test("public investigate preserves and resumes exact project-local human/Agent r
   expect(JSON.parse(inspection.stdout).data.result).toEqual(expect.objectContaining({
     action: "inspect",
     state: "current",
-    entryCount: 2,
+    entryCount: 3,
     lastEntry: expect.objectContaining({
-      id: "inspection-decoupling-buffer",
-      kind: "hypothesis",
-      sequence: 2,
+      id: "retain-commissioned-supply-path",
+      kind: "decision",
+      sequence: 3,
     }),
   }));
   expect(JSON.parse(entries.stdout).data.result.map((entry: { id: string }) => entry.id))
-    .toEqual(["inspection-input-is-empty", "inspection-decoupling-buffer"]);
+    .toEqual(["inspection-input-is-empty", "inspection-decoupling-buffer", "retain-commissioned-supply-path"]);
   expect(JSON.parse(list.stdout).data).toEqual({
     action: "list",
     investigations: [expect.objectContaining({
       id: investigationId,
-      entryCount: 2,
+      entryCount: 3,
     })],
   });
   expect(human.stdout).toContain("Inspection starvation next step · Industrial Investigation");
   expect(human.stdout).toContain("CURRENT    design-lineage");
+  expect(human.stdout).toContain("CURRENT    supply-path-review");
   expect(human.stdout).toContain("0002 HYPOTHESIS · human");
+  expect(human.stdout).toContain("0003 DECISION · agent");
+  expect(human.stdout).toContain("introduced: supply-path-review:candidate-review");
   expect(human.stdout).toContain("expected: Reduce inspection shortage");
   expect((JSON.parse(help.stdout).data.commands as Array<{ id: string }>).map((command) => command.id))
     .toContain("investigate");

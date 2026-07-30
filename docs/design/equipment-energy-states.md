@@ -42,6 +42,8 @@ Events are `device.sleep`, `device.wake-start`, `device.wake-finish`, and `devic
 
 The memory-fab thermal furnace owns a 3 W sleep state and a four-second, 120 W wake. `equipment-energy-research` freezes two six-lot waves, a time-of-use tariff, and a regional peak-demand rate. Baseline and candidate differ by one Blueprint field: a 30-second furnace sleep threshold. The candidate sleeps twice, wakes once, spends 196 seconds asleep, preserves capacity readiness and all twelve on-time lots, reduces total electricity cost from `0.268831` to `0.265350`, and improves the locked score by `+0.994000`. `bun run memory-fab:research-energy` evaluates the off state and eight thresholds in memory; `--write-best` writes only a strict gate-passing winner.
 
+The commissioned fab later tested the same physics on continuous deep metrology. Candidate `metrology-low-power-standby` selected a project-local low-power cell and a ten-second threshold. Review found a small energy-component benefit, but every current-factory case violated locked outcomes and the facility-interruption case reduced on-time lots from nine to seven. The Candidate was discarded without Blueprint mutation; Investigation `inspection-starvation-next-step` retains the exact review so this rejected standby regime is not rediscovered as an untested idea.
+
 ## Source of truth
 
 - Schema and contracts: `packages/inm-core/src/types.ts`, `packages/inm-core/src/schema.ts`, `packages/inm-core/src/compiler.ts`

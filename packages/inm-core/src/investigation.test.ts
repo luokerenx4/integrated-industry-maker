@@ -96,27 +96,59 @@ test("a project-local Investigation preserves exact evidence and append-only hum
         evidence: ["diagnostic", "design-lineage"],
       },
     );
+    const decision = await appendIndustrialInvestigationEntry(
+      projectDir,
+      created.manifest.id,
+      {
+        id: "retain-commissioned-supply-path",
+        author: "agent",
+        kind: "decision",
+        statement: "Retain the already commissioned supply-path change and use its exact review as the boundary for a physically distinct next hypothesis.",
+        disposition: "keep",
+        evidence: ["design-lineage", "supply-path-review"],
+        introduceEvidence: {
+          id: "supply-path-review",
+          kind: "candidate-review",
+          candidateId: "inspection-supply-path-966127dd",
+        },
+      },
+    );
     expect(observation.entry).toEqual(expect.objectContaining({
       sequence: 1,
       previousEntryHash: null,
+      introducedAnchors: [],
     }));
     expect(hypothesis.entry).toEqual(expect.objectContaining({
       sequence: 2,
       previousEntryHash: observation.entry.entryHash,
+      introducedAnchors: [],
+    }));
+    expect(decision.entry).toEqual(expect.objectContaining({
+      sequence: 3,
+      previousEntryHash: hypothesis.entry.entryHash,
+      introducedAnchors: [
+        expect.objectContaining({
+          id: "supply-path-review",
+          kind: "candidate-review",
+          candidateId: "inspection-supply-path-966127dd",
+          verdict: "KEEP",
+        }),
+      ],
     }));
     const entries = await listIndustrialInvestigationEntries(projectDir, created.manifest.id);
     expect(entries.map((entry) => [entry.sequence, entry.id, entry.kind]))
       .toEqual([
         [1, "inspection-input-is-empty", "observation"],
         [2, "inspection-decoupling-buffer", "hypothesis"],
+        [3, "retain-commissioned-supply-path", "decision"],
       ]);
     expect(await listIndustrialInvestigations(projectDir)).toEqual([
       expect.objectContaining({
         id: created.manifest.id,
-        entryCount: 2,
+        entryCount: 3,
         lastEntry: expect.objectContaining({
-          id: "inspection-decoupling-buffer",
-          sequence: 2,
+          id: "retain-commissioned-supply-path",
+          sequence: 3,
         }),
       }),
     ]);
@@ -128,6 +160,7 @@ test("a project-local Investigation preserves exact evidence and append-only hum
         ["operating-run", "current"],
         ["diagnostic", "current"],
         ["design-lineage", "current"],
+        ["supply-path-review", "current"],
       ]);
     expect(inspected.currentNextAction).toEqual(expect.objectContaining({
       target: expect.objectContaining({
@@ -147,6 +180,20 @@ test("a project-local Investigation preserves exact evidence and append-only hum
       code: "investigation.unknown-evidence",
     }));
 
+    const candidatePath = join(
+      projectDir,
+      "candidates/inspection-supply-path-966127dd.candidate.json",
+    );
+    const candidateSource = await readFile(candidatePath, "utf8");
+    const replacedCandidate = JSON.parse(candidateSource);
+    replacedCandidate.hypothesis = `${replacedCandidate.hypothesis} Replaced under the same id.`;
+    await writeFile(candidatePath, `${JSON.stringify(replacedCandidate, null, 2)}\n`);
+    const replacedProposal = await inspectIndustrialInvestigation(projectDir, created.manifest.id);
+    expect(replacedProposal.anchors.find((anchor) => anchor.anchor.id === "supply-path-review")?.state)
+      .toBe("historical");
+    await writeFile(candidatePath, candidateSource);
+    expect((await inspectIndustrialInvestigation(projectDir, created.manifest.id)).state).toBe("current");
+
     const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
     const blueprint = JSON.parse(await readFile(blueprintPath, "utf8"));
     blueprint.revision = `${blueprint.revision}-investigation-moved`;
@@ -154,6 +201,23 @@ test("a project-local Investigation preserves exact evidence and append-only hum
     const historical = await inspectIndustrialInvestigation(projectDir, created.manifest.id);
     expect(historical.state).toBe("historical");
     expect(historical.anchors.every((anchor) => anchor.state === "historical")).toBeTrue();
+
+    const reviewPath = join(
+      projectDir,
+      "candidate-reviews/inspection-supply-path-966127dd/18c8ebc898254d30a5e428dbd93412f947da062a1c20779656728237640c9832.review.json",
+    );
+    const review = JSON.parse(await readFile(reviewPath, "utf8"));
+    review.resultHash = "0".repeat(64);
+    await writeFile(reviewPath, `${JSON.stringify(review, null, 2)}\n`);
+    const invalidReview = await inspectIndustrialInvestigation(projectDir, created.manifest.id);
+    expect(invalidReview.state).toBe("invalid");
+    expect(invalidReview.anchors.find((anchor) => anchor.anchor.id === "supply-path-review")?.state)
+      .toBe("invalid");
+
+    await rm(candidatePath);
+    const missingCandidate = await inspectIndustrialInvestigation(projectDir, created.manifest.id);
+    expect(missingCandidate.anchors.find((anchor) => anchor.anchor.id === "supply-path-review")?.state)
+      .toBe("missing");
 
     const observationPath = join(
       projectDir,

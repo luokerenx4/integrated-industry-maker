@@ -12,11 +12,15 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/evidence-backed-metrology-standby-investigation]] | Carry the first persistent memory-fab hypothesis through exact Candidate evidence and an append-only Investigation decision. | 2026-07-30 |
 
 ## Proposed plans
 
-There are no proposed plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/resilient-studio-source-adoption]] | Keep Studio supervised, observable, and automatically recoverable across a source-adopted child compile failure. | 2026-07-30 |
 
 ## Paused plans
 

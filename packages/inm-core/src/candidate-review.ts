@@ -53,7 +53,7 @@ const candidateReviewReceiptSchema = z.object({
 }).strict();
 
 export type CandidateReviewReceipt = z.infer<typeof candidateReviewReceiptSchema>;
-export type CandidateDecisionState = "proposed" | "reviewed-keep" | "reviewed-discard" | "reviewed-unchanged" | "verified" | "stale";
+export type CandidateDecisionState = "proposed" | "reviewed-keep" | "reviewed-discard" | "reviewed-unchanged" | "verified" | "stale" | "invalid";
 
 export interface CandidateDecision {
   state: CandidateDecisionState;
@@ -63,6 +63,7 @@ export interface CandidateDecision {
   verdict?: "KEEP" | "DISCARD" | "UNCHANGED";
   resultHash?: string;
   preview?: CandidateChangeSetPreview;
+  error?: { code: string; message: string };
 }
 
 function reviewPath(projectDir: string, candidateId: string, proposalHash: string): string {
@@ -136,7 +137,18 @@ export async function inspectCandidateDecision(projectDir: string, candidateId: 
   const benchmark = await loadBlueprintBenchmark(projectDir, candidate.benchmark);
   const currentCandidateHash = hashValue(await readJson(join(resolve(projectDir), "blueprints", `${benchmark.candidateBlueprint}.blueprint.json`)));
   const proposalHash = hashValue(candidate);
-  const receipt = await loadCandidateReviewReceipt(projectDir, candidateId, proposalHash);
+  let receipt: CandidateReviewReceipt | null;
+  try {
+    receipt = await loadCandidateReviewReceipt(projectDir, candidateId, proposalHash);
+  } catch (error) {
+    if (!(error instanceof CandidateChangeSetError)) throw error;
+    return {
+      state: "invalid",
+      proposalHash,
+      currentCandidateHash,
+      error: { code: error.code, message: error.message },
+    };
+  }
   if (!receipt) return {
     state: currentCandidateHash === candidate.baseCandidateHash ? "proposed" : "stale",
     proposalHash,

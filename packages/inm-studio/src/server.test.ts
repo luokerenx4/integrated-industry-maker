@@ -169,18 +169,62 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
       })],
     }));
 
+    const decided = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/investigations/inspection-starvation-next-step/entries`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: "retain-commissioned-supply-path",
+          author: "agent",
+          kind: "decision",
+          statement: "Retain the commissioned supply-path result and start the next hypothesis from that exact boundary.",
+          disposition: "keep",
+          evidence: ["design-lineage", "supply-path-review"],
+          introduceEvidence: {
+            id: "supply-path-review",
+            kind: "candidate-review",
+            candidateId: "inspection-supply-path-966127dd",
+          },
+        }),
+      },
+    );
+    expect(decided.status).toBe(201);
+    expect(await decided.json()).toEqual(expect.objectContaining({
+      state: "current",
+      anchors: expect.arrayContaining([
+        expect.objectContaining({
+          state: "current",
+          anchor: expect.objectContaining({
+            id: "supply-path-review",
+            kind: "candidate-review",
+            verdict: "KEEP",
+          }),
+        }),
+      ]),
+      entries: expect.arrayContaining([
+        expect.objectContaining({
+          id: "retain-commissioned-supply-path",
+          sequence: 2,
+          introducedAnchors: [
+            expect.objectContaining({ id: "supply-path-review" }),
+          ],
+        }),
+      ]),
+    }));
+
     const listed = await fetch(`http://localhost:${port}/api/projects/memory-fab/investigations`);
     expect(await listed.json()).toEqual({
       investigations: [expect.objectContaining({
         id: "inspection-starvation-next-step",
-        entryCount: 1,
+        entryCount: 2,
       })],
     });
     const detail = await fetch(
       `http://localhost:${port}/api/projects/memory-fab/investigations/inspection-starvation-next-step`,
     );
     expect(detail.status).toBe(200);
-    expect((await detail.json() as { entries: unknown[] }).entries).toHaveLength(1);
+    expect((await detail.json() as { entries: unknown[] }).entries).toHaveLength(2);
     const deepLink = await fetch(
       `http://localhost:${port}/memory-fab/investigations/inspection-starvation-next-step`,
     );

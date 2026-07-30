@@ -1,6 +1,6 @@
 {
   "author": "agent",
-  "entryHash": "f7f16ee38aad7829eed13f9eb8bcd82e15cb4959f05d5c96939fa03082c8e211",
+  "entryHash": "fe0a8d067272f1edbb7a76e27dc86c24a877b44fa0a6fb32860c3967dd2d2ceb",
   "evidence": [
     "operating-run",
     "diagnostic",
@@ -8,9 +8,10 @@
   ],
   "expectedEffect": "Reduce total energy and electricity across every locked operating case while preserving completion, on-time service, first-pass yield, zero quality escapes, final-inspection Q-time, and the current inspection-starvation target; the replay should show sleep and bounded wake work only inside long empty intervals.",
   "id": "metrology-low-power-standby",
+  "introducedAnchors": [],
   "investigation": "inspection-starvation-next-step",
   "kind": "hypothesis",
-  "previousEntryHash": "52f3d6b52f0f31639000e53ae27b11a57c9b9951eea3fb30f3d3fd9cab7a8a13",
+  "previousEntryHash": "6fa29a4767f261c2045b111becb91480b4de1d09da2e61dc63f666ce4951b4c2",
   "sequence": 2,
   "statement": "Give the continuous deep-metrology cell an explicit qualified low-power standby state and let inspection-1 sleep after ten seconds without a resident wafer, exploiting long supply gaps instead of forcing more wafer release or local transport capacity.",
   "version": 1

@@ -160,6 +160,8 @@ async function main(signal: AbortSignal): Promise<void> {
       "expected-effect": { type: "string" },
       disposition: { type: "string" },
       evidence: { type: "string" },
+      "attach-candidate": { type: "string" },
+      "anchor-id": { type: "string" },
     }, allowPositionals: true });
     const projectDir = await selectedProject(positionals, "inm investigate <project-or-workspace-dir> [--project ID] [--investigation ID]", values.project);
     return investigateCommand(projectDir, {
@@ -175,6 +177,8 @@ async function main(signal: AbortSignal): Promise<void> {
       expectedEffect: values["expected-effect"],
       disposition: values.disposition,
       evidence: values.evidence,
+      attachCandidate: values["attach-candidate"],
+      anchorId: values["anchor-id"],
       json: values.json,
       section: values.section,
     });

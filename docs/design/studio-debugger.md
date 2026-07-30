@@ -30,7 +30,7 @@ The workbench lists project-local locked Benchmarks and Candidate Change Sets, d
 
 `/<project>/investigations` lists compact project-local inquiries; `/<project>/investigations/<id>` reopens one exact [[docs/design/industrial-investigations]] chain without loading dense Factory replay data. The workbench shows the question and selection, manifest identity, current Core handoff, current/historical/missing/invalid evidence anchors, exact CLI and Studio evidence navigation, immutable observation/hypothesis/decision entries, and explicit create/append forms.
 
-Creating freezes current compatible evidence. Appending requires a chosen human/Agent author and kind; hypothesis and decision fields enforce their additional expected-effect or disposition boundary. The server delegates every write and currentness check to Core, then returns the complete shared inspection projection. Opening, reloading, selecting, or following an evidence link never manufactures prose or edits industrial state.
+Creating freezes current compatible evidence. Appending requires a chosen human/Agent author and kind; hypothesis and decision fields enforce their additional expected-effect or disposition boundary. The form may name one reviewed Candidate plus a new evidence-anchor id; Core resolves its exact receipt identities, and the introducing entry may cite it immediately. The server delegates every write and currentness check to Core, then returns the complete shared inspection projection. Opening, reloading, selecting, or following an evidence link never manufactures prose or edits industrial state.
 
 ## Project-local catalog
 

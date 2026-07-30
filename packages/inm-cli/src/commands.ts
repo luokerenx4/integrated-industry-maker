@@ -859,6 +859,8 @@ export async function investigateCommand(
     expectedEffect?: string;
     disposition?: string;
     evidence?: string;
+    attachCandidate?: string;
+    anchorId?: string;
     json: boolean;
     section?: string;
   },
@@ -867,7 +869,8 @@ export async function investigateCommand(
   if (options.create && options.entryId) throw new Error(`${usage}\n--create and --entry are mutually exclusive.`);
   if (!options.investigationId && (options.create || options.entryId
     || options.name || options.question || options.kind || options.author || options.statement
-    || options.expectedEffect || options.disposition || options.evidence)) {
+    || options.expectedEffect || options.disposition || options.evidence
+    || options.attachCandidate || options.anchorId)) {
     throw new Error(`${usage}\nInvestigation mutation requires --investigation ID.`);
   }
   if (!options.investigationId) {
@@ -894,7 +897,8 @@ export async function investigateCommand(
     if (!options.name?.trim() || !options.question?.trim()) {
       throw new Error(`${usage}\n--create requires --name and --question.`);
     }
-    if (options.kind || options.author || options.statement || options.expectedEffect || options.disposition || options.evidence) {
+    if (options.kind || options.author || options.statement || options.expectedEffect || options.disposition
+      || options.evidence || options.attachCandidate || options.anchorId) {
       throw new Error(`${usage}\nEntry fields require --entry ID.`);
     }
     const created = await createIndustrialInvestigation(projectDir, options.investigationId, {
@@ -927,6 +931,9 @@ export async function investigateCommand(
     if (options.kind !== "decision" && options.disposition) {
       throw new Error(`${usage}\n--disposition belongs only to a decision entry.`);
     }
+    if (Boolean(options.attachCandidate) !== Boolean(options.anchorId)) {
+      throw new Error(`${usage}\n--attach-candidate and --anchor-id must be provided together.`);
+    }
     const common = {
       id: options.entryId,
       author: options.author as "human" | "agent",
@@ -934,6 +941,13 @@ export async function investigateCommand(
       evidence: options.evidence
         ? options.evidence.split(",").map((item) => item.trim()).filter(Boolean)
         : [],
+      introduceEvidence: options.attachCandidate && options.anchorId
+        ? {
+          id: options.anchorId,
+          kind: "candidate-review" as const,
+          candidateId: options.attachCandidate,
+        }
+        : undefined,
     };
     const input: IndustrialInvestigationEntryInput = options.kind === "hypothesis"
       ? { ...common, kind: "hypothesis", expectedEffect: options.expectedEffect! }
@@ -956,7 +970,8 @@ export async function investigateCommand(
       immutable: true,
     };
   } else if (options.name || options.question || options.kind || options.author
-    || options.statement || options.expectedEffect || options.disposition || options.evidence) {
+    || options.statement || options.expectedEffect || options.disposition || options.evidence
+    || options.attachCandidate || options.anchorId) {
     throw new Error(`${usage}\nMutation fields require --create or --entry ID.`);
   }
 
@@ -1012,7 +1027,7 @@ export async function investigateCommand(
     ...(inspection.entries.length ? [
       "Reasoning log:",
       ...inspection.entries.map((entry) =>
-        `  ${String(entry.sequence).padStart(4, "0")} ${entry.kind.toUpperCase()} · ${entry.author} · ${entry.statement}${entry.kind === "hypothesis" ? `\n       expected: ${entry.expectedEffect}` : entry.kind === "decision" ? ` · ${entry.disposition.toUpperCase()}` : ""}${entry.evidence.length ? `\n       evidence: ${entry.evidence.join(" + ")}` : ""}`),
+        `  ${String(entry.sequence).padStart(4, "0")} ${entry.kind.toUpperCase()} · ${entry.author} · ${entry.statement}${entry.kind === "hypothesis" ? `\n       expected: ${entry.expectedEffect}` : entry.kind === "decision" ? ` · ${entry.disposition.toUpperCase()}` : ""}${entry.introducedAnchors.length ? `\n       introduced: ${entry.introducedAnchors.map((anchor) => `${anchor.id}:${anchor.kind}`).join(" + ")}` : ""}${entry.evidence.length ? `\n       evidence: ${entry.evidence.join(" + ")}` : ""}`),
     ] : ["Reasoning log: empty"]),
     `Next: ${inspection.currentNextAction.title}`,
     `  ${inspection.currentNextAction.reason}`,

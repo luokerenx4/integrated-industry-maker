@@ -1,12 +1,13 @@
 {
   "author": "agent",
-  "entryHash": "52f3d6b52f0f31639000e53ae27b11a57c9b9951eea3fb30f3d3fd9cab7a8a13",
+  "entryHash": "6fa29a4767f261c2045b111becb91480b4de1d09da2e61dc63f666ce4951b4c2",
   "evidence": [
     "operating-run",
     "diagnostic",
     "design-lineage"
   ],
   "id": "inspection-path-is-supply-limited",
+  "introducedAnchors": [],
   "investigation": "inspection-starvation-next-step",
   "kind": "observation",
   "previousEntryHash": null,

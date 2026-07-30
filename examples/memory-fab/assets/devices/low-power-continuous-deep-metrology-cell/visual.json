@@ -1,0 +1,25 @@
+{
+  "shape": "metrology-cell",
+  "height": 2.6,
+  "model": null,
+  "material": {
+    "baseColor": "#6fe6d2",
+    "maps": {
+      "baseColor": null,
+      "normal": null,
+      "roughness": null,
+      "metalness": null,
+      "emissive": null
+    },
+    "metalness": 0.55,
+    "roughness": 0.62,
+    "normalScale": 0.68,
+    "emissiveColor": "#1dd3b0",
+    "emissiveIntensity": 0.12,
+    "repeat": {
+      "x": 1.25,
+      "y": 1.25
+    }
+  },
+  "label": "LOW-POWER DEEP METROLOGY"
+}

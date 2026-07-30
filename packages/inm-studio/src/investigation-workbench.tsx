@@ -30,6 +30,7 @@ const apiRoot = (projectId: string) =>
 function anchorTitle(anchor: InvestigationEvidenceAnchor): string {
   if (anchor.kind === "operating-run") return `OPERATING RUN · ${anchor.runId}`;
   if (anchor.kind === "diagnostic") return `DIAGNOSTIC · ${anchor.code}`;
+  if (anchor.kind === "candidate-review") return `CANDIDATE REVIEW · ${anchor.candidateId} · ${anchor.verdict}`;
   return `COMMISSIONED DESIGN · ${anchor.candidateId}`;
 }
 
@@ -125,13 +126,29 @@ export function InvestigationWorkbench({
     if (!inspection) return;
     const form = event.currentTarget;
     const fields = new FormData(form);
+    const introducedAnchorId = String(fields.get("introducedAnchorId") ?? "").trim();
+    const introducedCandidateId = String(fields.get("introducedCandidateId") ?? "").trim();
+    if (Boolean(introducedAnchorId) !== Boolean(introducedCandidateId)) {
+      setError("An introduced Candidate review requires both its Investigation anchor id and Candidate id.");
+      return;
+    }
     const evidence = fields.getAll("evidence").map(String);
+    if (introducedAnchorId && introducedCandidateId && !evidence.includes(introducedAnchorId)) {
+      evidence.push(introducedAnchorId);
+    }
     const common = {
       id: fields.get("id"),
       author: fields.get("author"),
       kind: entryKind,
       statement: fields.get("statement"),
       evidence,
+      introduceEvidence: introducedAnchorId && introducedCandidateId
+        ? {
+          id: introducedAnchorId,
+          kind: "candidate-review",
+          candidateId: introducedCandidateId,
+        }
+        : undefined,
     };
     const body = entryKind === "hypothesis"
       ? { ...common, expectedEffect: fields.get("expectedEffect") }
@@ -249,6 +266,7 @@ export function InvestigationWorkbench({
               <header><b>{entry.kind.toUpperCase()}</b><code>{entry.author.toUpperCase()} · {entry.entryHash.slice(0, 10)}</code></header>
               <p>{entry.statement}</p>
               {entryDetail(entry) && <strong>{entryDetail(entry)}</strong>}
+              {entry.introducedAnchors.length > 0 && <small>INTRODUCED · {entry.introducedAnchors.map((anchor) => `${anchor.id}:${anchor.kind}`).join(" + ")}</small>}
               <small>{entry.evidence.length ? `EVIDENCE · ${entry.evidence.join(" + ")}` : "NO DIRECT EVIDENCE REFERENCE"}</small>
             </div>
           </li>)}</ol> : <div className="investigation-empty-log">No reasoning entry yet. Begin with a visible or measured observation.</div>}
@@ -263,8 +281,10 @@ export function InvestigationWorkbench({
             <label className="wide">STATEMENT<textarea name="statement" required placeholder="State one observable fact, testable causal claim, or explicit decision." /></label>
             {entryKind === "hypothesis" && <label className="wide">EXPECTED EFFECT<textarea name="expectedEffect" required placeholder="What exact measured behavior should change if this is true?" /></label>}
             {entryKind === "decision" && <label>DISPOSITION<select name="disposition" defaultValue="keep"><option value="keep">KEEP</option><option value="revise">REVISE</option><option value="defer">DEFER</option><option value="discard">DISCARD</option></select></label>}
+            <label>INTRODUCE REVIEW AS<input name="introducedAnchorId" placeholder="metrology-standby-review" /></label>
+            <label>REVIEWED CANDIDATE<input name="introducedCandidateId" placeholder="metrology-low-power-standby" /></label>
           </div>
-          <fieldset><legend>EVIDENCE REFERENCES</legend>{inspection.manifest.anchors.map((anchor) => <label key={anchor.id}><input type="checkbox" name="evidence" value={anchor.id} defaultChecked />{anchor.id}</label>)}</fieldset>
+          <fieldset><legend>EVIDENCE REFERENCES</legend>{inspection.anchors.map(({ anchor }) => <label key={anchor.id}><input type="checkbox" name="evidence" value={anchor.id} defaultChecked />{anchor.id}</label>)}</fieldset>
           <button disabled={loading} type="submit">{loading ? "VERIFYING…" : "APPEND TO HASH CHAIN"}</button>
         </form>
       </div>}

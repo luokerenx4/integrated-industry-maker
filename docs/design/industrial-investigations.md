@@ -2,7 +2,7 @@
 
 Status: V1 persistent project-local investigation contract implemented in Core, `inm`, Studio, and the memory-fab north-star fixture.
 
-Related: [[docs/design/observation-led-design]], [[docs/design/operator-workbench]], [[docs/design/design-programs]], [[docs/design/experiment-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/studio-debugger]], [[docs/design/project-boundaries]], and [[plans/persistent-industrial-investigation-workspace]].
+Related: [[docs/design/observation-led-design]], [[docs/design/operator-workbench]], [[docs/design/design-programs]], [[docs/design/experiment-workbench]], [[docs/design/agent-cli-contract]], [[docs/design/studio-debugger]], [[docs/design/project-boundaries]], [[plans/persistent-industrial-investigation-workspace]], and [[plans/evidence-backed-metrology-standby-investigation]].
 
 ## Purpose
 
@@ -25,7 +25,7 @@ investigations/
       0002-<entry-id>.entry.json
 ```
 
-The manifest is created once and pins the question plus exact initial evidence anchors. Entries are append-only. An existing manifest or entry is never silently overwritten; revision occurs through another explicit entry.
+The manifest is created once and pins the question plus exact initial evidence anchors. Entries are append-only. One entry may introduce at most one Core-resolved Candidate-review anchor; that compact anchor becomes part of the entry's hashed content and is available to that entry and all later entries. An existing manifest or entry is never silently overwritten; revision occurs through another explicit entry.
 
 Neither the workspace nor `.inm` owns Investigation data. Investigation files may be committed, copied with the project, and inspected without browser state or chat history. They reference immutable artifact identities rather than copying dense event, metric, Benchmark, or Candidate payloads.
 
@@ -50,9 +50,11 @@ Inspection resolves each compact anchor against current authoritative project ar
 
 The projection fails closed. It never substitutes a similarly named Run, diagnostic, Program, Candidate, Device, or connection.
 
+A Candidate-review anchor pins the Candidate id, locked Benchmark, proposal hash, review-result hash, verdict, and reviewed current/proposed Blueprint hashes. It is `current` only while the strict receipt and authored proposal still reproduce those identities against the current candidate Blueprint. Replacing the proposal or moving the Blueprint makes the valid old review `historical`; deleting it makes the anchor `missing`; receipt or identity corruption makes it `invalid`.
+
 ## Reasoning entries
 
-Each entry has one stable kebab-case id, a positive sequence matching its filename, an author kind of `human` or `agent`, a non-empty statement, and zero or more ids from the manifest evidence-anchor set.
+Each entry has one stable kebab-case id, a positive sequence matching its filename, an author kind of `human` or `agent`, a non-empty statement, and zero or more evidence ids available at that sequence. Available evidence is the manifest anchor set plus anchors introduced by the current or preceding entries. The caller names a reviewed Candidate and new anchor id; Core resolves every pinned identity rather than accepting hashes or a verdict from CLI or Studio.
 
 V1 entry kinds are:
 
@@ -64,7 +66,7 @@ The engine validates references and order but does not assess the truth or quali
 
 ## Human and Agent surfaces
 
-`inm investigate` and Studio project the same Core inspection result. Both show the question, pinned target, currentness of every anchor, ordered reasoning entries, and exact existing routes/argv for referenced evidence.
+`inm investigate` and Studio project the same Core inspection result. Both show the question, pinned target, currentness of every manifest or introduced anchor, ordered reasoning entries, and exact existing routes/argv for referenced evidence.
 
 CLI is the primary structured surface for text-only Agents. Studio is the primary spatial surface for humans and browser-capable Agents. Studio may provide forms for explicit entry creation, but it cannot manufacture an observation, hypothesis, or decision on the user's behalf.
 
@@ -74,4 +76,6 @@ The stable Studio routes are `/<project>/investigations` and `/<project>/investi
 
 The first checked-in Investigation resumes the current inspection starvation inquiry. Its operating anchor is compatible Run `098-simulate`; its accumulated design anchor is commissioned Run `966127dd542de0b1…`, Candidate `inspection-supply-path-966127dd`, and that Candidate's verified KEEP receipt.
 
-Its first observation binds the focused replay to typed evidence: `inspection-1` accumulated 190.2 seconds of input wait at 20.7% utilization; `etch-to-inspection` delivered 12 lots at 1.3% utilization with zero blocked item-ticks; and upstream `etch-l2` itself waited 164.0 seconds for input. That evidence contradicts another local line-capacity, buffer-capacity, or parallel-etch guess. The next physically distinct hypothesis is therefore a qualified low-power standby state for the continuous deep-metrology cell after a ten-second empty interval. Its expected effect requires lower energy/electricity across every locked case without weakening completion, on-time service, first-pass yield, zero escapes, final-inspection Q-time, or the existing starvation target. It is a recorded hypothesis, not a commissioned result.
+Its first observation binds the focused replay to typed evidence: `inspection-1` accumulated 190.2 seconds of input wait at 20.7% utilization; `etch-to-inspection` delivered 12 lots at 1.3% utilization with zero blocked item-ticks; and upstream `etch-l2` itself waited 164.0 seconds for input. That evidence contradicts another local line-capacity, buffer-capacity, or parallel-etch guess. The next physically distinct hypothesis was therefore a qualified low-power standby state for the continuous deep-metrology cell after a ten-second empty interval.
+
+Candidate `metrology-low-power-standby` tested exactly that asset/policy change. Its strict review found a small `+0.031858992142857145` energy-component benefit, but every current-factory case acquired an approximately one-million-point constraint penalty and `facility-interruption` on-time lots fell from nine to seven. The Candidate was not applied. Entry `metrology-standby-rejected` introduces the exact DISCARD review anchor and preserves that negative industrial result beside the original observation.
