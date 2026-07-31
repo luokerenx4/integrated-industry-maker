@@ -9,10 +9,13 @@
     "blueprint": "generated-dram-fab"
   },
   "focus": {
-    "kind": "losses",
-    "losses": [
-      "input-starvation"
-    ]
+    "kind": "loss",
+    "loss": "input-starvation",
+    "target": {
+      "contributor": "device:inspection-1:material-input-shortage",
+      "metric": "starvationTicks",
+      "direction": "decrease"
+    }
   },
   "driverCase": "mixed-quality",
   "currentBestGuardrail": {

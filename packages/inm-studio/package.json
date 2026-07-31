@@ -1,7 +1,7 @@
 {
   "name": "@inm/studio",
   "version": "0.1.0",
-  "description": "Read-only 3D factory runtime debugger",
+  "description": "Visual factory observation and human/Agent workbench",
   "type": "module",
   "dependencies": {
     "@inm/core": "workspace:*",

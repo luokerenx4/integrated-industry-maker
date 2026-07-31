@@ -291,7 +291,7 @@ export interface WorkbenchObjectiveEvidence {
 }
 
 export interface ProjectWorkbenchSnapshot {
-  version: 18;
+  version: 19;
   project: {
     id: string;
     name: string;
@@ -778,7 +778,7 @@ function selectionArgv(selection: ProjectWorkbenchSnapshot["selection"]): string
   ];
 }
 
-export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "diagnostics" | "candidates" | "runs" | "operations" | "designPrograms" | "lossDispositions" | "investigationDiagnosticDispositions" | "objectiveEvidence">): WorkbenchNextAction {
+export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "diagnostics" | "candidates" | "runs" | "operations" | "designPrograms" | "lossAttribution" | "lossDispositions" | "investigationDiagnosticDispositions" | "objectiveEvidence">): WorkbenchNextAction {
   const projectRoute = `/${encodeURIComponent(context.project.id)}`;
   const blocking = context.diagnostics.find((diagnostic) => diagnostic.severity === "blocking");
   if (blocking) return {
@@ -886,17 +886,26 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
   const selectedLoss = warning?.code.startsWith("fab-loss.")
     ? warning.code.slice("fab-loss.".length) as FabLossBucketId
     : null;
+  const focusesSelectedTarget = (program: ProjectWorkbenchSnapshot["designPrograms"][number]): boolean => {
+    const lossFocus = program.focus.kind === "loss" ? program.focus : null;
+    if (selectedLoss === null || !lossFocus || lossFocus.loss !== selectedLoss) return false;
+    const contributor = context.lossAttribution?.buckets.find((bucket) => bucket.id === selectedLoss)
+      ?.contributors[0];
+    return contributor?.id === lossFocus.target.contributor
+      && Number.isFinite(contributor.evidence[lossFocus.target.metric]);
+  };
   const designEvidencePriority = (program: ProjectWorkbenchSnapshot["designPrograms"][number]): number => {
     if (program.evidence.state === "promotable") return 0;
-    const addressesSelectedLoss = selectedLoss !== null
-      && program.evidence.authorityAddressedLosses.includes(selectedLoss);
-    const focusesSelectedLoss = selectedLoss !== null
-      && program.focus.kind === "losses"
-      && program.focus.losses.includes(selectedLoss);
-    if (addressesSelectedLoss && program.evidence.state === "continuable") return 1;
-    if (addressesSelectedLoss && program.evidence.state === "commissioned") return 2;
-    if (addressesSelectedLoss && program.evidence.state === "exhausted") return 3;
-    if (focusesSelectedLoss && program.evidence.state === "missing") return 4;
+    const lossFocus = program.focus.kind === "loss" ? program.focus : null;
+    const matchesSelectedTarget = focusesSelectedTarget(program);
+    const addressesSelectedTarget = matchesSelectedTarget
+      && program.evidence.authorityAddressedLossTargets.some((addressed) =>
+        addressed.loss === lossFocus!.loss
+        && stableStringify(addressed.target) === stableStringify(lossFocus!.target));
+    if (addressesSelectedTarget && program.evidence.state === "continuable") return 1;
+    if (addressesSelectedTarget && program.evidence.state === "commissioned") return 2;
+    if (addressesSelectedTarget && program.evidence.state === "exhausted") return 3;
+    if (matchesSelectedTarget && program.evidence.state === "missing") return 4;
     if (program.focus.kind === "broad" && program.evidence.state === "missing") return 5;
     if (program.evidence.state === "continuable") return 6;
     if (program.evidence.state === "commissioned") return 7;
@@ -905,7 +914,9 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
     return 10;
   };
   const alignedProgram = context.designPrograms
-    .filter((program) => program.alignment.state === "aligned")
+    .filter((program) =>
+      program.alignment.state === "aligned"
+      && (selectedLoss === null || focusesSelectedTarget(program)))
     .sort((left, right) =>
       designEvidencePriority(left) - designEvidencePriority(right)
       || left.id.localeCompare(right.id))[0];
@@ -953,6 +964,18 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
     argv: ["inm", "design", context.project.rootDir, "--program", alignedProgram.id, "--json"],
     studioRoute: `${projectRoute}/designs/${encodeURIComponent(alignedProgram.id)}`,
     target: { kind: "design-program", programId: alignedProgram.id, diagnosticId: warning.id },
+  };
+  if (warning?.evidence.source === "compatible-run" && run?.compatible) return {
+    id: `observation:${warning.id}`,
+    tone: "evidence",
+    title: "Observe the leading loss before authoring an intervention",
+    reason: `${warning.message} No exact-target Design Program is qualified for the leading contributor, so inspect the run-qualified factory and record a human/Agent hypothesis before adding a proposal portfolio.`,
+    actionLabel: "OBSERVE CURRENT FACTORY",
+    effect: "read-only",
+    requiresConfirmation: false,
+    argv: ["inm", "observe", context.project.rootDir, ...selectionArgv(context.selection), "--run", run.id, "--json"],
+    studioRoute: `${projectRoute}/factory?run=${encodeURIComponent(run.id)}`,
+    target: { kind: "diagnostic", diagnosticId: warning.id },
   };
   if (warning) return {
     id: `diagnostic:${warning.id}`,
@@ -1311,7 +1334,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     let evidence: WorkbenchDesignProgramEvidence = {
       state: "not-applicable",
       authorityRunId: null,
-      authorityAddressedLosses: [],
+      authorityAddressedLossTargets: [],
       currentRuns: 0,
       commissionedRuns: 0,
       historicalRuns: 0,
@@ -1406,8 +1429,12 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
       return { program: projectedProgram, disposition: null };
     }
     const authority = await loadDesignRun(project.rootDir, projectedProgram.id, authorityRunId);
-    const authorityAddressedLosses = [...new Set(authority.manifest.iterations.flatMap((iteration) =>
-      iteration.addressedLoss ? [iteration.addressedLoss] : []))].sort();
+    const authorityAddressedLossTargets = authority.manifest.iterations.flatMap((iteration) =>
+      iteration.addressedLoss && iteration.addressedLossTarget
+        ? [{ loss: iteration.addressedLoss, target: structuredClone(iteration.addressedLossTarget) }]
+        : []).filter((value, index, values) =>
+      values.findIndex((candidate) => stableStringify(candidate) === stableStringify(value)) === index)
+      .sort((left, right) => stableStringify(left).localeCompare(stableStringify(right)));
     const disposition = deriveWorkbenchLossDisposition({
       id: sourceProgram.id,
       name: sourceProgram.name,
@@ -1425,7 +1452,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     return {
       program: {
         ...projectedProgram,
-        evidence: { ...projectedProgram.evidence, authorityAddressedLosses },
+        evidence: { ...projectedProgram.evidence, authorityAddressedLossTargets },
       },
       disposition,
     };
@@ -1448,7 +1475,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const baseSnapshot = {
-    version: 18 as const,
+    version: 19 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },

@@ -1015,7 +1015,15 @@ Optional `weights.electricityCost` penalizes Scenario-valued electricity energy 
   "description": "Improve one robustly evaluated re-entrant memory factory.",
   "benchmark": "dispatch-research",
   "seed": { "kind": "blueprint", "blueprint": "experiment" },
-  "focus": { "kind": "losses", "losses": ["yield-quality"] },
+  "focus": {
+    "kind": "loss",
+    "loss": "yield-quality",
+    "target": {
+      "contributor": "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2",
+      "metric": "introducedDefectInstances",
+      "direction": "decrease"
+    }
+  },
   "driverCase": "mixed-quality",
   "currentBestGuardrail": { "kind": "uniform", "maximumCaseScoreRegression": 0 },
   "frontier": { "maximumAlternativeBranches": 1 },
@@ -1027,7 +1035,7 @@ Optional `weights.electricityCost` penalizes Scenario-valued electricity energy 
 }
 ```
 
-The filename is `<id>.design.json`. The Benchmark must be locked and `driverCase` must name one of its cases. `seed` is either an authored Blueprint or an in-memory project synthesis; the Benchmark candidate Blueprint remains the separate promotion target. Optional `focus` is broad, an exact unique fab-loss list, or `{ "kind": "objective", "component": "<score-component>", "locations": [...] }`. Physical locations are valid only for `wip`, must be non-empty and unique when present, and bind Workbench routing to exact compatible-run inventory evidence. Focus declares alignment, not causal authority. Required current-best guardrail, frontier bound, decision families, and Candidate budget remain part of Program identity. See [[docs/design/design-programs]].
+The filename is `<id>.design.json`. The Benchmark must be locked and `driverCase` must name one of its cases. `seed` is either an authored Blueprint or an in-memory project synthesis; the Benchmark candidate Blueprint remains the separate promotion target. Optional `focus` is broad, one exact fab-loss `{ loss, target: { contributor, metric, direction: "decrease" } }`, or `{ "kind": "objective", "component": "<score-component>", "locations": [...] }`. Loss focus binds Workbench routing and every proposal to the current compatible-run leading contributor and numeric metric. Physical locations are valid only for `wip`, must be non-empty and unique when present, and bind Workbench routing to exact compatible-run inventory evidence. Focus declares eligibility and identity, not design authority. Required current-best guardrail, frontier bound, decision families, and Candidate budget remain part of Program identity. See [[docs/design/design-programs]].
 
 A completed design execution is stored under `design-runs/<program-id>/<result-hash>/`. Its strict V3 `manifest.json` owns the Program hash and policies, seed/promotion identities, every selected parent and candidate, proposal-time boundary, branch-local driver evidence, mutually exclusive loss/Objective/case rationale, exact loss or Objective target evidence, fixed-baseline evaluation, leader decision, frontier changes, exhaustions, and final scheduler state. Objective driver evidence contains the exact score breakdown plus average WIP by physical inventory location. `best.blueprint.json` is always the leader. Source-neutral driver evidence never carries a persisted run id. These are generated immutable evidence rather than authored inputs.
 

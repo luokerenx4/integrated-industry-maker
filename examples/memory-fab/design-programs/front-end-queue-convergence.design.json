@@ -9,10 +9,13 @@
     "blueprint": "generated-dram-fab"
   },
   "focus": {
-    "kind": "losses",
-    "losses": [
-      "queue-congestion"
-    ]
+    "kind": "loss",
+    "loss": "queue-congestion",
+    "target": {
+      "contributor": "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1",
+      "metric": "queueTicks",
+      "direction": "decrease"
+    }
   },
   "driverCase": "mixed-quality",
   "currentBestGuardrail": {

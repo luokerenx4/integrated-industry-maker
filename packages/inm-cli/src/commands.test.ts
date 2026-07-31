@@ -788,28 +788,28 @@ test("public inspect summary exposes bounded current Design evidence to Agents a
     expect.objectContaining({
       id: "commissioned-dram-fab",
       alignment: { state: "aligned", reasons: [] },
-      evidence: { state: "missing", authorityRunId: null, authorityCommissioning: null, authorityAddressedLosses: [], currentRuns: 0, commissionedRuns: 0, historicalRuns: 0, invalidRuns: 0 },
+      evidence: { state: "missing", authorityRunId: null, authorityCommissioning: null, authorityAddressedLossTargets: [], currentRuns: 0, commissionedRuns: 0, historicalRuns: 0, invalidRuns: 0 },
     }),
     expect.objectContaining({
       id: "back-end-die-handoff",
       alignment: { state: "aligned", reasons: [] },
-      evidence: { state: "missing", authorityRunId: null, authorityCommissioning: null, authorityAddressedLosses: [], currentRuns: 0, commissionedRuns: 0, historicalRuns: 0, invalidRuns: 0 },
+      evidence: { state: "missing", authorityRunId: null, authorityCommissioning: null, authorityAddressedLossTargets: [], currentRuns: 0, commissionedRuns: 0, historicalRuns: 0, invalidRuns: 0 },
     }),
     expect.objectContaining({
       id: "greenfield-dram-fab",
-      evidence: { state: "not-applicable", authorityRunId: null, authorityCommissioning: null, authorityAddressedLosses: [], currentRuns: 0, commissionedRuns: 0, historicalRuns: 0, invalidRuns: 0 },
+      evidence: { state: "not-applicable", authorityRunId: null, authorityCommissioning: null, authorityAddressedLossTargets: [], currentRuns: 0, commissionedRuns: 0, historicalRuns: 0, invalidRuns: 0 },
     }),
     expect.objectContaining({
       id: "lithography-maintenance-convergence",
-      focus: { kind: "losses", losses: ["maintenance-qualification"] },
+      focus: expect.objectContaining({ kind: "loss", loss: "maintenance-qualification" }),
       alignment: { state: "aligned", reasons: [] },
-      evidence: { state: "missing", authorityRunId: null, authorityCommissioning: null, authorityAddressedLosses: [], currentRuns: 0, commissionedRuns: 0, historicalRuns: 0, invalidRuns: 0 },
+      evidence: { state: "missing", authorityRunId: null, authorityCommissioning: null, authorityAddressedLossTargets: [], currentRuns: 0, commissionedRuns: 0, historicalRuns: 0, invalidRuns: 0 },
     }),
     expect.objectContaining({
       id: "release-admission-convergence",
-      focus: { kind: "losses", losses: ["release-admission"] },
+      focus: expect.objectContaining({ kind: "loss", loss: "release-admission" }),
       alignment: { state: "aligned", reasons: [] },
-      evidence: { state: "missing", authorityRunId: null, authorityCommissioning: null, authorityAddressedLosses: [], currentRuns: 0, commissionedRuns: 0, historicalRuns: 0, invalidRuns: 0 },
+      evidence: { state: "missing", authorityRunId: null, authorityCommissioning: null, authorityAddressedLossTargets: [], currentRuns: 0, commissionedRuns: 0, historicalRuns: 0, invalidRuns: 0 },
     }),
   ]));
   expect(programs[0].evidence.runs).toBeUndefined();
@@ -1612,18 +1612,18 @@ test("public Design Program workflow discovers, inspects, and executes without m
     data: {
       action: "list",
       programs: [
-        expect.objectContaining({ id: "back-end-die-handoff", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["transport-blocking"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
+        expect.objectContaining({ id: "back-end-die-handoff", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: expect.objectContaining({ kind: "loss", loss: "transport-blocking" }), currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
         expect.objectContaining({ id: "back-end-wip-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "objective", component: "wip", locations: ["buffer:burn-in-1:package-input:packaged-dram-device", "buffer:packaging-1:die-input:known-good-dram-die"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
-        expect.objectContaining({ id: "burn-in-changeover-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["setup-campaign"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
+        expect.objectContaining({ id: "burn-in-changeover-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: expect.objectContaining({ kind: "loss", loss: "setup-campaign" }), currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
         expect.objectContaining({ id: "commissioned-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
-        expect.objectContaining({ id: "front-end-queue-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["queue-congestion"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
+        expect.objectContaining({ id: "front-end-queue-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: expect.objectContaining({ kind: "loss", loss: "queue-congestion" }), currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
         expect.objectContaining({ id: "greenfield-dram-fab", locked: true, seed: { kind: "synthesis", inputBlueprint: "greenfield" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
         expect.objectContaining({ id: "inspection-supply-path", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
         expect.objectContaining({ id: "integrated-dram-fab", locked: true, seed: { kind: "blueprint", blueprint: "experiment" }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 1 } }),
-        expect.objectContaining({ id: "layer-two-particle-control", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["yield-quality"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
-        expect.objectContaining({ id: "lithography-maintenance-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["maintenance-qualification"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
-        expect.objectContaining({ id: "release-admission-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["release-admission"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
-        expect.objectContaining({ id: "shipping-power-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: { kind: "losses", losses: ["power-interruption"] }, currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
+        expect.objectContaining({ id: "layer-two-particle-control", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: expect.objectContaining({ kind: "loss", loss: "yield-quality" }), currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
+        expect.objectContaining({ id: "lithography-maintenance-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: expect.objectContaining({ kind: "loss", loss: "maintenance-qualification" }), currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
+        expect.objectContaining({ id: "release-admission-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: expect.objectContaining({ kind: "loss", loss: "release-admission" }), currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
+        expect.objectContaining({ id: "shipping-power-convergence", locked: true, seed: { kind: "blueprint", blueprint: "generated-dram-fab" }, focus: expect.objectContaining({ kind: "loss", loss: "power-interruption" }), currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 }, frontier: { maximumAlternativeBranches: 0 } }),
       ],
     },
     artifacts: [],
@@ -2154,7 +2154,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
       evidence: expect.objectContaining({
         state: "missing",
         authorityRunId: null,
-        authorityAddressedLosses: [],
+        authorityAddressedLossTargets: [],
         currentRuns: 0,
         commissionedRuns: 0,
         historicalRuns: 5,
@@ -2165,14 +2165,29 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
       item.alignment.state === "aligned").every((item: { evidence: { currentRuns: number } }) =>
       item.evidence.currentRuns === 0)).toBeTrue();
     expect(result.lossDispositions).toEqual([]);
-    expect(result.investigationDiagnosticDispositions).toEqual([]);
+    expect(result.investigationDiagnosticDispositions).toEqual([
+      expect.objectContaining({
+        state: "current",
+        disposition: "defer",
+        queueEffect: "suppressed",
+        source: expect.objectContaining({
+          investigationId: "run-110-furnace-supply",
+          entryId: "defer-run-110-furnace-local-branch",
+        }),
+        target: expect.objectContaining({
+          anchorId: "run-110-furnace-factory",
+          code: "fab-loss.input-starvation",
+          diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:device:furnace-1/),
+        }),
+      }),
+    ]);
     expect(result.nextAction).toEqual(expect.objectContaining({
-      id: expect.stringMatching(/^design\.inspect:inspection-supply-path:fab-loss\.input-starvation:/),
-      title: "Investigate the leading loss with Inspection Supply Path Convergence",
-      actionLabel: "OPEN DESIGN LOOP",
+      id: expect.stringMatching(/^observation:fab-loss\.queue-congestion:device:probe-1/),
+      title: "Observe the leading loss before authoring an intervention",
+      actionLabel: "OBSERVE CURRENT FACTORY",
       target: expect.objectContaining({
-        kind: "design-program",
-        programId: "inspection-supply-path",
+        kind: "diagnostic",
+        diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:device:probe-1/),
       }),
     }));
     expect(JSON.parse(objective.stdout).data.result).toEqual(expect.objectContaining({
@@ -2181,9 +2196,19 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
     }));
     expect(JSON.parse(dispositions.stdout).data.result).toEqual({
       design: [],
-      investigations: [],
+      investigations: [
+        expect.objectContaining({
+          state: "current",
+          disposition: "defer",
+          queueEffect: "suppressed",
+          source: expect.objectContaining({
+            investigationId: "run-110-furnace-supply",
+            entryId: "defer-run-110-furnace-local-branch",
+          }),
+        }),
+      ],
     });
-    expect(human.stdout).toContain("Next action: Investigate the leading loss with Inspection Supply Path Convergence");
+    expect(human.stdout).toContain("Next action: Observe the leading loss before authoring an intervention");
     return;
   }
   if (currentInspection?.evidence.state === "missing"
@@ -2194,7 +2219,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
       evidence: expect.objectContaining({
         state: "missing",
         authorityRunId: null,
-        authorityAddressedLosses: [],
+        authorityAddressedLossTargets: [],
         currentRuns: 0,
         commissionedRuns: 0,
         historicalRuns: 5,
@@ -2254,7 +2279,10 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
       commissionedRuns: 1,
       historicalRuns: 4,
       invalidRuns: 4,
-      authorityAddressedLosses: ["input-starvation"],
+      authorityAddressedLossTargets: [{
+        loss: "input-starvation",
+        target: { contributor: "device:inspection-1:material-input-shortage", metric: "starvationTicks", direction: "decrease" },
+      }],
       authorityCommissioning: expect.objectContaining({
         candidateId: "inspection-supply-path-966127dd",
         runId: "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06",
@@ -2363,7 +2391,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
     evidence: expect.objectContaining({
       state: "missing",
       authorityRunId: null,
-      authorityAddressedLosses: [],
+      authorityAddressedLossTargets: [],
       currentRuns: 0,
       historicalRuns: 0,
       invalidRuns: 32,
@@ -2384,7 +2412,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
       evidence: {
         state: "missing",
         authorityRunId: null,
-        authorityAddressedLosses: [],
+        authorityAddressedLossTargets: [],
         currentRuns: 0,
         historicalRuns,
         invalidRuns: 0,
@@ -2396,7 +2424,10 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
     evidence: {
       state: "exhausted",
       authorityRunId: "159ea491ae7862c7a028f8bd4cfe10849d1a4dc6209ac211816f35ffb576f2d8",
-      authorityAddressedLosses: ["input-starvation"],
+      authorityAddressedLossTargets: [{
+        loss: "input-starvation",
+        target: { contributor: "device:inspection-1:material-input-shortage", metric: "starvationTicks", direction: "decrease" },
+      }],
       currentRuns: 1,
       historicalRuns: 3,
       invalidRuns: 0,

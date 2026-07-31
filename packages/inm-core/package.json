@@ -1,7 +1,7 @@
 {
   "name": "@inm/core",
   "version": "0.1.0",
-  "description": "File-native industrial blueprint compiler, simulator, evaluator, and research runtime",
+  "description": "File-native industrial compiler, deterministic simulator, evaluator, and evidence runtime",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",

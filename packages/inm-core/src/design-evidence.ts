@@ -1,4 +1,8 @@
-import { buildDesignProgramBrief, type DesignProgramBrief } from "./design-program";
+import {
+  buildDesignProgramBrief,
+  type DesignProgramBrief,
+  type DesignProgramLossTarget,
+} from "./design-program";
 import {
   listCandidateChangeSets,
   type CandidateChangeSet,
@@ -73,7 +77,10 @@ export interface WorkbenchDesignRunEvidence {
 export interface WorkbenchDesignProgramEvidence {
   state: WorkbenchDesignEvidenceState;
   authorityRunId: string | null;
-  authorityAddressedLosses: FabLossBucketId[];
+  authorityAddressedLossTargets: Array<{
+    loss: FabLossBucketId;
+    target: DesignProgramLossTarget;
+  }>;
   currentRuns: number;
   commissionedRuns: number;
   historicalRuns: number;
@@ -247,7 +254,7 @@ export function classifyDesignProgramEvidence(
   return {
     state: authority?.currentness.state === "commissioned" ? "commissioned" : authority?.outcome ?? "missing",
     authorityRunId: authority?.id ?? null,
-    authorityAddressedLosses: [],
+    authorityAddressedLossTargets: [],
     currentRuns: current.length,
     commissionedRuns: commissioned.length,
     historicalRuns: projected.length - current.length - commissioned.length,

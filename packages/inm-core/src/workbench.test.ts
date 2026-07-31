@@ -46,7 +46,7 @@ async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
 
 test("shared workbench snapshot orients an operator with stable diagnostics and operations", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/ironworks"));
-  expect(snapshot.version).toBe(18);
+  expect(snapshot.version).toBe(19);
   expect(snapshot.project.id).toBe("ironworks");
   expect(snapshot.selection).toEqual(expect.objectContaining({
     world: expect.objectContaining({ id: "main" }),
@@ -402,7 +402,11 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     expect.objectContaining({
       id: "back-end-die-handoff",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["transport-blocking"] },
+      focus: {
+        kind: "loss",
+        loss: "transport-blocking",
+        target: { contributor: "connection:probe-to-packaging:transport-line-contention", metric: "blockedItemTicks", direction: "decrease" },
+      },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
@@ -425,7 +429,11 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     expect.objectContaining({
       id: "burn-in-changeover-convergence",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["setup-campaign"] },
+      focus: {
+        kind: "loss",
+        loss: "setup-campaign",
+        target: { contributor: "device:burn-in-1:production-changeover:reliability-screen:commercial-screen:screen-commercial-dram", metric: "setupTicks", direction: "decrease" },
+      },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
@@ -441,7 +449,11 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     expect.objectContaining({
       id: "front-end-queue-convergence",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["queue-congestion"] },
+      focus: {
+        kind: "loss",
+        loss: "queue-congestion",
+        target: { contributor: "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1", metric: "queueTicks", direction: "decrease" },
+      },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
@@ -456,7 +468,11 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     expect.objectContaining({
       id: "inspection-supply-path",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["input-starvation"] },
+      focus: {
+        kind: "loss",
+        loss: "input-starvation",
+        target: { contributor: "device:inspection-1:material-input-shortage", metric: "starvationTicks", direction: "decrease" },
+      },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
@@ -471,7 +487,11 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     expect.objectContaining({
       id: "layer-two-particle-control",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["yield-quality"] },
+      focus: {
+        kind: "loss",
+        loss: "yield-quality",
+        target: { contributor: "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2", metric: "introducedDefectInstances", direction: "decrease" },
+      },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
@@ -479,7 +499,11 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     expect.objectContaining({
       id: "lithography-maintenance-convergence",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["maintenance-qualification"] },
+      focus: {
+        kind: "loss",
+        loss: "maintenance-qualification",
+        target: { contributor: "device:lithography-1:maintenance-qualification", metric: "totalTicks", direction: "decrease" },
+      },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
@@ -487,7 +511,11 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     expect.objectContaining({
       id: "release-admission-convergence",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["release-admission"] },
+      focus: {
+        kind: "loss",
+        loss: "release-admission",
+        target: { contributor: "lot:dram-lot-07:release-admission", metric: "totalTicks", direction: "decrease" },
+      },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
@@ -495,7 +523,11 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     expect.objectContaining({
       id: "shipping-power-convergence",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["power-interruption"] },
+      focus: {
+        kind: "loss",
+        loss: "power-interruption",
+        target: { contributor: "device:substrate-receiving-to-packaging-loader:power-interruption", metric: "unpoweredTicks", direction: "decrease" },
+      },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
       evidence: expect.objectContaining({ state: "missing", authorityRunId: null, currentRuns: 0, historicalRuns: 0, invalidRuns: 0 }),
@@ -544,17 +576,39 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     candidate.id === "incumbent-five-performance-seven-commercial")?.investigationDisposition)
     .toBeNull();
   expect(snapshot.nextAction.id).not.toBe("candidate.apply:incumbent-five-performance-seven-commercial");
-  expect(snapshot.investigationDiagnosticDispositions).toEqual([]);
+  expect(snapshot.investigationDiagnosticDispositions).toEqual([
+    expect.objectContaining({
+      disposition: "defer",
+      queueEffect: "suppressed",
+      target: expect.objectContaining({
+        anchorId: "run-110-furnace-factory",
+        code: "fab-loss.input-starvation",
+        diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:device:furnace-1/),
+      }),
+      source: expect.objectContaining({
+        investigationId: "run-110-furnace-supply",
+        entryId: "defer-run-110-furnace-local-branch",
+      }),
+    }),
+  ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.inspect:inspection-supply-path:fab-loss\.input-starvation:/),
+    id: expect.stringMatching(/^observation:fab-loss\.queue-congestion:device:probe-1/),
     effect: "read-only",
     requiresConfirmation: false,
-    argv: ["inm", "design", snapshot.project.rootDir, "--program", "inspection-supply-path", "--json"],
-    studioRoute: "/memory-fab/designs/inspection-supply-path",
+    argv: [
+      "inm", "observe", snapshot.project.rootDir,
+      "--world", "cleanroom",
+      "--blueprint", "generated-dram-fab",
+      "--production-plan", "production-window",
+      "--scenario", "production-window",
+      "--objective", "dram-output",
+      "--run", "110-candidate-trial-run-105-normal-particle-suppress",
+      "--json",
+    ],
+    studioRoute: "/memory-fab/factory?run=110-candidate-trial-run-105-normal-particle-suppress",
     target: expect.objectContaining({
-      kind: "design-program",
-      programId: "inspection-supply-path",
-      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+      kind: "diagnostic",
+      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:device:probe-1/),
     }),
   }));
   const leadingDiagnostic = snapshot.diagnostics.find((diagnostic) =>
@@ -611,22 +665,45 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     ...snapshot,
     diagnostics: snapshot.diagnostics.filter((diagnostic) => diagnostic.code !== "fab-loss.input-starvation"),
   })).toEqual(expect.objectContaining({
-    title: "Investigate the leading loss with Layer-one Etch Queue Convergence",
-    argv: ["inm", "design", snapshot.project.rootDir, "--program", "front-end-queue-convergence", "--json"],
-    studioRoute: "/memory-fab/designs/front-end-queue-convergence",
+    title: "Observe the leading loss before authoring an intervention",
+    argv: [
+      "inm", "observe", snapshot.project.rootDir,
+      "--world", "cleanroom",
+      "--blueprint", "generated-dram-fab",
+      "--production-plan", "production-window",
+      "--scenario", "production-window",
+      "--objective", "dram-output",
+      "--run", "110-candidate-trial-run-105-normal-particle-suppress",
+      "--json",
+    ],
+    studioRoute: "/memory-fab/factory?run=110-candidate-trial-run-105-normal-particle-suppress",
     target: expect.objectContaining({
-      kind: "design-program",
-      programId: "front-end-queue-convergence",
-      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
+      kind: "diagnostic",
+      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:device:probe-1/),
     }),
   }));
   const exhaustedId = "f".repeat(64);
-  const withExhaustedEvidence = snapshot.designPrograms.map((program) => program.id === "inspection-supply-path" ? {
-    ...program,
+  const focusedProgram = snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")!;
+  const withExhaustedEvidence = [...snapshot.designPrograms, {
+    ...focusedProgram,
+    id: "furnace-supply-path-recovery",
+    name: "Furnace Supply Path Recovery",
+    focus: {
+      kind: "loss" as const,
+      loss: "input-starvation" as const,
+      target: {
+        contributor: "device:furnace-1:material-input-shortage",
+        metric: "starvationTicks",
+        direction: "decrease" as const,
+      },
+    },
     evidence: {
       state: "exhausted" as const,
       authorityRunId: exhaustedId,
-      authorityAddressedLosses: ["input-starvation" as const],
+      authorityAddressedLossTargets: [{
+        loss: "input-starvation" as const,
+        target: { contributor: "device:furnace-1:material-input-shortage", metric: "starvationTicks", direction: "decrease" as const },
+      }],
       currentRuns: 1,
       commissionedRuns: 0,
       historicalRuns: 0,
@@ -649,18 +726,18 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       }],
       invalid: [],
     },
-  } : program);
+  }];
   expect(buildWorkbenchNextAction({
     ...snapshot,
     designPrograms: withExhaustedEvidence,
     investigationDiagnosticDispositions: [],
   })).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.run\.inspect:inspection-supply-path:/),
-    title: "Expand Inspection Supply Path Convergence's intervention portfolio",
+    id: expect.stringMatching(/^design\.run\.inspect:furnace-supply-path-recovery:/),
+    title: "Expand Furnace Supply Path Recovery's intervention portfolio",
     actionLabel: "REVIEW EXHAUSTED DESIGN",
-    argv: ["inm", "design", snapshot.project.rootDir, "--program", "inspection-supply-path", "--run-id", exhaustedId, "--json"],
-    studioRoute: `/memory-fab/designs/inspection-supply-path/runs/${exhaustedId}`,
-    target: expect.objectContaining({ kind: "design-run", programId: "inspection-supply-path", runId: exhaustedId, phase: "exhausted" }),
+    argv: ["inm", "design", snapshot.project.rootDir, "--program", "furnace-supply-path-recovery", "--run-id", exhaustedId, "--json"],
+    studioRoute: `/memory-fab/designs/furnace-supply-path-recovery/runs/${exhaustedId}`,
+    target: expect.objectContaining({ kind: "design-run", programId: "furnace-supply-path-recovery", runId: exhaustedId, phase: "exhausted" }),
   }));
   expect(snapshot.operations.find((operation) => operation.id === "design.run")).toEqual(expect.objectContaining({
     effect: "creates-artifact",
@@ -765,14 +842,22 @@ test("shared handoff retires stale inspection evidence and advances to the curre
   const objectiveAuthority = snapshot.designPrograms
     .find((program) => program.id === "back-end-wip-convergence")?.evidence.authorityRunId;
   expect(objectiveAuthority).toBeNull();
-  expect(snapshot.investigationDiagnosticDispositions).toEqual([]);
+  expect(snapshot.investigationDiagnosticDispositions).toEqual([
+    expect.objectContaining({
+      disposition: "defer",
+      queueEffect: "suppressed",
+      target: expect.objectContaining({
+        anchorId: "run-110-furnace-factory",
+        code: "fab-loss.input-starvation",
+      }),
+    }),
+  ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    title: "Investigate the leading loss with Inspection Supply Path Convergence",
-    actionLabel: "OPEN DESIGN LOOP",
+    title: "Observe the leading loss before authoring an intervention",
+    actionLabel: "OBSERVE CURRENT FACTORY",
     target: expect.objectContaining({
-      kind: "design-program",
-      programId: "inspection-supply-path",
-      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+      kind: "diagnostic",
+      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:device:probe-1/),
     }),
   }));
 });
@@ -783,7 +868,7 @@ test("an active physical loss still outranks current Objective Design evidence",
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true });
   await rm(join(projectDir, "design-runs/front-end-queue-convergence"), { recursive: true, force: true });
   const snapshot = await openProjectWorkbenchSnapshot(projectDir);
-  expect(snapshot.version).toBe(18);
+  expect(snapshot.version).toBe(19);
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.input-starvation")).toBeTrue();
   const currentInspection = snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")?.evidence;
   if (currentInspection?.authorityRunId === "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06") {
@@ -842,11 +927,10 @@ test("an active physical loss still outranks current Objective Design evidence",
       disposition.queueEffect === "suppressed"
       && disposition.target.code === "fab-loss.input-starvation")) {
       expect(snapshot.nextAction).toEqual(expect.objectContaining({
-        title: "Investigate the leading loss with Layer-two Particle Control",
+        title: "Observe the leading loss before authoring an intervention",
         target: expect.objectContaining({
-          kind: "design-program",
-          programId: "layer-two-particle-control",
-          diagnosticId: expect.stringMatching(/^fab-loss\.yield-quality:/),
+          kind: "diagnostic",
+          diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:device:probe-1/),
         }),
       }));
       await rm(root, { recursive: true, force: true });
@@ -1081,18 +1165,32 @@ test("an active physical loss still outranks current Objective Design evidence",
       }),
     }),
   ]);
-  expect(snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")?.evidence.authorityAddressedLosses)
-    .toEqual(["input-starvation"]);
+  expect(snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")?.evidence.authorityAddressedLossTargets)
+    .toEqual([{
+      loss: "input-starvation",
+      target: { contributor: "device:inspection-1:material-input-shortage", metric: "starvationTicks", direction: "decrease" },
+    }]);
   expect(snapshot.designPrograms.find((program) => program.id === "layer-two-particle-control")).toEqual(expect.objectContaining({
-    focus: { kind: "losses", losses: ["yield-quality"] },
+    focus: {
+      kind: "loss",
+      loss: "yield-quality",
+      target: { contributor: "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2", metric: "introducedDefectInstances", direction: "decrease" },
+    },
     evidence: expect.objectContaining({
       state: "exhausted",
       authorityRunId: "f373ce6d778faea79cc2dfee70ea36125be23a10b642178c943d700bb32b6310",
-      authorityAddressedLosses: ["yield-quality"],
+      authorityAddressedLossTargets: [{
+        loss: "yield-quality",
+        target: { contributor: "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2", metric: "introducedDefectInstances", direction: "decrease" },
+      }],
     }),
   }));
   expect(snapshot.designPrograms.find((program) => program.id === "front-end-queue-convergence")).toEqual(expect.objectContaining({
-    focus: { kind: "losses", losses: ["queue-congestion"] },
+    focus: {
+      kind: "loss",
+      loss: "queue-congestion",
+      target: { contributor: "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1", metric: "queueTicks", direction: "decrease" },
+    },
     evidence: expect.objectContaining({
       state: "missing",
       authorityRunId: null,
@@ -1467,8 +1565,11 @@ test("a non-KEEP Candidate receipt resolves review work without displacing curre
     verifiedCount: 1,
   });
   expect(reviewed.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringContaining("design.inspect:inspection-supply-path:fab-loss."),
-    target: expect.objectContaining({ kind: "design-program", programId: "inspection-supply-path" }),
+    id: expect.stringContaining("observation:fab-loss.queue-congestion:device:probe-1"),
+    target: expect.objectContaining({
+      kind: "diagnostic",
+      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:device:probe-1/),
+    }),
   }));
 }, 20_000);
 

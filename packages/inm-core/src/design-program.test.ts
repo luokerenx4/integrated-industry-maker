@@ -58,7 +58,11 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       id: "back-end-die-handoff",
       benchmark: "greenfield-dram-design",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["transport-blocking"] },
+      focus: {
+        kind: "loss",
+        loss: "transport-blocking",
+        target: { contributor: "connection:probe-to-packaging:transport-line-contention", metric: "blockedItemTicks", direction: "decrease" },
+      },
       driverCase: "mixed-quality",
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       frontier: { maximumAlternativeBranches: 0 },
@@ -97,7 +101,11 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       id: "burn-in-changeover-convergence",
       benchmark: "greenfield-dram-design",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["setup-campaign"] },
+      focus: {
+        kind: "loss",
+        loss: "setup-campaign",
+        target: { contributor: "device:burn-in-1:production-changeover:reliability-screen:commercial-screen:screen-commercial-dram", metric: "setupTicks", direction: "decrease" },
+      },
       driverCase: "mixed-quality",
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       frontier: { maximumAlternativeBranches: 0 },
@@ -124,7 +132,11 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       id: "front-end-queue-convergence",
       benchmark: "greenfield-dram-design",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["queue-congestion"] },
+      focus: {
+        kind: "loss",
+        loss: "queue-congestion",
+        target: { contributor: "device:etch-1:process-queue-wait:dram-front-end:etch-cell-layer-1:etch-cell-layer-1", metric: "queueTicks", direction: "decrease" },
+      },
       driverCase: "mixed-quality",
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       frontier: { maximumAlternativeBranches: 0 },
@@ -151,7 +163,11 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       id: "inspection-supply-path",
       benchmark: "greenfield-dram-design",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["input-starvation"] },
+      focus: {
+        kind: "loss",
+        loss: "input-starvation",
+        target: { contributor: "device:inspection-1:material-input-shortage", metric: "starvationTicks", direction: "decrease" },
+      },
       driverCase: "mixed-quality",
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       frontier: { maximumAlternativeBranches: 0 },
@@ -178,7 +194,11 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       id: "layer-two-particle-control",
       benchmark: "greenfield-dram-design",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["yield-quality"] },
+      focus: {
+        kind: "loss",
+        loss: "yield-quality",
+        target: { contributor: "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2", metric: "introducedDefectInstances", direction: "decrease" },
+      },
       driverCase: "mixed-quality",
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       frontier: { maximumAlternativeBranches: 0 },
@@ -194,7 +214,11 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       id: "lithography-maintenance-convergence",
       benchmark: "greenfield-dram-design",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["maintenance-qualification"] },
+      focus: {
+        kind: "loss",
+        loss: "maintenance-qualification",
+        target: { contributor: "device:lithography-1:maintenance-qualification", metric: "totalTicks", direction: "decrease" },
+      },
       driverCase: "mixed-quality",
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       frontier: { maximumAlternativeBranches: 0 },
@@ -210,7 +234,11 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       id: "release-admission-convergence",
       benchmark: "greenfield-dram-design",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["release-admission"] },
+      focus: {
+        kind: "loss",
+        loss: "release-admission",
+        target: { contributor: "lot:dram-lot-07:release-admission", metric: "totalTicks", direction: "decrease" },
+      },
       driverCase: "mixed-quality",
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       frontier: { maximumAlternativeBranches: 0 },
@@ -226,7 +254,11 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       id: "shipping-power-convergence",
       benchmark: "greenfield-dram-design",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
-      focus: { kind: "losses", losses: ["power-interruption"] },
+      focus: {
+        kind: "loss",
+        loss: "power-interruption",
+        target: { contributor: "device:substrate-receiving-to-packaging-loader:power-interruption", metric: "unpoweredTicks", direction: "decrease" },
+      },
       driverCase: "mixed-quality",
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
       frontier: { maximumAlternativeBranches: 0 },
@@ -369,12 +401,28 @@ test("Design Program validation rejects unknown fields and the removed legacy se
   await writeFile(path, `${JSON.stringify({ ...program, surprise: true }, null, 2)}\n`);
   await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("Unrecognized key");
   delete program.surprise;
-  program.focus = { kind: "losses", losses: ["yield-quality", "yield-quality"] };
+  program.focus = {
+    kind: "loss",
+    loss: "yield-quality",
+    target: { contributor: "quality:one", metric: "introducedDefectInstances", direction: "decrease" },
+    surprise: true,
+  };
   await writeFile(path, `${JSON.stringify(program, null, 2)}\n`);
-  await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("duplicates fab loss 'yield-quality'");
-  program.focus = { kind: "losses", losses: ["not-a-loss"] };
+  await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("Unrecognized key");
+  program.focus = {
+    kind: "loss",
+    loss: "not-a-loss",
+    target: { contributor: "quality:one", metric: "introducedDefectInstances", direction: "decrease" },
+  };
   await writeFile(path, `${JSON.stringify(program, null, 2)}\n`);
-  await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("focus/losses/0");
+  await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("focus/loss");
+  program.focus = {
+    kind: "loss",
+    loss: "yield-quality",
+    target: { contributor: "", metric: "introducedDefectInstances", direction: "decrease" },
+  };
+  await writeFile(path, `${JSON.stringify(program, null, 2)}\n`);
+  await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("focus/target/contributor");
   program.focus = { kind: "objective", component: "wip", locations: ["buffer:a", "buffer:a"] };
   await writeFile(path, `${JSON.stringify(program, null, 2)}\n`);
   await expect(loadDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("duplicates Objective location 'buffer:a'");
@@ -418,6 +466,43 @@ test("Design Program validation rejects unknown fields and the removed legacy se
   await writeFile(path, `${JSON.stringify(valid, null, 2)}\n`);
   await expect(prepareDesignProgram(copy, "integrated-dram-fab")).rejects.toThrow("must match Benchmark 'dispatch-research' cases exactly");
 });
+
+test("loss-focused Design rejects a proposal outside its exact contributor and metric identity", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-design-loss-focus-"));
+  temporaryDirectories.push(root);
+  const copy = join(root, "memory-fab");
+  await cp(projectDir, copy, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes("design-runs") && !source.split("/").includes(".inm"),
+  });
+  const path = join(copy, "design-programs", "inspection-supply-path.design.json");
+  const program = JSON.parse(await readFile(path, "utf8"));
+  program.focus.target.metric = "weightedStarvationTicks";
+  program.proposal.entry = "strategies/test-loss-target-proposal.ts";
+  await writeFile(path, `${JSON.stringify(program, null, 2)}\n`);
+  await writeFile(join(copy, program.proposal.entry), `export default {
+  apiVersion: 8,
+  propose() {
+    return {
+      strategy: "test:exact-loss-target",
+      hypothesis: "Exercise strict Program-to-proposal target identity.",
+      expectedEffect: "Reject the proposal before applying its patch.",
+      addressedLoss: "input-starvation",
+      addressedLossTarget: {
+        contributor: "device:inspection-1:material-input-shortage",
+        metric: "starvationTicks",
+        direction: "decrease",
+      },
+      patch: [{ op: "replace", path: "/policies/lotDispatch", value: "fifo" }],
+    };
+  },
+};
+`);
+
+  await expect(runDesignProgram(copy, "inspection-supply-path", { maxCandidates: 1 }))
+    .rejects.toThrow("is outside Program 'inspection-supply-path' focus");
+  expect(await indexDesignRuns(copy, "inspection-supply-path")).toEqual({ runs: [], invalidRuns: [] });
+}, 30_000);
 
 test("Design execution honours cancellation between exact case evaluations without writing a partial run", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-design-cancel-"));

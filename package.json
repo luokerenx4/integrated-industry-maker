@@ -1,7 +1,7 @@
 {
   "name": "integrated-industry-maker",
   "version": "0.1.0",
-  "description": "AI-native industrial production design, deterministic simulation, and automated blueprint optimization",
+  "description": "Human- and AI-operated industrial design with deterministic simulation and evidence-backed improvement",
   "private": true,
   "type": "module",
   "workspaces": ["packages/*"],

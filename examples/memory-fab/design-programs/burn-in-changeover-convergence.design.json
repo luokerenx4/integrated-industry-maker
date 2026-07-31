@@ -9,10 +9,13 @@
     "blueprint": "generated-dram-fab"
   },
   "focus": {
-    "kind": "losses",
-    "losses": [
-      "setup-campaign"
-    ]
+    "kind": "loss",
+    "loss": "setup-campaign",
+    "target": {
+      "contributor": "device:burn-in-1:production-changeover:reliability-screen:commercial-screen:screen-commercial-dram",
+      "metric": "setupTicks",
+      "direction": "decrease"
+    }
   },
   "driverCase": "mixed-quality",
   "currentBestGuardrail": {

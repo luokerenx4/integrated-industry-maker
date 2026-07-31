@@ -9,10 +9,13 @@
     "blueprint": "generated-dram-fab"
   },
   "focus": {
-    "kind": "losses",
-    "losses": [
-      "power-interruption"
-    ]
+    "kind": "loss",
+    "loss": "power-interruption",
+    "target": {
+      "contributor": "device:substrate-receiving-to-packaging-loader:power-interruption",
+      "metric": "unpoweredTicks",
+      "direction": "decrease"
+    }
   },
   "driverCase": "mixed-quality",
   "currentBestGuardrail": {

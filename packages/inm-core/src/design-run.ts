@@ -1524,6 +1524,20 @@ export async function runDesignProgram(
       throw error;
     }
     const programFocus = brief.program.focus;
+    if (programFocus.kind === "loss") {
+      if (branch.role === "leader" && (!proposal.addressedLoss || !proposal.addressedLossTarget)) throw new Error(
+        `Loss-focused Design Program '${program.id}' must name its exact addressedLoss and addressedLossTarget`,
+      );
+      if (proposal.addressedLossTarget
+        && (programFocus.loss !== proposal.addressedLoss
+          || stableStringify(programFocus.target) !== stableStringify(proposal.addressedLossTarget))) throw new Error(
+        `Design proposal loss target '${proposal.addressedLoss}:${proposal.addressedLossTarget.contributor}.${proposal.addressedLossTarget.metric}' is outside Program '${program.id}' focus`,
+      );
+    } else if (proposal.addressedLossTarget) {
+      throw new Error(
+        `Design proposal loss target '${proposal.addressedLoss}:${proposal.addressedLossTarget.contributor}.${proposal.addressedLossTarget.metric}' is outside Program '${program.id}' focus`,
+      );
+    }
     if (programFocus.kind === "objective" && branch.role === "leader" && !proposal.addressedObjectiveTarget) throw new Error(
       `Objective-focused Design Program '${program.id}' must name an addressedObjectiveTarget`,
     );

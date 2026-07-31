@@ -752,7 +752,7 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
             authorityRunId: program.evidence.authorityRunId,
             authorityCommissioning: program.evidence.runs.find((run) =>
               run.id === program.evidence.authorityRunId)?.currentness.commissioning ?? null,
-            authorityAddressedLosses: program.evidence.authorityAddressedLosses,
+            authorityAddressedLossTargets: program.evidence.authorityAddressedLossTargets,
             currentRuns: program.evidence.currentRuns,
             commissionedRuns: program.evidence.commissionedRuns,
             historicalRuns: program.evidence.historicalRuns,
@@ -2690,8 +2690,8 @@ export async function designCommand(projectDir: string, programId: string | unde
       `Provider: ${brief.program.proposal.kind}${brief.program.proposal.kind === "project-strategy" ? ` · ${brief.program.proposal.entry}` : ""}`,
       `Focus: ${brief.program.focus.kind === "broad"
         ? "broad industrial search"
-        : brief.program.focus.kind === "losses"
-          ? brief.program.focus.losses.join(" + ")
+        : brief.program.focus.kind === "loss"
+          ? `${brief.program.focus.loss} · ${brief.program.focus.target.contributor}.${brief.program.focus.target.metric} ${brief.program.focus.target.direction}`
           : `Objective ${brief.program.focus.component}${brief.program.focus.locations?.length ? ` @ ${brief.program.focus.locations.join(" + ")}` : ""}`}`,
       `Hard industrial outcomes: ${brief.benchmark.acceptance.outcomeGuardrails?.length ?? 0} absolute guardrails`,
       `Current-best guardrail: ${brief.program.currentBestGuardrail.kind}${brief.program.currentBestGuardrail.kind === "uniform" ? ` · max ${brief.program.currentBestGuardrail.maximumCaseScoreRegression.toFixed(6)} regression/case` : brief.program.currentBestGuardrail.kind === "case-specific" ? ` · ${Object.keys(brief.program.currentBestGuardrail.maximumCaseScoreRegression).length} case budgets` : ""}`,

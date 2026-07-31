@@ -16,6 +16,8 @@ surfaces use the same Core model, evidence identities, and recommended next
 action. An Agent may also operate Studio through a browser; the interface is a
 view of the same project, not a separate source of truth.
 
+![INM Studio showing the re-entrant DRAM memory fab and its current run evidence](docs/assets/inm-studio-memory-fab.jpg)
+
 INM does **not** ask an opaque optimizer to decide what makes a factory good.
 The engine compiles, simulates, attributes losses, and compares bounded
 alternatives. A human or reasoning Agent owns the hypothesis, trade-offs, and
@@ -68,14 +70,17 @@ and next actions; consumers never need to scrape terminal prose. See the
 [CLI reference](docs/CLI.md) and
 [Agent CLI contract](docs/design/agent-cli-contract.md) for the full contract.
 
-## What is in the workbench?
+## Choose an entry point
 
-| Surface | Purpose |
+| If you want to… | Start here |
 | --- | --- |
-| Core | Compile projects, run deterministic discrete-event simulation, evaluate Objectives, and own evidence identity |
-| Studio | Observe factory layout, equipment state, material flow, Runs, Investigations, and comparisons |
-| `inm` CLI | Give humans, Agents, and scripts stable typed access to the same operations |
-| Project folder | Keep assets, designs, scenarios, evidence, and reasoning self-contained |
+| Explore a factory visually | Run `bun run inm session examples/memory-fab` and read the [Studio guide](docs/design/studio-debugger.md) |
+| Operate INM as an Agent or script | Read the [CLI reference](docs/CLI.md) and [Agent CLI contract](docs/design/agent-cli-contract.md) |
+| Build a self-contained factory project | Start with the [project format](docs/PROJECT_FORMAT.md) and [project boundaries](docs/design/project-boundaries.md) |
+| Understand the intended design method | Read [observation-led design](docs/design/observation-led-design.md) and [Industrial Investigations](docs/design/industrial-investigations.md) |
+| Understand or change the engine | Read the [architecture](docs/ARCHITECTURE.md), then the [contributor guide](AGENTS.md) |
+
+## What exists today
 
 The engine currently models:
 
@@ -109,7 +114,9 @@ that reasoning chain append-only and bound to exact hashes. The
 [Operator Workbench](docs/design/operator-workbench.md) projects its current
 status and next action consistently into Studio and the CLI. The governing
 method is described in
-[Observation-led design](docs/design/observation-led-design.md).
+[Observation-led design](docs/design/observation-led-design.md); bounded
+multi-case proposal evaluation is described in
+[Design Programs](docs/design/design-programs.md).
 
 ## North star: a re-entrant DRAM fab
 
@@ -143,6 +150,7 @@ my-factory/
   scenarios/
   objectives/
   benchmarks/
+  design-programs/
   candidates/
   investigations/
   runs/
@@ -173,8 +181,12 @@ invariants.
   design authority and the required closed loop.
 - [Industrial Investigations](docs/design/industrial-investigations.md) —
   persistent questions, evidence anchors, hypotheses, and decisions.
+- [Design Programs](docs/design/design-programs.md) — bounded, project-authored
+  proposal and evaluation instruments.
 - [Operator Workbench](docs/design/operator-workbench.md) — shared orientation,
   diagnostics, operations, and next actions.
+- [Coding Agent benchmarks](docs/design/coding-agent-optimization.md) — locked
+  operating envelopes, guardrails, and keep/discard evidence.
 - [Blueprint comparison](docs/design/blueprint-comparison.md) — controlled
   before/after experiments.
 - [Fab loss attribution](docs/design/fab-loss-attribution.md) — compatible-Run

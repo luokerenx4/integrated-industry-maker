@@ -63,17 +63,19 @@ const fabLossBucketIdSchema = z.enum([
   "yield-quality",
 ] satisfies [FabLossBucketId, ...FabLossBucketId[]]);
 
-const designProgramLossesSchema = z.array(fabLossBucketIdSchema).min(1).superRefine((losses, context) => {
-  const seen = new Set<FabLossBucketId>();
-  for (const [index, loss] of losses.entries()) {
-    if (seen.has(loss)) context.addIssue({ code: "custom", path: [index], message: `duplicates fab loss '${loss}'` });
-    seen.add(loss);
-  }
-});
+export const designProgramLossTargetSchema = z.object({
+  contributor: z.string().min(1),
+  metric: z.string().min(1),
+  direction: z.literal("decrease"),
+}).strict();
 
 export const designProgramFocusSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("broad") }).strict(),
-  z.object({ kind: z.literal("losses"), losses: designProgramLossesSchema }).strict(),
+  z.object({
+    kind: z.literal("loss"),
+    loss: fabLossBucketIdSchema,
+    target: designProgramLossTargetSchema,
+  }).strict(),
   z.object({
     kind: z.literal("objective"),
     component: z.enum(SCORE_BREAKDOWN_COMPONENTS),
@@ -138,6 +140,7 @@ export const designProgramSchema = z.object({
 
 export type DesignDecisionFamily = z.infer<typeof designDecisionFamilySchema>;
 export type DesignSeed = z.infer<typeof designSeedSchema>;
+export type DesignProgramLossTarget = z.infer<typeof designProgramLossTargetSchema>;
 export type DesignProgramFocus = z.infer<typeof designProgramFocusSchema>;
 export type DesignCurrentBestGuardrail = z.infer<typeof designCurrentBestGuardrailSchema>;
 export type DesignFrontierPolicy = z.infer<typeof designFrontierPolicySchema>;

@@ -26,11 +26,17 @@
 
 > Scenarios are tests. Objectives are benchmarks. The simulator is the runtime.
 
-> Events are the debugging protocol. The 3D Studio is a read-only visual debugger.
+> Events are the debugging protocol. Studio is the visual observation and
+> evidence workbench.
 
-> AI improves the factory by editing blueprint files, not by manipulating the 3D scene.
+> Humans and reasoning Agents improve the factory through explicit project
+> artifacts; the 3D scene is an observation surface, not a hidden mutation
+> protocol.
 
-> The Research Agent is an automated factory programmer.
+> Deterministic Research Agents and Design Programs may propose and evaluate
+> explicitly bounded alternatives. They do not own the industrial hypothesis,
+> trade-offs, or commissioning decision. See
+> [[docs/design/observation-led-design]].
 
 ## Package boundaries
 
@@ -38,7 +44,8 @@ The first product keeps only three packages:
 
 - `@inm/core` owns schemas, loading, compilation, runtime state, deterministic simulation, evaluation, run artifacts, research, renderer-independent scene projection, and the shared human/AI operator-workbench projection.
 - `@inm/cli` is the sole human and agent-facing command surface: `inm`. Its Agent projection uses versioned envelopes, machine-readable capabilities and artifact schemas, and summary-first result sections as defined in [[docs/design/agent-cli-contract]].
-- `@inm/studio` serves a local, read-only React Three Fiber replay UI.
+- `@inm/studio` serves a local React Three Fiber factory view plus the
+  human/Agent workbench for evidence navigation and Core-owned operations.
 
 These are concrete boundaries rather than a collection of placeholder packages. A future solver, distributed runner, or device library can split out only when it has an independent lifecycle.
 

@@ -9,10 +9,13 @@
     "blueprint": "generated-dram-fab"
   },
   "focus": {
-    "kind": "losses",
-    "losses": [
-      "transport-blocking"
-    ]
+    "kind": "loss",
+    "loss": "transport-blocking",
+    "target": {
+      "contributor": "connection:probe-to-packaging:transport-line-contention",
+      "metric": "blockedItemTicks",
+      "direction": "decrease"
+    }
   },
   "driverCase": "mixed-quality",
   "currentBestGuardrail": {

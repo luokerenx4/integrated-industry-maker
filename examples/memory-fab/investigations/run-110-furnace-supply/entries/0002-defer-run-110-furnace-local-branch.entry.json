@@ -1,0 +1,20 @@
+{
+  "author": "agent",
+  "disposition": "defer",
+  "entryHash": "b9afdd84ea30fb74602c55cdb4a88a95909dc67d5cbd15bfe9af2fad1acfb895",
+  "evidence": [
+    "run-110-furnace-factory"
+  ],
+  "id": "defer-run-110-furnace-local-branch",
+  "introducedAnchors": [],
+  "investigation": "run-110-furnace-supply",
+  "kind": "decision",
+  "previousEntryHash": "8c60859519d020f0c582f8c0e7943783ae3a5575fe24c25e42a31ff9474bf70e",
+  "sequence": 2,
+  "statement": "Defer a new furnace-local Candidate under the exact Run 110 identity. The measured path has ample transport and equipment capacity, no local blocking or interruption, and the current Blueprint already carries the accepted five-second agile-pulse-fast recovery controller. Lowering that threshold or buying duplicate capacity would repeat an already explored intervention family without a physically distinct cause, while the dominant observed interval is upstream deposition processing and its own input wait. Revisit only if a new current run changes the leading contributor, introduces line or endpoint loss, changes the installed recovery envelope, or yields a distinct upstream scheduling hypothesis with an explicit locked-case guardrail.",
+  "target": {
+    "anchorId": "run-110-furnace-factory",
+    "kind": "diagnostic"
+  },
+  "version": 1
+}

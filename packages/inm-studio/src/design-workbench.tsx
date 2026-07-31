@@ -78,7 +78,10 @@ function guardrailDetail(program: DesignProgramSummary): { title: string; detail
 function focusDetail(program: DesignProgramSummary): { title: string; detail: string } {
   const focus = program.focus;
   if (focus.kind === "broad") return { title: "BROAD INDUSTRIAL SEARCH", detail: "eligible for any measured loss" };
-  if (focus.kind === "losses") return { title: focus.losses.join(" + "), detail: "preferred for matching Workbench diagnostics" };
+  if (focus.kind === "loss") return {
+    title: focus.loss,
+    detail: `${focus.target.contributor}.${focus.target.metric} · ${focus.target.direction}`,
+  };
   return {
     title: `OBJECTIVE · ${focus.component}`,
     detail: focus.locations?.length

@@ -9,10 +9,13 @@
     "blueprint": "generated-dram-fab"
   },
   "focus": {
-    "kind": "losses",
-    "losses": [
-      "release-admission"
-    ]
+    "kind": "loss",
+    "loss": "release-admission",
+    "target": {
+      "contributor": "lot:dram-lot-07:release-admission",
+      "metric": "totalTicks",
+      "direction": "decrease"
+    }
   },
   "driverCase": "mixed-quality",
   "currentBestGuardrail": {

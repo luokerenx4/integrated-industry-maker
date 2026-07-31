@@ -9,10 +9,13 @@
     "blueprint": "generated-dram-fab"
   },
   "focus": {
-    "kind": "losses",
-    "losses": [
-      "maintenance-qualification"
-    ]
+    "kind": "loss",
+    "loss": "maintenance-qualification",
+    "target": {
+      "contributor": "device:lithography-1:maintenance-qualification",
+      "metric": "totalTicks",
+      "direction": "decrease"
+    }
   },
   "driverCase": "mixed-quality",
   "currentBestGuardrail": {

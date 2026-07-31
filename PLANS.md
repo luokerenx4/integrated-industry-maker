@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/exact-loss-program-handoff]] | Bind loss-focused Design Programs to exact measured targets and hand Run 110 furnace starvation to the correct Investigation and observation path. | 2026-07-31 |
 | [[plans/run-105-loss-requalification]] | Requalify Run-105 yield quality from exact observation through an Investigation-owned Candidate, explicit KEEP decision, and verified current handoff. | 2026-07-31 |
 | [[plans/investigation-diagnostic-disposition]] | Let explicit current Investigation decisions disposition exact diagnostics and advance the shared Workbench queue without weakening evidence identity. | 2026-07-31 |
 | [[plans/single-snapshot-design-session-bootstrap]] | Open one exact Investigation/factory Design Session from one authoritative Workbench snapshot per surface request. | 2026-07-31 |

@@ -1,0 +1,78 @@
+{
+  "author": "agent",
+  "entryHash": "8c60859519d020f0c582f8c0e7943783ae3a5575fe24c25e42a31ff9474bf70e",
+  "evidence": [
+    "run-110-furnace-factory"
+  ],
+  "id": "run-110-furnace-path-observed",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:furnace-1+connection:deposition-to-batch-furnace+device:deposition-1:d45d1bb672",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:furnace-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 110-candidate-trial-run-105-normal-particle-suppress (signal 0.2050). 9/10 active flow Devices accumulated 237.2 explicit material-shortage device-s inside 1157.5 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1130.5 of 1367.8 flow input-wait device-s remained outside ranked shortage intervals, with 236.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "furnace-1",
+            "kind": "device"
+          },
+          {
+            "id": "deposition-to-batch-furnace",
+            "kind": "connection"
+          },
+          {
+            "id": "deposition-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/10 active flow Devices accumulated 237.2 explicit material-shortage device-s inside 1157.5 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1130.5 of 1367.8 flow input-wait device-s remained outside ranked shortage intervals, with 236.0 additional exception-only device-s excluded from ranking."
+      },
+      "hashes": {
+        "blueprintHash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+        "engineVersion": "inm-sim/0.92.0",
+        "executionHash": "2d9a503816930e6f31bd22de40c4ccedc89472c6fe20e3c4f3af3d3645d548c4",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "run-110-furnace-factory",
+      "kind": "factory-observation",
+      "resultHash": "8322a0ce3d626c9859460cbb55d8075c4b7f3076d4e88fe93e1bdd000e862707",
+      "runId": "110-candidate-trial-run-105-normal-particle-suppress",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "sourceLotServices": [
+        {
+          "analysisHash": "e3a9603cecb16cc7027c5f215bfc6c5c1330dd1ef2b599f0efd40aa8e6ec73a1",
+          "device": "burn-in-1",
+          "inputBuffer": "package-input",
+          "inputResource": "packaged-dram-device"
+        },
+        {
+          "analysisHash": "69bd8669c2f7410ee73eaf6281777046bc85872e755f002db742911b2a52afd4",
+          "device": "packaging-1",
+          "inputBuffer": "die-input",
+          "inputResource": "known-good-dram-die"
+        }
+      ]
+    }
+  ],
+  "investigation": "run-110-furnace-supply",
+  "kind": "observation",
+  "previousEntryHash": null,
+  "sequence": 1,
+  "statement": "Run 110 shows deposition-1 and furnace-1 in one compact cleanroom cell joined by a direct four-cell ground belt. The line delivered all 12 dielectric-stack lots at 1.3% utilization with zero blocked item-ticks, endpoint-capacity loss, endpoint-power loss, or endpoint failure. Furnace utilization is 30.0% with 168.0 seconds of raw input wait; deposition utilization is 32.1% with 163.0 seconds of its own input wait and no blocked, unpowered, failed, or utility-wait time. Exact eligible furnace starvation is 38,856 ticks, led by 22,733 ticks while deposition is processing and 6,223 while deposition is waiting for input; the remaining states are material already in the 900 ms loader-line-unloader path. The installed deposition controller already observes nine coverage-deficit episodes totaling 204.5 seconds, activates agile-pulse-fast three times, and runs nine normal plus three recovery jobs. This evidence rules out local belt capacity, duplicate furnace capacity, power, and failure as the present cause; the remaining signal is upstream cadence and phase alignment under the already commissioned recovery envelope.",
+  "version": 1
+}
