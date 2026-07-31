@@ -130,7 +130,12 @@ export function buildFactoryObservationBrief(
     ? snapshot.nextAction.target.diagnosticId
     : null;
   const disposedDiagnosticIds = new Set(
-    snapshot.lossDispositions.map((disposition) => disposition.diagnosticId),
+    [
+      ...snapshot.lossDispositions.map((disposition) => disposition.diagnosticId),
+      ...snapshot.investigationDiagnosticDispositions
+        .filter((disposition) => disposition.queueEffect === "suppressed")
+        .map((disposition) => disposition.target.diagnosticId),
+    ],
   );
   const leadingDiagnostic = (nextDiagnosticId
     ? snapshot.diagnostics.find((diagnostic) => diagnostic.id === nextDiagnosticId)

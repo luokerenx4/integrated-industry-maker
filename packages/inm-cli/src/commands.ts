@@ -760,6 +760,7 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
           },
         })),
         lossDispositions: snapshot.lossDispositions,
+        investigationDiagnosticDispositions: snapshot.investigationDiagnosticDispositions,
         nextAction: snapshot.nextAction,
         counts: snapshot.counts,
       }),
@@ -768,7 +769,10 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
       "source-lot-service": () => snapshot.sourceLotServices,
       diagnostics: () => snapshot.diagnostics,
       losses: () => snapshot.lossAttribution,
-      dispositions: () => snapshot.lossDispositions,
+      dispositions: () => ({
+        design: snapshot.lossDispositions,
+        investigations: snapshot.investigationDiagnosticDispositions,
+      }),
       catalog: () => snapshot.catalog,
       runs: () => snapshot.runs,
       experiments: () => snapshot.experiments,
@@ -840,6 +844,15 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
           `    invalidation: ${disposition.invalidation.summary}`,
         ];
       }),
+    ] : []),
+    ...(snapshot.investigationDiagnosticDispositions.length ? [
+      "Investigation diagnostic decisions:",
+      ...snapshot.investigationDiagnosticDispositions.flatMap((disposition) => [
+        `  ${disposition.disposition.toUpperCase()} [${disposition.target.code}] · ${disposition.queueEffect.toUpperCase()} · ${disposition.source.investigationId} / ${String(disposition.source.sequence).padStart(4, "0")} ${disposition.source.entryId}`,
+        `    target ${disposition.target.anchorId}:${disposition.target.anchorKind} · observed ${disposition.observed.runId} / ${disposition.observed.resultHash}`,
+        `    ${disposition.reason}`,
+        `    invalidation: ${disposition.invalidation.summary}`,
+      ]),
     ] : []),
     ...(snapshot.lossAttribution?.primary ? [
       `Realized fab loss: ${snapshot.lossAttribution.primary.label} · signal ${snapshot.lossAttribution.primary.score.toFixed(4)} · run ${snapshot.lossAttribution.run.id}`,
@@ -925,7 +938,9 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     `Priority diagnostics (${snapshot.diagnostics.length})`,
     ...(snapshot.diagnostics.length ? snapshot.diagnostics.slice(0, 12).map((diagnostic) => {
       const deferred = snapshot.lossDispositions.some((disposition) => disposition.diagnosticId === diagnostic.id);
-      return `  ${diagnostic.severity.toUpperCase().padEnd(8)} [${diagnostic.code}]${deferred ? " [BOUNDED DEFERRED]" : ""} ${diagnostic.message}`;
+      const investigationDisposition = snapshot.investigationDiagnosticDispositions.find((disposition) =>
+        disposition.target.diagnosticId === diagnostic.id);
+      return `  ${diagnostic.severity.toUpperCase().padEnd(8)} [${diagnostic.code}]${deferred ? " [BOUNDED DEFERRED]" : ""}${investigationDisposition ? ` [INVESTIGATION ${investigationDisposition.disposition.toUpperCase()} / ${investigationDisposition.queueEffect.toUpperCase()}]` : ""} ${diagnostic.message}`;
     }) : ["  none"]),
     ...(snapshot.diagnostics.length > 12 ? [`  … ${snapshot.diagnostics.length - 12} more; use --json for the complete set`] : []),
     "",
@@ -1014,6 +1029,7 @@ export async function investigateCommand(
     intervention?: string;
     expectedEffect?: string;
     disposition?: string;
+    targetDiagnosticAnchor?: string;
     evidence?: string;
     attachCandidate?: string;
     captureObservation?: string;
@@ -1045,7 +1061,7 @@ export async function investigateCommand(
   if (!options.investigationId && (options.create || options.entryId || options.createCandidate || options.createProductionPlan
     || options.name || options.question || options.kind || options.author || options.statement
     || options.intervention
-    || options.expectedEffect || options.disposition || options.evidence
+    || options.expectedEffect || options.disposition || options.targetDiagnosticAnchor || options.evidence
     || options.attachCandidate || options.captureObservation || options.captureComparison
     || options.fromRun || options.toRun || options.anchorId
     || options.hypothesisEntry || options.benchmark
@@ -1084,6 +1100,7 @@ export async function investigateCommand(
       throw new Error(`${usage}\n--create requires --name and --question.`);
     }
     if (options.kind || options.author || options.statement || options.intervention || options.expectedEffect || options.disposition
+      || options.targetDiagnosticAnchor
       || options.evidence || options.attachCandidate || options.captureObservation
       || options.captureComparison || options.fromRun || options.toRun
       || options.anchorId || options.createCandidate || options.createProductionPlan
@@ -1133,6 +1150,9 @@ export async function investigateCommand(
     if (options.kind !== "decision" && options.disposition) {
       throw new Error(`${usage}\n--disposition belongs only to a decision entry.`);
     }
+    if (options.kind !== "decision" && options.targetDiagnosticAnchor) {
+      throw new Error(`${usage}\n--target-diagnostic-anchor belongs only to a decision entry.`);
+    }
     if (options.captureObservation && options.kind !== "observation") {
       throw new Error(`${usage}\n--capture-observation belongs only to an observation entry.`);
     }
@@ -1165,6 +1185,9 @@ export async function investigateCommand(
       ? options.evidence.split(",").map((item) => item.trim()).filter(Boolean)
       : [];
     if (introducedAnchorId && !evidence.includes(introducedAnchorId)) evidence.push(introducedAnchorId);
+    if (options.targetDiagnosticAnchor && !evidence.includes(options.targetDiagnosticAnchor)) {
+      evidence.push(options.targetDiagnosticAnchor);
+    }
     const common = {
       id: options.entryId,
       author: options.author as "human" | "agent",
@@ -1202,6 +1225,12 @@ export async function investigateCommand(
           ...common,
           kind: "decision",
           disposition: options.disposition as "keep" | "revise" | "defer" | "discard",
+          ...(options.targetDiagnosticAnchor ? {
+            target: {
+              kind: "diagnostic" as const,
+              anchorId: options.targetDiagnosticAnchor,
+            },
+          } : {}),
         }
         : { ...common, kind: "observation" };
     const appended = await appendIndustrialInvestigationEntry(
@@ -1220,7 +1249,7 @@ export async function investigateCommand(
       throw new Error(`${usage}\n--create-candidate requires --hypothesis-entry, --benchmark, --candidate-name, and --patch-file.`);
     }
     if (options.name || options.question || options.kind || options.author || options.statement
-      || options.intervention || options.expectedEffect || options.disposition || options.evidence
+      || options.intervention || options.expectedEffect || options.disposition || options.targetDiagnosticAnchor || options.evidence
       || options.attachCandidate || options.captureObservation || options.captureComparison
       || options.fromRun || options.toRun || options.anchorId || options.productionPlanFile) {
       throw new Error(`${usage}\nInvestigation and entry fields cannot be combined with --create-candidate.`);
@@ -1250,7 +1279,7 @@ export async function investigateCommand(
       throw new Error(`${usage}\n--create-production-plan requires --hypothesis-entry and --production-plan-file.`);
     }
     if (options.name || options.question || options.kind || options.author || options.statement
-      || options.intervention || options.expectedEffect || options.disposition || options.evidence
+      || options.intervention || options.expectedEffect || options.disposition || options.targetDiagnosticAnchor || options.evidence
       || options.attachCandidate || options.captureObservation || options.captureComparison
       || options.fromRun || options.toRun || options.anchorId
       || options.benchmark || options.candidateName || options.patchFile) {
@@ -1278,7 +1307,7 @@ export async function investigateCommand(
       immutable: true,
     };
   } else if (options.name || options.question || options.kind || options.author
-    || options.statement || options.intervention || options.expectedEffect || options.disposition || options.evidence
+    || options.statement || options.intervention || options.expectedEffect || options.disposition || options.targetDiagnosticAnchor || options.evidence
     || options.attachCandidate || options.captureObservation || options.captureComparison
     || options.fromRun || options.toRun || options.anchorId
     || options.hypothesisEntry || options.benchmark
@@ -1378,7 +1407,7 @@ export async function investigateCommand(
     ...(inspection.entries.length ? [
       "Reasoning log:",
       ...inspection.entries.map((entry) =>
-        `  ${String(entry.sequence).padStart(4, "0")} ${entry.kind.toUpperCase()} · ${entry.author} · ${entry.statement}${entry.kind === "hypothesis" ? `\n       intervention: ${(entry.intervention ?? "blueprint").toUpperCase()}\n       expected: ${entry.expectedEffect}` : entry.kind === "decision" ? ` · ${entry.disposition.toUpperCase()}` : ""}${entry.introducedAnchors.length ? `\n       introduced: ${entry.introducedAnchors.map((anchor) => `${anchor.id}:${anchor.kind}`).join(" + ")}` : ""}${entry.evidence.length ? `\n       evidence: ${entry.evidence.join(" + ")}` : ""}`),
+        `  ${String(entry.sequence).padStart(4, "0")} ${entry.kind.toUpperCase()} · ${entry.author} · ${entry.statement}${entry.kind === "hypothesis" ? `\n       intervention: ${(entry.intervention ?? "blueprint").toUpperCase()}\n       expected: ${entry.expectedEffect}` : entry.kind === "decision" ? ` · ${entry.disposition.toUpperCase()}${entry.target ? `\n       diagnostic target: ${entry.target.anchorId}` : ""}` : ""}${entry.introducedAnchors.length ? `\n       introduced: ${entry.introducedAnchors.map((anchor) => `${anchor.id}:${anchor.kind}`).join(" + ")}` : ""}${entry.evidence.length ? `\n       evidence: ${entry.evidence.join(" + ")}` : ""}`),
     ] : ["Reasoning log: empty"]),
     ...(candidateCreation ? [
       `Candidate: ${candidateCreation.candidate.id} · ${candidateCreation.candidate.benchmark}`,

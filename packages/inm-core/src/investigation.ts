@@ -27,6 +27,7 @@ import {
   openProjectWorkbenchSnapshot,
   openRunProjectWorkbenchSnapshot,
   type ProjectWorkbenchSnapshot,
+  type WorkbenchInvestigationDiagnosticDisposition,
   type WorkbenchDiagnostic,
   type WorkbenchNextAction,
   type WorkbenchSubjectReference,
@@ -272,6 +273,11 @@ const entryBaseSchema = z.object({
   previousEntryHash: hashSchema.nullable(),
 });
 
+const investigationDecisionTargetSchema = z.object({
+  kind: z.literal("diagnostic"),
+  anchorId: idSchema,
+}).strict();
+
 export const industrialInvestigationEntrySchema = z.discriminatedUnion("kind", [
   entryBaseSchema.extend({
     kind: z.literal("observation"),
@@ -286,6 +292,7 @@ export const industrialInvestigationEntrySchema = z.discriminatedUnion("kind", [
   entryBaseSchema.extend({
     kind: z.literal("decision"),
     disposition: z.enum(["keep", "revise", "defer", "discard"]),
+    target: investigationDecisionTargetSchema.optional(),
     entryHash: hashSchema,
   }).strict(),
 ]);
@@ -320,7 +327,11 @@ export type IndustrialInvestigationEntryInput =
       intervention: "blueprint" | "production-plan";
       expectedEffect: string;
     }
-  | EntryInputCommon & { kind: "decision"; disposition: "keep" | "revise" | "defer" | "discard" };
+  | EntryInputCommon & {
+      kind: "decision";
+      disposition: "keep" | "revise" | "defer" | "discard";
+      target?: z.infer<typeof investigationDecisionTargetSchema>;
+    };
 
 export type InvestigationAnchorState = "current" | "historical" | "missing" | "invalid";
 
@@ -557,6 +568,9 @@ export async function listIndustrialInvestigationEntries(
   const files = await listEntryFiles(projectDir, investigationId);
   const entries: IndustrialInvestigationEntry[] = [];
   const anchorIds = new Set<string>(manifest.anchors.map((anchor) => anchor.id));
+  const anchorsById = new Map<string, InvestigationEvidenceAnchor>(
+    manifest.anchors.map((anchor) => [anchor.id, anchor]),
+  );
   let previousEntryHash: string | null = null;
   for (const [index, file] of files.entries()) {
     const parsed = industrialInvestigationEntrySchema.safeParse(
@@ -575,6 +589,17 @@ export async function listIndustrialInvestigationEntries(
     const { entryHash, ...withoutHash } = entry;
     const introducedIds = entry.introducedAnchors.map((anchor) => anchor.id);
     const availableAnchorIds = new Set([...anchorIds, ...introducedIds]);
+    const targetedAnchor = entry.kind === "decision" && entry.target
+      ? entry.introducedAnchors.find((anchor) => anchor.id === entry.target!.anchorId)
+        ?? anchorsById.get(entry.target.anchorId)
+      : null;
+    const invalidDecisionTarget = entry.kind === "decision" && entry.target
+      ? !entry.evidence.includes(entry.target.anchorId)
+        || !targetedAnchor
+        || (targetedAnchor.kind !== "diagnostic"
+          && targetedAnchor.kind !== "factory-observation"
+          && targetedAnchor.kind !== "run-comparison")
+      : false;
     if (entry.investigation !== investigationId
       || entry.sequence !== expectedSequence
       || file !== expectedFile
@@ -583,14 +608,18 @@ export async function listIndustrialInvestigationEntries(
       || new Set(introducedIds).size !== introducedIds.length
       || introducedIds.some((anchorId) => anchorIds.has(anchorId))
       || entry.evidence.some((anchorId) => !availableAnchorIds.has(anchorId))
-      || new Set(entry.evidence).size !== entry.evidence.length) {
+      || new Set(entry.evidence).size !== entry.evidence.length
+      || invalidDecisionTarget) {
       throw new IndustrialInvestigationError(
         "investigation.invalid-entry-chain",
         `Investigation entry '${file}' does not match its identity, evidence anchors, or append-only chain`,
       );
     }
     entries.push(entry);
-    for (const anchorId of introducedIds) anchorIds.add(anchorId);
+    for (const anchor of entry.introducedAnchors) {
+      anchorIds.add(anchor.id);
+      anchorsById.set(anchor.id, anchor);
+    }
     previousEntryHash = entry.entryHash;
   }
   return entries;
@@ -1453,6 +1482,24 @@ export async function appendIndustrialInvestigationEntry(
       `Investigation entry references an unknown or duplicate evidence anchor`,
     );
   }
+  if (input.kind === "decision" && input.target) {
+    const availableAnchors = [
+      ...manifest.anchors,
+      ...entries.flatMap((entry) => entry.introducedAnchors),
+      ...introducedAnchors,
+    ];
+    const targetAnchor = availableAnchors.find((anchor) => anchor.id === input.target!.anchorId);
+    if (!evidence.includes(input.target.anchorId)
+      || !targetAnchor
+      || (targetAnchor.kind !== "diagnostic"
+        && targetAnchor.kind !== "factory-observation"
+        && targetAnchor.kind !== "run-comparison")) {
+      throw new IndustrialInvestigationError(
+        "investigation.invalid-decision-target",
+        `Diagnostic decision target '${input.target.anchorId}' must be one cited diagnostic, factory-observation, or Run-comparison evidence anchor available at this sequence`,
+      );
+    }
+  }
   const sequence = entries.length + 1;
   const common = {
     version: 1 as const,
@@ -1473,7 +1520,12 @@ export async function appendIndustrialInvestigationEntry(
         expectedEffect: input.expectedEffect.trim(),
       }
     : input.kind === "decision"
-      ? { ...common, kind: input.kind, disposition: input.disposition }
+      ? {
+          ...common,
+          kind: input.kind,
+          disposition: input.disposition,
+          ...(input.target ? { target: { ...input.target } } : {}),
+        }
       : { ...common, kind: input.kind };
   const parsed = industrialInvestigationEntrySchema.safeParse({
     ...withoutHash,
@@ -1671,7 +1723,7 @@ function sameHashes(
 
 function sameRecordedSelection(
   selection: IndustrialInvestigationManifest["selection"],
-  snapshot: ProjectWorkbenchSnapshot,
+  snapshot: Pick<ProjectWorkbenchSnapshot, "selection">,
 ): boolean {
   return selection.world === snapshot.selection.world.id
     && selection.blueprint === snapshot.selection.blueprint.id
@@ -1682,9 +1734,245 @@ function sameRecordedSelection(
 
 function sameRecordedHashes(
   hashes: IndustrialInvestigationManifest["hashes"],
-  snapshot: ProjectWorkbenchSnapshot,
+  snapshot: Pick<ProjectWorkbenchSnapshot, "hashes">,
 ): boolean {
   return stableStringify(hashes) === stableStringify(projectEvidenceHashes(snapshot.hashes));
+}
+
+type DiagnosticDecisionSnapshot = Pick<
+  ProjectWorkbenchSnapshot,
+  "project" | "selection" | "hashes" | "status" | "runs" | "diagnostics" | "lossAttribution"
+>;
+
+type DiagnosticDecisionCheckpoint = {
+  anchorId: string;
+  anchorKind: "diagnostic" | "factory-observation" | "run-comparison";
+  selection: IndustrialInvestigationManifest["selection"];
+  hashes: IndustrialInvestigationManifest["hashes"];
+  runId: string;
+  resultHash: string;
+  diagnostic: Omit<z.infer<typeof diagnosticAnchorSchema>, "id" | "kind" | "runId">;
+  comparison?: z.infer<typeof runComparisonAnchorSchema>;
+};
+
+function diagnosticDecisionCheckpoint(
+  manifest: IndustrialInvestigationManifest,
+  anchor: InvestigationEvidenceAnchor,
+): DiagnosticDecisionCheckpoint | null {
+  if (anchor.kind === "diagnostic") {
+    const operatingRun = manifest.anchors.find((item) => item.kind === "operating-run");
+    if (!operatingRun || operatingRun.runId !== anchor.runId) return null;
+    const { id: _id, kind: _kind, runId: _runId, ...diagnostic } = anchor;
+    return {
+      anchorId: anchor.id,
+      anchorKind: anchor.kind,
+      selection: { ...manifest.selection },
+      hashes: { ...manifest.hashes },
+      runId: operatingRun.runId,
+      resultHash: operatingRun.resultHash,
+      diagnostic,
+    };
+  }
+  if (anchor.kind === "factory-observation") return {
+    anchorId: anchor.id,
+    anchorKind: anchor.kind,
+    selection: { ...anchor.selection },
+    hashes: { ...anchor.hashes },
+    runId: anchor.runId,
+    resultHash: anchor.resultHash,
+    diagnostic: structuredClone(anchor.diagnostic),
+  };
+  if (anchor.kind === "run-comparison") return {
+    anchorId: anchor.id,
+    anchorKind: anchor.kind,
+    selection: { ...anchor.selection },
+    hashes: { ...anchor.hashes },
+    runId: anchor.to.runId,
+    resultHash: anchor.to.resultHash,
+    diagnostic: structuredClone(anchor.diagnostic),
+    comparison: anchor,
+  };
+  return null;
+}
+
+function currentDiagnosticLoss(
+  checkpoint: DiagnosticDecisionCheckpoint,
+  snapshot: DiagnosticDecisionSnapshot,
+): { bucket: string; contributorId: string | null } | null {
+  const bucketId = checkpoint.diagnostic.code.startsWith("fab-loss.")
+    ? checkpoint.diagnostic.code.slice("fab-loss.".length)
+    : null;
+  if (!bucketId) return null;
+  const bucket = snapshot.lossAttribution?.buckets.find((item) => item.id === bucketId);
+  return bucket ? {
+    bucket: bucket.id,
+    contributorId: bucket.contributors[0]?.id ?? null,
+  } : null;
+}
+
+async function isCurrentDiagnosticDecisionCheckpoint(
+  projectDir: string,
+  manifest: IndustrialInvestigationManifest,
+  checkpoint: DiagnosticDecisionCheckpoint,
+  snapshot: DiagnosticDecisionSnapshot,
+): Promise<boolean> {
+  const run = snapshot.runs.find((item) =>
+    item.id === checkpoint.runId
+    && item.resultHash === checkpoint.resultHash
+    && item.compatible);
+  const diagnostic = snapshot.diagnostics.find((item) =>
+    item.id === checkpoint.diagnostic.diagnosticId);
+  const current = manifest.project === snapshot.project.id
+    && sameRecordedSelection(checkpoint.selection, snapshot)
+    && sameRecordedHashes(checkpoint.hashes, snapshot)
+    && snapshot.status.evidence.state === "current"
+    && snapshot.status.evidence.runId === checkpoint.runId
+    && Boolean(run)
+    && diagnostic?.evidence.source === "compatible-run"
+    && diagnostic.evidence.runId === checkpoint.runId
+    && diagnostic.code === checkpoint.diagnostic.code
+    && diagnostic.severity === checkpoint.diagnostic.severity
+    && diagnostic.priority === checkpoint.diagnostic.priority
+    && diagnostic.message === checkpoint.diagnostic.message
+    && diagnostic.evidence.summary === checkpoint.diagnostic.summary
+    && stableStringify(diagnostic.subjects) === stableStringify(checkpoint.diagnostic.subjects)
+    && stableStringify(currentDiagnosticLoss(checkpoint, snapshot))
+      === stableStringify(checkpoint.diagnostic.loss);
+  if (!current) return false;
+  if (!checkpoint.comparison) return true;
+  try {
+    const inspected = await inspectFactoryRunComparison(
+      projectDir,
+      checkpoint.comparison.from.runId,
+      checkpoint.comparison.to.runId,
+    );
+    return sameRunComparisonEvidence(checkpoint.comparison, inspected.comparison)
+      && sameRunComparisonDiagnostic(checkpoint.comparison, inspected.toDiagnostics);
+  } catch {
+    return false;
+  }
+}
+
+async function listInvestigationIds(projectDir: string): Promise<string[]> {
+  const directory = join(resolve(projectDir), "investigations");
+  try {
+    return (await readdir(directory, { withFileTypes: true }))
+      .filter((entry) => entry.isDirectory() && idSchema.safeParse(entry.name).success)
+      .map((entry) => entry.name)
+      .sort();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+export async function resolveCurrentInvestigationDiagnosticDispositions(
+  projectDir: string,
+  snapshot: DiagnosticDecisionSnapshot,
+): Promise<WorkbenchInvestigationDiagnosticDisposition[]> {
+  const byInvestigationAndDiagnostic = new Map<
+    string,
+    Omit<WorkbenchInvestigationDiagnosticDisposition, "queueEffect" | "reason">
+  >();
+  for (const investigationId of await listInvestigationIds(projectDir)) {
+    try {
+      const manifest = await loadIndustrialInvestigationManifest(projectDir, investigationId);
+      if (manifest.project !== snapshot.project.id) continue;
+      const entries = await listIndustrialInvestigationEntries(projectDir, investigationId);
+      const anchors = new Map<string, InvestigationEvidenceAnchor>(
+        manifest.anchors.map((anchor) => [anchor.id, anchor]),
+      );
+      for (const entry of entries) {
+        for (const anchor of entry.introducedAnchors) anchors.set(anchor.id, anchor);
+        if (entry.kind !== "decision" || !entry.target) continue;
+        const anchor = anchors.get(entry.target.anchorId);
+        if (!anchor || !entry.evidence.includes(anchor.id)) continue;
+        const checkpoint = diagnosticDecisionCheckpoint(manifest, anchor);
+        if (!checkpoint) continue;
+        const decisionKey = `${manifest.id}:${checkpoint.diagnostic.diagnosticId}`;
+        // A later explicit target supersedes the earlier judgment even when
+        // its own evidence is no longer current. Historical reasoning must not
+        // accidentally revive an older queue decision.
+        byInvestigationAndDiagnostic.delete(decisionKey);
+        if (!await isCurrentDiagnosticDecisionCheckpoint(
+            projectDir,
+            manifest,
+            checkpoint,
+            snapshot,
+          )) continue;
+        byInvestigationAndDiagnostic.set(
+          decisionKey,
+          {
+            id: `investigation-diagnostic:${manifest.id}:${entry.id}:${anchor.id}`,
+            state: "current",
+            disposition: entry.disposition,
+            target: {
+              diagnosticId: checkpoint.diagnostic.diagnosticId,
+              code: checkpoint.diagnostic.code,
+              anchorId: checkpoint.anchorId,
+              anchorKind: checkpoint.anchorKind,
+            },
+            source: {
+              investigationId: manifest.id,
+              investigationName: manifest.name,
+              entryId: entry.id,
+              entryHash: entry.entryHash,
+              sequence: entry.sequence,
+              author: entry.author,
+              statement: entry.statement,
+            },
+            observed: {
+              runId: checkpoint.runId,
+              resultHash: checkpoint.resultHash,
+            },
+            invalidation: {
+              summary: "This decision expires when the project, selection, execution hashes, compatible Run/result, exact diagnostic, or leading loss contributor changes.",
+              bindings: [
+                "project",
+                "selection",
+                "execution-hashes",
+                "compatible-run",
+                "diagnostic",
+                "loss-contributor",
+              ],
+            },
+          },
+        );
+      }
+    } catch {
+      // A broken Investigation chain is repair evidence, never authority for
+      // changing the current project queue.
+    }
+  }
+  const dispositions = [...byInvestigationAndDiagnostic.values()];
+  const dispositionsByDiagnostic = new Map<string, typeof dispositions>();
+  for (const item of dispositions) {
+    const group = dispositionsByDiagnostic.get(item.target.diagnosticId) ?? [];
+    group.push(item);
+    dispositionsByDiagnostic.set(item.target.diagnosticId, group);
+  }
+  return dispositions
+    .map((item): WorkbenchInvestigationDiagnosticDisposition => {
+      const group = dispositionsByDiagnostic.get(item.target.diagnosticId) ?? [item];
+      const queueEffect = group.some((candidate) => candidate.disposition === "revise")
+        ? "revisit"
+        : group.every((candidate) =>
+          candidate.disposition === "defer" || candidate.disposition === "discard")
+          ? "suppressed"
+          : "none";
+      const reason = queueEffect === "suppressed"
+        ? `Exact current human/Agent ${item.disposition} decision removes this still-measured diagnostic from the active queue without rewriting its physical evidence.`
+        : queueEffect === "revisit"
+          ? item.disposition === "revise"
+            ? "This exact current human/Agent revise decision keeps the diagnostic active and returns the next action to its Investigation."
+            : "A concurrent exact current revise decision keeps this diagnostic active; this decision remains visible but cannot suppress it."
+          : "This exact current decision remains visible context but does not remove the diagnostic from the active queue.";
+      return { ...item, queueEffect, reason };
+    })
+    .sort((left, right) =>
+      left.target.diagnosticId.localeCompare(right.target.diagnosticId)
+      || left.source.investigationId.localeCompare(right.source.investigationId)
+      || left.source.sequence - right.source.sequence);
 }
 
 function anchorNavigation(
@@ -2795,17 +3083,7 @@ function buildIndustrialInvestigationHandoff(input: {
 export async function listIndustrialInvestigations(
   projectDir: string,
 ): Promise<IndustrialInvestigationSummary[]> {
-  const directory = join(resolve(projectDir), "investigations");
-  let ids: string[];
-  try {
-    ids = (await readdir(directory, { withFileTypes: true }))
-      .filter((entry) => entry.isDirectory() && idSchema.safeParse(entry.name).success)
-      .map((entry) => entry.name)
-      .sort();
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw error;
-  }
+  const ids = await listInvestigationIds(projectDir);
   return Promise.all(ids.map(async (investigationId) => {
     const manifest = await loadIndustrialInvestigationManifest(projectDir, investigationId);
     const entries = await listIndustrialInvestigationEntries(projectDir, investigationId);

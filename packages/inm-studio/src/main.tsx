@@ -2169,7 +2169,12 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
   onOperation: (operation: WorkbenchOperationDescriptor, cli: string) => void;
 }) {
   const latestRun = snapshot.runs.at(-1);
-  const disposedDiagnosticIds = new Set(snapshot.lossDispositions.map((disposition) => disposition.diagnosticId));
+  const disposedDiagnosticIds = new Set([
+    ...snapshot.lossDispositions.map((disposition) => disposition.diagnosticId),
+    ...snapshot.investigationDiagnosticDispositions
+      .filter((disposition) => disposition.queueEffect === "suppressed")
+      .map((disposition) => disposition.target.diagnosticId),
+  ]);
   const activeDiagnostics = snapshot.diagnostics.filter((diagnostic) => !disposedDiagnosticIds.has(diagnostic.id));
   const priority = activeDiagnostics.slice(0, 4);
   const availableOperations = snapshot.operations.filter((operation) => operation.availability.state !== "unavailable");
@@ -2273,6 +2278,18 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
         </article>;
       })}</div>
     </section>}
+    {snapshot.investigationDiagnosticDispositions.length > 0 && <section className="loss-disposition-panel" data-testid="investigation-diagnostic-dispositions" aria-label="Current Investigation diagnostic decisions">
+      <header><div><span className="eyebrow">CURRENT HUMAN / AGENT JUDGMENT</span><h3>Explicit diagnostic decisions</h3><p>Each decision targets one cited evidence anchor. Its queue effect expires automatically when the exact selection, Run/result, diagnostic, or leading contributor changes.</p></div><b>{snapshot.investigationDiagnosticDispositions.length}<small> CURRENT</small></b></header>
+      <div>{snapshot.investigationDiagnosticDispositions.map((disposition) => <article key={disposition.id} data-testid={`investigation-diagnostic-disposition-${disposition.source.investigationId}`}>
+        <span className="disposition-state">{disposition.disposition.toUpperCase()} · {disposition.queueEffect.toUpperCase()}</span>
+        <div className="disposition-target"><small>{disposition.target.code}</small><strong>{disposition.target.anchorId}</strong><code>{disposition.target.anchorKind} · {disposition.observed.runId}</code></div>
+        <div className="disposition-authority"><small>AUTHORED DECISION</small><strong>{disposition.source.investigationName}</strong><code>{String(disposition.source.sequence).padStart(4, "0")} · {disposition.source.entryId} · {disposition.source.author}</code><p>{disposition.source.statement}</p></div>
+        <div className="disposition-boundary"><small>QUEUE EFFECT</small><p>{disposition.reason}</p><code>{disposition.invalidation.summary}</code></div>
+        <button onClick={() => {
+          window.location.href = `/${encodeURIComponent(snapshot.project.id)}/investigations/${encodeURIComponent(disposition.source.investigationId)}`;
+        }}>REVIEW EXACT DECISION →</button>
+      </article>)}</div>
+    </section>}
     <div className="overview-grid">
       <section className="overview-panel priority-panel">
         <header><div><span className="eyebrow">ACTIVE WORK QUEUE</span><h3>Priority issues</h3></div><button onClick={() => onNavigate("analysis")}>ACTIVE {activeDiagnostics.length} →</button></header>
@@ -2284,7 +2301,10 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
         <header><div><span className="eyebrow">COMPATIBLE RUN · {snapshot.lossAttribution.run.id}</span><h3>Realized fab loss chain</h3></div><b>{snapshot.lossAttribution.outcome.completed}/{snapshot.lossAttribution.outcome.scheduled}<small> LOTS COMPLETE</small></b></header>
         <div className="fab-loss-chain">{snapshot.lossAttribution.buckets.map((bucket, index) => {
           const disposition = snapshot.lossDispositions.find((item) => item.loss === bucket.id);
-          return <div key={bucket.id} className={`${index === 0 ? "primary" : ""}${disposition ? " bounded-deferred" : ""}`}><em>{String(index + 1).padStart(2, "0")}</em><span><strong>{bucket.label}</strong>{disposition && <i>BOUNDED DEFERRED</i>}<small>{bucket.summary}</small></span><b>{bucket.score.toFixed(4)}</b></div>;
+          const investigationDisposition = snapshot.investigationDiagnosticDispositions.find((item) =>
+            item.target.code === `fab-loss.${bucket.id}`);
+          const queueDeferred = disposition || investigationDisposition?.queueEffect === "suppressed";
+          return <div key={bucket.id} className={`${index === 0 ? "primary" : ""}${queueDeferred ? " bounded-deferred" : ""}`}><em>{String(index + 1).padStart(2, "0")}</em><span><strong>{bucket.label}</strong>{disposition && <i>BOUNDED DEFERRED</i>}{investigationDisposition && <i>INVESTIGATION {investigationDisposition.disposition.toUpperCase()} · {investigationDisposition.queueEffect.toUpperCase()}</i>}<small>{bucket.summary}</small></span><b>{bucket.score.toFixed(4)}</b></div>;
         })}</div>
         {releaseContributors.length > 0 && <div className="q-time-contributors release-admission-contributors" data-testid="release-admission-contributors">
           <header><span className="eyebrow">RELEASE-ADMISSION CONTRIBUTORS</span><small>Production-Plan-owned identity and deadline · event-owned physical/controller wait and actual admission · top {Math.min(6, releaseContributors.length)} of {releaseContributors.length}</small></header>

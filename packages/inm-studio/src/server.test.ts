@@ -576,6 +576,53 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
         }),
       }),
     }));
+    const disposition = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/investigations/inspection-starvation-next-step/entries`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: "defer-current-inspection",
+          author: "agent",
+          kind: "decision",
+          statement: "Defer the exact current inspection diagnostic until any pinned evidence identity changes.",
+          disposition: "defer",
+          evidence: ["post-hypothesis-factory"],
+          target: {
+            kind: "diagnostic",
+            anchorId: "post-hypothesis-factory",
+          },
+        }),
+      },
+    );
+    expect(disposition.status).toBe(201);
+    expect(await disposition.json()).toEqual(expect.objectContaining({
+      entries: expect.arrayContaining([
+        expect.objectContaining({
+          id: "defer-current-inspection",
+          disposition: "defer",
+          target: { kind: "diagnostic", anchorId: "post-hypothesis-factory" },
+        }),
+      ]),
+    }));
+    const overview = await fetch(`http://localhost:${port}/api/projects/memory-fab/overview`);
+    expect(overview.status).toBe(200);
+    expect(await overview.json()).toEqual(expect.objectContaining({
+      investigationDiagnosticDispositions: [
+        expect.objectContaining({
+          disposition: "defer",
+          queueEffect: "suppressed",
+          target: expect.objectContaining({
+            anchorId: "post-hypothesis-factory",
+            code: "fab-loss.input-starvation",
+          }),
+          source: expect.objectContaining({
+            investigationId: "inspection-starvation-next-step",
+            entryId: "defer-current-inspection",
+          }),
+        }),
+      ],
+    }));
     const deepLink = await fetch(
       `http://localhost:${port}/memory-fab/investigations/inspection-starvation-next-step`,
     );

@@ -17,6 +17,7 @@ import {
 import { inspectCandidateDecision } from "./candidate-review";
 import { simulateProjectOperation } from "./operation";
 import { hashValue } from "./utils";
+import { openProjectWorkbenchSnapshot } from "./workbench";
 
 const repository = resolve(import.meta.dir, "../../..");
 
@@ -128,6 +129,7 @@ test("a project-local Investigation preserves exact evidence and append-only hum
         statement: "Retain the current factory observation as the boundary for a physically distinct next hypothesis.",
         disposition: "keep",
         evidence: ["operating-run", "diagnostic"],
+        target: { kind: "diagnostic", anchorId: "diagnostic" },
       },
     );
     expect(observation.entry).toEqual(expect.objectContaining({
@@ -144,6 +146,7 @@ test("a project-local Investigation preserves exact evidence and append-only hum
       sequence: 3,
       previousEntryHash: hypothesis.entry.entryHash,
       introducedAnchors: [],
+      target: { kind: "diagnostic", anchorId: "diagnostic" },
     }));
     const entries = await listIndustrialInvestigationEntries(projectDir, created.manifest.id);
     expect(entries.map((entry) => [entry.sequence, entry.id, entry.kind]))
@@ -179,6 +182,23 @@ test("a project-local Investigation preserves exact evidence and append-only hum
       authorship: null,
       nextAction: inspected.currentNextAction,
     }));
+    expect((await openProjectWorkbenchSnapshot(projectDir)).investigationDiagnosticDispositions)
+      .toEqual([
+        expect.objectContaining({
+          disposition: "keep",
+          queueEffect: "none",
+          target: expect.objectContaining({
+            anchorId: "diagnostic",
+            anchorKind: "diagnostic",
+            code: "fab-loss.input-starvation",
+          }),
+          source: expect.objectContaining({
+            investigationId: created.manifest.id,
+            entryId: decision.entry.id,
+          }),
+          observed: expect.objectContaining({ runId: initialSimulation.data.run.id }),
+        }),
+      ]);
 
     await expect(appendIndustrialInvestigationEntry(projectDir, created.manifest.id, {
       id: "bad-reference",
@@ -189,6 +209,35 @@ test("a project-local Investigation preserves exact evidence and append-only hum
     })).rejects.toEqual(expect.objectContaining({
       code: "investigation.unknown-evidence",
     }));
+    await expect(appendIndustrialInvestigationEntry(projectDir, created.manifest.id, {
+      id: "bad-diagnostic-target",
+      author: "agent",
+      kind: "decision",
+      statement: "An operating Run is not itself a diagnostic decision target.",
+      disposition: "defer",
+      evidence: ["operating-run"],
+      target: { kind: "diagnostic", anchorId: "operating-run" },
+    })).rejects.toEqual(expect.objectContaining({
+      code: "investigation.invalid-decision-target",
+    }));
+
+    await appendIndustrialInvestigationEntry(projectDir, created.manifest.id, {
+      id: "defer-current-inspection",
+      author: "agent",
+      kind: "decision",
+      statement: "Defer this exact current inspection diagnostic while its complete evidence identity remains unchanged.",
+      disposition: "defer",
+      evidence: ["diagnostic"],
+      target: { kind: "diagnostic", anchorId: "diagnostic" },
+    });
+    expect((await openProjectWorkbenchSnapshot(projectDir)).investigationDiagnosticDispositions)
+      .toEqual([
+        expect.objectContaining({
+          disposition: "defer",
+          queueEffect: "suppressed",
+          source: expect.objectContaining({ entryId: "defer-current-inspection" }),
+        }),
+      ]);
 
     const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
     const blueprint = JSON.parse(await readFile(blueprintPath, "utf8"));
@@ -197,6 +246,8 @@ test("a project-local Investigation preserves exact evidence and append-only hum
     const historical = await inspectIndustrialInvestigation(projectDir, created.manifest.id);
     expect(historical.state).toBe("historical");
     expect(historical.anchors.every((anchor) => anchor.state === "historical")).toBeTrue();
+    expect((await openProjectWorkbenchSnapshot(projectDir)).investigationDiagnosticDispositions)
+      .toEqual([]);
 
     const observationPath = join(
       projectDir,

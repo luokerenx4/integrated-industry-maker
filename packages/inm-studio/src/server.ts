@@ -756,7 +756,9 @@ const server = Bun.serve({
         }
         const projectDir = await projectDirectory(decoded(investigationEntryMatch[1]!));
         const investigationId = decoded(investigationEntryMatch[2]!);
-        const body = await request.json().catch(() => ({})) as Partial<IndustrialInvestigationEntryInput>;
+        const body = await request.json().catch(() => ({})) as Partial<IndustrialInvestigationEntryInput> & {
+          target?: { kind?: unknown; anchorId?: unknown };
+        };
         if (typeof body.id !== "string"
           || (body.author !== "human" && body.author !== "agent")
           || (body.kind !== "observation" && body.kind !== "hypothesis" && body.kind !== "decision")
@@ -782,6 +784,17 @@ const server = Bun.serve({
           throw new IndustrialInvestigationError(
             "investigation.invalid-entry",
             "A decision requires disposition",
+          );
+        }
+        if (body.target !== undefined
+          && (body.kind !== "decision"
+            || typeof body.target !== "object"
+            || body.target === null
+            || body.target.kind !== "diagnostic"
+            || typeof body.target.anchorId !== "string")) {
+          throw new IndustrialInvestigationError(
+            "investigation.invalid-entry",
+            "A diagnostic target belongs only to a decision and requires kind diagnostic plus anchorId",
           );
         }
         await appendIndustrialInvestigationEntry(

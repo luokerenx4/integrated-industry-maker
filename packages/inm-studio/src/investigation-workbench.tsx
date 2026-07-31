@@ -45,7 +45,7 @@ function anchorTitle(anchor: InvestigationEvidenceAnchor): string {
 
 function entryDetail(entry: IndustrialInvestigationEntry): string | null {
   if (entry.kind === "hypothesis") return `INTERVENTION · ${(entry.intervention ?? "blueprint").toUpperCase()} · EXPECTED · ${entry.expectedEffect}`;
-  if (entry.kind === "decision") return `DISPOSITION · ${entry.disposition.toUpperCase()}`;
+  if (entry.kind === "decision") return `DISPOSITION · ${entry.disposition.toUpperCase()}${entry.target ? ` · DIAGNOSTIC TARGET · ${entry.target.anchorId}` : ""}`;
   return null;
 }
 
@@ -528,6 +528,7 @@ export function InvestigationWorkbench({
     const introducedComparisonId = String(fields.get("introducedComparisonId") ?? "").trim();
     const introducedComparisonFrom = String(fields.get("introducedComparisonFrom") ?? "").trim();
     const introducedComparisonTo = String(fields.get("introducedComparisonTo") ?? "").trim();
+    const targetDiagnosticAnchor = String(fields.get("targetDiagnosticAnchor") ?? "").trim();
     if (Boolean(introducedAnchorId) !== Boolean(introducedCandidateId)) {
       setError("An introduced Candidate review requires both its Investigation anchor id and Candidate id.");
       return;
@@ -555,6 +556,9 @@ export function InvestigationWorkbench({
     }
     if (introducedComparisonId && !evidence.includes(introducedComparisonId)) {
       evidence.push(introducedComparisonId);
+    }
+    if (targetDiagnosticAnchor && !evidence.includes(targetDiagnosticAnchor)) {
+      evidence.push(targetDiagnosticAnchor);
     }
     const common = {
       id: fields.get("id"),
@@ -589,7 +593,13 @@ export function InvestigationWorkbench({
           expectedEffect: fields.get("expectedEffect"),
         }
       : entryKind === "decision"
-        ? { ...common, disposition: fields.get("disposition") }
+        ? {
+            ...common,
+            disposition: fields.get("disposition"),
+            ...(targetDiagnosticAnchor ? {
+              target: { kind: "diagnostic", anchorId: targetDiagnosticAnchor },
+            } : {}),
+          }
         : common;
     setLoading(true);
     setError(null);
@@ -760,6 +770,9 @@ export function InvestigationWorkbench({
             {entryKind === "hypothesis" && <label>CONTROLLED INTERVENTION<select name="intervention" defaultValue="blueprint"><option value="blueprint">BLUEPRINT</option><option value="production-plan">PRODUCTION PLAN</option></select></label>}
             {entryKind === "hypothesis" && <label className="wide">EXPECTED EFFECT<textarea name="expectedEffect" required placeholder="What exact measured behavior should change if this is true?" /></label>}
             {entryKind === "decision" && <label>DISPOSITION<select name="disposition" defaultValue={prefillCandidateId ? suggestedDisposition : "keep"}><option value="keep">KEEP</option><option value="revise">REVISE</option><option value="defer">DEFER</option><option value="discard">DISCARD</option></select></label>}
+            {entryKind === "decision" && <label>DIAGNOSTIC TARGET<select name="targetDiagnosticAnchor" defaultValue=""><option value="">NONE · DECISION DOES NOT ALTER QUEUE</option>{inspection.anchors
+              .filter(({ anchor }) => anchor.kind === "diagnostic" || anchor.kind === "factory-observation" || anchor.kind === "run-comparison")
+              .map(({ anchor }) => <option key={anchor.id} value={anchor.id}>{anchor.id} · {anchor.kind.toUpperCase()}</option>)}</select></label>}
             {entryKind === "observation" && <label>CAPTURE CURRENT FACTORY AS<input name="introducedObservationId" pattern="[a-z0-9][a-z0-9-]*" placeholder="post-change-factory" /></label>}
             {entryKind === "observation" && <label>CAPTURE RUN COMPARISON AS<input name="introducedComparisonId" defaultValue={suggestedComparisonAnchorId} pattern="[a-z0-9][a-z0-9-]*" placeholder="compact-cell-comparison" /></label>}
             {entryKind === "observation" && <label>FROM RUN<input name="introducedComparisonFrom" defaultValue={prefillComparison?.fromRunId ?? ""} placeholder="100-simulate" /></label>}

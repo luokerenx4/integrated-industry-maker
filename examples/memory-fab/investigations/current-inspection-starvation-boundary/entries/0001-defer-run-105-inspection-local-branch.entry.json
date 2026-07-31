@@ -1,0 +1,21 @@
+{
+  "author": "agent",
+  "disposition": "defer",
+  "entryHash": "484798c5b0cfde4dd22d28a4010225f700f30ae1ea7b010ab4b431815b84c32b",
+  "evidence": [
+    "operating-run",
+    "diagnostic"
+  ],
+  "id": "defer-run-105-inspection-local-branch",
+  "introducedAnchors": [],
+  "investigation": "current-inspection-starvation-boundary",
+  "kind": "decision",
+  "previousEntryHash": null,
+  "sequence": 1,
+  "statement": "Defer another inspection-local capacity or transport intervention for this exact Run 105 diagnostic. Inspection records 56.984 s of attributed shortage at 20.7% utilization, with zero unavailable or unattributed eligible gap; its observed sources are processing, waiting upstream, or already in flight. The current factory costs 229840 against the Objective cap of 230000, so only 160 of capital headroom remains. Reopen this branch when the selected execution, Run result, diagnostic, or leading contributor changes.",
+  "target": {
+    "anchorId": "diagnostic",
+    "kind": "diagnostic"
+  },
+  "version": 1
+}

@@ -1271,6 +1271,11 @@ test("public investigate preserves and resumes exact project-local human/Agent r
   expect((JSON.parse(help.stdout).data.commands as Array<{
     id: string;
     arguments: Array<{ name: string }>;
+  }>).find((command) => command.id === "investigate")?.arguments)
+    .toContainEqual(expect.objectContaining({ name: "target-diagnostic-anchor" }));
+  expect((JSON.parse(help.stdout).data.commands as Array<{
+    id: string;
+    arguments: Array<{ name: string }>;
   }>).find((command) => command.id === "session")?.arguments)
     .toContainEqual(expect.objectContaining({ name: "investigation" }));
   expect(JSON.parse(schemas.stdout).data.kinds).toEqual(expect.arrayContaining([
@@ -1337,6 +1342,55 @@ test("public investigate preserves and resumes exact project-local human/Agent r
   ]);
   expect(continuedCandidateHuman.stdout)
     .toContain(`context factory-observation post-hypothesis-factory / ${operatingRunId} · CURRENT`);
+
+  const disposition = await runCli([
+    "investigate",
+    projectDir,
+    "--investigation",
+    investigationId,
+    "--entry",
+    "defer-current-inspection",
+    "--kind",
+    "decision",
+    "--author",
+    "agent",
+    "--statement",
+    "Defer this exact current inspection diagnostic until its selected execution, Run result, diagnostic, or leading contributor changes.",
+    "--disposition",
+    "defer",
+    "--target-diagnostic-anchor",
+    "post-hypothesis-factory",
+    "--json",
+  ]);
+  expect({ exitCode: disposition.exitCode, stderr: disposition.stderr })
+    .toEqual({ exitCode: 0, stderr: "" });
+  expect(JSON.parse(disposition.stdout).data.result.lastEntry).toEqual(expect.objectContaining({
+    id: "defer-current-inspection",
+    disposition: "defer",
+    evidence: ["post-hypothesis-factory"],
+    target: { kind: "diagnostic", anchorId: "post-hypothesis-factory" },
+  }));
+  const dispositions = await runCli([
+    "inspect",
+    projectDir,
+    "--section",
+    "dispositions",
+    "--json",
+  ]);
+  expect(JSON.parse(dispositions.stdout).data.result.investigations).toEqual([
+    expect.objectContaining({
+      disposition: "defer",
+      queueEffect: "suppressed",
+      target: expect.objectContaining({
+        anchorId: "post-hypothesis-factory",
+        code: "fab-loss.input-starvation",
+      }),
+      source: expect.objectContaining({
+        investigationId,
+        entryId: "defer-current-inspection",
+      }),
+    }),
+  ]);
 
   const invalid = await runCli([
     "investigate",
@@ -2109,21 +2163,49 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
       }),
     }));
     expect(result.lossDispositions).toHaveLength(0);
+    expect(result.investigationDiagnosticDispositions).toEqual([
+      expect.objectContaining({
+        disposition: "defer",
+        queueEffect: "suppressed",
+        source: expect.objectContaining({
+          investigationId: "current-inspection-starvation-boundary",
+          entryId: "defer-run-105-inspection-local-branch",
+        }),
+        target: expect.objectContaining({
+          code: "fab-loss.input-starvation",
+          diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+        }),
+      }),
+    ]);
     expect(result.nextAction).toEqual(expect.objectContaining({
-      id: expect.stringMatching(/^design\.inspect:inspection-supply-path:fab-loss\.input-starvation:/),
-      title: "Investigate the leading loss with Inspection Supply Path Convergence",
+      id: expect.stringMatching(/^design\.inspect:layer-two-particle-control:fab-loss\.yield-quality:/),
+      title: "Investigate the leading loss with Layer-two Particle Control",
       actionLabel: "OPEN DESIGN LOOP",
       target: expect.objectContaining({
         kind: "design-program",
-        programId: "inspection-supply-path",
+        programId: "layer-two-particle-control",
       }),
     }));
     expect(JSON.parse(objective.stdout).data.result).toEqual(expect.objectContaining({
       runId: "105-simulate",
       dominantPenalty: { id: "wip", contribution: -73.78575000000001, role: "penalty" },
     }));
-    expect(JSON.parse(dispositions.stdout).data.result).toHaveLength(0);
-    expect(human.stdout).toContain("Next action: Investigate the leading loss with Inspection Supply Path Convergence");
+    expect(JSON.parse(dispositions.stdout).data.result).toEqual({
+      design: [],
+      investigations: [
+        expect.objectContaining({
+          disposition: "defer",
+          queueEffect: "suppressed",
+          source: expect.objectContaining({
+            investigationId: "current-inspection-starvation-boundary",
+            entryId: "defer-run-105-inspection-local-branch",
+          }),
+        }),
+      ],
+    });
+    expect(human.stdout).toContain("Investigation diagnostic decisions:");
+    expect(human.stdout).toContain("current-inspection-starvation-boundary");
+    expect(human.stdout).toContain("Next action: Investigate the leading loss with Layer-two Particle Control");
     return;
   }
   if (currentInspection?.evidence.authorityRunId === "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06") {
@@ -2304,7 +2386,13 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
       }),
     }),
   ]);
-  expect(JSON.parse(dispositions.stdout).data).toEqual({ section: "dispositions", result: result.lossDispositions });
+  expect(JSON.parse(dispositions.stdout).data).toEqual({
+    section: "dispositions",
+    result: {
+      design: result.lossDispositions,
+      investigations: result.investigationDiagnosticDispositions,
+    },
+  });
   expect(JSON.parse(objective.stdout).data).toEqual({ section: "objective", result: result.objectiveEvidence });
   expect(result.nextAction).toEqual(expect.objectContaining({
     id: expect.stringMatching(/^design\.inspect:layer-two-particle-control:/),

@@ -201,6 +201,44 @@ export interface WorkbenchLossDisposition {
   };
 }
 
+export interface WorkbenchInvestigationDiagnosticDisposition {
+  id: string;
+  state: "current";
+  disposition: "keep" | "revise" | "defer" | "discard";
+  queueEffect: "none" | "revisit" | "suppressed";
+  target: {
+    diagnosticId: string;
+    code: string;
+    anchorId: string;
+    anchorKind: "diagnostic" | "factory-observation" | "run-comparison";
+  };
+  source: {
+    investigationId: string;
+    investigationName: string;
+    entryId: string;
+    entryHash: string;
+    sequence: number;
+    author: "human" | "agent";
+    statement: string;
+  };
+  observed: {
+    runId: string;
+    resultHash: string;
+  };
+  reason: string;
+  invalidation: {
+    summary: string;
+    bindings: Array<
+      | "project"
+      | "selection"
+      | "execution-hashes"
+      | "compatible-run"
+      | "diagnostic"
+      | "loss-contributor"
+    >;
+  };
+}
+
 export interface WorkbenchObjectiveComponentEvidence {
   id: ScoreBreakdownComponent;
   contribution: number;
@@ -253,7 +291,7 @@ export interface WorkbenchObjectiveEvidence {
 }
 
 export interface ProjectWorkbenchSnapshot {
-  version: 17;
+  version: 18;
   project: {
     id: string;
     name: string;
@@ -384,6 +422,7 @@ export interface ProjectWorkbenchSnapshot {
   diagnostics: WorkbenchDiagnostic[];
   lossAttribution: FabLossAttribution | null;
   lossDispositions: WorkbenchLossDisposition[];
+  investigationDiagnosticDispositions: WorkbenchInvestigationDiagnosticDisposition[];
   operations: WorkbenchOperationDescriptor[];
   nextAction: WorkbenchNextAction;
 }
@@ -739,7 +778,7 @@ function selectionArgv(selection: ProjectWorkbenchSnapshot["selection"]): string
   ];
 }
 
-export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "diagnostics" | "candidates" | "runs" | "operations" | "designPrograms" | "lossDispositions" | "objectiveEvidence">): WorkbenchNextAction {
+export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "diagnostics" | "candidates" | "runs" | "operations" | "designPrograms" | "lossDispositions" | "investigationDiagnosticDispositions" | "objectiveEvidence">): WorkbenchNextAction {
   const projectRoute = `/${encodeURIComponent(context.project.id)}`;
   const blocking = context.diagnostics.find((diagnostic) => diagnostic.severity === "blocking");
   if (blocking) return {
@@ -806,9 +845,44 @@ export function buildWorkbenchNextAction(context: Pick<ProjectWorkbenchSnapshot,
     target: { kind: "operation", operationId: "simulate" },
   };
 
-  const disposedDiagnosticIds = new Set(context.lossDispositions.map((disposition) => disposition.diagnosticId));
+  const disposedDiagnosticIds = new Set([
+    ...context.lossDispositions.map((disposition) => disposition.diagnosticId),
+    ...context.investigationDiagnosticDispositions
+      .filter((disposition) => disposition.queueEffect === "suppressed")
+      .map((disposition) => disposition.target.diagnosticId),
+  ]);
   const warning = context.diagnostics.find((diagnostic) =>
     diagnostic.severity === "warning" && !disposedDiagnosticIds.has(diagnostic.id));
+  const revision = warning
+    ? context.investigationDiagnosticDispositions.find((disposition) =>
+      disposition.target.diagnosticId === warning.id
+      && disposition.queueEffect === "revisit"
+      && disposition.disposition === "revise")
+    : null;
+  if (warning && revision) return {
+    id: `investigation.revisit:${revision.source.investigationId}:${revision.source.entryId}:${warning.id}`,
+    tone: "attention",
+    title: `Revise ${revision.source.investigationName}`,
+    reason: `${warning.message} Entry ${String(revision.source.sequence).padStart(4, "0")} explicitly keeps this diagnostic active and returns it to the owning human/Agent Investigation: ${revision.source.statement}`,
+    actionLabel: "REVISE HYPOTHESIS",
+    effect: "read-only",
+    requiresConfirmation: false,
+    argv: [
+      "inm",
+      "investigate",
+      context.project.rootDir,
+      "--investigation",
+      revision.source.investigationId,
+      "--json",
+    ],
+    studioRoute: `${projectRoute}/investigations/${encodeURIComponent(revision.source.investigationId)}`,
+    target: {
+      kind: "investigation",
+      investigationId: revision.source.investigationId,
+      phase: "form-hypothesis",
+      sourceEntryId: revision.source.entryId,
+    },
+  };
   const selectedLoss = warning?.code.startsWith("fab-loss.")
     ? warning.code.slice("fab-loss.".length) as FabLossBucketId
     : null;
@@ -1373,8 +1447,8 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
       && candidate.investigationDisposition.disposition !== "keep").length;
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
-  const snapshot = {
-    version: 17 as const,
+  const baseSnapshot = {
+    version: 18 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },
@@ -1443,6 +1517,13 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
     lossAttribution,
     lossDispositions,
     operations,
+  } satisfies Omit<ProjectWorkbenchSnapshot, "nextAction" | "investigationDiagnosticDispositions">;
+  const { resolveCurrentInvestigationDiagnosticDispositions } = await import("./investigation");
+  const investigationDiagnosticDispositions =
+    await resolveCurrentInvestigationDiagnosticDispositions(project.rootDir, baseSnapshot);
+  const snapshot = {
+    ...baseSnapshot,
+    investigationDiagnosticDispositions,
   } satisfies Omit<ProjectWorkbenchSnapshot, "nextAction">;
   return { ...snapshot, nextAction: buildWorkbenchNextAction(snapshot) };
 }

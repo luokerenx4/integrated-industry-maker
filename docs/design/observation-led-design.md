@@ -1,6 +1,6 @@
 # Observation-led industrial design
 
-Status: V2 observation brief, disposition-aware Workbench handoff, Objective tradeoff focus, and shared run-qualified visual routes implemented.
+Status: V3 observation brief, Design- and Investigation-disposition-aware Workbench handoff, Objective tradeoff focus, and shared run-qualified visual routes implemented.
 
 Related: [[docs/design/operator-workbench]], [[docs/design/experiment-workbench]], [[docs/design/design-programs]], [[docs/design/coding-agent-optimization]], [[docs/design/agent-cli-contract]], [[docs/design/studio-debugger]], and [[plans/observation-led-design-harness]].
 
@@ -55,7 +55,7 @@ Core owns one deterministic `FactoryObservationBrief`. It is read-only and conta
 
 `inm observe` and Studio consume the same Core object. The CLI command does not take screenshots and Core does not claim that pixels were understood. It gives an Agent an exact visual task that a browser tool can execute. Studio renders the same task beside the replay so a human can perform it without translating raw JSON.
 
-The “leading” diagnostic is the current Workbench task, not the first raw loss bucket. When the shared next action carries a diagnostic identity—directly or through an aligned Design Program/Run target—the brief selects that exact diagnostic. Otherwise it selects the first compatible-run diagnostic that is not covered by a current bounded disposition, then the first remaining non-info active diagnostic. A bounded physical loss remains visible in Analysis but cannot silently reopen itself in Observation while unchanged authority says the explored intervention frontier is exhausted. Configured installed envelopes are descriptive and never enter this queue.
+The “leading” diagnostic is the current Workbench task, not the first raw loss bucket. When the shared next action carries a diagnostic identity—directly or through an aligned Design Program/Run target—the brief selects that exact diagnostic. Otherwise it selects the first compatible-run diagnostic that is not covered by a current bounded Design disposition or exact current Investigation `defer`/`discard` decision, then the first remaining non-info active diagnostic. A `revise` decision routes back to its Investigation instead of disappearing. These decisions never remove the measured loss from Analysis and expire when their pinned evidence identity changes. Configured installed envelopes are descriptive and never enter this queue.
 
 When all realized losses are bounded and no structural warning remains, `leadingDiagnostic` stays `null`. V2 separately exposes `leadingObjectiveTradeoff`, keeps its accounting interpretation explicit, and adds Factory views for the leading physical locations beside Resource context. An exact Objective-focused Design Program may receive that handoff, but only its authored provider may state a causal target and Core must replay that target before ordinary locked-Benchmark judgment. This remains a design prompt, not an automatic diagnosis or optimizer.
 
