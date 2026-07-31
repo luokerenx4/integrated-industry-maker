@@ -869,11 +869,13 @@ test("shared handoff retires stale inspection evidence and advances to the curre
     }),
   ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    title: "Investigate the leading loss with Lithography Maintenance Convergence",
-    actionLabel: "OPEN DESIGN LOOP",
+    title: "Expand Lithography Maintenance Convergence's intervention portfolio",
+    actionLabel: "REVIEW EXHAUSTED DESIGN",
     target: expect.objectContaining({
-      kind: "design-program",
+      kind: "design-run",
+      phase: "exhausted",
       programId: "lithography-maintenance-convergence",
+      runId: "7aa9b6deda434851a4802b6f47251b53cfd7688a711a0862958bcc024ebca32e",
       diagnosticId: expect.stringMatching(/^fab-loss\.maintenance-qualification:/),
     }),
   }));
@@ -944,10 +946,13 @@ test("an active physical loss still outranks current Objective Design evidence",
       disposition.queueEffect === "suppressed"
       && disposition.target.code === "fab-loss.input-starvation")) {
       expect(snapshot.nextAction).toEqual(expect.objectContaining({
-        title: "Investigate the leading loss with Lithography Maintenance Convergence",
+        title: "Expand Lithography Maintenance Convergence's intervention portfolio",
+        actionLabel: "REVIEW EXHAUSTED DESIGN",
         target: expect.objectContaining({
-          kind: "design-program",
+          kind: "design-run",
+          phase: "exhausted",
           programId: "lithography-maintenance-convergence",
+          runId: "7aa9b6deda434851a4802b6f47251b53cfd7688a711a0862958bcc024ebca32e",
           diagnosticId: expect.stringMatching(/^fab-loss\.maintenance-qualification:/),
         }),
       }));

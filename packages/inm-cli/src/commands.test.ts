@@ -2161,9 +2161,19 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
         invalidRuns: 4,
       }),
     }));
-    expect(result.designPrograms.filter((item: { alignment: { state: string } }) =>
-      item.alignment.state === "aligned").every((item: { evidence: { currentRuns: number } }) =>
-      item.evidence.currentRuns === 0)).toBeTrue();
+    expect(result.designPrograms
+      .filter((item: { alignment: { state: string }, id: string }) =>
+        item.alignment.state === "aligned" && item.id !== "lithography-maintenance-convergence")
+      .every((item: { evidence: { currentRuns: number } }) =>
+        item.evidence.currentRuns === 0)).toBeTrue();
+    expect(result.designPrograms.find((item: { id: string }) =>
+      item.id === "lithography-maintenance-convergence")).toEqual(expect.objectContaining({
+      evidence: expect.objectContaining({
+        state: "exhausted",
+        authorityRunId: "7aa9b6deda434851a4802b6f47251b53cfd7688a711a0862958bcc024ebca32e",
+        currentRuns: 1,
+      }),
+    }));
     expect(result.lossDispositions).toEqual([]);
     expect(result.investigationDiagnosticDispositions).toEqual([
       expect.objectContaining({
@@ -2196,12 +2206,14 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
       }),
     ]);
     expect(result.nextAction).toEqual(expect.objectContaining({
-      id: expect.stringMatching(/^design\.inspect:lithography-maintenance-convergence:fab-loss\.maintenance-qualification:/),
-      title: "Investigate the leading loss with Lithography Maintenance Convergence",
-      actionLabel: "OPEN DESIGN LOOP",
+      id: expect.stringMatching(/^design\.run\.inspect:lithography-maintenance-convergence:7aa9b6deda434851a4802b6f47251b53cfd7688a711a0862958bcc024ebca32e:/),
+      title: "Expand Lithography Maintenance Convergence's intervention portfolio",
+      actionLabel: "REVIEW EXHAUSTED DESIGN",
       target: expect.objectContaining({
-        kind: "design-program",
+        kind: "design-run",
+        phase: "exhausted",
         programId: "lithography-maintenance-convergence",
+        runId: "7aa9b6deda434851a4802b6f47251b53cfd7688a711a0862958bcc024ebca32e",
         diagnosticId: expect.stringMatching(/^fab-loss\.maintenance-qualification:/),
       }),
     }));
@@ -2232,7 +2244,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
         }),
       ],
     });
-    expect(human.stdout).toContain("Next action: Investigate the leading loss with Lithography Maintenance Convergence");
+    expect(human.stdout).toContain("Next action: Expand Lithography Maintenance Convergence's intervention portfolio");
     return;
   }
   if (currentInspection?.evidence.state === "missing"
