@@ -8,14 +8,35 @@ import {
   buildWorkbenchNextAction,
   classifyDesignProgramEvidence,
   deriveWorkbenchLossDisposition,
+  fabLossDiagnosticCausalHash,
   openProjectWorkbenchSnapshot,
   recommendedDesignProgramEvidenceAction,
   type ProjectWorkbenchSnapshot,
   type WorkbenchDesignEvidenceIdentity,
 } from "./workbench";
-import { pathExists, stableStringify } from "./utils";
+import { hashValue, pathExists, stableStringify } from "./utils";
 
 const repository = resolve(import.meta.dir, "../../..");
+
+test("fab-loss diagnostic identity ignores Run prose but changes with exact causal facts", async () => {
+  const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/memory-fab"));
+  const bucket = snapshot.lossAttribution!.primary!;
+  const diagnostic = snapshot.diagnostics.find((item) =>
+    item.code === `fab-loss.${bucket.id}`)!;
+  const causalHash = fabLossDiagnosticCausalHash(bucket);
+  expect(diagnostic.evidence.causalHash).toBe(causalHash);
+  expect(diagnostic.id.endsWith(hashValue(causalHash).slice(0, 10))).toBeTrue();
+
+  const presentationOnly = structuredClone(bucket);
+  presentationOnly.label = "Changed presentation label";
+  presentationOnly.summary = "Changed Run-qualified prose";
+  presentationOnly.contributors[0]!.label = "Changed contributor label";
+  expect(fabLossDiagnosticCausalHash(presentationOnly)).toBe(causalHash);
+
+  const changedFact = structuredClone(bucket);
+  changedFact.contributors[0]!.evidence.starvationTicks! += 1;
+  expect(fabLossDiagnosticCausalHash(changedFact)).not.toBe(causalHash);
+});
 
 async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
   await writeFile(
@@ -46,7 +67,7 @@ async function restorePreCompactMemoryFabBlueprint(projectDir: string) {
 
 test("shared workbench snapshot orients an operator with stable diagnostics and operations", async () => {
   const snapshot = await openProjectWorkbenchSnapshot(join(repository, "examples/ironworks"));
-  expect(snapshot.version).toBe(19);
+  expect(snapshot.version).toBe(20);
   expect(snapshot.project.id).toBe("ironworks");
   expect(snapshot.selection).toEqual(expect.objectContaining({
     world: expect.objectContaining({ id: "main" }),
@@ -586,15 +607,30 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     candidate.id === "qualified-probe-cycle-95")?.investigationDisposition)
     .toEqual(expect.objectContaining({ disposition: "discard" }));
   expect(snapshot.nextAction.id).not.toBe("candidate.apply:incumbent-five-performance-seven-commercial");
-  expect(snapshot.investigationDiagnosticDispositions).toEqual([]);
+  expect(snapshot.investigationDiagnosticDispositions).toEqual([
+    expect.objectContaining({
+      state: "current",
+      disposition: "defer",
+      queueEffect: "suppressed",
+      target: expect.objectContaining({
+        code: "fab-loss.input-starvation",
+        anchorId: "run-112-furnace-factory",
+      }),
+      observed: expect.objectContaining({ runId: "112-simulate" }),
+      currentEvidence: expect.objectContaining({
+        runId: "112-simulate",
+        causalHash: expect.any(String),
+      }),
+    }),
+  ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^observation:fab-loss\.input-starvation:/),
+    id: expect.stringMatching(/^observation:fab-loss\.queue-congestion:/),
     effect: "read-only",
     requiresConfirmation: false,
     studioRoute: "/memory-fab/factory?run=112-simulate",
     target: expect.objectContaining({
       kind: "diagnostic",
-      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
     }),
   }));
   const leadingDiagnostic = snapshot.diagnostics.find((diagnostic) =>
@@ -622,6 +658,12 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
         statement: "Revise the bounded inspection hypothesis against the unchanged current diagnostic.",
       },
       observed: { runId: "110-candidate-trial-run-105-normal-particle-suppress", resultHash: "b".repeat(64) },
+      currentEvidence: {
+        runId: "112-simulate",
+        resultHash: snapshot.runs.find((run) => run.id === "112-simulate")!.resultHash,
+        diagnosticId: leadingDiagnostic.id,
+        causalHash: leadingDiagnostic.evidence.causalHash!,
+      },
       reason: "Return to the Investigation.",
       invalidation: {
         summary: "Expires when exact evidence changes.",
@@ -828,14 +870,23 @@ test("shared handoff retires stale inspection evidence and advances to the curre
   const objectiveAuthority = snapshot.designPrograms
     .find((program) => program.id === "back-end-wip-convergence")?.evidence.authorityRunId;
   expect(objectiveAuthority).toBeNull();
-  expect(snapshot.investigationDiagnosticDispositions).toEqual([]);
+  expect(snapshot.investigationDiagnosticDispositions).toEqual([
+    expect.objectContaining({
+      state: "current",
+      disposition: "defer",
+      queueEffect: "suppressed",
+      target: expect.objectContaining({ code: "fab-loss.input-starvation" }),
+      observed: expect.objectContaining({ runId: "112-simulate" }),
+      currentEvidence: expect.objectContaining({ runId: "112-simulate" }),
+    }),
+  ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
     title: "Observe the leading loss before authoring an intervention",
     actionLabel: "OBSERVE CURRENT FACTORY",
     studioRoute: "/memory-fab/factory?run=112-simulate",
     target: expect.objectContaining({
       kind: "diagnostic",
-      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
     }),
   }));
 });
@@ -846,7 +897,7 @@ test("an active physical loss still outranks current Objective Design evidence",
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true });
   await rm(join(projectDir, "design-runs/front-end-queue-convergence"), { recursive: true, force: true });
   const snapshot = await openProjectWorkbenchSnapshot(projectDir);
-  expect(snapshot.version).toBe(19);
+  expect(snapshot.version).toBe(20);
   expect(snapshot.diagnostics.some((diagnostic) => diagnostic.code === "fab-loss.input-starvation")).toBeTrue();
   const currentInspection = snapshot.designPrograms.find((program) => program.id === "inspection-supply-path")?.evidence;
   if (currentInspection?.authorityRunId === "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06") {
@@ -906,14 +957,11 @@ test("an active physical loss still outranks current Objective Design evidence",
       disposition.queueEffect === "suppressed"
       && disposition.target.code === "fab-loss.input-starvation")) {
       expect(snapshot.nextAction).toEqual(expect.objectContaining({
-        title: "Expand Lithography Maintenance Convergence's intervention portfolio",
-        actionLabel: "REVIEW EXHAUSTED DESIGN",
+        title: "Observe the leading loss before authoring an intervention",
+        actionLabel: "OBSERVE CURRENT FACTORY",
         target: expect.objectContaining({
-          kind: "design-run",
-          phase: "exhausted",
-          programId: "lithography-maintenance-convergence",
-          runId: "7aa9b6deda434851a4802b6f47251b53cfd7688a711a0862958bcc024ebca32e",
-          diagnosticId: expect.stringMatching(/^fab-loss\.maintenance-qualification:/),
+          kind: "diagnostic",
+          diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
         }),
       }));
       await rm(root, { recursive: true, force: true });
@@ -1538,10 +1586,10 @@ test("a non-KEEP Candidate receipt resolves review work without displacing curre
     verifiedCount: 1,
   });
   expect(reviewed.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^observation:fab-loss\.input-starvation:/),
+    id: expect.stringMatching(/^observation:fab-loss\.queue-congestion:/),
     target: expect.objectContaining({
       kind: "diagnostic",
-      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
     }),
   }));
 }, 20_000);

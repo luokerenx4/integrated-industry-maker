@@ -1,0 +1,20 @@
+{
+  "author": "agent",
+  "disposition": "defer",
+  "entryHash": "ee184ceb3a76b6003eb3dc54971e87624385024ed4d1230e369f7ef2ff8f1eab",
+  "evidence": [
+    "run-112-furnace-factory"
+  ],
+  "id": "defer-run-112-furnace-causal-requalification",
+  "introducedAnchors": [],
+  "investigation": "run-110-furnace-supply",
+  "kind": "decision",
+  "previousEntryHash": "05f63740ee569fe8924309e1079200b2d2c136d58d1435ec124fabdff6cb22a6",
+  "sequence": 4,
+  "statement": "Defer local furnace capacity, transport-speed, and cadence-threshold retuning. Run 112 independently reproduces the same furnace shortage facts under unchanged selected factory sources, while the direct line remains uncongested. Revisit this conclusion only when the canonical causal facts or selected source identity changes; the measured loss remains visible in Analysis.",
+  "target": {
+    "anchorId": "run-112-furnace-factory",
+    "kind": "diagnostic"
+  },
+  "version": 1
+}

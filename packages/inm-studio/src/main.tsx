@@ -2286,12 +2286,12 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
       })}</div>
     </section>}
     {snapshot.investigationDiagnosticDispositions.length > 0 && <section className="loss-disposition-panel" data-testid="investigation-diagnostic-dispositions" aria-label="Current Investigation diagnostic decisions">
-      <header><div><span className="eyebrow">CURRENT HUMAN / AGENT JUDGMENT</span><h3>Explicit diagnostic decisions</h3><p>Each decision targets one cited evidence anchor. Its queue effect expires automatically when the exact selection, Run/result, diagnostic, or leading contributor changes.</p></div><b>{snapshot.investigationDiagnosticDispositions.length}<small> CURRENT</small></b></header>
+      <header><div><span className="eyebrow">CURRENT HUMAN / AGENT JUDGMENT</span><h3>Explicit diagnostic decisions</h3><p>Each decision targets one cited evidence anchor. A historical observation may requalify only when the current compatible Run reproduces the same canonical causal facts under unchanged selected factory sources.</p></div><b>{snapshot.investigationDiagnosticDispositions.length}<small> QUALIFIED</small></b></header>
       <div>{snapshot.investigationDiagnosticDispositions.map((disposition) => <article key={disposition.id} data-testid={`investigation-diagnostic-disposition-${disposition.source.investigationId}`}>
-        <span className="disposition-state">{disposition.disposition.toUpperCase()} · {disposition.queueEffect.toUpperCase()}</span>
-        <div className="disposition-target"><small>{disposition.target.code}</small><strong>{disposition.target.anchorId}</strong><code>{disposition.target.anchorKind} · {disposition.observed.runId}</code></div>
+        <span className="disposition-state">{disposition.disposition.toUpperCase()} · {disposition.queueEffect.toUpperCase()} · {disposition.state.toUpperCase()}</span>
+        <div className="disposition-target"><small>{disposition.target.code}</small><strong>{disposition.target.anchorId}</strong><code>{disposition.target.anchorKind} · observed {disposition.observed.runId} → current {disposition.currentEvidence.runId}</code></div>
         <div className="disposition-authority"><small>AUTHORED DECISION</small><strong>{disposition.source.investigationName}</strong><code>{String(disposition.source.sequence).padStart(4, "0")} · {disposition.source.entryId} · {disposition.source.author}</code><p>{disposition.source.statement}</p></div>
-        <div className="disposition-boundary"><small>QUEUE EFFECT</small><p>{disposition.reason}</p><code>{disposition.invalidation.summary}</code></div>
+        <div className="disposition-boundary"><small>QUEUE EFFECT</small><p>{disposition.reason}</p><code>{disposition.invalidation.summary} · causal {disposition.currentEvidence.causalHash}</code></div>
         <button onClick={() => {
           window.location.href = `/${encodeURIComponent(snapshot.project.id)}/investigations/${encodeURIComponent(disposition.source.investigationId)}`;
         }}>REVIEW EXACT DECISION →</button>

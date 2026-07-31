@@ -1,0 +1,79 @@
+{
+  "author": "agent",
+  "entryHash": "05f63740ee569fe8924309e1079200b2d2c136d58d1435ec124fabdff6cb22a6",
+  "evidence": [
+    "run-112-furnace-factory"
+  ],
+  "id": "run-112-furnace-causal-requalification",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "causalHash": "529cd629c637a200f5bf000e740613222b7f80e38affca505eabb7b4b4d1a2c7",
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:furnace-1+connection:deposition-to-batch-furnace+device:deposition-1:b874ac0bf9",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:furnace-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 112-simulate (signal 0.2050). 9/10 active flow Devices accumulated 237.2 explicit material-shortage device-s inside 1157.5 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1130.5 of 1367.8 flow input-wait device-s remained outside ranked shortage intervals, with 236.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "furnace-1",
+            "kind": "device"
+          },
+          {
+            "id": "deposition-to-batch-furnace",
+            "kind": "connection"
+          },
+          {
+            "id": "deposition-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/10 active flow Devices accumulated 237.2 explicit material-shortage device-s inside 1157.5 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1130.5 of 1367.8 flow input-wait device-s remained outside ranked shortage intervals, with 236.0 additional exception-only device-s excluded from ranking."
+      },
+      "hashes": {
+        "blueprintHash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+        "engineVersion": "inm-sim/0.93.1",
+        "executionHash": "0672ae83c9384a33aee3ec0362b4aa4d5e0146ff34fee0b2fe32a41129217a79",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "run-112-furnace-factory",
+      "kind": "factory-observation",
+      "resultHash": "e431a41f9560f7d9f1a925d6b088a93696e4d11bc55bfe4431ffa41deba3622b",
+      "runId": "112-simulate",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "sourceLotServices": [
+        {
+          "analysisHash": "7869e72a53378716500c2e7f4eff96ab5b3bfdf77629ac779bc17805422e3e35",
+          "device": "burn-in-1",
+          "inputBuffer": "package-input",
+          "inputResource": "packaged-dram-device"
+        },
+        {
+          "analysisHash": "cfeb088e4532416374cd62197ea8cb8395f9b9aa1384e623dc7d68c4d7ad8486",
+          "device": "packaging-1",
+          "inputBuffer": "die-input",
+          "inputResource": "known-good-dram-die"
+        }
+      ]
+    }
+  ],
+  "investigation": "run-110-furnace-supply",
+  "kind": "observation",
+  "previousEntryHash": "b9afdd84ea30fb74602c55cdb4a88a95909dc67d5cbd15bfe9af2fad1acfb895",
+  "sequence": 3,
+  "statement": "Run 112's focused Factory replay shows furnace-1 at 30.0% utilization and 168.0 s waiting; its direct deposition-to-batch-furnace line delivered 12 dielectric-stack lots at 1.3% utilization with zero blocked item-ticks, while deposition-1 ran at 32.1% with three coverage-deficit cadence activations. Structured loss attributes 38.856 s to the same source-processing, source-waiting, and transport-in-flight partition as Run 110, so line capacity is not the mechanism.",
+  "version": 1
+}

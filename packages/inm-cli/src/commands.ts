@@ -848,8 +848,8 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
     ...(snapshot.investigationDiagnosticDispositions.length ? [
       "Investigation diagnostic decisions:",
       ...snapshot.investigationDiagnosticDispositions.flatMap((disposition) => [
-        `  ${disposition.disposition.toUpperCase()} [${disposition.target.code}] · ${disposition.queueEffect.toUpperCase()} · ${disposition.source.investigationId} / ${String(disposition.source.sequence).padStart(4, "0")} ${disposition.source.entryId}`,
-        `    target ${disposition.target.anchorId}:${disposition.target.anchorKind} · observed ${disposition.observed.runId} / ${disposition.observed.resultHash}`,
+        `  ${disposition.disposition.toUpperCase()} [${disposition.target.code}] · ${disposition.queueEffect.toUpperCase()} / ${disposition.state.toUpperCase()} · ${disposition.source.investigationId} / ${String(disposition.source.sequence).padStart(4, "0")} ${disposition.source.entryId}`,
+        `    target ${disposition.target.anchorId}:${disposition.target.anchorKind} · observed ${disposition.observed.runId} / ${disposition.observed.resultHash} · current ${disposition.currentEvidence.runId} / ${disposition.currentEvidence.resultHash} · causal ${disposition.currentEvidence.causalHash}`,
         `    ${disposition.reason}`,
         `    invalidation: ${disposition.invalidation.summary}`,
       ]),
@@ -942,7 +942,7 @@ export async function inspectCommand(projectDir: string, selection: ProjectSelec
       const deferred = snapshot.lossDispositions.some((disposition) => disposition.diagnosticId === diagnostic.id);
       const investigationDisposition = snapshot.investigationDiagnosticDispositions.find((disposition) =>
         disposition.target.diagnosticId === diagnostic.id);
-      return `  ${diagnostic.severity.toUpperCase().padEnd(8)} [${diagnostic.code}]${deferred ? " [BOUNDED DEFERRED]" : ""}${investigationDisposition ? ` [INVESTIGATION ${investigationDisposition.disposition.toUpperCase()} / ${investigationDisposition.queueEffect.toUpperCase()}]` : ""} ${diagnostic.message}`;
+      return `  ${diagnostic.severity.toUpperCase().padEnd(8)} [${diagnostic.code}]${deferred ? " [BOUNDED DEFERRED]" : ""}${investigationDisposition ? ` [INVESTIGATION ${investigationDisposition.disposition.toUpperCase()} / ${investigationDisposition.queueEffect.toUpperCase()} / ${investigationDisposition.state.toUpperCase()}]` : ""} ${diagnostic.message}`;
     }) : ["  none"]),
     ...(snapshot.diagnostics.length > 12 ? [`  … ${snapshot.diagnostics.length - 12} more; use --json for the complete set`] : []),
     "",

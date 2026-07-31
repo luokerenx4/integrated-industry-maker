@@ -12,6 +12,7 @@ import {
   listIndustrialInvestigationEntries,
   listIndustrialInvestigations,
   productionPlanRevisionDraft,
+  resolveCurrentInvestigationDiagnosticDispositions,
   resolveIndustrialInvestigationHypothesisSource,
 } from "./investigation";
 import { inspectCandidateDecision } from "./candidate-review";
@@ -230,14 +231,80 @@ test("a project-local Investigation preserves exact evidence and append-only hum
       evidence: ["diagnostic"],
       target: { kind: "diagnostic", anchorId: "diagnostic" },
     });
-    expect((await openProjectWorkbenchSnapshot(projectDir)).investigationDiagnosticDispositions)
+    const exactSnapshot = await openProjectWorkbenchSnapshot(projectDir);
+    expect(exactSnapshot.investigationDiagnosticDispositions)
       .toEqual([
         expect.objectContaining({
+          state: "current",
           disposition: "defer",
           queueEffect: "suppressed",
           source: expect.objectContaining({ entryId: "defer-current-inspection" }),
+          currentEvidence: expect.objectContaining({
+            runId: initialSimulation.data.run.id,
+            causalHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+          }),
         }),
       ]);
+    const requalifiedSnapshot = structuredClone(exactSnapshot);
+    const originalRun = requalifiedSnapshot.runs.find((run) =>
+      run.id === initialSimulation.data.run.id)!;
+    originalRun.compatible = false;
+    requalifiedSnapshot.hashes.engineVersion = "inm-sim/requalification-test";
+    requalifiedSnapshot.hashes.executionHash = "1".repeat(64);
+    requalifiedSnapshot.status.evidence = {
+      state: "current",
+      runId: "requalified-same-facts",
+    };
+    requalifiedSnapshot.runs.push({
+      ...originalRun,
+      id: "requalified-same-facts",
+      resultHash: "2".repeat(64),
+      engineVersion: "inm-sim/requalification-test",
+      compatible: true,
+    });
+    requalifiedSnapshot.lossAttribution!.run = {
+      id: "requalified-same-facts",
+      resultHash: "2".repeat(64),
+    };
+    for (const diagnostic of requalifiedSnapshot.diagnostics) {
+      if (diagnostic.evidence.source !== "compatible-run") continue;
+      diagnostic.id = `${diagnostic.id}:requalified`;
+      diagnostic.message = diagnostic.message.replace(
+        initialSimulation.data.run.id,
+        "requalified-same-facts",
+      );
+      diagnostic.evidence.runId = "requalified-same-facts";
+    }
+    expect(await resolveCurrentInvestigationDiagnosticDispositions(
+      projectDir,
+      requalifiedSnapshot,
+    )).toEqual([
+      expect.objectContaining({
+        state: "requalified",
+        disposition: "defer",
+        queueEffect: "suppressed",
+        observed: expect.objectContaining({ runId: initialSimulation.data.run.id }),
+        currentEvidence: expect.objectContaining({
+          runId: "requalified-same-facts",
+          resultHash: "2".repeat(64),
+          causalHash: exactSnapshot.diagnostics.find((diagnostic) =>
+            diagnostic.code === "fab-loss.input-starvation")!.evidence.causalHash,
+        }),
+      }),
+    ]);
+    const changedSourceSnapshot = structuredClone(requalifiedSnapshot);
+    changedSourceSnapshot.hashes.blueprintHash = "3".repeat(64);
+    expect(await resolveCurrentInvestigationDiagnosticDispositions(
+      projectDir,
+      changedSourceSnapshot,
+    )).toEqual([]);
+    const changedCausalSnapshot = structuredClone(requalifiedSnapshot);
+    changedCausalSnapshot.diagnostics.find((diagnostic) =>
+      diagnostic.code === "fab-loss.input-starvation")!.evidence.causalHash = "4".repeat(64);
+    expect(await resolveCurrentInvestigationDiagnosticDispositions(
+      projectDir,
+      changedCausalSnapshot,
+    )).toEqual([]);
 
     const blueprintPath = join(projectDir, "blueprints/generated-dram-fab.blueprint.json");
     const blueprint = JSON.parse(await readFile(blueprintPath, "utf8"));

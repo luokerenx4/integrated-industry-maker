@@ -135,6 +135,7 @@ const diagnosticAnchorSchema = z.object({
   id: idSchema,
   kind: z.literal("diagnostic"),
   diagnosticId: z.string().min(1),
+  causalHash: hashSchema.optional(),
   code: z.string().min(1),
   severity: z.enum(["blocking", "warning", "info"]),
   priority: z.number().int(),
@@ -1395,6 +1396,7 @@ export async function createIndustrialInvestigation(
       id: "diagnostic",
       kind: "diagnostic",
       diagnosticId: diagnostic.id,
+      ...(diagnostic.evidence.causalHash ? { causalHash: diagnostic.evidence.causalHash } : {}),
       code: diagnostic.code,
       severity: diagnostic.severity,
       priority: diagnostic.priority,
@@ -1612,6 +1614,7 @@ async function resolveIntroducedEvidenceAnchor(
       } : {}),
       diagnostic: {
         diagnosticId: diagnostic.id,
+        ...(diagnostic.evidence.causalHash ? { causalHash: diagnostic.evidence.causalHash } : {}),
         code: diagnostic.code,
         severity: diagnostic.severity,
         priority: diagnostic.priority,
@@ -1663,6 +1666,7 @@ async function resolveIntroducedEvidenceAnchor(
       hashes: { ...comparison.to.hashes },
       diagnostic: {
         diagnosticId: diagnostic.id,
+        ...(diagnostic.evidence.causalHash ? { causalHash: diagnostic.evidence.causalHash } : {}),
         code: diagnostic.code,
         severity: diagnostic.severity,
         priority: diagnostic.priority,
@@ -1738,6 +1742,18 @@ function sameRecordedHashes(
   return stableStringify(hashes) === stableStringify(projectEvidenceHashes(snapshot.hashes));
 }
 
+function sameSelectedSourceHashes(
+  hashes: IndustrialInvestigationManifest["hashes"],
+  snapshot: Pick<ProjectWorkbenchSnapshot, "hashes">,
+): boolean {
+  const current = projectEvidenceHashes(snapshot.hashes);
+  return hashes.worldHash === current.worldHash
+    && hashes.blueprintHash === current.blueprintHash
+    && hashes.productionPlanHash === current.productionPlanHash
+    && hashes.scenarioHash === current.scenarioHash
+    && hashes.objectiveHash === current.objectiveHash;
+}
+
 type DiagnosticDecisionSnapshot = Pick<
   ProjectWorkbenchSnapshot,
   "project" | "selection" | "hashes" | "status" | "runs" | "diagnostics" | "lossAttribution"
@@ -1809,47 +1825,90 @@ function currentDiagnosticLoss(
   } : null;
 }
 
-async function isCurrentDiagnosticDecisionCheckpoint(
+type DiagnosticDecisionAuthority = {
+  state: "current" | "requalified";
+  diagnostic: WorkbenchDiagnostic;
+  currentRun: {
+    id: string;
+    resultHash: string;
+  };
+};
+
+async function resolveDiagnosticDecisionAuthority(
   projectDir: string,
   manifest: IndustrialInvestigationManifest,
   checkpoint: DiagnosticDecisionCheckpoint,
   snapshot: DiagnosticDecisionSnapshot,
-): Promise<boolean> {
-  const run = snapshot.runs.find((item) =>
+): Promise<DiagnosticDecisionAuthority | null> {
+  const observedRun = snapshot.runs.find((item) =>
     item.id === checkpoint.runId
-    && item.resultHash === checkpoint.resultHash
-    && item.compatible);
-  const diagnostic = snapshot.diagnostics.find((item) =>
+    && item.resultHash === checkpoint.resultHash);
+  const currentRunId = snapshot.status.evidence.state === "current"
+    ? snapshot.status.evidence.runId
+    : null;
+  const currentRun = currentRunId
+    ? snapshot.runs.find((item) => item.id === currentRunId && item.compatible) ?? null
+    : null;
+  const exactDiagnostic = snapshot.diagnostics.find((item) =>
     item.id === checkpoint.diagnostic.diagnosticId);
-  const current = manifest.project === snapshot.project.id
+  const exact = manifest.project === snapshot.project.id
     && sameRecordedSelection(checkpoint.selection, snapshot)
     && sameRecordedHashes(checkpoint.hashes, snapshot)
-    && snapshot.status.evidence.state === "current"
     && snapshot.status.evidence.runId === checkpoint.runId
-    && Boolean(run)
-    && diagnostic?.evidence.source === "compatible-run"
-    && diagnostic.evidence.runId === checkpoint.runId
-    && diagnostic.code === checkpoint.diagnostic.code
-    && diagnostic.severity === checkpoint.diagnostic.severity
-    && diagnostic.priority === checkpoint.diagnostic.priority
-    && diagnostic.message === checkpoint.diagnostic.message
-    && diagnostic.evidence.summary === checkpoint.diagnostic.summary
-    && stableStringify(diagnostic.subjects) === stableStringify(checkpoint.diagnostic.subjects)
+    && Boolean(observedRun?.compatible)
+    && exactDiagnostic?.evidence.source === "compatible-run"
+    && exactDiagnostic.evidence.runId === checkpoint.runId
+    && exactDiagnostic.code === checkpoint.diagnostic.code
+    && exactDiagnostic.severity === checkpoint.diagnostic.severity
+    && exactDiagnostic.priority === checkpoint.diagnostic.priority
+    && exactDiagnostic.message === checkpoint.diagnostic.message
+    && exactDiagnostic.evidence.summary === checkpoint.diagnostic.summary
+    && exactDiagnostic.evidence.causalHash === checkpoint.diagnostic.causalHash
+    && stableStringify(exactDiagnostic.subjects) === stableStringify(checkpoint.diagnostic.subjects)
     && stableStringify(currentDiagnosticLoss(checkpoint, snapshot))
       === stableStringify(checkpoint.diagnostic.loss);
-  if (!current) return false;
-  if (!checkpoint.comparison) return true;
-  try {
-    const inspected = await inspectFactoryRunComparison(
-      projectDir,
-      checkpoint.comparison.from.runId,
-      checkpoint.comparison.to.runId,
-    );
-    return sameRunComparisonEvidence(checkpoint.comparison, inspected.comparison)
-      && sameRunComparisonDiagnostic(checkpoint.comparison, inspected.toDiagnostics);
-  } catch {
-    return false;
+  if (exact && exactDiagnostic && currentRun) {
+    if (checkpoint.comparison) {
+      try {
+        const inspected = await inspectFactoryRunComparison(
+          projectDir,
+          checkpoint.comparison.from.runId,
+          checkpoint.comparison.to.runId,
+        );
+        if (!sameRunComparisonEvidence(checkpoint.comparison, inspected.comparison)
+          || !sameRunComparisonDiagnostic(checkpoint.comparison, inspected.toDiagnostics)) return null;
+      } catch {
+        return null;
+      }
+    }
+    return {
+      state: "current",
+      diagnostic: exactDiagnostic,
+      currentRun: { id: currentRun.id, resultHash: currentRun.resultHash },
+    };
   }
+  if (checkpoint.comparison
+    || !observedRun
+    || !currentRun
+    || !checkpoint.diagnostic.causalHash
+    || manifest.project !== snapshot.project.id
+    || !sameRecordedSelection(checkpoint.selection, snapshot)
+    || !sameSelectedSourceHashes(checkpoint.hashes, snapshot)) return null;
+  const requalifiedDiagnostic = snapshot.diagnostics.find((item) =>
+    item.evidence.source === "compatible-run"
+    && item.evidence.runId === currentRun.id
+    && item.evidence.causalHash === checkpoint.diagnostic.causalHash
+    && item.code === checkpoint.diagnostic.code
+    && item.severity === checkpoint.diagnostic.severity
+    && stableStringify(item.subjects) === stableStringify(checkpoint.diagnostic.subjects));
+  if (!requalifiedDiagnostic
+    || stableStringify(currentDiagnosticLoss(checkpoint, snapshot))
+      !== stableStringify(checkpoint.diagnostic.loss)) return null;
+  return {
+    state: "requalified",
+    diagnostic: requalifiedDiagnostic,
+    currentRun: { id: currentRun.id, resultHash: currentRun.resultHash },
+  };
 }
 
 async function listInvestigationIds(projectDir: string): Promise<string[]> {
@@ -1888,25 +1947,26 @@ export async function resolveCurrentInvestigationDiagnosticDispositions(
         if (!anchor || !entry.evidence.includes(anchor.id)) continue;
         const checkpoint = diagnosticDecisionCheckpoint(manifest, anchor);
         if (!checkpoint) continue;
-        const decisionKey = `${manifest.id}:${checkpoint.diagnostic.diagnosticId}`;
+        const decisionKey = `${manifest.id}:${checkpoint.diagnostic.code}`;
         // A later explicit target supersedes the earlier judgment even when
         // its own evidence is no longer current. Historical reasoning must not
         // accidentally revive an older queue decision.
         byInvestigationAndDiagnostic.delete(decisionKey);
-        if (!await isCurrentDiagnosticDecisionCheckpoint(
+        const authority = await resolveDiagnosticDecisionAuthority(
             projectDir,
             manifest,
             checkpoint,
             snapshot,
-          )) continue;
+          );
+        if (!authority) continue;
         byInvestigationAndDiagnostic.set(
           decisionKey,
           {
             id: `investigation-diagnostic:${manifest.id}:${entry.id}:${anchor.id}`,
-            state: "current",
+            state: authority.state,
             disposition: entry.disposition,
             target: {
-              diagnosticId: checkpoint.diagnostic.diagnosticId,
+              diagnosticId: authority.diagnostic.id,
               code: checkpoint.diagnostic.code,
               anchorId: checkpoint.anchorId,
               anchorKind: checkpoint.anchorKind,
@@ -1924,14 +1984,23 @@ export async function resolveCurrentInvestigationDiagnosticDispositions(
               runId: checkpoint.runId,
               resultHash: checkpoint.resultHash,
             },
+            currentEvidence: {
+              runId: authority.currentRun.id,
+              resultHash: authority.currentRun.resultHash,
+              diagnosticId: authority.diagnostic.id,
+              causalHash: authority.diagnostic.evidence.causalHash!,
+            },
             invalidation: {
-              summary: "This decision expires when the project, selection, execution hashes, compatible Run/result, exact diagnostic, or leading loss contributor changes.",
+              summary: authority.state === "requalified"
+                ? "This historical decision is requalified only while the current compatible Run reproduces the same canonical causal diagnostic facts under the same selected factory sources."
+                : "This decision expires when its exact current Run, selected factory sources, canonical causal diagnostic facts, or leading loss contributor changes.",
               bindings: [
                 "project",
                 "selection",
-                "execution-hashes",
+                "selected-source-hashes",
                 "compatible-run",
                 "diagnostic",
+                "causal-diagnostic-evidence",
                 "loss-contributor",
               ],
             },

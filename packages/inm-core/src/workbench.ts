@@ -13,7 +13,12 @@ import {
   type DesignRunSummary,
   type InvalidDesignRunSummary,
 } from "./design-run";
-import { analyzeFabLosses, type FabLossAttribution, type FabLossBucketId } from "./fab-loss-analysis";
+import {
+  analyzeFabLosses,
+  type FabLossAttribution,
+  type FabLossBucket,
+  type FabLossBucketId,
+} from "./fab-loss-analysis";
 import { planProductionCapacity, type ProductionCapacityPlan } from "./capacity-plan";
 import { compileFactoryProject } from "./compiler";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
@@ -92,6 +97,7 @@ export interface WorkbenchDiagnostic {
     source: "capacity-plan" | "production-analysis" | "compatible-run";
     summary: string;
     runId?: string;
+    causalHash?: string;
   };
   actionIds: WorkbenchOperationDescriptor["id"][];
 }
@@ -203,7 +209,7 @@ export interface WorkbenchLossDisposition {
 
 export interface WorkbenchInvestigationDiagnosticDisposition {
   id: string;
-  state: "current";
+  state: "current" | "requalified";
   disposition: "keep" | "revise" | "defer" | "discard";
   queueEffect: "none" | "revisit" | "suppressed";
   target: {
@@ -225,6 +231,12 @@ export interface WorkbenchInvestigationDiagnosticDisposition {
     runId: string;
     resultHash: string;
   };
+  currentEvidence: {
+    runId: string;
+    resultHash: string;
+    diagnosticId: string;
+    causalHash: string;
+  };
   reason: string;
   invalidation: {
     summary: string;
@@ -232,8 +244,10 @@ export interface WorkbenchInvestigationDiagnosticDisposition {
       | "project"
       | "selection"
       | "execution-hashes"
+      | "selected-source-hashes"
       | "compatible-run"
       | "diagnostic"
+      | "causal-diagnostic-evidence"
       | "loss-contributor"
     >;
   };
@@ -291,7 +305,7 @@ export interface WorkbenchObjectiveEvidence {
 }
 
 export interface ProjectWorkbenchSnapshot {
-  version: 19;
+  version: 20;
   project: {
     id: string;
     name: string;
@@ -465,6 +479,19 @@ function diagnosticId(code: string, subjects: WorkbenchSubjectReference[], summa
   return `${code}:${subjectKey}:${hashValue(summary).slice(0, 10)}`;
 }
 
+export function fabLossDiagnosticCausalHash(bucket: FabLossBucket): string {
+  return hashValue({
+    version: 1,
+    bucket: {
+      id: bucket.id,
+      score: bucket.score,
+      subjects: bucket.subjects,
+      evidence: bucket.evidence,
+      contributors: bucket.contributors.map(({ label: _label, ...contributor }) => contributor),
+    },
+  });
+}
+
 export function projectDiagnostics(project: CompiledFactoryProject, analysis: ProductionAnalysis, capacity: ProductionCapacityPlan, lossAttribution: FabLossAttribution | null): WorkbenchDiagnostic[] {
   const blocking = capacity.gaps.map((gap): WorkbenchDiagnostic => {
     const subjects = [capacitySubject(gap)];
@@ -500,14 +527,20 @@ export function projectDiagnostics(project: CompiledFactoryProject, analysis: Pr
       : { ...subject }) : [{ kind: "project" as const, id: project.manifest.id }];
     const code = `fab-loss.${bucket.id}`;
     const message = `${bucket.label} is ranked ${index + 1} in compatible run ${lossAttribution!.run.id} (signal ${bucket.score.toFixed(4)}). ${bucket.summary}`;
+    const causalHash = fabLossDiagnosticCausalHash(bucket);
     return {
-      id: diagnosticId(code, subjects, message),
+      id: diagnosticId(code, subjects, causalHash),
       code,
       severity: bucket.score >= 0.01 ? "warning" : "info",
       priority: 90 - index,
       subjects,
       message,
-      evidence: { source: "compatible-run", summary: bucket.summary, runId: lossAttribution!.run.id },
+      evidence: {
+        source: "compatible-run",
+        summary: bucket.summary,
+        runId: lossAttribution!.run.id,
+        causalHash,
+      },
       actionIds: ["simulate", "analyze", "design.run"],
     };
   });
@@ -1475,7 +1508,7 @@ export async function buildProjectWorkbenchSnapshot(project: CompiledFactoryProj
   const staleReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "stale").length;
   const verifiedReviews = candidateSummaries.filter((candidate) => candidate.decision.state === "verified").length;
   const baseSnapshot = {
-    version: 19 as const,
+    version: 20 as const,
     project: { id: project.manifest.id, name: project.manifest.name, rootDir: project.rootDir },
     selection,
     hashes: { ...project.hashes },
