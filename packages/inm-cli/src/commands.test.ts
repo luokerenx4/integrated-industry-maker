@@ -2454,15 +2454,15 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
   });
   expect(JSON.parse(objective.stdout).data).toEqual({ section: "objective", result: result.objectiveEvidence });
   expect(result.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.inspect:release-admission-convergence:/),
-    title: "Investigate the leading loss with Release Admission Convergence",
+    id: expect.stringMatching(/^design\.inspect:back-end-die-handoff:/),
+    title: "Investigate the leading loss with Back-end Die Handoff Convergence",
     actionLabel: "OPEN DESIGN LOOP",
     effect: "read-only",
-    studioRoute: "/memory-fab/designs/release-admission-convergence",
+    studioRoute: "/memory-fab/designs/back-end-die-handoff",
     target: expect.objectContaining({
       kind: "design-program",
-      programId: "release-admission-convergence",
-      diagnosticId: expect.stringMatching(/^fab-loss\.release-admission:/),
+      programId: "back-end-die-handoff",
+      diagnosticId: expect.stringMatching(/^fab-loss\.transport-blocking:/),
     }),
   }));
   expect(result.objectiveEvidence).toEqual(expect.objectContaining({
@@ -2481,7 +2481,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
   expect(human.stdout).toContain("Interpretation: Objective accounting evidence, not proof that the inventory is avoidable.");
   expect(human.stdout).toContain("inspection-supply-path · MISSING");
   expect(human.stdout).not.toContain("Bounded deferred loss evidence:");
-  expect(human.stdout).toContain("Next action: Investigate the leading loss with Release Admission Convergence");
+  expect(human.stdout).toContain("Next action: Investigate the leading loss with Back-end Die Handoff Convergence");
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(brief.stdout).toContain("Evidence: 0 current · 0 commissioned · 0 historical · 32 invalid excluded · authority none (missing)");

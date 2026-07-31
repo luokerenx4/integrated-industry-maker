@@ -41,7 +41,7 @@ function observesExactReleaseWait(context: Readonly<ProjectProposalContext>): bo
     || !context.fabLoss?.chain.includes("release-admission")) return false;
   const bucket = context.fabLoss.buckets.find((item) => item.id === "release-admission");
   const contributor = bucket?.contributors.find((item) => item.id === contributorId);
-  return bucket?.evidence.controlBlockedTicks === 171_738
+  return bucket?.evidence.controlBlockedTicks === 162_138
     && bucket.evidence.capacityBlockedTicks === 0
     && bucket.evidence.maximumWip === 6
     && bucket.evidence.reopenAtWip === 5
@@ -53,12 +53,12 @@ function observesExactReleaseWait(context: Readonly<ProjectProposalContext>): bo
     && contributor.lots[0] === "dram-lot-07"
     && contributor.subjects.some((subject) =>
       subject.kind === "device" && subject.id === "lot-release")
-    && contributor.evidence.totalTicks === 63_623
-    && contributor.evidence.controlBlockedTicks === 63_623
+    && contributor.evidence.totalTicks === 62_023
+    && contributor.evidence.controlBlockedTicks === 62_023
     && contributor.evidence.bufferCapacityTicks === 0
     && contributor.evidence.resourceCapacityTicks === 0
     && contributor.evidence.plannedReleaseTick === 36_000
-    && contributor.evidence.actualReleaseTick === 99_623
+    && contributor.evidence.actualReleaseTick === 98_023
     && contributor.evidence.dueTick === 180_000
     && contributor.evidence.priority === 5
     && contributor.evidence.releaseOrdinal === 12
@@ -77,8 +77,8 @@ export default {
     if (!patch) return null;
     return {
       strategy,
-      hypothesis: "dram-lot-07 owns 63.623 seconds of pure CONWIP wait and enters last despite arriving seventh; adding exactly one hard card while preserving one-for-one EDD replenishment may admit the middle-priority wave earlier without changing workload or inventing a physical-capacity problem.",
-      expectedEffect: "Reduce the exact dram-lot-07 release-admission contributor and total controller wait; extra WIP, setup, quality, due-date service, interruption behavior, and every current-best case remain authoritative.",
+      hypothesis: "Run 114's no-rework flow leaves dram-lot-07 with 62.023 seconds of pure CONWIP wait and the last EDD admission; adding exactly one hard card while preserving one-for-one replenishment may now carry the earlier release into downstream service without changing workload or inventing a physical-capacity problem.",
+      expectedEffect: "Reduce the exact dram-lot-07 release-admission contributor and 162.138-second controller total; downstream service or delivery must improve without extra WIP, setup, quality, due-date, interruption, or current-best case regressions.",
       addressedLoss: "release-admission",
       addressedLossTarget: {
         contributor: contributorId,

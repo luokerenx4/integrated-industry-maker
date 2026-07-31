@@ -1,0 +1,12 @@
+[
+  {
+    "op": "replace",
+    "path": "/policies/lotRelease/maximumWip",
+    "value": 7
+  },
+  {
+    "op": "replace",
+    "path": "/policies/lotRelease/reopenAtWip",
+    "value": 6
+  }
+]

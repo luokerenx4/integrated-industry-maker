@@ -1,0 +1,73 @@
+{
+  "author": "agent",
+  "entryHash": "f069afe5edb544627b10f2699afba937d66b27dfa66793fd2f1dbdd28535ea8d",
+  "evidence": [
+    "run-114-one-card-comparison",
+    "run-114-one-card-review",
+    "run-114-release-retained-factory"
+  ],
+  "id": "resume-run-114-after-one-card-discard",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "causalHash": "6347c9c8dd6f0b99cd9b95ab0fd9672c904c892fca714d16a9c2c91767461ae0",
+        "code": "fab-loss.transport-blocking",
+        "diagnosticId": "fab-loss.transport-blocking:connection:probe-to-packaging:2f7d6b19f2",
+        "loss": {
+          "bucket": "transport-blocking",
+          "contributorId": "connection:probe-to-packaging:transport-line-contention"
+        },
+        "message": "Local transport blocking by cause is ranked 4 in compatible run 114-candidate-trial-run-112-dimensional-stability (signal 0.0536). Tracked lots averaged 7.8 s in necessary transit (context only); 3/17 connections accumulated 218.6 blocked item-s (138.7 line, 42.9 endpoint capacity, 37.0 endpoint power, 0.0 endpoint failure).",
+        "priority": 87,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "probe-to-packaging",
+            "kind": "connection"
+          }
+        ],
+        "summary": "Tracked lots averaged 7.8 s in necessary transit (context only); 3/17 connections accumulated 218.6 blocked item-s (138.7 line, 42.9 endpoint capacity, 37.0 endpoint power, 0.0 endpoint failure)."
+      },
+      "hashes": {
+        "blueprintHash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+        "engineVersion": "inm-sim/0.93.1",
+        "executionHash": "756abdd1d3c8688aba65dd8df430ad914cf7a5a4fb84e1789be8cb58cae92def",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "run-114-release-retained-factory",
+      "kind": "factory-observation",
+      "resultHash": "89c183540d7a0daa3810e72741837319cd8742ccefc3f963e03cd7a386a77e3c",
+      "runId": "114-candidate-trial-run-112-dimensional-stability",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "sourceLotServices": [
+        {
+          "analysisHash": "4b7e5ccecac2ab09faf6322a2101553851bab42a2e94817a2ee94aaa3b416f50",
+          "device": "burn-in-1",
+          "inputBuffer": "package-input",
+          "inputResource": "packaged-dram-device"
+        },
+        {
+          "analysisHash": "b2bfd5f5bd38bde53038e004a76378a871c09ecc2f0a679e71c281403bf43e91",
+          "device": "packaging-1",
+          "inputBuffer": "die-input",
+          "inputResource": "known-good-dram-die"
+        }
+      ]
+    }
+  ],
+  "investigation": "run-114-release-admission-requalification",
+  "kind": "observation",
+  "previousEntryHash": "1f27bd99afa003934eaaad08bcad125b263cf52a81e77e677b5f2dd06b892b65",
+  "sequence": 5,
+  "statement": "After discarding the one-card 7/6 trial, the selected factory remains Run 114 with 6/5 EDD release control. Continue from this exact current checkpoint: the 62.023-second lot-07 admission hold remains measured but is intentional WIP and interruption-service protection, while Run 115 proves that merely opening one more front-end card moves terminal WIP and regresses every current case without converting delay into delivery.",
+  "version": 1
+}

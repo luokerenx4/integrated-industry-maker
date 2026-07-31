@@ -1,0 +1,29 @@
+{
+  "baseCandidateHash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reduce dram-lot-07's exact 62.023 s controller wait and the 162.138 s release total; retain the intervention only if delivery or downstream service improves without increasing average WIP, cycle/setup loss, quality risk, cost/area, or regressing any current-best or locked case. Target reduction alone is not KEEP authority.",
+  "hypothesis": "Change only the factory CONWIP window from 6/5 to 7/6 while preserving one-for-one earliest-due-date release order, workload, priorities, due dates, equipment, and process physics. Run 114's no-rework flow may let the extra admitted lot reach packaging and Burn-in early enough to convert the previously bounded card into service rather than interruption-sensitive WIP.",
+  "id": "run-114-one-card-release-window",
+  "name": "Run 114 one-card release window",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/policies/lotRelease/maximumWip",
+      "value": 7
+    },
+    {
+      "op": "replace",
+      "path": "/policies/lotRelease/reopenAtWip",
+      "value": 6
+    }
+  ],
+  "source": {
+    "entry": "requalify-one-card-release-window",
+    "entryHash": "c5faac284fe80af21807aec562d1b63856e3211c4ef707fe718e7138b97e9cf6",
+    "investigation": "run-114-release-admission-requalification",
+    "kind": "investigation-hypothesis",
+    "manifestHash": "30178787117cc71a6f314e157015570b16ead9062a02759b7806c7a645836989",
+    "project": "memory-fab"
+  },
+  "version": 1
+}

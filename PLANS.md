@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/run-114-release-admission-requalification]] | Decide whether Run 114's no-rework operating state changes the one-card CONWIP judgment, then retain current exact evidence. | 2026-07-31 |
 | [[plans/run-114-probe-identity-dispatch]] | Decide whether explicit Probe lot-identity dispatch can convert Run 114's upstream quality gain into earlier downstream service without repeating rejected cycle acceleration. | 2026-07-31 |
 | [[plans/run-114-furnace-supply-phase-control]] | Decide whether current upstream layer-one phase control can causally reduce Run 114's exact furnace shortage without replaying exhausted local branches. | 2026-07-31 |
 | [[plans/current-layer-two-dimensional-control]] | Separate residual critical-dimension loss from the commissioned particle decision and evaluate one explicit current control mode. | 2026-07-31 |

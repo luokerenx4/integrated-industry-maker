@@ -1,0 +1,34 @@
+{
+  "author": "agent",
+  "disposition": "discard",
+  "entryHash": "1f27bd99afa003934eaaad08bcad125b263cf52a81e77e677b5f2dd06b892b65",
+  "evidence": [
+    "run-114-release-factory",
+    "run-114-one-card-comparison",
+    "run-114-one-card-review"
+  ],
+  "id": "discard-run-114-one-card-release",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "run-114-one-card-release-window",
+      "currentCandidateHash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+      "id": "run-114-one-card-review",
+      "kind": "candidate-review",
+      "proposalHash": "666decabc67a7d3f7ae7f30df3471c61986d880b53d7a0611503d8bbe6c3fc29",
+      "proposedCandidateHash": "9f7f2b4b8af4e8af635615915e87a1a90ecf4a08b61cd8b017958ddc9eb5cd35",
+      "reviewResultHash": "f698914ac7ec912e6fca3c4e2c6eca24ec77addf93e1a611892eac5e7e45a682",
+      "verdict": "DISCARD"
+    }
+  ],
+  "investigation": "run-114-release-admission-requalification",
+  "kind": "decision",
+  "previousEntryHash": "70f65c9c3e9212890b099152ac61e802f1752260bf636b275bb448bdaff5bc66",
+  "sequence": 4,
+  "statement": "Discard the Run 114 one-card release window. The 7/6 controller recovers exactly 62.023 s of admission wait but converts none of it into another delivered unit or earlier terminal service; it increases average WIP by 2.0674 equivalents, increases mean cycle by 4.2481 s, shifts final packaged WIP from lot 07 to lot 08, regresses every current operating case, and breaks facility-interruption on-time service 9 → 8. Retain 6/5 EDD as intentional WIP/service protection. Reopen release control only with a physically distinct coordination mechanism that improves downstream service without adding front-end cards; keep the measured controller wait visible in Analysis.",
+  "target": {
+    "anchorId": "run-114-release-factory",
+    "kind": "diagnostic"
+  },
+  "version": 1
+}

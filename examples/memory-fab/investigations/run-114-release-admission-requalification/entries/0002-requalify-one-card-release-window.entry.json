@@ -1,0 +1,17 @@
+{
+  "author": "agent",
+  "entryHash": "c5faac284fe80af21807aec562d1b63856e3211c4ef707fe718e7138b97e9cf6",
+  "evidence": [
+    "run-114-release-factory"
+  ],
+  "expectedEffect": "Reduce dram-lot-07's exact 62.023 s controller wait and the 162.138 s release total; retain the intervention only if delivery or downstream service improves without increasing average WIP, cycle/setup loss, quality risk, cost/area, or regressing any current-best or locked case. Target reduction alone is not KEEP authority.",
+  "id": "requalify-one-card-release-window",
+  "intervention": "blueprint",
+  "introducedAnchors": [],
+  "investigation": "run-114-release-admission-requalification",
+  "kind": "hypothesis",
+  "previousEntryHash": "d0eeab54c472dcd1549e66eb693f899928875a0a31978f32730d2299d62db208",
+  "sequence": 2,
+  "statement": "Change only the factory CONWIP window from 6/5 to 7/6 while preserving one-for-one earliest-due-date release order, workload, priorities, due dates, equipment, and process physics. Run 114's no-rework flow may let the extra admitted lot reach packaging and Burn-in early enough to convert the previously bounded card into service rather than interruption-sensitive WIP.",
+  "version": 1
+}

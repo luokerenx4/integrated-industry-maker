@@ -121,7 +121,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 7, infoCount: 9 },
     evidence: { state: "current", runId: "114-candidate-trial-run-112-dimensional-stability" },
-    review: { state: "stale", pendingCount: 0, disposedCount: 0, staleCount: 32, verifiedCount: 1 },
+    review: { state: "stale", pendingCount: 0, disposedCount: 1, staleCount: 32, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
   expect(snapshot.objective.wipAccounting).toEqual(expect.objectContaining({
@@ -610,6 +610,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     { id: "recovered-output-high-throughput", benchmark: "greenfield-dram-design", patchOperations: 7, state: "stale", verdict: undefined },
     { id: "run-105-normal-particle-suppression", benchmark: "greenfield-dram-design", patchOperations: 2, state: "stale", verdict: "KEEP" },
     { id: "run-112-dimensional-stability", benchmark: "greenfield-dram-design", patchOperations: 2, state: "verified", verdict: "KEEP" },
+    { id: "run-114-one-card-release-window", benchmark: "greenfield-dram-design", patchOperations: 2, state: "reviewed-discard", verdict: "DISCARD" },
     { id: "stable-furnace-sleep", benchmark: "equipment-energy-research", patchOperations: 1, state: "reviewed-discard", verdict: "DISCARD" },
     { id: "vacuum-lithography-etch-handoff", benchmark: "greenfield-dram-design", patchOperations: 3, state: "stale", verdict: "KEEP" },
   ]);
@@ -622,6 +623,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.candidates.find((candidate) =>
     candidate.id === "qualified-probe-cycle-95-run-112")?.investigationDisposition)
     .toBeNull();
+  expect(snapshot.candidates.find((candidate) =>
+    candidate.id === "run-114-one-card-release-window")?.investigationDisposition)
+    .toEqual(expect.objectContaining({
+      disposition: "discard",
+      investigationId: "run-114-release-admission-requalification",
+      entryId: "discard-run-114-one-card-release",
+      reviewResultHash: "f698914ac7ec912e6fca3c4e2c6eca24ec77addf93e1a611892eac5e7e45a682",
+    }));
   expect(snapshot.nextAction.id).not.toBe("candidate.apply:incumbent-five-performance-seven-commercial");
   expect(snapshot.investigationDiagnosticDispositions).toEqual([
     expect.objectContaining({
@@ -652,16 +661,30 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
         entryId: "defer-local-probe-identity-dispatch",
       }),
     }),
+    expect.objectContaining({
+      state: "current",
+      disposition: "discard",
+      queueEffect: "suppressed",
+      target: expect.objectContaining({
+        anchorId: "run-114-release-factory",
+        code: "fab-loss.release-admission",
+        diagnosticId: expect.stringMatching(/^fab-loss\.release-admission:/),
+      }),
+      source: expect.objectContaining({
+        investigationId: "run-114-release-admission-requalification",
+        entryId: "discard-run-114-one-card-release",
+      }),
+    }),
   ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.inspect:release-admission-convergence:/),
+    id: expect.stringMatching(/^design\.inspect:back-end-die-handoff:/),
     effect: "read-only",
     requiresConfirmation: false,
-    studioRoute: "/memory-fab/designs/release-admission-convergence",
+    studioRoute: "/memory-fab/designs/back-end-die-handoff",
     target: expect.objectContaining({
       kind: "design-program",
-      programId: "release-admission-convergence",
-      diagnosticId: expect.stringMatching(/^fab-loss\.release-admission:/),
+      programId: "back-end-die-handoff",
+      diagnosticId: expect.stringMatching(/^fab-loss\.transport-blocking:/),
     }),
   }));
   const leadingDiagnostic = snapshot.diagnostics.find((diagnostic) =>
@@ -729,7 +752,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     studioRoute: "/memory-fab/factory?run=114-candidate-trial-run-112-dimensional-stability",
     target: expect.objectContaining({
       kind: "diagnostic",
-      diagnosticId: expect.stringMatching(/^fab-loss\.release-admission:/),
+      diagnosticId: expect.stringMatching(/^fab-loss\.transport-blocking:/),
     }),
   }));
   const exhaustedId = "f".repeat(64);
@@ -879,15 +902,25 @@ test("shared handoff retires dispositions when current causal facts change and a
         entryId: "defer-local-probe-identity-dispatch",
       }),
     }),
+    expect.objectContaining({
+      state: "current",
+      disposition: "discard",
+      queueEffect: "suppressed",
+      target: expect.objectContaining({ code: "fab-loss.release-admission" }),
+      source: expect.objectContaining({
+        investigationId: "run-114-release-admission-requalification",
+        entryId: "discard-run-114-one-card-release",
+      }),
+    }),
   ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    title: "Investigate the leading loss with Release Admission Convergence",
+    title: "Investigate the leading loss with Back-end Die Handoff Convergence",
     actionLabel: "OPEN DESIGN LOOP",
-    studioRoute: "/memory-fab/designs/release-admission-convergence",
+    studioRoute: "/memory-fab/designs/back-end-die-handoff",
     target: expect.objectContaining({
       kind: "design-program",
-      programId: "release-admission-convergence",
-      diagnosticId: expect.stringMatching(/^fab-loss\.release-admission:/),
+      programId: "back-end-die-handoff",
+      diagnosticId: expect.stringMatching(/^fab-loss\.transport-blocking:/),
     }),
   }));
 });
@@ -1587,16 +1620,16 @@ test("a non-KEEP Candidate receipt resolves review work without displacing curre
   expect(reviewed.status.review).toEqual({
     state: "stale",
     pendingCount: 0,
-    disposedCount: 0,
+    disposedCount: 1,
     staleCount: 32,
     verifiedCount: 1,
   });
   expect(reviewed.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.inspect:release-admission-convergence:/),
+    id: expect.stringMatching(/^design\.inspect:back-end-die-handoff:/),
     target: expect.objectContaining({
       kind: "design-program",
-      programId: "release-admission-convergence",
-      diagnosticId: expect.stringMatching(/^fab-loss\.release-admission:/),
+      programId: "back-end-die-handoff",
+      diagnosticId: expect.stringMatching(/^fab-loss\.transport-blocking:/),
     }),
   }));
 }, 20_000);

@@ -1,0 +1,77 @@
+{
+  "author": "agent",
+  "entryHash": "d0eeab54c472dcd1549e66eb693f899928875a0a31978f32730d2299d62db208",
+  "evidence": [
+    "operating-run",
+    "diagnostic",
+    "run-114-release-factory"
+  ],
+  "id": "observe-run-114-release-boundary",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "causalHash": "0f8f1c9a30d8a03a97e3eeae91c96b4d1a4c6484e6b631fcf00ee42fc22e01eb",
+        "code": "fab-loss.release-admission",
+        "diagnosticId": "fab-loss.release-admission:device:lot-release+route:dram-front-end:34cb532c12",
+        "loss": {
+          "bucket": "release-admission",
+          "contributorId": "lot:dram-lot-07:release-admission"
+        },
+        "message": "Release and admission is ranked 3 in compatible run 114-candidate-trial-run-112-dimensional-stability (signal 0.0563). 0 scheduled lots remained pending; 0 capacity-blocked and 6 control-blocked releases accumulated 162.1 lot-s; dram-lot-07 owns 62.0 s.",
+        "priority": 88,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "lot-release",
+            "kind": "device"
+          },
+          {
+            "id": "dram-front-end",
+            "kind": "route"
+          }
+        ],
+        "summary": "0 scheduled lots remained pending; 0 capacity-blocked and 6 control-blocked releases accumulated 162.1 lot-s; dram-lot-07 owns 62.0 s."
+      },
+      "hashes": {
+        "blueprintHash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+        "engineVersion": "inm-sim/0.93.1",
+        "executionHash": "756abdd1d3c8688aba65dd8df430ad914cf7a5a4fb84e1789be8cb58cae92def",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "run-114-release-factory",
+      "kind": "factory-observation",
+      "resultHash": "89c183540d7a0daa3810e72741837319cd8742ccefc3f963e03cd7a386a77e3c",
+      "runId": "114-candidate-trial-run-112-dimensional-stability",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "sourceLotServices": [
+        {
+          "analysisHash": "4b7e5ccecac2ab09faf6322a2101553851bab42a2e94817a2ee94aaa3b416f50",
+          "device": "burn-in-1",
+          "inputBuffer": "package-input",
+          "inputResource": "packaged-dram-device"
+        },
+        {
+          "analysisHash": "b2bfd5f5bd38bde53038e004a76378a871c09ecc2f0a679e71c281403bf43e91",
+          "device": "packaging-1",
+          "inputBuffer": "die-input",
+          "inputResource": "known-good-dram-die"
+        }
+      ]
+    }
+  ],
+  "investigation": "run-114-release-admission-requalification",
+  "kind": "observation",
+  "previousEntryHash": null,
+  "sequence": 1,
+  "statement": "Run 114's lot-release boundary is a capacity-20 edge buffer at (2,13) with one direct release-to-lithography line and zero Device wait, blocking, power, or failure loss. All 162.138 s of release delay is controller-owned: six lots enter at active WIP five through 6/5 EDD threshold openings, while physical buffer and Resource capacity contribute zero. dram-lot-07 is planned seventh at 36.000 s, admitted twelfth at 98.023 s with 81.977 s due slack, completes its wafer route on time, and later becomes the final eight packaged devices left at Burn-in; earlier admission must therefore improve downstream service rather than merely move WIP into the fab.",
+  "version": 1
+}

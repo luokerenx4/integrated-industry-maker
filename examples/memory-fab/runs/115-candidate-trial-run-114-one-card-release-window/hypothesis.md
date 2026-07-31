@@ -1,0 +1,1 @@
+Change only the factory CONWIP window from 6/5 to 7/6 while preserving one-for-one earliest-due-date release order, workload, priorities, due dates, equipment, and process physics. Run 114's no-rework flow may let the extra admitted lot reach packaging and Burn-in early enough to convert the previously bounded card into service rather than interruption-sensitive WIP.
