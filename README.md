@@ -1,23 +1,23 @@
 # Integrated Industry Maker
 
-**INM is a local workbench where humans and AI Agents design, simulate,
-inspect, and improve industrial production systems together.**
+**INM is a local industrial-design workbench for humans and AI Agents.**
 
 > A factory is a self-contained project. A Blueprint is its physical and
 > operational configuration. A Run is immutable evidence.
 
-[Start in two minutes](#start-in-two-minutes) ·
-[Understand the model](#how-inm-works) ·
-[See the memory fab](#the-memory-fab) ·
-[Find documentation](#documentation-by-task) ·
-[Contribute](#development)
+[Quick start](#quick-start) ·
+[How it works](#how-inm-works) ·
+[Memory fab](#the-memory-fab) ·
+[Documentation](#documentation-by-task) ·
+[Development](#development)
 
 ![INM Studio showing the re-entrant DRAM memory fab and its current run evidence](docs/assets/inm-studio-memory-fab.jpg)
 
-INM treats factory design as an inspectable, versioned workflow. Each project
-owns its equipment, resources, processes, layout, operating plan, test
-conditions, objectives, and evidence. Studio makes the factory visible; the
-`inm` CLI exposes the same typed state to people, scripts, and Agents.
+Use INM to describe a factory as a self-contained project, run deterministic
+simulations, inspect the physical layout and causal evidence, and compare an
+explicit design change against the current factory. Studio makes the system
+visible; the `inm` CLI exposes the same typed state to people, scripts, and
+Agents.
 
 INM is not an autonomous factory generator. The engine compiles, simulates,
 attributes losses, and compares explicitly bounded alternatives. A human or
@@ -31,19 +31,7 @@ decision. That boundary is the core of
 > Studio is an evidence workbench and visual debugger today, not a
 > drag-and-drop factory editor.
 
-## What works today
-
-| Capability | Current boundary | Read more |
-| --- | --- | --- |
-| **Model a factory** | Self-contained projects with typed assets, physical Blueprints, Production Plans, Scenarios, and Objectives | [Project format](docs/PROJECT_FORMAT.md) |
-| **Run it** | Deterministic compilation, simulation, immutable Runs, replay, and locked comparison | [Simulation runtime](docs/design/simulation-runtime.md) |
-| **Reason about it** | Causal loss attribution, spatial observation, Investigations, Candidates, and bounded Design Programs | [Observation-led design](docs/design/observation-led-design.md) |
-| **Operate it** | One Core model projected through Studio for visual work and a typed CLI for humans, scripts, and Agents | [Operator Workbench](docs/design/operator-workbench.md) |
-
-INM deliberately does not promise stable file compatibility, automatic factory
-commissioning, or a black-box optimizer that replaces industrial judgment.
-
-## Start in two minutes
+## Quick start
 
 Prerequisite: [Bun](https://bun.sh/).
 
@@ -55,22 +43,24 @@ bun run inm session examples/memory-fab
 ```
 
 `inm session` starts or reconnects to the project-local Studio, chooses an
-available port, and opens the current work item. It is the shortest path to the
-re-entrant DRAM memory fab; no manual process or port management is required.
+available port, and opens the current work item. The repository includes
+immutable Run evidence, so the factory is inspectable immediately; no manual
+process or port management is required. See [Development
+operations](docs/design/development-operations.md) if Studio cannot be reached.
 
 ### Use the same project from the CLI
 
 ```bash
-# Compile and validate the selected factory.
+# Check that the selected factory compiles.
 bun run inm validate examples/memory-fab
 
-# Read current evidence, diagnostics, and the recommended next action.
+# Read the current evidence and recommended next action.
 bun run inm inspect examples/memory-fab
 
 # Bind the current immutable Run to exact Factory and Analysis views.
 bun run inm observe examples/memory-fab
 
-# Return the complete state as a versioned machine-readable envelope.
+# Return complete typed state for a script or Agent.
 bun run inm inspect examples/memory-fab --section all --json
 ```
 
@@ -90,6 +80,19 @@ consumer never needs to scrape terminal prose. The full contract lives in the
 | Learn with a smaller project | [Ironworks](examples/ironworks/README.md) |
 | Create a self-contained factory | [Project format](docs/PROJECT_FORMAT.md) and [project boundaries](docs/design/project-boundaries.md) |
 | Change the engine | [Architecture](docs/ARCHITECTURE.md), then [AGENTS.md](AGENTS.md) |
+
+## What works today
+
+| Capability | Current boundary | Read more |
+| --- | --- | --- |
+| **Model** | Typed assets, physical Blueprints, Production Plans, Scenarios, and Objectives | [Project format](docs/PROJECT_FORMAT.md) |
+| **Simulate** | Deterministic compilation, discrete-event simulation, immutable Runs, replay, and locked comparison | [Simulation runtime](docs/design/simulation-runtime.md) |
+| **Investigate** | Causal loss attribution, spatial observation, append-only Investigations, and reviewable Candidates | [Observation-led design](docs/design/observation-led-design.md) |
+| **Experiment** | Locked Benchmarks and bounded, project-authored Design Programs | [Experiment workbench](docs/design/experiment-workbench.md) |
+| **Operate** | One Core model projected through Studio and a versioned, machine-readable CLI | [Operator Workbench](docs/design/operator-workbench.md) |
+
+INM deliberately does not promise stable file compatibility, automatic factory
+commissioning, or a black-box optimizer that replaces industrial judgment.
 
 ## How INM works
 
@@ -148,7 +151,7 @@ setup, maintenance, quality excursions, rework, utilities, WIP, due dates, and
 source-lot lineage. An abstraction that remains useful here should transfer to
 simpler factories without changing its foundations.
 
-The project currently exercises:
+It currently exercises:
 
 - project-local Resource and Device packages, configurable Processes, buffers,
   ports, operating modes, and TypeScript Device runtimes
@@ -167,9 +170,11 @@ The project currently exercises:
   ([Production Plans](docs/design/production-plans.md),
   [fab loss attribution](docs/design/fab-loss-attribution.md)).
 
-The memory-fab data is a synthetic industrial model, not a proprietary DRAM
-recipe or production claim. [Ironworks](examples/ironworks/README.md) is the
-smaller, faster reference for learning schemas and testing engine changes.
+All timing, defect, yield, capacity, and cost values are synthetic. The project
+is an industrial abstraction, not a proprietary DRAM recipe or production
+claim. [Read its full model and current evidence](examples/memory-fab/README.md),
+or use [Ironworks](examples/ironworks/README.md) as the smaller reference for
+learning schemas and testing engine changes.
 
 ## Projects are self-contained
 
@@ -182,7 +187,7 @@ my-factory/
   inm.json
   assets/{resources,devices}/
   processes/
-  product-routes/
+  routes/
   worlds/
   blueprints/
   production-plans/
@@ -204,7 +209,9 @@ The exact schemas and discovery rules live in
 
 | Goal | Read in this order |
 | --- | --- |
-| Use Studio and the CLI | [CLI](docs/CLI.md) → [Studio](docs/design/studio-debugger.md) → [Development operations](docs/design/development-operations.md) |
+| Run INM locally | [CLI](docs/CLI.md) → [Development operations](docs/design/development-operations.md) |
+| Use Studio | [Studio visual debugger](docs/design/studio-debugger.md) → [Operator Workbench](docs/design/operator-workbench.md) |
+| Use INM from an Agent | [Agent CLI contract](docs/design/agent-cli-contract.md) → [Operation workbench](docs/design/operation-workbench.md) |
 | Design and review a factory | [Observation-led design](docs/design/observation-led-design.md) → [Industrial Investigations](docs/design/industrial-investigations.md) → [Experiment workbench](docs/design/experiment-workbench.md) |
 | Understand simulation evidence | [Simulation runtime](docs/design/simulation-runtime.md) → [Fab loss attribution](docs/design/fab-loss-attribution.md) → [Blueprint comparison](docs/design/blueprint-comparison.md) |
 | Understand the industrial model | [Material contracts](docs/design/material-contracts.md) → [Product routes](docs/design/product-routes.md) → [Work-center dispatch](docs/design/work-center-dispatch.md) → [Logistics](docs/design/logistics.md) |
