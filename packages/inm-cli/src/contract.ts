@@ -151,7 +151,9 @@ export function operationProjectContext(context: ProjectOperationContext): CliCo
   };
 }
 
-export function workbenchContext(snapshot: ProjectWorkbenchSnapshot): CliContext {
+export function workbenchContext(
+  snapshot: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "hashes">,
+): CliContext {
   return {
     scope: "project",
     project: { ...snapshot.project },

@@ -2,7 +2,7 @@ import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/pr
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
-import { compareFactoryRuns, evaluateBlueprintBenchmark, hashValue, lockBlueprintBenchmark, openFactoryObservationBrief, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
+import { buildFactoryObservationBrief, compareFactoryRuns, evaluateBlueprintBenchmark, hashValue, lockBlueprintBenchmark, openFactoryObservationBrief, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
 import { isTerminalOperationExecution, type OperationExecutionSnapshot, type OperationExecutionStartResponse } from "@inm/core";
 import { parseStudioWatchMessage, type StudioWatchEvent } from "./watch-protocol";
 
@@ -277,6 +277,22 @@ test("Studio exposes the shared immutable Run comparison and reopens each Run's 
         ]),
       }),
     }));
+    const historicalBootstrap = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/bootstrap?run=${fromRunId}`,
+    );
+    expect(historicalBootstrap.status).toBe(200);
+    const historicalBootstrapData = await historicalBootstrap.json() as {
+      overview: Awaited<ReturnType<typeof openProjectWorkbenchSnapshot>>;
+      observation: Awaited<ReturnType<typeof openFactoryObservationBrief>>;
+    };
+    expect(historicalBootstrapData.overview).toEqual(expect.objectContaining({
+      status: expect.objectContaining({
+        evidence: expect.objectContaining({ runId: fromRunId }),
+      }),
+    }));
+    expect(historicalBootstrapData.observation).toEqual(
+      buildFactoryObservationBrief(historicalBootstrapData.overview, fromRunId),
+    );
 
     const invalidResponse = await fetch(
       `http://localhost:${port}/api/projects/memory-fab/run-comparison?from=${fromRunId}&to=${fromRunId}`,
@@ -1166,6 +1182,19 @@ test("opening a project without runs does not write a Studio baseline", async ()
     }));
     const overviewMethod = await fetch(`http://localhost:${port}/api/projects/ironworks/overview`, { method: "POST" });
     expect(overviewMethod.status).toBe(405);
+
+    const bootstrapResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/bootstrap?world=main&blueprint=main&productionPlan=baseline&scenario=baseline&objective=default`);
+    expect(bootstrapResponse.status).toBe(200);
+    const bootstrap = await bootstrapResponse.json() as {
+      overview: Awaited<ReturnType<typeof openProjectWorkbenchSnapshot>>;
+      observation: Awaited<ReturnType<typeof openFactoryObservationBrief>>;
+    };
+    expect(bootstrap.overview).toEqual(await openProjectWorkbenchSnapshot(projectDir, {
+      world: "main", blueprint: "main", productionPlan: "baseline", scenario: "baseline", objective: "default",
+    }));
+    expect(bootstrap.observation).toEqual(buildFactoryObservationBrief(bootstrap.overview));
+    const bootstrapMethod = await fetch(`http://localhost:${port}/api/projects/ironworks/bootstrap`, { method: "POST" });
+    expect(bootstrapMethod.status).toBe(405);
 
     const observationResponse = await fetch(`http://localhost:${port}/api/projects/ironworks/observation?world=main&blueprint=main&productionPlan=baseline&scenario=baseline&objective=default`);
     expect(observationResponse.status).toBe(200);

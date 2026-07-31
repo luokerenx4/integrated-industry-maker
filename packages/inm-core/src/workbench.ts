@@ -426,7 +426,7 @@ function diagnosticId(code: string, subjects: WorkbenchSubjectReference[], summa
   return `${code}:${subjectKey}:${hashValue(summary).slice(0, 10)}`;
 }
 
-function projectDiagnostics(project: CompiledFactoryProject, analysis: ProductionAnalysis, capacity: ProductionCapacityPlan, lossAttribution: FabLossAttribution | null): WorkbenchDiagnostic[] {
+export function projectDiagnostics(project: CompiledFactoryProject, analysis: ProductionAnalysis, capacity: ProductionCapacityPlan, lossAttribution: FabLossAttribution | null): WorkbenchDiagnostic[] {
   const blocking = capacity.gaps.map((gap): WorkbenchDiagnostic => {
     const subjects = [capacitySubject(gap)];
     const code = `capacity.${gap.kind}`;

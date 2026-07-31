@@ -1143,6 +1143,7 @@ test("portless Studio convergence leaves every instance untouched when duplicate
   const environment = { INM_STUDIO_DEFAULT_PORT: String(firstPort) };
   const firstStatePath = join(project, ".inm", "studio", String(firstPort), "state.json");
   let originalState: string | undefined;
+  let firstManagerPid: number | undefined;
   try {
     expect((await runCli([
       "studio", "start", project, "--port", String(firstPort), "--no-open", "--json",
@@ -1150,6 +1151,12 @@ test("portless Studio convergence leaves every instance untouched when duplicate
     expect((await runCli([
       "studio", "start", project, "--port", String(secondPort), "--no-open", "--json",
     ], environment)).exitCode).toBe(0);
+    const firstHealth = await fetch(`http://127.0.0.1:${firstPort}/api/health`).then(
+      (response) => response.json(),
+    ) as { managerPid: number | null };
+    if (firstHealth.managerPid === null) throw new Error("Expected a managed Studio instance");
+    firstManagerPid = firstHealth.managerPid;
+    process.kill(firstManagerPid, "SIGSTOP");
     originalState = await readFile(firstStatePath, "utf8");
     const tampered = JSON.parse(originalState) as { sourceHash: string };
     tampered.sourceHash = "c".repeat(64);
@@ -1167,6 +1174,10 @@ test("portless Studio convergence leaves every instance untouched when duplicate
       expect(await fetch(`http://127.0.0.1:${port}/api/health`).then((response) => response.status)).toBe(200);
     }
   } finally {
+    if (firstManagerPid !== undefined) {
+      try { process.kill(firstManagerPid, "SIGCONT"); }
+      catch { /* Manager may already have exited after a failed assertion. */ }
+    }
     if (originalState !== undefined) await writeFile(firstStatePath, originalState);
     await runCli(["studio", "stop", project, "--port", String(firstPort), "--json"], environment);
     await runCli(["studio", "stop", project, "--port", String(secondPort), "--json"], environment);

@@ -1287,7 +1287,6 @@ export async function investigateCommand(
   }
 
   const inspection = await inspectIndustrialInvestigation(projectDir, options.investigationId);
-  const snapshot = await openProjectWorkbenchSnapshot(projectDir, inspection.manifest.selection);
   const data = sectionResult("investigate", options, {
     summary: () => ({
       action: artifact?.kind === "investigation"
@@ -1343,7 +1342,7 @@ export async function investigateCommand(
   });
   if (options.json) {
     writeSuccess("investigate", data, {
-      context: workbenchContext(snapshot),
+      context: workbenchContext(inspection.context),
       artifacts: artifact ? [
         artifact,
         ...(productionPlanCreation ? [{

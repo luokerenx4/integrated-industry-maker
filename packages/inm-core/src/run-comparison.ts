@@ -21,6 +21,7 @@ import {
   type FabLossContributor,
 } from "./fab-loss-analysis";
 import { loadFactoryProject } from "./loader";
+import { analyzeProduction } from "./production-analysis";
 import { blueprintSchema } from "./schema";
 import type {
   Blueprint,
@@ -32,6 +33,7 @@ import type {
   ProjectEvidenceHashes,
 } from "./types";
 import { hashValue, stableStringify } from "./utils";
+import { projectDiagnostics, type WorkbenchDiagnostic } from "./workbench";
 
 export type RunComparisonErrorCode =
   | "run-comparison.same-run"
@@ -152,6 +154,11 @@ export interface FactoryRunComparison {
   };
   verdict: "IMPROVED" | "REGRESSED" | "UNCHANGED";
   navigation: FactoryRunComparisonNavigation;
+}
+
+export interface InspectedFactoryRunComparison {
+  comparison: FactoryRunComparison;
+  toDiagnostics: WorkbenchDiagnostic[];
 }
 
 export function factoryRunComparisonEvidenceHash(
@@ -438,11 +445,11 @@ function assertRunComparisonContext(
   return blueprintChanged ? "blueprint" : "production-plan";
 }
 
-export async function compareFactoryRuns(
+async function buildFactoryRunComparison(
   projectDir: string,
   fromRunId: string,
   toRunId: string,
-): Promise<FactoryRunComparison> {
+): Promise<InspectedFactoryRunComparison> {
   if (fromRunId === toRunId) throw new RunComparisonError(
     "run-comparison.same-run",
     "Compared immutable Run ids must be different.",
@@ -491,7 +498,7 @@ export async function compareFactoryRuns(
     }];
   });
   const projectId = toRun.project.manifest.id;
-  return {
+  const comparison: FactoryRunComparison = {
     version: 2,
     project: { id: projectId, name: toRun.project.manifest.name, rootDir },
     context: {
@@ -527,4 +534,29 @@ export async function compareFactoryRuns(
       changedSubjects,
     },
   };
+  return {
+    comparison,
+    toDiagnostics: projectDiagnostics(
+      toRun.project,
+      analyzeProduction(toRun.project),
+      to.capacityPlan,
+      to.losses,
+    ),
+  };
+}
+
+export async function compareFactoryRuns(
+  projectDir: string,
+  fromRunId: string,
+  toRunId: string,
+): Promise<FactoryRunComparison> {
+  return (await buildFactoryRunComparison(projectDir, fromRunId, toRunId)).comparison;
+}
+
+export async function inspectFactoryRunComparison(
+  projectDir: string,
+  fromRunId: string,
+  toRunId: string,
+): Promise<InspectedFactoryRunComparison> {
+  return buildFactoryRunComparison(projectDir, fromRunId, toRunId);
 }

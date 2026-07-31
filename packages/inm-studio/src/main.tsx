@@ -2654,17 +2654,16 @@ function App() {
         }
       }
       const next = await responseJson<StudioData>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/data${query.size ? `?${query}` : ""}`));
-      const overviewQuery = new URLSearchParams(next.selection).toString();
-      const observationQuery = new URLSearchParams(next.selection);
-      if (next.selectedRun) observationQuery.set("run", next.selectedRun);
-      const [nextOverview, nextObservation] = await Promise.all([
-        responseJson<ProjectWorkbenchSnapshot>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/overview?${overviewQuery}`)),
-        responseJson<FactoryObservationBrief>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/observation?${observationQuery}`)),
-      ]);
+      const bootstrapQuery = new URLSearchParams(next.selection);
+      if (next.selectedRun) bootstrapQuery.set("run", next.selectedRun);
+      const bootstrap = await responseJson<{
+        overview: ProjectWorkbenchSnapshot;
+        observation: FactoryObservationBrief;
+      }>(await fetch(`/api/projects/${encodeURIComponent(projectId)}/bootstrap?${bootstrapQuery}`));
       if (sequence !== requestSequence.current) return;
       setData(next);
-      setOverview(nextOverview);
-      setObservation(nextObservation);
+      setOverview(bootstrap.overview);
+      setObservation(bootstrap.observation);
       setSelection((current) => normalizeStudioSelection(next, current ?? studioRoute().selection));
       setRun(next.selectedRun);
       runRef.current = next.selectedRun;

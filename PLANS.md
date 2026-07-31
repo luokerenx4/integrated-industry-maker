@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/single-snapshot-design-session-bootstrap]] | Open one exact Investigation/factory Design Session from one authoritative Workbench snapshot per surface request. | 2026-07-31 |
 | [[plans/investigation-centered-design-session]] | Make one Investigation the resumable human/Agent surface for observation, hypothesis, Candidate review/trial/comparison, and explicit disposition. | 2026-07-31 |
 | [[plans/incumbent-burn-in-service-campaign]] | Make source-batch service chronology immutable evidence, then judge one explicit finite incumbent-rack recipe campaign without automatic schedule generation. | 2026-07-31 |
 | [[plans/capital-neutral-burn-in-capacity-boundary]] | Prove whether a complete powered second Burn-in rack can fit the unchanged capital and service boundary, or close the hardware branch and pivot from exact evidence. | 2026-07-31 |

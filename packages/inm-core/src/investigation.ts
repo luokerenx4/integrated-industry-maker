@@ -37,6 +37,7 @@ import {
   compareFactoryRuns,
   compareProductionPlanSemantics,
   factoryRunComparisonEvidenceHash,
+  inspectFactoryRunComparison,
   RunComparisonError,
   type FactoryRunComparison,
   type ProductionPlanSemanticChange,
@@ -336,6 +337,7 @@ export interface InspectedInvestigationAnchor {
 export interface IndustrialInvestigationInspection {
   manifest: IndustrialInvestigationManifest;
   manifestHash: string;
+  context: Pick<ProjectWorkbenchSnapshot, "project" | "selection" | "hashes">;
   entries: IndustrialInvestigationEntry[];
   state: InvestigationAnchorState;
   anchors: InspectedInvestigationAnchor[];
@@ -667,9 +669,9 @@ function sameRunComparisonEvidence(
 
 function sameRunComparisonDiagnostic(
   anchor: z.infer<typeof runComparisonAnchorSchema>,
-  snapshot: ProjectWorkbenchSnapshot,
+  diagnostics: readonly WorkbenchDiagnostic[],
 ): boolean {
-  const diagnostic = snapshot.diagnostics.find((item) =>
+  const diagnostic = diagnostics.find((item) =>
     item.id === anchor.diagnostic.diagnosticId);
   return diagnostic?.evidence.runId === anchor.to.runId
     && diagnostic.code === anchor.diagnostic.code
@@ -1733,12 +1735,13 @@ async function inspectRunComparisonAnchor(
 ): Promise<InspectedInvestigationAnchor> {
   const navigation = anchorNavigation(projectDir, projectId, anchor);
   let comparison: FactoryRunComparison;
+  let toDiagnostics: WorkbenchDiagnostic[];
   try {
-    comparison = await compareFactoryRuns(
+    ({ comparison, toDiagnostics } = await inspectFactoryRunComparison(
       projectDir,
       anchor.from.runId,
       anchor.to.runId,
-    );
+    ));
   } catch (error) {
     if (error instanceof RunComparisonError && error.code === "run-comparison.unknown-run") {
       const absentRunId = error.details.runId
@@ -1769,18 +1772,7 @@ async function inspectRunComparisonAnchor(
     message: `Run comparison '${anchor.id}' no longer matches its exact FROM, TO, or comparison identity.`,
     navigation,
   };
-  let toSnapshot: ProjectWorkbenchSnapshot;
-  try {
-    toSnapshot = await openRunProjectWorkbenchSnapshot(projectDir, anchor.to.runId);
-  } catch (error) {
-    return {
-      anchor,
-      state: "invalid",
-      message: `Run comparison '${anchor.id}' TO context cannot be reproduced: ${error instanceof Error ? error.message : String(error)}`,
-      navigation,
-    };
-  }
-  if (!sameRunComparisonDiagnostic(anchor, toSnapshot)) return {
+  if (!sameRunComparisonDiagnostic(anchor, toDiagnostics)) return {
     anchor,
     state: "invalid",
     message: `Run comparison '${anchor.id}' TO diagnostic no longer reproduces its exact evidence identity.`,
@@ -2086,6 +2078,11 @@ export async function inspectIndustrialInvestigation(
   return {
     manifest,
     manifestHash: manifest.manifestHash,
+    context: {
+      project: { ...snapshot.project },
+      selection: structuredClone(snapshot.selection),
+      hashes: { ...snapshot.hashes },
+    },
     entries,
     state,
     anchors,

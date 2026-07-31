@@ -6,6 +6,7 @@ import { simulateProjectOperation } from "./operation";
 import {
   compareFactoryRuns,
   factoryRunComparisonEvidenceHash,
+  inspectFactoryRunComparison,
 } from "./run-comparison";
 
 const memoryFab = resolve("examples/memory-fab");
@@ -25,7 +26,14 @@ test("immutable Run comparison explains the commissioned compact inspection-rewo
     const toOperation = await simulateProjectOperation(projectDir, {}, { seed: 42 });
     const fromRunId = fromOperation.data.run.id;
     const toRunId = toOperation.data.run.id;
-    const comparison = await compareFactoryRuns(projectDir, fromRunId, toRunId);
+    const inspected = await inspectFactoryRunComparison(projectDir, fromRunId, toRunId);
+    const comparison = inspected.comparison;
+    expect(inspected.toDiagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: expect.stringMatching(/^fab-loss\./),
+        evidence: expect.objectContaining({ runId: toRunId }),
+      }),
+    ]));
 
   expect(comparison).toMatchObject({
     version: 2,

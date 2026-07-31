@@ -686,6 +686,20 @@ const server = Bun.serve({
         return Response.json(await openProjectWorkbenchSnapshot(projectDir, projectSelection(url)));
       }
 
+      const bootstrapMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/bootstrap$/);
+      if (bootstrapMatch) {
+        if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        const projectDir = await projectDirectory(decoded(bootstrapMatch[1]!));
+        const requestedRunId = url.searchParams.get("run");
+        const overview = requestedRunId
+          ? await openRunProjectWorkbenchSnapshot(projectDir, requestedRunId)
+          : await openProjectWorkbenchSnapshot(projectDir, projectSelection(url));
+        return Response.json({
+          overview,
+          observation: buildFactoryObservationBrief(overview, requestedRunId ?? undefined),
+        });
+      }
+
       const observationMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/observation$/);
       if (observationMatch) {
         if (request.method !== "GET") return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
