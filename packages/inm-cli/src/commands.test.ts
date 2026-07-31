@@ -2476,14 +2476,15 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
   });
   expect(JSON.parse(objective.stdout).data).toEqual({ section: "objective", result: result.objectiveEvidence });
   expect(result.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^observation:fab-loss\.queue-congestion:/),
-    title: "Observe the leading loss before authoring an intervention",
-    actionLabel: "OBSERVE CURRENT FACTORY",
+    id: expect.stringMatching(/^design\.inspect:layer-two-particle-control:fab-loss\.yield-quality:/),
+    title: "Investigate the leading loss with Layer-two Particle Control",
+    actionLabel: "OPEN DESIGN LOOP",
     effect: "read-only",
-    studioRoute: "/memory-fab/factory?run=112-simulate",
+    studioRoute: "/memory-fab/designs/layer-two-particle-control",
     target: expect.objectContaining({
-      kind: "diagnostic",
-      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
+      kind: "design-program",
+      programId: "layer-two-particle-control",
+      diagnosticId: expect.stringMatching(/^fab-loss\.yield-quality:/),
     }),
   }));
   expect(result.objectiveEvidence).toEqual(expect.objectContaining({
@@ -2502,7 +2503,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
   expect(human.stdout).toContain("Interpretation: Objective accounting evidence, not proof that the inventory is avoidable.");
   expect(human.stdout).toContain("inspection-supply-path · MISSING");
   expect(human.stdout).not.toContain("Bounded deferred loss evidence:");
-  expect(human.stdout).toContain("Next action: Observe the leading loss before authoring an intervention");
+  expect(human.stdout).toContain("Next action: Investigate the leading loss with Layer-two Particle Control");
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(brief.stdout).toContain("Evidence: 0 current · 0 commissioned · 0 historical · 32 invalid excluded · authority none (missing)");

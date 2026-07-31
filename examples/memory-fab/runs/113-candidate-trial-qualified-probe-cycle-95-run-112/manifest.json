@@ -1,0 +1,33 @@
+{
+  "candidate": {
+    "id": "qualified-probe-cycle-95-run-112",
+    "proposalHash": "abc852213696de74aa34a3867c0d61e3eb4b01874f2db4d08c224794836760c3",
+    "reviewResultHash": "63b01fff14c1c14a2ce0d094bff23a742719f3d6640642c4fa4c361f8b7f9715",
+    "reviewVerdict": "KEEP"
+  },
+  "createdAt": "2026-07-31T09:05:14.808Z",
+  "decision": "TRIAL",
+  "engineVersion": "inm-sim/0.93.1",
+  "hashes": {
+    "blueprintHash": "adf61ad613fd3766b12ebaea577e1698ef31b2e20b96046d263adc4f9ee5a95e",
+    "engineVersion": "inm-sim/0.93.1",
+    "executionHash": "254bd835a3b51275017e00e6b1da9b54518988c91daa38f9f3a2e266617380b7",
+    "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+    "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+    "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+    "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+  },
+  "parentRun": "110-candidate-trial-run-105-normal-particle-suppress",
+  "resultHash": "245648c4a91a2fb3d6b886471c4b4c72cd6dcfa983245ad5cf33ad08575ce7f3",
+  "runKey": "38a40fe698bffe4c35c5db9b59b32eb6b45001f0e3fe25a3acb3f9a9dc74f9e6",
+  "seed": 42,
+  "selection": {
+    "blueprint": "generated-dram-fab",
+    "objective": "dram-output",
+    "productionPlan": "production-window",
+    "scenario": "production-window",
+    "world": "cleanroom"
+  },
+  "status": "completed",
+  "version": 1
+}

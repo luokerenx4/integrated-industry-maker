@@ -1,0 +1,89 @@
+{
+  "author": "agent",
+  "entryHash": "aa87138f85faf3f1f6eee792bea099cf5845a6b99f0176c829bf63e7c03da6f5",
+  "evidence": [
+    "run-112-probe-factory",
+    "qualified-probe-cycle-95-run-112-review",
+    "run-112-probe-cycle-95-comparison"
+  ],
+  "id": "run-112-probe-cycle-95-comparison",
+  "introducedAnchors": [
+    {
+      "comparisonHash": "cc3b3ae552d2e4226ce557dd3e00cb012b5b12f8a3a66e284268935a3628aeca",
+      "diagnostic": {
+        "causalHash": "89e713934ad95bb4305863d1ec3965878d6a6fd4f551324645adae30ac15ed35",
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:furnace-1+connection:deposition-to-batch-furnace+device:deposition-1:d2c600c0e7",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:furnace-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 113-candidate-trial-qualified-probe-cycle-95-run-112 (signal 0.1994). 9/10 active flow Devices accumulated 228.9 explicit material-shortage device-s inside 1148.1 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1143.7 of 1372.6 flow input-wait device-s remained outside ranked shortage intervals, with 236.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "furnace-1",
+            "kind": "device"
+          },
+          {
+            "id": "deposition-to-batch-furnace",
+            "kind": "connection"
+          },
+          {
+            "id": "deposition-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/10 active flow Devices accumulated 228.9 explicit material-shortage device-s inside 1148.1 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1143.7 of 1372.6 flow input-wait device-s remained outside ranked shortage intervals, with 236.0 additional exception-only device-s excluded from ranking."
+      },
+      "from": {
+        "blueprintHash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "e431a41f9560f7d9f1a925d6b088a93696e4d11bc55bfe4431ffa41deba3622b",
+        "runId": "112-simulate"
+      },
+      "hashes": {
+        "blueprintHash": "adf61ad613fd3766b12ebaea577e1698ef31b2e20b96046d263adc4f9ee5a95e",
+        "engineVersion": "inm-sim/0.93.1",
+        "executionHash": "254bd835a3b51275017e00e6b1da9b54518988c91daa38f9f3a2e266617380b7",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "run-112-probe-cycle-95-comparison",
+      "intervention": {
+        "from": {
+          "hash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+          "id": "generated-dram-fab"
+        },
+        "kind": "blueprint",
+        "to": {
+          "hash": "adf61ad613fd3766b12ebaea577e1698ef31b2e20b96046d263adc4f9ee5a95e",
+          "id": "generated-dram-fab"
+        }
+      },
+      "kind": "run-comparison",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "to": {
+        "blueprintHash": "adf61ad613fd3766b12ebaea577e1698ef31b2e20b96046d263adc4f9ee5a95e",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "245648c4a91a2fb3d6b886471c4b4c72cd6dcfa983245ad5cf33ad08575ce7f3",
+        "runId": "113-candidate-trial-qualified-probe-cycle-95-run-112"
+      }
+    }
+  ],
+  "investigation": "run-110-probe-queue",
+  "kind": "observation",
+  "previousEntryHash": "22efb2ebc38ea3d2edf22b78b8566211a7ebd02f4cb38cae7d50ea0366859b07",
+  "sequence": 8,
+  "statement": "Current-engine comparison 112-simulate → 113-candidate-trial-qualified-probe-cycle-95-run-112 reproduces the negative industrial result. The isolated Probe cycle change leaves all twelve lots complete and on time, but delivers 10 fewer devices, raises average WIP by 3.0998 equivalent units, and lowers mixed-case score by 4.13438. Together with the locked five-case review, this independently closes the local Probe-acceleration branch under current evidence.",
+  "version": 1
+}

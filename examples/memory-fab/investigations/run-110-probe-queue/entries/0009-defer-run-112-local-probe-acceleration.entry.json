@@ -1,0 +1,22 @@
+{
+  "author": "agent",
+  "disposition": "defer",
+  "entryHash": "664f137f6b0f70c9ab2264bccb43300e0d24516948e8863f8f2d8873610d5baf",
+  "evidence": [
+    "run-112-probe-factory",
+    "run-112-probe-cycle-95-comparison",
+    "qualified-probe-cycle-95-run-112-review"
+  ],
+  "id": "defer-run-112-local-probe-acceleration",
+  "introducedAnchors": [],
+  "investigation": "run-110-probe-queue",
+  "kind": "decision",
+  "previousEntryHash": "aa87138f85faf3f1f6eee792bea099cf5845a6b99f0176c829bf63e7c03da6f5",
+  "sequence": 9,
+  "statement": "Defer further local Probe cycle or input-transport changes. Run 112 reproduces the exact queue facts, and the current-engine Candidate replay again proves that a five-percent isolated Probe acceleration exchanges 10 delivered devices and 3.0998 average WIP units for a smaller local queue. Reopen this contributor only with a distinct downstream service or phase-control hypothesis; the measured queue remains visible in Analysis.",
+  "target": {
+    "anchorId": "run-112-probe-factory",
+    "kind": "diagnostic"
+  },
+  "version": 1
+}

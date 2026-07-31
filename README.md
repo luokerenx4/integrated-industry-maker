@@ -3,8 +3,8 @@
 **INM is a local workbench for humans and AI Agents to design, simulate,
 inspect, and improve industrial production systems together.**
 
-> A factory is a folder. Blueprints are programs. Scenarios are tests.
-> Objectives are benchmarks. Runs are evidence.
+> A factory is a folder. Blueprints are programs. Scenarios are test
+> conditions. Objectives are scorecards. Runs are evidence.
 
 [Run the memory fab](#run-the-memory-fab) ·
 [Learn the model](#the-project-model) ·
@@ -29,6 +29,24 @@ contract.
 > INM is pre-alpha. Industrial correctness takes priority over compatibility:
 > formats and APIs change directly when the model improves. Studio is currently
 > a visual debugger and evidence workbench, not a drag-and-drop factory editor.
+
+### What is usable today
+
+- **Model:** self-contained factory projects with typed assets, physical
+  Blueprints, operating plans, Scenarios, and Objectives. Start with the
+  [project format](docs/PROJECT_FORMAT.md).
+- **Run:** deterministic compilation, simulation, immutable Runs, replay, and
+  locked comparison. See the [runtime contract](docs/design/simulation-runtime.md).
+- **Reason:** causal loss attribution, spatial observation, Investigations,
+  Candidates, and bounded Design Programs. See
+  [observation-led design](docs/design/observation-led-design.md).
+- **Operate:** one shared workbench through Studio for people and the typed CLI
+  for people, scripts, and Agents. See the
+  [Operator Workbench](docs/design/operator-workbench.md).
+
+What is deliberately not promised yet: stable file compatibility, a
+drag-and-drop editor, or an algorithm that invents and commissions a factory
+without human/Agent judgment.
 
 ## Run the memory fab
 
@@ -73,6 +91,7 @@ actions; consumers never need to scrape terminal prose. See the
 | --- | --- |
 | Explore the current factory visually | `bun run inm session examples/memory-fab` and the [Studio guide](docs/design/studio-debugger.md) |
 | Operate INM from an Agent or script | `bun run inm inspect examples/memory-fab --json` and the [Agent CLI contract](docs/design/agent-cli-contract.md) |
+| Discover the complete machine interface | `bun run inm help --json` and `bun run inm schema --json` |
 | Learn with a smaller project | [Ironworks](examples/ironworks/README.md) |
 | Create a self-contained factory | [Project format](docs/PROJECT_FORMAT.md) and [project boundaries](docs/design/project-boundaries.md) |
 | Change the engine | [Architecture](docs/ARCHITECTURE.md), then [AGENTS.md](AGENTS.md) |
@@ -94,7 +113,8 @@ The main project concepts are deliberately explicit:
 | **Project** | One self-contained factory and all of its evidence | [Project boundaries](docs/design/project-boundaries.md) |
 | **Blueprint** | Physical equipment, connections, layout, and control policy | [Blueprint comparison](docs/design/blueprint-comparison.md) |
 | **Production Plan** | Authored lot starts, release intent, and operating commitments | [Production Plans](docs/design/production-plans.md) |
-| **Scenario + Objective** | Operating conditions and the value function used to judge results | [Project format](docs/PROJECT_FORMAT.md) |
+| **Scenario** | One exact set of operating conditions and disturbances | [Project format](docs/PROJECT_FORMAT.md) |
+| **Objective** | Delivery commitments, WIP scope, cost, quality, and other judgment terms | [Delivery contracts](docs/design/delivery-contracts.md) |
 | **Run** | Immutable, hash-bound simulation evidence | [Simulation runtime](docs/design/simulation-runtime.md) |
 | **Investigation** | Persistent observations, hypotheses, evidence anchors, and decisions | [Industrial Investigations](docs/design/industrial-investigations.md) |
 | **Candidate** | One exact, reviewable change set against a known Blueprint | [Experiment workbench](docs/design/experiment-workbench.md) |
@@ -130,16 +150,24 @@ quality excursions, rework, utilities, WIP, due dates, and source-lot lineage.
 An abstraction that remains useful here should transfer to simpler factories
 without changing its foundations.
 
-Today the engine includes:
+The north-star project currently exercises:
 
 - project-local Resource and Device packages, configurable Processes, buffers,
-  ports, operating modes, and TypeScript Device runtimes;
+  ports, operating modes, and TypeScript Device runtimes
+  ([material contracts](docs/design/material-contracts.md),
+  [production modes](docs/design/production-modes.md));
 - multi-zone layouts, explicit sorters and belts, station fleets, power grids,
-  facility utilities, and spatial replay;
+  facility utilities, and spatial replay
+  ([logistics](docs/design/logistics.md),
+  [facility utilities](docs/design/fab-facility-utilities.md));
 - tracked lots, batch and release control, dispatch, setup, maintenance,
-  inspection, rework, scrap, quality, and product lineage;
+  inspection, rework, scrap, quality, and product lineage
+  ([product routes](docs/design/product-routes.md),
+  [quality flow](docs/design/quality-flow.md));
 - Production Plans, delivery contracts, Objectives, locked Benchmarks,
-  Candidates, immutable Runs, causal diagnostics, and loss attribution.
+  Candidates, immutable Runs, causal diagnostics, and loss attribution
+  ([Production Plans](docs/design/production-plans.md),
+  [fab loss attribution](docs/design/fab-loss-attribution.md)).
 
 The memory-fab data is a synthetic industrial model, not a proprietary DRAM
 recipe or production claim. [Ironworks](examples/ironworks/README.md) remains
@@ -181,6 +209,7 @@ The exact schemas and discovery rules live in
 | Design and review a factory | [Observation-led design](docs/design/observation-led-design.md) → [Industrial Investigations](docs/design/industrial-investigations.md) → [Experiment workbench](docs/design/experiment-workbench.md) |
 | Understand simulation evidence | [Simulation runtime](docs/design/simulation-runtime.md) → [Fab loss attribution](docs/design/fab-loss-attribution.md) → [Blueprint comparison](docs/design/blueprint-comparison.md) |
 | Understand the industrial model | [Material contracts](docs/design/material-contracts.md) → [Product routes](docs/design/product-routes.md) → [Work-center dispatch](docs/design/work-center-dispatch.md) → [Logistics](docs/design/logistics.md) |
+| Follow current implementation work | [Plan index](PLANS.md) → the linked file under [`plans/`](plans/) |
 | Contribute to the engine | [Architecture](docs/ARCHITECTURE.md) → [Contributor guide](AGENTS.md) → [Documentation system](docs/design/documentation-system.md) |
 
 The complete subsystem index lives in the

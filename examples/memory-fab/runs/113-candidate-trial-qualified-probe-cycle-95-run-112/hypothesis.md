@@ -1,0 +1,1 @@
+Add one explicit qualified high-throughput Probe operating mode and select it only on probe-1. Shorten its cycle from 8,000 to 7,600 ticks (19/20) while raising active power by the reciprocal 20/19 so per-cycle energy is unchanged. This is the smallest previously studied physical step and does not alter releases, routing, dispatch, buffers, process yield, or downstream equipment.

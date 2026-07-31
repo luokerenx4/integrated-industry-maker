@@ -1,0 +1,28 @@
+{
+  "author": "agent",
+  "disposition": "discard",
+  "entryHash": "e4a95f67dbc895e35b823f02878ebc5071750220c43a0bc58ea4408281d7bd43",
+  "evidence": [
+    "qualified-probe-cycle-95-run-112-review"
+  ],
+  "id": "discard-qualified-probe-cycle-95-run-112",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "qualified-probe-cycle-95-run-112",
+      "currentCandidateHash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+      "id": "qualified-probe-cycle-95-run-112-review",
+      "kind": "candidate-review",
+      "proposalHash": "abc852213696de74aa34a3867c0d61e3eb4b01874f2db4d08c224794836760c3",
+      "proposedCandidateHash": "adf61ad613fd3766b12ebaea577e1698ef31b2e20b96046d263adc4f9ee5a95e",
+      "reviewResultHash": "63b01fff14c1c14a2ce0d094bff23a742719f3d6640642c4fa4c361f8b7f9715",
+      "verdict": "KEEP"
+    }
+  ],
+  "investigation": "run-110-probe-queue",
+  "kind": "decision",
+  "previousEntryHash": "fb31e93ad8e72e90635dbfb49c659fc78375a2cbf7493a80ff9025ea2522e82d",
+  "sequence": 6,
+  "statement": "Discard the current-engine replay Candidate. It remains Benchmark-compliant, but its incremental current-factory evidence regresses four of five locked cases: steady and mixed production deliver 78 rather than 88 devices, mixed-case average WIP rises from 49.1905 to 52.2903, and score falls 4.13438. The facility-interruption improvement does not justify a mode that systematically damages normal commissioned operation. Keep the mode only as a negative boundary; do not apply it.",
+  "version": 1
+}

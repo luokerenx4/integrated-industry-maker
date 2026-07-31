@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/run-112-probe-causal-continuation]] | Carry Run 112's canonical Probe queue facts into the existing negative experiment and current decision chain. | 2026-07-31 |
 | [[plans/causal-diagnostic-requalification]] | Requalify exact Investigation decisions across unrelated Run identity changes only when the current Run reproduces the same canonical causal facts and selected factory sources. | 2026-07-31 |
 | [[plans/maintenance-ready-work-attribution]] | Separate maintenance workload from exact overlap with physically ready production work across shared human/Agent evidence. | 2026-07-31 |
 | [[plans/run-110-lithography-maintenance-convergence]] | Carry Run 110's exact lithography maintenance/qualification contributor through one bounded cadence intervention and explicit industrial decision. | 2026-07-31 |
