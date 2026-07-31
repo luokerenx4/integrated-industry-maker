@@ -277,7 +277,7 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       focus: {
         kind: "loss",
         loss: "power-interruption",
-        target: { contributor: "device:substrate-receiving-to-packaging-loader:power-interruption", metric: "unpoweredTicks", direction: "decrease" },
+        target: { contributor: "device:probe-to-packaging-unloader:power-interruption", metric: "serviceInterruptionTicks", direction: "decrease" },
       },
       driverCase: "mixed-quality",
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
@@ -285,7 +285,7 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       proposal: {
         kind: "project-strategy",
         entry: "strategies/shipping-power-convergence-proposals.ts",
-        decisionFamilies: ["generation"],
+        decisionFamilies: ["power"],
       },
       locked: true,
       budget: { maxCandidates: 2 },
@@ -635,7 +635,7 @@ test("commissioned Design pins its live promotion base and rejects a score winne
       addressedLoss: "delivery-portfolio",
       driverEvidence: {
         fabLoss: {
-          version: 10,
+          version: 11,
           primary: { id: "delivery-portfolio" },
           outcome: { deliveryShortfall: 18, deliveryOverflow: 16, portfolioNetValue: -48 },
         },
@@ -842,7 +842,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     addressedLoss: "q-time",
     driverEvidence: {
       metricsHash: hashValue(driverMetrics),
-      fabLoss: { version: 10, family: "dram-wafer", primary: { id: "q-time" } },
+      fabLoss: { version: 11, family: "dram-wafer", primary: { id: "q-time" } },
     },
     promotionBoundary: { leaderNodeId: "seed", selectedNodeId: "seed", promotable: true },
     decisionEvidence: { guardrail: { kind: "uniform", passed: true, violations: [] } },

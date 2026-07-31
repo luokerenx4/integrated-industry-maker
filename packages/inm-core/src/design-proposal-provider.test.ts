@@ -387,7 +387,7 @@ test("memory-fab project provider reaches the measured delivery mismatch after h
   const metrics = result.metrics;
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
   expect(fabLoss).toMatchObject({
-    version: 10,
+    version: 11,
     outcome: { deliveryShortfall: 18, deliveryOverflow: 8, portfolioNetValue: -64 },
   });
   expect(fabLoss.buckets.find((bucket) => bucket.id === "delivery-portfolio")).toMatchObject({
@@ -448,7 +448,7 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
 
   expect(fabLoss).toMatchObject({
-    version: 10,
+    version: 11,
     outcome: {
       completed: 5,
       inProgress: 5,
@@ -661,7 +661,7 @@ test("current commissioned fab prevents all authored etch excursions without rei
   const qTime = fabLoss.buckets.find((bucket) => bucket.id === "q-time");
 
   expect(fabLoss).toMatchObject({
-    version: 10,
+    version: 11,
     outcome: {
       completed: 12,
       inProgress: 0,
@@ -728,7 +728,7 @@ test("historical commissioned yield evidence reproduces the dedicated etch quali
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
 
   expect(fabLoss).toMatchObject({
-    version: 10,
+    version: 11,
     outcome: {
       completed: 6,
       inProgress: 4,
@@ -1481,7 +1481,7 @@ test("project proposal providers cannot ignore or fabricate Core-owned loss evid
     apiVersion: 10,
     propose(context) {
       const contributor = context.fabLoss?.buckets.find((bucket) => bucket.id === "transport-blocking")?.contributors[0];
-      if (context.fabLoss?.version !== 10 || !contributor?.mechanism.startsWith("transport-")
+      if (context.fabLoss?.version !== 11 || !contributor?.mechanism.startsWith("transport-")
         || contributor.evidence.blockedItemTicks !== contributor.evidence.lineContentionTicks
           + contributor.evidence.endpointCapacityTicks + contributor.evidence.endpointPowerTicks
           + contributor.evidence.endpointFailureTicks) throw new Error("missing exact causal transport profile");

@@ -2391,13 +2391,14 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
           })}</div>
         </div>}
         {powerContributors.length > 0 && <div className="q-time-contributors power-contributors" data-testid="power-interruption-contributors">
-          <header><span className="eyebrow">POWER-INTERRUPTION CONTRIBUTORS</span><small>Device time conserved to the exact grid and sorter endpoint · top {Math.min(7, powerContributors.length)} of {powerContributors.length}</small></header>
+          <header><span className="eyebrow">POWER-INTERRUPTION CONTRIBUTORS</span><small>Ranked by active job or transport service; standby shedding remains exact context · top {Math.min(7, powerContributors.length)} of {powerContributors.length}</small></header>
           <div>{powerContributors.slice(0, 7).map((contributor) => <article key={contributor.id} data-testid={`power-interruption-contributor-${contributor.label}`}>
             <span><small>{contributorMechanismLabel(contributor.mechanism)}</small><strong>{contributor.label}</strong><code>{contributor.grid ?? "unbound grid"}{contributor.endpointStage ? ` · ${contributor.endpointStage}` : ""}</code></span>
-            <span><b>{(contributor.evidence.unpoweredTicks! / 1000).toFixed(1)}s</b><small>{(contributor.evidence.unpoweredShare! * 100).toFixed(1)}% OF UNPOWERED TIME</small></span>
+            <span><b>{(contributor.evidence.serviceInterruptionTicks! / 1000).toFixed(1)}s</b><small>ACTIVE SERVICE · {(contributor.evidence.serviceInterruptionShare! * 100).toFixed(1)}% OF SERVICE LOSS</small></span>
+            <span><b>{(contributor.evidence.standbyUnpoweredTicks! / 1000).toFixed(1)}s</b><small>STANDBY CONTEXT · {(contributor.evidence.unpoweredTicks! / 1000).toFixed(1)}s TOTAL UNPOWERED</small></span>
             <span><b>{contributor.evidence.peakDeficitMilliWatts}mW</b><small>DEVICE PEAK DEFICIT · {contributor.evidence.shortageEvents} SHORTAGES / {contributor.evidence.restorationEvents} RESTORES</small></span>
             <span><b>{contributor.evidence.gridUnservedMilliJoules}mJ</b><small>GRID UNSERVED · {contributor.evidence.gridPeakDeficitMilliWatts}mW PEAK / {contributor.evidence.gridRequiredStorageCapacityMilliJoules}mJ ENVELOPE</small></span>
-            <code>{contributor.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" → ")} · active {contributor.evidence.activeJobShortageEvents} / standby {contributor.evidence.standbyShortageEvents} / transport {contributor.evidence.transportShortageEvents}</code>
+            <code>{contributor.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" → ")} · {(contributor.evidence.activeJobInterruptionTicks! / 1000).toFixed(1)}s job / {(contributor.evidence.transportInterruptionTicks! / 1000).toFixed(1)}s transport</code>
           </article>)}</div>
         </div>}
         {qTimeContributors.length > 0 && <div className="q-time-contributors" data-testid="q-time-contributors">

@@ -1990,7 +1990,25 @@ test("public inspect gives Agents and humans the same current loss contributors"
     .find((bucket: { id: string }) => bucket.id === "transport-blocking");
   const queueCongestion = lossProfile.buckets
     .find((bucket: { id: string }) => bucket.id === "queue-congestion");
-  expect(lossProfile.version).toBe(10);
+  const powerInterruption = lossProfile.buckets
+    .find((bucket: { id: string }) => bucket.id === "power-interruption");
+  expect(lossProfile.version).toBe(11);
+  expect(powerInterruption).toMatchObject({
+    evidence: {
+      serviceInterruptionTicks: 96_950,
+      activeJobInterruptionTicks: 0,
+      transportInterruptionTicks: 96_950,
+      standbyUnpoweredTicks: 524_337,
+      unpoweredTicks: 621_287,
+    },
+  });
+  expect(powerInterruption.contributors[0]).toMatchObject({
+    id: "device:probe-to-packaging-unloader:power-interruption",
+    evidence: {
+      serviceInterruptionTicks: 43_600,
+      standbyUnpoweredTicks: 75_983,
+    },
+  });
   expect(queueCongestion).toMatchObject({
     subjects: [
       { kind: "device", id: "probe-1" },
@@ -2099,7 +2117,8 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).toContain("Maintenance and qualification contributors:");
   expect(human.stdout).toContain("etch-1 · 17.0s ready-work overlap / 4.0s idle-window context · 21.0s workload = 14.0s service + 7.0s qualification + 0.0s input wait + 0.0s crew wait · etch-cell-layer-1/qualified · 0 asset / 0 planned / 2 opportunistic · 2 usage / 0 calendar · service 2 chamber-clean-kit · qualification 2 tool-qualification-wafer · etch-1 → maintenance-service-1");
   expect(human.stdout).toContain("Power-interruption contributors:");
-  expect(human.stdout).toContain("substrate-receiving-to-packaging-loader · grid-cleanroom-shipping-power / loader · 165.4s / 26.6% · 1 shortages / 0 restores · device peak 500mW · grid 262351mJ unserved / 10000mW peak / 113825mJ envelope");
+  expect(human.stdout).toContain("probe-to-packaging-unloader · grid-cleanroom-shipping-power / unloader · 43.6s active service (45.0%) = 0.0s job + 43.6s transport · 76.0s standby context · 119.6s total unpowered · device peak 2000mW · grid 262351mJ unserved / 10000mW peak / 113825mJ envelope");
+  expect(human.stdout).toContain("substrate-receiving-to-packaging-loader · grid-cleanroom-shipping-power / loader · 0.0s active service (0.0%) = 0.0s job + 0.0s transport · 165.4s standby context · 165.4s total unpowered");
 });
 
 test("public inspect gives Agents and humans the same current WIP and Design evidence boundary", async () => {
@@ -2417,7 +2436,6 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
     ["layer-two-particle-control", 8],
     ["lithography-maintenance-convergence", 8],
     ["release-admission-convergence", 7],
-    ["shipping-power-convergence", 8],
   ] as const;
   for (const [id, invalidRuns] of invalidPrograms) {
     expect(result.designPrograms.find((item: { id: string }) => item.id === id)).toEqual(expect.objectContaining({
@@ -2432,14 +2450,32 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
       }),
     }));
   }
+  expect(result.designPrograms.find((item: { id: string }) => item.id === "shipping-power-convergence")).toEqual(expect.objectContaining({
+    alignment: { state: "aligned", reasons: [] },
+    evidence: expect.objectContaining({
+      state: "exhausted",
+      authorityRunId: "ca81059567f32d8d929df3c0ad6cc1b427579f9a749597467ddb322820cdf427",
+      authorityAddressedLossTargets: [{
+        loss: "power-interruption",
+        target: {
+          contributor: "device:probe-to-packaging-unloader:power-interruption",
+          metric: "serviceInterruptionTicks",
+          direction: "decrease",
+        },
+      }],
+      currentRuns: 1,
+      historicalRuns: 0,
+      invalidRuns: 8,
+    }),
+  }));
   expect(result.designPrograms.find((item: { id: string }) => item.id === "back-end-die-handoff")).toEqual(expect.objectContaining({
     alignment: { state: "aligned", reasons: [] },
     evidence: expect.objectContaining({
-      state: "continuable",
-      authorityRunId: "743ed04e5b8c3c32dff6b9e529b09cb9b78ee604a5584c84d23e128f9a87552b",
-      currentRuns: 1,
+      state: "missing",
+      authorityRunId: null,
+      currentRuns: 0,
       historicalRuns: 0,
-      invalidRuns: 12,
+      invalidRuns: 13,
     }),
   }));
   expect(result.designPrograms.find((item: { id: string }) => item.id === "inspection-supply-path")).toEqual(expect.objectContaining({
@@ -2463,15 +2499,15 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
   });
   expect(JSON.parse(objective.stdout).data).toEqual({ section: "objective", result: result.objectiveEvidence });
   expect(result.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.inspect:shipping-power-convergence:/),
-    title: "Investigate the leading loss with Shipping Power Convergence",
+    id: expect.stringMatching(/^design\.inspect:burn-in-changeover-convergence:/),
+    title: "Investigate the leading loss with Burn-in Changeover Convergence",
     actionLabel: "OPEN DESIGN LOOP",
     effect: "read-only",
-    studioRoute: "/memory-fab/designs/shipping-power-convergence",
+    studioRoute: "/memory-fab/designs/burn-in-changeover-convergence",
     target: expect.objectContaining({
       kind: "design-program",
-      programId: "shipping-power-convergence",
-      diagnosticId: expect.stringMatching(/^fab-loss\.power-interruption:/),
+      programId: "burn-in-changeover-convergence",
+      diagnosticId: expect.stringMatching(/^fab-loss\.setup-campaign:/),
     }),
   }));
   expect(result.objectiveEvidence).toEqual(expect.objectContaining({
@@ -2490,7 +2526,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
   expect(human.stdout).toContain("Interpretation: Objective accounting evidence, not proof that the inventory is avoidable.");
   expect(human.stdout).toContain("inspection-supply-path · MISSING");
   expect(human.stdout).not.toContain("Bounded deferred loss evidence:");
-  expect(human.stdout).toContain("Next action: Investigate the leading loss with Shipping Power Convergence");
+  expect(human.stdout).toContain("Next action: Investigate the leading loss with Burn-in Changeover Convergence");
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(brief.stdout).toContain("Evidence: 0 current · 0 commissioned · 0 historical · 32 invalid excluded · authority none (missing)");

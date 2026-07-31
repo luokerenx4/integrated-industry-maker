@@ -2,7 +2,7 @@
   "version": 1,
   "id": "shipping-power-convergence",
   "name": "Shipping Power Convergence",
-  "description": "Evaluate one explicit shipping-grid generation increment against the leading sorter-endpoint power interruption while preserving every commissioned operating case.",
+  "description": "Evaluate one explicit capital-neutral priority tier for measured active shipping service while preserving standby shedding as grid context and every commissioned operating case.",
   "benchmark": "greenfield-dram-design",
   "seed": {
     "kind": "blueprint",
@@ -12,8 +12,8 @@
     "kind": "loss",
     "loss": "power-interruption",
     "target": {
-      "contributor": "device:substrate-receiving-to-packaging-loader:power-interruption",
-      "metric": "unpoweredTicks",
+      "contributor": "device:probe-to-packaging-unloader:power-interruption",
+      "metric": "serviceInterruptionTicks",
       "direction": "decrease"
     }
   },
@@ -29,7 +29,7 @@
     "kind": "project-strategy",
     "entry": "strategies/shipping-power-convergence-proposals.ts",
     "decisionFamilies": [
-      "generation"
+      "power"
     ]
   },
   "budget": {

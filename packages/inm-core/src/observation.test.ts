@@ -12,7 +12,7 @@ const currentRunId = "114-candidate-trial-run-112-dimensional-stability";
 
 test("observation brief keeps the Objective WIP tradeoff visible after current losses are bounded", async () => {
   const snapshot = structuredClone(await memoryFabSnapshot);
-  snapshot.diagnostics = snapshot.diagnostics.filter((diagnostic) => diagnostic.severity === "info");
+  snapshot.diagnostics = snapshot.diagnostics.filter((diagnostic) => !diagnostic.code.startsWith("fab-loss."));
   snapshot.lossDispositions = [];
   const brief = buildFactoryObservationBrief(snapshot, currentRunId);
   expect(brief.version).toBe(5);
@@ -93,14 +93,14 @@ test("observation brief exposes the exact shipping grid for power interruption",
   expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
     code: "fab-loss.power-interruption",
     subjects: [
-      { kind: "device", id: "substrate-receiving-to-packaging-loader" },
-      { kind: "connection", id: "substrate-receiving-to-packaging" },
+      { kind: "device", id: "probe-to-packaging-unloader" },
+      { kind: "connection", id: "probe-to-packaging" },
       { kind: "device", id: "shipping-power" },
     ],
   }));
   expect(brief.views).toEqual(expect.arrayContaining([
-    expect.objectContaining({ studioRoute: `/memory-fab/factory/devices/substrate-receiving-to-packaging-loader?run=${currentRunId}` }),
-    expect.objectContaining({ studioRoute: `/memory-fab/factory/connections/substrate-receiving-to-packaging?run=${currentRunId}` }),
+    expect.objectContaining({ studioRoute: `/memory-fab/factory/devices/probe-to-packaging-unloader?run=${currentRunId}` }),
+    expect.objectContaining({ studioRoute: `/memory-fab/factory/connections/probe-to-packaging?run=${currentRunId}` }),
     expect.objectContaining({ studioRoute: `/memory-fab/factory/devices/shipping-power?run=${currentRunId}` }),
   ]));
 });

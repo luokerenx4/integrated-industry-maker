@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { compileFactoryProject } from "./compiler";
-import { analyzeInputStarvation, analyzeQualityContributors, analyzeQueueCongestion, analyzeReleaseAdmission, analyzeSetupCampaign, analyzeTransportBlocking } from "./fab-loss-analysis";
+import { analyzeInputStarvation, analyzePowerInterruption, analyzeQualityContributors, analyzeQueueCongestion, analyzeReleaseAdmission, analyzeSetupCampaign, analyzeTransportBlocking } from "./fab-loss-analysis";
 import { loadFactoryProject } from "./loader";
 import { runUntil } from "./simulator";
 import type { CompiledFactoryProject, FactoryEvent, FactoryMetrics, InputSupplyState, MaterialInputShortage, TransportBlockTicks } from "./types";
@@ -30,6 +30,94 @@ const clearTransportFlow = {
   blockedFraction: 0,
   blockedItemTicksByCause: transportBlockTicks(),
 } satisfies FactoryMetrics["transportFlows"][string];
+
+test("power attribution ranks active service while conserving standby shedding on Run 114", async () => {
+  const projectDir = resolve("examples/memory-fab");
+  const project = compileFactoryProject(await loadFactoryProject(projectDir));
+  const runDir = resolve(projectDir, "runs/114-candidate-trial-run-112-dimensional-stability");
+  const metrics = JSON.parse(await readFile(resolve(runDir, "metrics.json"), "utf8")) as FactoryMetrics;
+  const events = (await readFile(resolve(runDir, "events.ndjson"), "utf8"))
+    .trim().split("\n").map((line) => JSON.parse(line) as FactoryEvent);
+  const bucket = analyzePowerInterruption(metrics, project.scenario.durationTicks, project, events);
+
+  expect(bucket).toMatchObject({
+    subjects: [
+      { kind: "device", id: "probe-to-packaging-unloader" },
+      { kind: "connection", id: "probe-to-packaging" },
+      { kind: "device", id: "shipping-power" },
+    ],
+    evidence: {
+      serviceInterruptionTicks: 96_950,
+      attributedServiceInterruptionTicks: 96_950,
+      activeJobInterruptionTicks: 0,
+      transportInterruptionTicks: 96_950,
+      standbyUnpoweredTicks: 524_337,
+      attributedStandbyUnpoweredTicks: 524_337,
+      unpoweredTicks: 621_287,
+      attributedTicks: 621_287,
+      unattributedTicks: 0,
+      contributors: 8,
+      serviceContributors: 5,
+      standbyOnlyContributors: 3,
+    },
+  });
+  expect(bucket.contributors[0]).toMatchObject({
+    id: "device:probe-to-packaging-unloader:power-interruption",
+    evidence: {
+      serviceInterruptionTicks: 43_600,
+      activeJobInterruptionTicks: 0,
+      transportInterruptionTicks: 43_600,
+      standbyUnpoweredTicks: 75_983,
+      unpoweredTicks: 119_583,
+    },
+  });
+  expect(bucket.contributors.filter((contributor) => contributor.label.startsWith("substrate-receiving")))
+    .toEqual([
+      expect.objectContaining({
+        label: "substrate-receiving-to-packaging-loader",
+        evidence: expect.objectContaining({ serviceInterruptionTicks: 0, standbyUnpoweredTicks: 165_377 }),
+      }),
+      expect.objectContaining({
+        label: "substrate-receiving-to-packaging-unloader",
+        evidence: expect.objectContaining({ serviceInterruptionTicks: 0, standbyUnpoweredTicks: 165_377 }),
+      }),
+    ]);
+});
+
+test("power attribution closes active job and transport interruption at the Run boundary", async () => {
+  const project = compileFactoryProject(await loadFactoryProject(resolve("examples/memory-fab")));
+  const metrics = {
+    unpoweredTime: {
+      "etch-l2": 5_000,
+      "probe-to-packaging-unloader": 7_500,
+      "substrate-receiving-to-packaging-loader": 4_500,
+    },
+    powerGrids: {},
+  } satisfies Pick<FactoryMetrics, "unpoweredTime" | "powerGrids">;
+  const events: FactoryEvent[] = [
+    { type: "power.shortage", tick: 5_000, device: "etch-l2", grid: "grid-cleanroom-process", requiredMilliWatts: 200_000, availableMilliWatts: 0, remainingTicks: 5_000, workedTicks: 1_000 },
+    { type: "transport.power-shortage", tick: 2_500, device: "probe-to-packaging-unloader", connection: "probe-to-packaging", stage: "unloader", grid: "grid-cleanroom-shipping-power", requiredMilliWatts: 2_000, availableMilliWatts: 0 },
+    { type: "power.shortage", tick: 5_500, device: "substrate-receiving-to-packaging-loader", grid: "grid-cleanroom-shipping-power", requiredMilliWatts: 500, availableMilliWatts: 0 },
+  ];
+
+  const bucket = analyzePowerInterruption(metrics, 10_000, project, events);
+  expect(bucket.evidence).toMatchObject({
+    serviceInterruptionTicks: 12_500,
+    activeJobInterruptionTicks: 5_000,
+    transportInterruptionTicks: 7_500,
+    standbyUnpoweredTicks: 4_500,
+    unpoweredTicks: 17_000,
+  });
+  expect(bucket.contributors.map((contributor) => [
+    contributor.label,
+    contributor.evidence.serviceInterruptionTicks,
+    contributor.evidence.standbyUnpoweredTicks,
+  ])).toEqual([
+    ["probe-to-packaging-unloader", 7_500, 0],
+    ["etch-l2", 5_000, 0],
+    ["substrate-receiving-to-packaging-loader", 0, 4_500],
+  ]);
+});
 
 test("setup attribution separates commissioning from exact recurring Process transitions", async () => {
   const projectDir = resolve("examples/memory-fab");

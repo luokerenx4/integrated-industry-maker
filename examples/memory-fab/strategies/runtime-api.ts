@@ -73,7 +73,7 @@ export type InputSupplyState =
   | "source-empty";
 
 export interface FabLossProfile {
-  version: 10;
+  version: 11;
   family: string;
   outcome: Record<string, number>;
   primary: FabLossBucket | null;

@@ -119,7 +119,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.project.id).toBe("memory-fab");
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
-    flow: { state: "at-risk", warningCount: 7, infoCount: 9 },
+    flow: { state: "at-risk", warningCount: 6, infoCount: 10 },
     evidence: { state: "current", runId: "114-candidate-trial-run-112-dimensional-stability" },
     review: { state: "stale", pendingCount: 0, disposedCount: 2, staleCount: 32, verifiedCount: 1 },
   }));
@@ -247,38 +247,49 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.objectiveEvidence!.components.reduce((sum, component) => sum + component.contribution, 0))
     .toBeCloseTo(snapshot.objectiveEvidence!.finalScore, 12);
   expect(snapshot.lossAttribution).toEqual(expect.objectContaining({
-    version: 10,
+    version: 11,
     chain: [
       "input-starvation",
       "queue-congestion",
       "release-admission",
       "transport-blocking",
-      "power-interruption",
       "setup-campaign",
       "maintenance-qualification",
+      "power-interruption",
     ],
   }));
   expect(snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "power-interruption")).toMatchObject({
     evidence: {
+      serviceInterruptionTicks: 96_950,
+      attributedServiceInterruptionTicks: 96_950,
+      activeJobInterruptionTicks: 0,
+      transportInterruptionTicks: 96_950,
+      standbyUnpoweredTicks: 524_337,
+      attributedStandbyUnpoweredTicks: 524_337,
       unpoweredTicks: 621_287,
       attributedTicks: 621_287,
       unattributedTicks: 0,
       contributors: 8,
+      serviceContributors: 5,
+      standbyOnlyContributors: 3,
       affectedGrids: 1,
     },
     subjects: [
-      { kind: "device", id: "substrate-receiving-to-packaging-loader" },
-      { kind: "connection", id: "substrate-receiving-to-packaging" },
+      { kind: "device", id: "probe-to-packaging-unloader" },
+      { kind: "connection", id: "probe-to-packaging" },
       { kind: "device", id: "shipping-power" },
     ],
     contributors: expect.arrayContaining([
       expect.objectContaining({
-        id: "device:substrate-receiving-to-packaging-loader:power-interruption",
+        id: "device:probe-to-packaging-unloader:power-interruption",
         mechanism: "power-supply-interruption",
         grid: "grid-cleanroom-shipping-power",
-        endpointStage: "loader",
+        endpointStage: "unloader",
         evidence: expect.objectContaining({
-          unpoweredTicks: 165_377,
+          serviceInterruptionTicks: 43_600,
+          transportInterruptionTicks: 43_600,
+          standbyUnpoweredTicks: 75_983,
+          unpoweredTicks: 119_583,
           gridUnservedMilliJoules: 262_351,
           gridPeakDeficitMilliWatts: 10_000,
           gridRequiredStorageCapacityMilliJoules: 113_825,
@@ -287,7 +298,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       expect.objectContaining({
         id: "device:substrate-receiving-to-packaging-unloader:power-interruption",
         endpointStage: "unloader",
-        evidence: expect.objectContaining({ unpoweredTicks: 165_377 }),
+        evidence: expect.objectContaining({ serviceInterruptionTicks: 0, standbyUnpoweredTicks: 165_377, unpoweredTicks: 165_377 }),
       }),
     ]),
   });
@@ -564,7 +575,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       focus: {
         kind: "loss",
         loss: "power-interruption",
-        target: { contributor: "device:substrate-receiving-to-packaging-loader:power-interruption", metric: "unpoweredTicks", direction: "decrease" },
+        target: { contributor: "device:probe-to-packaging-unloader:power-interruption", metric: "serviceInterruptionTicks", direction: "decrease" },
       },
       promotionTarget: "generated-dram-fab",
       alignment: { state: "aligned", reasons: [] },
@@ -700,14 +711,14 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     }),
   ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.inspect:shipping-power-convergence:/),
+    id: expect.stringMatching(/^design\.inspect:burn-in-changeover-convergence:/),
     effect: "read-only",
     requiresConfirmation: false,
-    studioRoute: "/memory-fab/designs/shipping-power-convergence",
+    studioRoute: "/memory-fab/designs/burn-in-changeover-convergence",
     target: expect.objectContaining({
       kind: "design-program",
-      programId: "shipping-power-convergence",
-      diagnosticId: expect.stringMatching(/^fab-loss\.power-interruption:/),
+      programId: "burn-in-changeover-convergence",
+      diagnosticId: expect.stringMatching(/^fab-loss\.setup-campaign:/),
     }),
   }));
   const leadingDiagnostic = snapshot.diagnostics.find((diagnostic) =>
@@ -770,12 +781,13 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     ...snapshot,
     diagnostics: snapshot.diagnostics.filter((diagnostic) => diagnostic.code !== "fab-loss.input-starvation"),
   })).toEqual(expect.objectContaining({
-    title: "Observe the leading loss before authoring an intervention",
-    argv: expect.arrayContaining(["inm", "observe", snapshot.project.rootDir, "--run", "114-candidate-trial-run-112-dimensional-stability"]),
-    studioRoute: "/memory-fab/factory?run=114-candidate-trial-run-112-dimensional-stability",
+    title: "Investigate the leading loss with Burn-in Changeover Convergence",
+    argv: expect.arrayContaining(["inm", "design", snapshot.project.rootDir, "--program", "burn-in-changeover-convergence"]),
+    studioRoute: "/memory-fab/designs/burn-in-changeover-convergence",
     target: expect.objectContaining({
-      kind: "diagnostic",
-      diagnosticId: expect.stringMatching(/^fab-loss\.power-interruption:/),
+      kind: "design-program",
+      programId: "burn-in-changeover-convergence",
+      diagnosticId: expect.stringMatching(/^fab-loss\.setup-campaign:/),
     }),
   }));
   const exhaustedId = "f".repeat(64);
@@ -947,13 +959,13 @@ test("shared handoff retires dispositions when current causal facts change and a
     }),
   ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    title: "Investigate the leading loss with Shipping Power Convergence",
+    title: "Investigate the leading loss with Burn-in Changeover Convergence",
     actionLabel: "OPEN DESIGN LOOP",
-    studioRoute: "/memory-fab/designs/shipping-power-convergence",
+    studioRoute: "/memory-fab/designs/burn-in-changeover-convergence",
     target: expect.objectContaining({
       kind: "design-program",
-      programId: "shipping-power-convergence",
-      diagnosticId: expect.stringMatching(/^fab-loss\.power-interruption:/),
+      programId: "burn-in-changeover-convergence",
+      diagnosticId: expect.stringMatching(/^fab-loss\.setup-campaign:/),
     }),
   }));
 });
@@ -1658,11 +1670,11 @@ test("a non-KEEP Candidate receipt resolves review work without displacing curre
     verifiedCount: 1,
   });
   expect(reviewed.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.inspect:shipping-power-convergence:/),
+    id: expect.stringMatching(/^design\.inspect:burn-in-changeover-convergence:/),
     target: expect.objectContaining({
       kind: "design-program",
-      programId: "shipping-power-convergence",
-      diagnosticId: expect.stringMatching(/^fab-loss\.power-interruption:/),
+      programId: "burn-in-changeover-convergence",
+      diagnosticId: expect.stringMatching(/^fab-loss\.setup-campaign:/),
     }),
   }));
 }, 20_000);
