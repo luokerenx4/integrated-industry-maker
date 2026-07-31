@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/run-114-furnace-supply-phase-control]] | Decide whether current upstream layer-one phase control can causally reduce Run 114's exact furnace shortage without replaying exhausted local branches. | 2026-07-31 |
 | [[plans/current-layer-two-dimensional-control]] | Separate residual critical-dimension loss from the commissioned particle decision and evaluate one explicit current control mode. | 2026-07-31 |
 | [[plans/run-112-probe-causal-continuation]] | Carry Run 112's canonical Probe queue facts into the existing negative experiment and current decision chain. | 2026-07-31 |
 | [[plans/causal-diagnostic-requalification]] | Requalify exact Investigation decisions across unrelated Run identity changes only when the current Run reproduces the same canonical causal facts and selected factory sources. | 2026-07-31 |

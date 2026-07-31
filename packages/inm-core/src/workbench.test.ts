@@ -623,15 +623,30 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     candidate.id === "qualified-probe-cycle-95-run-112")?.investigationDisposition)
     .toBeNull();
   expect(snapshot.nextAction.id).not.toBe("candidate.apply:incumbent-five-performance-seven-commercial");
-  expect(snapshot.investigationDiagnosticDispositions).toEqual([]);
+  expect(snapshot.investigationDiagnosticDispositions).toEqual([
+    expect.objectContaining({
+      state: "current",
+      disposition: "defer",
+      queueEffect: "suppressed",
+      target: expect.objectContaining({
+        anchorId: "run-114-furnace-factory",
+        code: "fab-loss.input-starvation",
+        diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+      }),
+      source: expect.objectContaining({
+        investigationId: "run-114-furnace-supply-phase-control",
+        entryId: "defer-run-114-layer-one-phase-control",
+      }),
+    }),
+  ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^observation:fab-loss\.input-starvation:/),
+    id: expect.stringMatching(/^observation:fab-loss\.queue-congestion:/),
     effect: "read-only",
     requiresConfirmation: false,
     studioRoute: "/memory-fab/factory?run=114-candidate-trial-run-112-dimensional-stability",
     target: expect.objectContaining({
       kind: "diagnostic",
-      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
     }),
   }));
   const leadingDiagnostic = snapshot.diagnostics.find((diagnostic) =>
@@ -828,14 +843,25 @@ test("shared handoff retires dispositions when current causal facts change and a
   const objectiveAuthority = snapshot.designPrograms
     .find((program) => program.id === "back-end-wip-convergence")?.evidence.authorityRunId;
   expect(objectiveAuthority).toBeNull();
-  expect(snapshot.investigationDiagnosticDispositions).toEqual([]);
+  expect(snapshot.investigationDiagnosticDispositions).toEqual([
+    expect.objectContaining({
+      state: "current",
+      disposition: "defer",
+      queueEffect: "suppressed",
+      target: expect.objectContaining({ code: "fab-loss.input-starvation" }),
+      source: expect.objectContaining({
+        investigationId: "run-114-furnace-supply-phase-control",
+        entryId: "defer-run-114-layer-one-phase-control",
+      }),
+    }),
+  ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
     title: "Observe the leading loss before authoring an intervention",
     actionLabel: "OBSERVE CURRENT FACTORY",
     studioRoute: "/memory-fab/factory?run=114-candidate-trial-run-112-dimensional-stability",
     target: expect.objectContaining({
       kind: "diagnostic",
-      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
     }),
   }));
 });
@@ -844,6 +870,7 @@ test("an active physical loss still outranks current Objective Design evidence",
   const root = await mkdtemp(join(tmpdir(), "inm-workbench-before-queue-"));
   const projectDir = join(root, "memory-fab");
   await cp(join(repository, "examples/memory-fab"), projectDir, { recursive: true });
+  await rm(join(projectDir, "investigations/run-114-furnace-supply-phase-control"), { recursive: true, force: true });
   await rm(join(projectDir, "design-runs/front-end-queue-convergence"), { recursive: true, force: true });
   const snapshot = await openProjectWorkbenchSnapshot(projectDir);
   expect(snapshot.version).toBe(20);
@@ -1539,10 +1566,10 @@ test("a non-KEEP Candidate receipt resolves review work without displacing curre
     verifiedCount: 1,
   });
   expect(reviewed.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^observation:fab-loss\.input-starvation:/),
+    id: expect.stringMatching(/^observation:fab-loss\.queue-congestion:/),
     target: expect.objectContaining({
       kind: "diagnostic",
-      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
     }),
   }));
 }, 20_000);

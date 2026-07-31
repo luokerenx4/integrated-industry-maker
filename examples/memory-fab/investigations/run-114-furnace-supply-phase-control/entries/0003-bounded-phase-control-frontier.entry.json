@@ -1,0 +1,15 @@
+{
+  "author": "agent",
+  "entryHash": "f4ff911a08dbd428ee599e0064ba36c1a3f9f6b67e6fb3f217f12113ca431f14",
+  "evidence": [
+    "run-114-furnace-factory"
+  ],
+  "id": "bounded-phase-control-frontier",
+  "introducedAnchors": [],
+  "investigation": "run-114-furnace-supply-phase-control",
+  "kind": "observation",
+  "previousEntryHash": "9b68489a3fc154421ff2a760d2dc65d86621b600c50e6acdc00f6f42e85e0b94",
+  "sequence": 3,
+  "statement": "A current five-case TypeScript replay bounded six authored variants against the exact furnace target. Downstream etch-to-ALD coverage recovery after 10 s changed no furnace shortage and regressed current cases by 0.000150; after 5 s changed no furnace shortage, added 2.837567 average WIP equivalent in the driver, and regressed a case by 2.837544; after 1 s removed only 1.000 s of furnace shortage, added the same WIP, and regressed a case by 2.916394. The historical 19/20 always-cycle control removed 0.750 s but regressed a case by 9.306028. The historical five-second input-queue recovery removed 1.000 s and improved aggregate score but still regressed lithography-interruption by 0.000099. No tested control both reduces the exact target and satisfies uniform zero current-best regression.",
+  "version": 1
+}

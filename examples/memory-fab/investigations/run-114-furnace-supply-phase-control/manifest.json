@@ -1,0 +1,71 @@
+{
+  "anchors": [
+    {
+      "id": "operating-run",
+      "kind": "operating-run",
+      "resultHash": "89c183540d7a0daa3810e72741837319cd8742ccefc3f963e03cd7a386a77e3c",
+      "runId": "114-candidate-trial-run-112-dimensional-stability"
+    },
+    {
+      "causalHash": "70ab8ab8a78072809aa3bd9f6fbcae06f14b00109d7b73ab091d7a919adeefcc",
+      "code": "fab-loss.input-starvation",
+      "diagnosticId": "fab-loss.input-starvation:device:furnace-1+connection:deposition-to-batch-furnace+device:deposition-1:d1670b2c58",
+      "id": "diagnostic",
+      "kind": "diagnostic",
+      "loss": {
+        "bucket": "input-starvation",
+        "contributorId": "device:furnace-1:material-input-shortage"
+      },
+      "message": "Productive-equipment input starvation is ranked 1 in compatible run 114-candidate-trial-run-112-dimensional-stability (signal 0.2080). 9/10 active flow Devices accumulated 240.8 explicit material-shortage device-s inside 1157.5 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1130.5 of 1371.3 flow input-wait device-s remained outside ranked shortage intervals.",
+      "priority": 90,
+      "runId": "114-candidate-trial-run-112-dimensional-stability",
+      "severity": "warning",
+      "subjects": [
+        {
+          "id": "furnace-1",
+          "kind": "device"
+        },
+        {
+          "id": "deposition-to-batch-furnace",
+          "kind": "connection"
+        },
+        {
+          "id": "deposition-1",
+          "kind": "device"
+        }
+      ],
+      "summary": "9/10 active flow Devices accumulated 240.8 explicit material-shortage device-s inside 1157.5 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1130.5 of 1371.3 flow input-wait device-s remained outside ranked shortage intervals."
+    }
+  ],
+  "authority": "human-or-agent",
+  "hashes": {
+    "blueprintHash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+    "engineVersion": "inm-sim/0.93.1",
+    "executionHash": "756abdd1d3c8688aba65dd8df430ad914cf7a5a4fb84e1789be8cb58cae92def",
+    "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+    "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+    "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+    "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+  },
+  "id": "run-114-furnace-supply-phase-control",
+  "initialNextAction": {
+    "actionLabel": "OBSERVE CURRENT FACTORY",
+    "effect": "read-only",
+    "id": "observation:fab-loss.input-starvation:device:furnace-1+connection:deposition-to-batch-furnace+device:deposition-1:d1670b2c58",
+    "reason": "Productive-equipment input starvation is ranked 1 in compatible run 114-candidate-trial-run-112-dimensional-stability (signal 0.2080). 9/10 active flow Devices accumulated 240.8 explicit material-shortage device-s inside 1157.5 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1130.5 of 1371.3 flow input-wait device-s remained outside ranked shortage intervals. No exact-target Design Program is qualified for the leading contributor, so inspect the run-qualified factory and record a human/Agent hypothesis before adding a proposal portfolio.",
+    "studioRoute": "/memory-fab/factory?run=114-candidate-trial-run-112-dimensional-stability",
+    "title": "Observe the leading loss before authoring an intervention"
+  },
+  "manifestHash": "4311d82fab059e526902a601006a125891948b31a940a757b137627786098a45",
+  "name": "Run 114 Furnace Supply Phase Control",
+  "project": "memory-fab",
+  "question": "Can bounded layer-one etch phase control reduce the exact current furnace-1 material-input shortage without violating locked delivery, quality, service, WIP, or current-best case guards?",
+  "selection": {
+    "blueprint": "generated-dram-fab",
+    "objective": "dram-output",
+    "productionPlan": "production-window",
+    "scenario": "production-window",
+    "world": "cleanroom"
+  },
+  "version": 1
+}

@@ -1,0 +1,20 @@
+{
+  "author": "agent",
+  "disposition": "defer",
+  "entryHash": "c8527b62cc45778d768013e16da3c6b2c508205b5243022634d18612254834b7",
+  "evidence": [
+    "run-114-furnace-factory"
+  ],
+  "id": "defer-run-114-layer-one-phase-control",
+  "introducedAnchors": [],
+  "investigation": "run-114-furnace-supply-phase-control",
+  "kind": "decision",
+  "previousEntryHash": "f4ff911a08dbd428ee599e0064ba36c1a3f9f6b67e6fb3f217f12113ca431f14",
+  "sequence": 4,
+  "statement": "Defer the Run 114 furnace-supply branch. The direct line remains uncongested, local furnace/transport/ALD-threshold branches are already bounded, and the newly tested layer-one output-phase family either leaves the exact 38.856 s furnace shortage unchanged or trades at most 1.000 s of it for WIP, energy, delivery timing, or a locked current-best regression. Revisit only after the selected production schedule, downstream demand, or governing zero-regression boundary changes; keep the physical shortage visible in Analysis.",
+  "target": {
+    "anchorId": "run-114-furnace-factory",
+    "kind": "diagnostic"
+  },
+  "version": 1
+}

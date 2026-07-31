@@ -1,0 +1,17 @@
+{
+  "author": "agent",
+  "entryHash": "9b68489a3fc154421ff2a760d2dc65d86621b600c50e6acdc00f6f42e85e0b94",
+  "evidence": [
+    "run-114-furnace-factory"
+  ],
+  "expectedEffect": "Decrease furnace-1 material-input-shortage below 38.856 s while preserving 12/12 on-time lots, 88 delivered devices, 100% first-pass yield, zero scrap and escapes, the 49.1905 WIP boundary, and every locked current-best case; the direct line must remain unblocked and no local furnace, belt, buffer, or ALD threshold change is allowed.",
+  "id": "layer-one-output-phase-control",
+  "intervention": "blueprint",
+  "introducedAnchors": [],
+  "investigation": "run-114-furnace-supply-phase-control",
+  "kind": "hypothesis",
+  "previousEntryHash": "5c0fce43fa03ac96e1d37b788321bbb1de07899365c6cfd25064bbd3ca876fc9",
+  "sequence": 2,
+  "statement": "Use one already-qualified bounded layer-one etch process-control envelope to advance only the etched-cell lots that feed ALD; test whether their arrival phase reduces ALD input gaps and the exact furnace material-shortage interval rather than merely lowering etch queue time.",
+  "version": 1
+}

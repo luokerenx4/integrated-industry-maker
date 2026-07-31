@@ -2454,14 +2454,14 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
   });
   expect(JSON.parse(objective.stdout).data).toEqual({ section: "objective", result: result.objectiveEvidence });
   expect(result.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^observation:fab-loss\.input-starvation:/),
+    id: expect.stringMatching(/^observation:fab-loss\.queue-congestion:/),
     title: "Observe the leading loss before authoring an intervention",
     actionLabel: "OBSERVE CURRENT FACTORY",
     effect: "read-only",
     studioRoute: "/memory-fab/factory?run=114-candidate-trial-run-112-dimensional-stability",
     target: expect.objectContaining({
       kind: "diagnostic",
-      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
     }),
   }));
   expect(result.objectiveEvidence).toEqual(expect.objectContaining({
