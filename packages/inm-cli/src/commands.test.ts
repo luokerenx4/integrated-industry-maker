@@ -2411,7 +2411,6 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
     }),
   }));
   const invalidPrograms = [
-    ["back-end-die-handoff", 12],
     ["burn-in-changeover-convergence", 14],
     ["front-end-queue-convergence", 7],
     ["layer-two-dimensional-control", 0],
@@ -2433,6 +2432,16 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
       }),
     }));
   }
+  expect(result.designPrograms.find((item: { id: string }) => item.id === "back-end-die-handoff")).toEqual(expect.objectContaining({
+    alignment: { state: "aligned", reasons: [] },
+    evidence: expect.objectContaining({
+      state: "continuable",
+      authorityRunId: "743ed04e5b8c3c32dff6b9e529b09cb9b78ee604a5584c84d23e128f9a87552b",
+      currentRuns: 1,
+      historicalRuns: 0,
+      invalidRuns: 12,
+    }),
+  }));
   expect(result.designPrograms.find((item: { id: string }) => item.id === "inspection-supply-path")).toEqual(expect.objectContaining({
     alignment: { state: "aligned", reasons: [] },
     evidence: expect.objectContaining({
@@ -2454,15 +2463,15 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
   });
   expect(JSON.parse(objective.stdout).data).toEqual({ section: "objective", result: result.objectiveEvidence });
   expect(result.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.inspect:back-end-die-handoff:/),
-    title: "Investigate the leading loss with Back-end Die Handoff Convergence",
+    id: expect.stringMatching(/^design\.inspect:shipping-power-convergence:/),
+    title: "Investigate the leading loss with Shipping Power Convergence",
     actionLabel: "OPEN DESIGN LOOP",
     effect: "read-only",
-    studioRoute: "/memory-fab/designs/back-end-die-handoff",
+    studioRoute: "/memory-fab/designs/shipping-power-convergence",
     target: expect.objectContaining({
       kind: "design-program",
-      programId: "back-end-die-handoff",
-      diagnosticId: expect.stringMatching(/^fab-loss\.transport-blocking:/),
+      programId: "shipping-power-convergence",
+      diagnosticId: expect.stringMatching(/^fab-loss\.power-interruption:/),
     }),
   }));
   expect(result.objectiveEvidence).toEqual(expect.objectContaining({
@@ -2481,7 +2490,7 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
   expect(human.stdout).toContain("Interpretation: Objective accounting evidence, not proof that the inventory is avoidable.");
   expect(human.stdout).toContain("inspection-supply-path · MISSING");
   expect(human.stdout).not.toContain("Bounded deferred loss evidence:");
-  expect(human.stdout).toContain("Next action: Investigate the leading loss with Back-end Die Handoff Convergence");
+  expect(human.stdout).toContain("Next action: Investigate the leading loss with Shipping Power Convergence");
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(brief.stdout).toContain("Evidence: 0 current · 0 commissioned · 0 historical · 32 invalid excluded · authority none (missing)");

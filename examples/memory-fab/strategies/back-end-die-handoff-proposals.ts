@@ -77,19 +77,19 @@ function observesExactDieHandoffBlocking(
     || !context.fabLoss?.chain.includes("transport-blocking")) return false;
   const bucket = context.fabLoss.buckets.find((item) => item.id === "transport-blocking");
   const contributor = bucket?.contributors.find((item) => item.id === contributorId);
-  return bucket?.evidence.blockedConnections === 2
-    && bucket.evidence.blockedItemTicks === 58_000
-    && bucket.evidence.lineContentionTicks === 33_000
-    && bucket.evidence.endpointCapacityTicks === 15_300
-    && bucket.evidence.endpointPowerTicks === 9_700
+  return bucket?.evidence.blockedConnections === 3
+    && bucket.evidence.blockedItemTicks === 218_601
+    && bucket.evidence.lineContentionTicks === 138_701
+    && bucket.evidence.endpointCapacityTicks === 42_900
+    && bucket.evidence.endpointPowerTicks === 37_000
     && bucket.evidence.endpointFailureTicks === 0
     && contributor?.mechanism === "transport-line-contention"
     && contributor.resources.length === 1
     && contributor.resources[0] === "known-good-dram-die"
-    && contributor.evidence.blockedItemTicks === 46_800
-    && contributor.evidence.lineContentionTicks === 27_000
-    && contributor.evidence.endpointCapacityTicks === 14_000
-    && contributor.evidence.endpointPowerTicks === 5_800
+    && contributor.evidence.blockedItemTicks === 118_200
+    && contributor.evidence.lineContentionTicks === 73_600
+    && contributor.evidence.endpointCapacityTicks === 36_400
+    && contributor.evidence.endpointPowerTicks === 8_200
     && contributor.evidence.endpointFailureTicks === 0
     && contributor.evidence.deliveredItems === 96
     && contributor.evidence.capacityItemsPerMinute === 240
@@ -107,8 +107,8 @@ export default {
       if (!patch) return null;
       return {
         strategy: priorityStrategy,
-        hypothesis: "Probe releases known-good dies in batches of up to eight, while both explicit endpoints serialize them one at a time onto a two-cell line and cross an intermittently constrained shipping grid at priority zero. Four-position tray handling with priority eight at only those endpoints should reduce propagated cell occupancy, endpoint service blocking, and endpoint power interruption without adding generation or changing any Process.",
-        expectedEffect: "Reduce the exact Probe-to-packaging blocked item-time through four-die endpoint stacks that survive short load-shedding intervals; the additional endpoint power, forty-unit net capital cost, displaced shipping load, delivery, and every locked-case score remain authoritative.",
+        hypothesis: "Probe releases known-good dies in batches of up to eight, while both explicit endpoints serialize them one at a time onto a two-cell line and cross an intermittently constrained shipping grid at priority zero. Four-position tray handling with priority eight at only those endpoints should reduce propagated cell occupancy, endpoint service blocking, and endpoint power interruption without adding generation or changing any Process; the recovered phase is useful only if it advances packaging or downstream Burn-in service.",
+        expectedEffect: "Reduce the exact 118,200 Probe-to-packaging blocked item-ticks through four-die endpoint stacks that survive short load-shedding intervals; packaging and Burn-in timing, terminal source identity, the additional endpoint power, forty-unit net capital cost, displaced shipping load, delivery, WIP, cycle, service, and every locked-case score remain authoritative.",
         addressedLoss: "transport-blocking",
         addressedLossTarget: {
           contributor: contributorId,

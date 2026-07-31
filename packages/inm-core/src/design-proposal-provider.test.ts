@@ -1276,7 +1276,7 @@ test("focused back-end handoff provider batches the exact blocked die lane with 
     scenario: "production-window",
     objective: "dram-output",
   });
-  loaded.blueprint = JSON.parse(await readFile(resolve(root, "runs/097-simulate/blueprint.json"), "utf8"));
+  loaded.blueprint = JSON.parse(await readFile(resolve(root, "runs/114-candidate-trial-run-112-dimensional-stability/blueprint.json"), "utf8"));
   const project = compileFactoryProject(loaded);
   const result = runUntil(project, undefined, { seed: 42 });
   const fabLoss = analyzeFabLossProfile(result.metrics, project.scenario.durationTicks, project, result.events)!;

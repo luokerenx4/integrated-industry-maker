@@ -1,0 +1,43 @@
+{
+  "baseCandidateHash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reduce the exact connection:probe-to-packaging:transport-line-contention blockedItemTicks from 118200, ideally to zero; retain the intervention only if packaging/Burn-in timing, delivery, WIP, lot cycle, terminal source identity, quality, service, and every locked/current case are no worse after accounting for explicit capital and energy. Local target reduction alone is not KEEP authority.",
+  "hypothesis": "Replace only the Probe-to-packaging loader and unloader sorters with explicit four-position die-tray handlers and set those two endpoints to power priority eight. The intervention preserves the two-cell route, material allowlist, equipment, Processes, release policy, and downstream dispatch. Tray buffering may prevent eight-die Probe bursts and short shipping-grid interruptions from propagating through the line, but it is useful only if the recovered phase reaches terminal service.",
+  "id": "run-114-prioritized-four-die-tray",
+  "name": "Run 114 prioritized four-die tray handoff",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/38/asset",
+      "value": "die-tray-handler"
+    },
+    {
+      "op": "add",
+      "path": "/devices/38/policy",
+      "value": {
+        "powerPriority": 8
+      }
+    },
+    {
+      "op": "replace",
+      "path": "/devices/39/asset",
+      "value": "die-tray-handler"
+    },
+    {
+      "op": "add",
+      "path": "/devices/39/policy",
+      "value": {
+        "powerPriority": 8
+      }
+    }
+  ],
+  "source": {
+    "entry": "requalify-prioritized-four-die-tray",
+    "entryHash": "479dad99fd54f1d46c863ac746fa3a9940f8d61ed6ac007f6ed8ae3d4cb1fc78",
+    "investigation": "run-114-back-end-die-handoff-requalification",
+    "kind": "investigation-hypothesis",
+    "manifestHash": "afd298715759fc310d5d072e0fec75b3e5ece10fbe293073386c189232b9a464",
+    "project": "memory-fab"
+  },
+  "version": 1
+}

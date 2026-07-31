@@ -1,0 +1,73 @@
+{
+  "author": "agent",
+  "entryHash": "46dfc114894c9a799257f467e820af538924387264f55f8d7958a9c3bf510c47",
+  "evidence": [
+    "operating-run",
+    "diagnostic",
+    "run-114-back-end-factory"
+  ],
+  "id": "observe-run-114-back-end-handoff",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "causalHash": "6347c9c8dd6f0b99cd9b95ab0fd9672c904c892fca714d16a9c2c91767461ae0",
+        "code": "fab-loss.transport-blocking",
+        "diagnosticId": "fab-loss.transport-blocking:connection:probe-to-packaging:2f7d6b19f2",
+        "loss": {
+          "bucket": "transport-blocking",
+          "contributorId": "connection:probe-to-packaging:transport-line-contention"
+        },
+        "message": "Local transport blocking by cause is ranked 4 in compatible run 114-candidate-trial-run-112-dimensional-stability (signal 0.0536). Tracked lots averaged 7.8 s in necessary transit (context only); 3/17 connections accumulated 218.6 blocked item-s (138.7 line, 42.9 endpoint capacity, 37.0 endpoint power, 0.0 endpoint failure).",
+        "priority": 87,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "probe-to-packaging",
+            "kind": "connection"
+          }
+        ],
+        "summary": "Tracked lots averaged 7.8 s in necessary transit (context only); 3/17 connections accumulated 218.6 blocked item-s (138.7 line, 42.9 endpoint capacity, 37.0 endpoint power, 0.0 endpoint failure)."
+      },
+      "hashes": {
+        "blueprintHash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+        "engineVersion": "inm-sim/0.93.1",
+        "executionHash": "756abdd1d3c8688aba65dd8df430ad914cf7a5a4fb84e1789be8cb58cae92def",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "run-114-back-end-factory",
+      "kind": "factory-observation",
+      "resultHash": "89c183540d7a0daa3810e72741837319cd8742ccefc3f963e03cd7a386a77e3c",
+      "runId": "114-candidate-trial-run-112-dimensional-stability",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "sourceLotServices": [
+        {
+          "analysisHash": "4b7e5ccecac2ab09faf6322a2101553851bab42a2e94817a2ee94aaa3b416f50",
+          "device": "burn-in-1",
+          "inputBuffer": "package-input",
+          "inputResource": "packaged-dram-device"
+        },
+        {
+          "analysisHash": "b2bfd5f5bd38bde53038e004a76378a871c09ecc2f0a679e71c281403bf43e91",
+          "device": "packaging-1",
+          "inputBuffer": "die-input",
+          "inputResource": "known-good-dram-die"
+        }
+      ]
+    }
+  ],
+  "investigation": "run-114-back-end-die-handoff-requalification",
+  "kind": "observation",
+  "previousEntryHash": null,
+  "sequence": 1,
+  "statement": "Run 114's Probe-to-packaging handoff is a two-cell ground route between adjacent work cells. Probe releases up to eight known-good dies at once, while both explicit endpoints remain stack-one, 250 ms sorters at power priority zero. The line delivers all 96 dies at 10% nominal utilization but accumulates 118.200 s of blocked item-time: 73.600 s line contention, 36.400 s unloader capacity, 8.200 s unloader power, and zero failure. Packaging itself records zero output blocking and 96.000 s of input wait; downstream Burn-in remains the terminal service boundary and leaves dram-lot-07's eight packaged devices unserved. The physical congestion is real, but removing it must advance packaging or Burn-in service rather than only absorb burst phase.",
+  "version": 1
+}

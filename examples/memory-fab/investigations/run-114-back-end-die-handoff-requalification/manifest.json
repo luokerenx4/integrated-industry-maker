@@ -1,0 +1,63 @@
+{
+  "anchors": [
+    {
+      "id": "operating-run",
+      "kind": "operating-run",
+      "resultHash": "89c183540d7a0daa3810e72741837319cd8742ccefc3f963e03cd7a386a77e3c",
+      "runId": "114-candidate-trial-run-112-dimensional-stability"
+    },
+    {
+      "causalHash": "6347c9c8dd6f0b99cd9b95ab0fd9672c904c892fca714d16a9c2c91767461ae0",
+      "code": "fab-loss.transport-blocking",
+      "diagnosticId": "fab-loss.transport-blocking:connection:probe-to-packaging:2f7d6b19f2",
+      "id": "diagnostic",
+      "kind": "diagnostic",
+      "loss": {
+        "bucket": "transport-blocking",
+        "contributorId": "connection:probe-to-packaging:transport-line-contention"
+      },
+      "message": "Local transport blocking by cause is ranked 4 in compatible run 114-candidate-trial-run-112-dimensional-stability (signal 0.0536). Tracked lots averaged 7.8 s in necessary transit (context only); 3/17 connections accumulated 218.6 blocked item-s (138.7 line, 42.9 endpoint capacity, 37.0 endpoint power, 0.0 endpoint failure).",
+      "priority": 87,
+      "runId": "114-candidate-trial-run-112-dimensional-stability",
+      "severity": "warning",
+      "subjects": [
+        {
+          "id": "probe-to-packaging",
+          "kind": "connection"
+        }
+      ],
+      "summary": "Tracked lots averaged 7.8 s in necessary transit (context only); 3/17 connections accumulated 218.6 blocked item-s (138.7 line, 42.9 endpoint capacity, 37.0 endpoint power, 0.0 endpoint failure)."
+    }
+  ],
+  "authority": "human-or-agent",
+  "hashes": {
+    "blueprintHash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+    "engineVersion": "inm-sim/0.93.1",
+    "executionHash": "756abdd1d3c8688aba65dd8df430ad914cf7a5a4fb84e1789be8cb58cae92def",
+    "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+    "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+    "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+    "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+  },
+  "id": "run-114-back-end-die-handoff-requalification",
+  "initialNextAction": {
+    "actionLabel": "OPEN DESIGN LOOP",
+    "effect": "read-only",
+    "id": "design.inspect:back-end-die-handoff:fab-loss.transport-blocking:connection:probe-to-packaging:2f7d6b19f2",
+    "reason": "Local transport blocking by cause is ranked 4 in compatible run 114-candidate-trial-run-112-dimensional-stability (signal 0.0536). Tracked lots averaged 7.8 s in necessary transit (context only); 3/17 connections accumulated 218.6 blocked item-s (138.7 line, 42.9 endpoint capacity, 37.0 endpoint power, 0.0 endpoint failure). Open the aligned Design Program brief before choosing whether to create bounded locked-case evidence.",
+    "studioRoute": "/memory-fab/designs/back-end-die-handoff",
+    "title": "Investigate the leading loss with Back-end Die Handoff Convergence"
+  },
+  "manifestHash": "afd298715759fc310d5d072e0fec75b3e5ece10fbe293073386c189232b9a464",
+  "name": "Run 114 back-end die handoff requalification",
+  "project": "memory-fab",
+  "question": "Does prioritized four-die tray handling convert Run 114's exact Probe-to-packaging blocking into earlier downstream service without weakening current or locked industrial outcomes?",
+  "selection": {
+    "blueprint": "generated-dram-fab",
+    "objective": "dram-output",
+    "productionPlan": "production-window",
+    "scenario": "production-window",
+    "world": "cleanroom"
+  },
+  "version": 1
+}

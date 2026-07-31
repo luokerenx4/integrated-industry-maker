@@ -1,0 +1,17 @@
+{
+  "author": "agent",
+  "entryHash": "479dad99fd54f1d46c863ac746fa3a9940f8d61ed6ac007f6ed8ae3d4cb1fc78",
+  "evidence": [
+    "run-114-back-end-factory"
+  ],
+  "expectedEffect": "Reduce the exact connection:probe-to-packaging:transport-line-contention blockedItemTicks from 118200, ideally to zero; retain the intervention only if packaging/Burn-in timing, delivery, WIP, lot cycle, terminal source identity, quality, service, and every locked/current case are no worse after accounting for explicit capital and energy. Local target reduction alone is not KEEP authority.",
+  "id": "requalify-prioritized-four-die-tray",
+  "intervention": "blueprint",
+  "introducedAnchors": [],
+  "investigation": "run-114-back-end-die-handoff-requalification",
+  "kind": "hypothesis",
+  "previousEntryHash": "46dfc114894c9a799257f467e820af538924387264f55f8d7958a9c3bf510c47",
+  "sequence": 2,
+  "statement": "Replace only the Probe-to-packaging loader and unloader sorters with explicit four-position die-tray handlers and set those two endpoints to power priority eight. The intervention preserves the two-cell route, material allowlist, equipment, Processes, release policy, and downstream dispatch. Tray buffering may prevent eight-die Probe bursts and short shipping-grid interruptions from propagating through the line, but it is useful only if the recovered phase reaches terminal service.",
+  "version": 1
+}

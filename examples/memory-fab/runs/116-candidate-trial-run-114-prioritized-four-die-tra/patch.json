@@ -1,0 +1,26 @@
+[
+  {
+    "op": "replace",
+    "path": "/devices/38/asset",
+    "value": "die-tray-handler"
+  },
+  {
+    "op": "add",
+    "path": "/devices/38/policy",
+    "value": {
+      "powerPriority": 8
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/devices/39/asset",
+    "value": "die-tray-handler"
+  },
+  {
+    "op": "add",
+    "path": "/devices/39/policy",
+    "value": {
+      "powerPriority": 8
+    }
+  }
+]

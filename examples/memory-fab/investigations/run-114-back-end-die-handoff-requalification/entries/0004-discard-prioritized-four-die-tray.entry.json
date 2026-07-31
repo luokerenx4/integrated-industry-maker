@@ -1,0 +1,34 @@
+{
+  "author": "agent",
+  "disposition": "discard",
+  "entryHash": "f7e79b82d37b4d7e809a22d9d4257e6a3510938d0b7e1a932d4316e630b1f3aa",
+  "evidence": [
+    "run-114-prioritized-four-die-tray-comparison",
+    "run-114-prioritized-four-die-tray-review",
+    "run-114-back-end-factory"
+  ],
+  "id": "discard-prioritized-four-die-tray",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "run-114-prioritized-four-die-tray",
+      "currentCandidateHash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+      "id": "run-114-prioritized-four-die-tray-review",
+      "kind": "candidate-review",
+      "proposalHash": "45f9ddb0971ca8163f7df3c30e8df4a4f9e2e32676ede5e9fd9ce834c84daa30",
+      "proposedCandidateHash": "abd16a8236ed16931203a3ac2d14405cc4855a7569bb1ba31fd1259b6afe7f86",
+      "reviewResultHash": "86bcb3ec67ecc1d9862fd25b9109ed745324b7e7abe5170fc75389aa54d38a30",
+      "verdict": "KEEP"
+    }
+  ],
+  "investigation": "run-114-back-end-die-handoff-requalification",
+  "kind": "decision",
+  "previousEntryHash": "1a69bc40c056196564121a6c29958992e87bf0197640b226d347f77b11045a95",
+  "sequence": 4,
+  "statement": "Discard the prioritized four-die tray and retain the existing sorter endpoints. The Candidate clears its local blocking target, but Run 116 produces no delivery, throughput, cycle-time, WIP, quality, or service benefit; it costs 40 more, consumes 18,099.5 mJ more energy, increases unpowered time by 62,789 device-ticks, and regresses every current operating case. Reopen only if downstream service demand, endpoint economics, or the power envelope changes.",
+  "target": {
+    "anchorId": "run-114-back-end-factory",
+    "kind": "diagnostic"
+  },
+  "version": 1
+}

@@ -1,0 +1,80 @@
+{
+  "author": "agent",
+  "entryHash": "d23e7a07d6e18173db1b597f0817a82080e9c11ee88bb744a4a7c9a96d91ce8c",
+  "evidence": [
+    "run-114-prioritized-four-die-tray-review",
+    "run-114-post-tray-discard-factory"
+  ],
+  "id": "resume-run-114-after-tray-discard",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "causalHash": "6624bf2e57cfdc38a9e911c74b2b18b2b1ccfb1f0caa8e7cabc956d3e7182197",
+        "code": "fab-loss.power-interruption",
+        "diagnosticId": "fab-loss.power-interruption:device:substrate-receiving-to-packaging-loader+connection:substrate-receiving-to-packaging+device:shipping-power:362efbc16e",
+        "loss": {
+          "bucket": "power-interruption",
+          "contributorId": "device:substrate-receiving-to-packaging-loader:power-interruption"
+        },
+        "message": "Power interruption is ranked 5 in compatible run 114-candidate-trial-run-112-dimensional-stability (signal 0.0418). Equipment accumulated 621.3 unpowered device-s across the selected operating window. substrate-receiving-to-packaging-loader leads on grid-cleanroom-shipping-power with 165.4 device-s.",
+        "priority": 86,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "substrate-receiving-to-packaging-loader",
+            "kind": "device"
+          },
+          {
+            "id": "substrate-receiving-to-packaging",
+            "kind": "connection"
+          },
+          {
+            "id": "shipping-power",
+            "kind": "device"
+          }
+        ],
+        "summary": "Equipment accumulated 621.3 unpowered device-s across the selected operating window. substrate-receiving-to-packaging-loader leads on grid-cleanroom-shipping-power with 165.4 device-s."
+      },
+      "hashes": {
+        "blueprintHash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+        "engineVersion": "inm-sim/0.93.1",
+        "executionHash": "756abdd1d3c8688aba65dd8df430ad914cf7a5a4fb84e1789be8cb58cae92def",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "run-114-post-tray-discard-factory",
+      "kind": "factory-observation",
+      "resultHash": "89c183540d7a0daa3810e72741837319cd8742ccefc3f963e03cd7a386a77e3c",
+      "runId": "114-candidate-trial-run-112-dimensional-stability",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "sourceLotServices": [
+        {
+          "analysisHash": "4b7e5ccecac2ab09faf6322a2101553851bab42a2e94817a2ee94aaa3b416f50",
+          "device": "burn-in-1",
+          "inputBuffer": "package-input",
+          "inputResource": "packaged-dram-device"
+        },
+        {
+          "analysisHash": "b2bfd5f5bd38bde53038e004a76378a871c09ecc2f0a679e71c281403bf43e91",
+          "device": "packaging-1",
+          "inputBuffer": "die-input",
+          "inputResource": "known-good-dram-die"
+        }
+      ]
+    }
+  ],
+  "investigation": "run-114-back-end-die-handoff-requalification",
+  "kind": "observation",
+  "previousEntryHash": "f7e79b82d37b4d7e809a22d9d4257e6a3510938d0b7e1a932d4316e630b1f3aa",
+  "sequence": 5,
+  "statement": "Resume Run 114 as the current factory after discarding the tray Candidate. The exact Probe-to-packaging diagnostic is now dispositioned as a non-propagating local signal; the Workbench may advance to the next unsuppressed industrial loss without changing the selected blueprint.",
+  "version": 1
+}

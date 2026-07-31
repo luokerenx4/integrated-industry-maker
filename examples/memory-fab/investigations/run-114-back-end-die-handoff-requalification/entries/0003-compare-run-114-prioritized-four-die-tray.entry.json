@@ -1,0 +1,88 @@
+{
+  "author": "agent",
+  "entryHash": "1a69bc40c056196564121a6c29958992e87bf0197640b226d347f77b11045a95",
+  "evidence": [
+    "run-114-back-end-factory",
+    "run-114-prioritized-four-die-tray-comparison"
+  ],
+  "id": "compare-run-114-prioritized-four-die-tray",
+  "introducedAnchors": [
+    {
+      "comparisonHash": "6726adad828d8fe5f7645dfe9deb2fe4d585ae281b0866d07027cbb1a4be5969",
+      "diagnostic": {
+        "causalHash": "7d2f18a140893db169e6cab76b6c6c515f1f9f0665b7a4d45e96cadf08c249b9",
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:furnace-1+connection:deposition-to-batch-furnace+device:deposition-1:30c26db778",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:furnace-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 116-candidate-trial-run-114-prioritized-four-die-tra (signal 0.2070). 8/10 active flow Devices accumulated 239.2 explicit material-shortage device-s inside 1155.9 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1132.1 of 1371.3 flow input-wait device-s remained outside ranked shortage intervals.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "furnace-1",
+            "kind": "device"
+          },
+          {
+            "id": "deposition-to-batch-furnace",
+            "kind": "connection"
+          },
+          {
+            "id": "deposition-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "8/10 active flow Devices accumulated 239.2 explicit material-shortage device-s inside 1155.9 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1132.1 of 1371.3 flow input-wait device-s remained outside ranked shortage intervals."
+      },
+      "from": {
+        "blueprintHash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "89c183540d7a0daa3810e72741837319cd8742ccefc3f963e03cd7a386a77e3c",
+        "runId": "114-candidate-trial-run-112-dimensional-stability"
+      },
+      "hashes": {
+        "blueprintHash": "abd16a8236ed16931203a3ac2d14405cc4855a7569bb1ba31fd1259b6afe7f86",
+        "engineVersion": "inm-sim/0.93.1",
+        "executionHash": "4291745eec6a04d6933e4be0933a3a73c9641e988452b176dba832e2f6fd1345",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "run-114-prioritized-four-die-tray-comparison",
+      "intervention": {
+        "from": {
+          "hash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+          "id": "generated-dram-fab"
+        },
+        "kind": "blueprint",
+        "to": {
+          "hash": "abd16a8236ed16931203a3ac2d14405cc4855a7569bb1ba31fd1259b6afe7f86",
+          "id": "generated-dram-fab"
+        }
+      },
+      "kind": "run-comparison",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "to": {
+        "blueprintHash": "abd16a8236ed16931203a3ac2d14405cc4855a7569bb1ba31fd1259b6afe7f86",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "5cd38f0024db8d0ae8fd0555ff6a757c23b8a456e0f7ab4ad8f2bf03c45a08fb",
+        "runId": "116-candidate-trial-run-114-prioritized-four-die-tra"
+      }
+    }
+  ],
+  "investigation": "run-114-back-end-die-handoff-requalification",
+  "kind": "observation",
+  "previousEntryHash": "479dad99fd54f1d46c863ac746fa3a9940f8d61ed6ac007f6ed8ae3d4cb1fc78",
+  "sequence": 3,
+  "statement": "Against Run 114, the prioritized four-die tray removes probe-to-packaging as the leading transport blocker and reduces total transport blocking from 218,601 to 116,650 item-ticks, but leaves delivered items (88), throughput (22/min), mean cycle time (59,598.5 ticks), and average WIP (49.1905) unchanged. It adds 40 build cost and 18,099.5 mJ energy, while unpowered time rises by 62,789 device-ticks and score falls by 0.0020904975.",
+  "version": 1
+}
