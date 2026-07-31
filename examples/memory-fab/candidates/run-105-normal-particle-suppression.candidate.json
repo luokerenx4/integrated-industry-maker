@@ -1,0 +1,29 @@
+{
+  "baseCandidateHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reduce exact etch-origin introduced defect instances from two to one or zero while preserving completed output, on-time delivery, capacity readiness, zero scrap and escapes, WIP, and every zero-regression locked current-best case.",
+  "hypothesis": "Change etch-l2's cadence-controller normal mode and matching normal recipe together from closed-loop-control to particle-suppression, while retaining closed-loop-fast-4-5 as the shortage-recovery mode. This isolates inline particle prevention to the four normal jobs instead of adding equipment or changing transport.",
+  "id": "run-105-normal-particle-suppression",
+  "name": "Run 105 normal-mode particle suppression",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/61/policy/cadenceControl/normalMode",
+      "value": "particle-suppression"
+    },
+    {
+      "op": "replace",
+      "path": "/devices/61/recipes/0/mode",
+      "value": "particle-suppression"
+    }
+  ],
+  "source": {
+    "entry": "test-normal-particle-suppression",
+    "entryHash": "56cad9b6270ab727ee63dde17add39199e8455ad38154b36c8fd6b0e81673fb6",
+    "investigation": "run-105-layer-two-quality",
+    "kind": "investigation-hypothesis",
+    "manifestHash": "19b7b5f45193178e0389c19288f641757ba2f3c07adff6c2bcbbfdec205b2f91",
+    "project": "memory-fab"
+  },
+  "version": 1
+}

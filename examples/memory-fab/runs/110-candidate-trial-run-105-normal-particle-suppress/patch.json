@@ -1,0 +1,12 @@
+[
+  {
+    "op": "replace",
+    "path": "/devices/61/policy/cadenceControl/normalMode",
+    "value": "particle-suppression"
+  },
+  {
+    "op": "replace",
+    "path": "/devices/61/recipes/0/mode",
+    "value": "particle-suppression"
+  }
+]

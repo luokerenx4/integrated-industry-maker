@@ -16,19 +16,39 @@ function currentParticleControlPatch(
 ): JsonPatchOperation[] | null {
   const deviceIndex = blueprint.devices.findIndex((device) => device.id === "etch-l2");
   const device = blueprint.devices[deviceIndex];
+  const policy = isRecord(device?.policy) ? device.policy : null;
+  const cadenceControl = policy?.cadenceControl;
   if (!device
     || device.asset !== "closed-loop-plasma-etch-bay"
     || device.recipe !== undefined
     || !Array.isArray(device.recipes)
-    || device.recipes.length !== 1
-    || !isRecord(device.recipes[0])
-    || device.recipes[0].process !== "etch-cell-layer-2"
-    || device.recipes[0].mode !== "closed-loop-control") return null;
-  return [{
-    op: "replace",
-    path: `/devices/${deviceIndex}/recipes/0/mode`,
-    value: "particle-suppression",
-  }];
+    || device.recipes.length !== 2
+    || !isRecord(cadenceControl)
+    || cadenceControl.kind !== "downstream-coverage-recovery"
+    || cadenceControl.process !== "etch-cell-layer-2"
+    || cadenceControl.normalMode !== "closed-loop-control"
+    || cadenceControl.recoveryMode !== "closed-loop-fast-4-5") return null;
+  const normalRecipeIndex = device.recipes.findIndex((recipe) =>
+    isRecord(recipe)
+    && recipe.process === cadenceControl.process
+    && recipe.mode === cadenceControl.normalMode);
+  const recoveryRecipe = device.recipes.find((recipe) =>
+    isRecord(recipe)
+    && recipe.process === cadenceControl.process
+    && recipe.mode === cadenceControl.recoveryMode);
+  if (normalRecipeIndex < 0 || !recoveryRecipe) return null;
+  return [
+    {
+      op: "replace",
+      path: `/devices/${deviceIndex}/policy/cadenceControl/normalMode`,
+      value: "particle-suppression",
+    },
+    {
+      op: "replace",
+      path: `/devices/${deviceIndex}/recipes/${normalRecipeIndex}/mode`,
+      value: "particle-suppression",
+    },
+  ];
 }
 
 function observesCurrentParticleExcursion(context: Readonly<ProjectProposalContext>): boolean {

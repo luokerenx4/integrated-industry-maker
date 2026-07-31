@@ -2030,16 +2030,16 @@ describe("blueprint compiler", () => {
       finalWipUnits: 8,
     }));
     expect(result.state.devices["burn-in-1"]!.sourceLotBatches["package-input"]!["packaged-dram-device"]).toEqual([{
-      sourceLotIds: ["dram-lot-08"],
+      sourceLotIds: ["dram-lot-07"],
       count: 8,
       treatmentLevel: 0,
     }]);
-    expect(result.metrics.sourceLotLineage.sourceSets.find((entry) => entry.sourceLotIds.join() === "dram-lot-08")!.finalWip).toEqual([{
+    expect(result.metrics.sourceLotLineage.sourceSets.find((entry) => entry.sourceLotIds.join() === "dram-lot-07")!.finalWip).toEqual([{
       kind: "buffer",
       resource: "packaged-dram-device",
       device: "burn-in-1",
       buffer: "package-input",
-      sourceLotIds: ["dram-lot-08"],
+      sourceLotIds: ["dram-lot-07"],
       count: 8,
     }]);
     expect(result.events.filter((event) => event.type === "source-lot.created")).toHaveLength(12);
@@ -2115,7 +2115,7 @@ describe("blueprint compiler", () => {
     }));
   }, 30_000);
 
-  test("closed-loop production mode preserves authored excursions while preventing exact defects", async () => {
+  test("adaptive layer-two modes preserve authored excursions while preventing exact defects", async () => {
     const source = await loadFactoryProject(memoryFab, {
       blueprint: "generated-dram-fab",
       scenario: "production-window",
@@ -2124,11 +2124,11 @@ describe("blueprint compiler", () => {
     const project = compileFactoryProject(source);
     const plan = project.devices["etch-l2"]!.processPlans[0]!;
     expect(plan.mode).toEqual(expect.objectContaining({
-      id: "closed-loop-control",
-      preventsDefects: ["latent-electrical"],
+      id: "particle-suppression",
+      preventsDefects: ["latent-electrical", "particle-contamination"],
     }));
     expect(analyzeProduction(project).devices.find((device) => device.device === "etch-l2")).toEqual(expect.objectContaining({
-      preventsDefects: ["latent-electrical"],
+      preventsDefects: ["latent-electrical", "particle-contamination"],
     }));
 
     const result = runUntil(project, undefined, { seed: 42 });
@@ -2144,17 +2144,17 @@ describe("blueprint compiler", () => {
     expect(result.metrics.qualityFlow.qualityControl).toEqual({
       authoredExcursions: 3,
       authoredDefectInstances: 3,
-      preventedDefectInstances: 1,
-      appliedDefectInstances: 2,
-      preventedLots: 1,
+      preventedDefectInstances: 2,
+      appliedDefectInstances: 1,
+      preventedLots: 2,
       devices: {
         "etch-l2": {
           mode: "mixed",
           authoredDefectInstances: 3,
-          preventedDefectInstances: 1,
-          appliedDefectInstances: 2,
+          preventedDefectInstances: 2,
+          appliedDefectInstances: 1,
           lots: ["dram-lot-03", "dram-lot-08", "dram-lot-11"],
-          preventedByClass: { "latent-electrical": 1 },
+          preventedByClass: { "latent-electrical": 1, "particle-contamination": 1 },
         },
       },
     });
@@ -4960,7 +4960,7 @@ describe("coding-agent Blueprint benchmarks", () => {
       { id: "steady-production", currentOnTime: 12, proposedOnTime: 12, wipDelta: expect.any(Number) },
       { id: "mixed-quality", currentOnTime: 12, proposedOnTime: 12, wipDelta: expect.any(Number) },
       { id: "quality-excursion", currentOnTime: 12, proposedOnTime: 11, wipDelta: expect.any(Number) },
-      { id: "lithography-interruption", currentOnTime: 9, proposedOnTime: 6, wipDelta: expect.any(Number) },
+      { id: "lithography-interruption", currentOnTime: 10, proposedOnTime: 6, wipDelta: expect.any(Number) },
       { id: "facility-interruption", currentOnTime: 9, proposedOnTime: 7, wipDelta: expect.any(Number) },
     ]);
     expect(preview.currentFactory.cases.every((item) =>

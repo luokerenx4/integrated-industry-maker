@@ -1,0 +1,16 @@
+{
+  "author": "agent",
+  "entryHash": "ffb367c6ee6dbf79180d4d6e648d4e083a465fcd1dbe9eeea6db7800615b9697",
+  "evidence": [
+    "operating-run",
+    "diagnostic"
+  ],
+  "id": "observe-etch-l2-current-state",
+  "introducedAnchors": [],
+  "investigation": "run-105-layer-two-quality",
+  "kind": "observation",
+  "previousEntryHash": null,
+  "sequence": 1,
+  "statement": "Run 105 completes all twelve lots with 100% good yield but only 83.3% first-pass yield: two fixed etch-cell-layer-2 excursions are repaired, with zero scrap, escape, or lost output. The spatially observed etch-l2 cell is input-wait dominated at 31.7% utilization, with zero blocked, unpowered, or failed time; four jobs use normal closed-loop-control and eight use recovery closed-loop-fast-4-5. Capacity duplication and local transport changes therefore do not address the observed mechanism.",
+  "version": 1
+}

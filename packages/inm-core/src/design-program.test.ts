@@ -301,6 +301,7 @@ test("inspection supply Design closes one exact causal frontier without changing
     filter: (source) => !source.split("/").includes("design-runs") && !source.split("/").includes(".inm"),
   });
   const seedPath = join(cleanProject, "blueprints", "generated-dram-fab.blueprint.json");
+  await writeFile(seedPath, await readFile(join(cleanProject, "runs/105-simulate/blueprint.json"), "utf8"));
   const seedBefore = await readFile(seedPath, "utf8");
   const progress: DesignRunProgress[] = [];
   const result = await runDesignProgram(cleanProject, "inspection-supply-path", {

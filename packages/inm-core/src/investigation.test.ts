@@ -767,6 +767,10 @@ test("a Candidate-sourced Investigation resumes exact review, TRIAL, comparison,
   const entries = join(projectDir, "investigations", investigationId, "entries");
   const candidateId = "incumbent-five-performance-seven-commercial";
   try {
+    await writeFile(
+      join(projectDir, "blueprints/generated-dram-fab.blueprint.json"),
+      await readFile(join(projectDir, "runs/105-simulate/blueprint.json"), "utf8"),
+    );
     const completed = await inspectIndustrialInvestigation(projectDir, investigationId);
     expect(completed.handoff).toEqual(expect.objectContaining({
       phase: "observe-current-factory",
@@ -793,6 +797,34 @@ test("a Candidate-sourced Investigation resumes exact review, TRIAL, comparison,
       }),
     }));
 
+    await writeFile(
+      join(projectDir, "blueprints/generated-dram-fab.blueprint.json"),
+      await readFile(
+        join(projectDir, "runs/109-candidate-trial-incumbent-five-performance-seven/blueprint.json"),
+        "utf8",
+      ),
+    );
+    const applied = await inspectIndustrialInvestigation(projectDir, investigationId);
+    expect(applied.handoff).toEqual(expect.objectContaining({
+      candidateCycle: expect.objectContaining({
+        state: "completed",
+        candidates: [
+          expect.objectContaining({
+            id: candidateId,
+            decisionState: "verified",
+            disposition: expect.objectContaining({
+              entryId: "discard-incumbent-five-seven-campaign",
+              disposition: "discard",
+            }),
+          }),
+        ],
+      }),
+    }));
+
+    await writeFile(
+      join(projectDir, "blueprints/generated-dram-fab.blueprint.json"),
+      await readFile(join(projectDir, "runs/105-simulate/blueprint.json"), "utf8"),
+    );
     await rm(join(entries, "0018-discard-incumbent-five-seven-campaign.entry.json"));
     const decision = await inspectIndustrialInvestigation(projectDir, investigationId);
     expect(decision.handoff).toEqual(expect.objectContaining({

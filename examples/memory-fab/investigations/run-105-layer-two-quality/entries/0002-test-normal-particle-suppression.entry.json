@@ -1,0 +1,18 @@
+{
+  "author": "agent",
+  "entryHash": "56cad9b6270ab727ee63dde17add39199e8455ad38154b36c8fd6b0e81673fb6",
+  "evidence": [
+    "operating-run",
+    "diagnostic"
+  ],
+  "expectedEffect": "Reduce exact etch-origin introduced defect instances from two to one or zero while preserving completed output, on-time delivery, capacity readiness, zero scrap and escapes, WIP, and every zero-regression locked current-best case.",
+  "id": "test-normal-particle-suppression",
+  "intervention": "blueprint",
+  "introducedAnchors": [],
+  "investigation": "run-105-layer-two-quality",
+  "kind": "hypothesis",
+  "previousEntryHash": "ffb367c6ee6dbf79180d4d6e648d4e083a465fcd1dbe9eeea6db7800615b9697",
+  "sequence": 2,
+  "statement": "Change etch-l2's cadence-controller normal mode and matching normal recipe together from closed-loop-control to particle-suppression, while retaining closed-loop-fast-4-5 as the shortage-recovery mode. This isolates inline particle prevention to the four normal jobs instead of adding equipment or changing transport.",
+  "version": 1
+}

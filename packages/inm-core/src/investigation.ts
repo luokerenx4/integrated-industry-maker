@@ -2396,7 +2396,9 @@ function matchingReviewAnchor(
     .find((anchor) =>
       anchor.candidateId === candidateId
       && anchor.proposalHash === decision.proposalHash
-      && anchor.currentCandidateHash === decision.currentCandidateHash
+      && (anchor.currentCandidateHash === decision.currentCandidateHash
+        || (decision.state === "verified"
+          && anchor.proposedCandidateHash === decision.currentCandidateHash))
       && anchor.proposedCandidateHash === decision.proposedCandidateHash
       && anchor.reviewResultHash === decision.resultHash
       && anchor.verdict === decision.verdict) ?? null;

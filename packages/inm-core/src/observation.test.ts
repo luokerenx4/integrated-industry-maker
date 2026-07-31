@@ -8,12 +8,13 @@ import { openProjectWorkbenchSnapshot, type ProjectWorkbenchSnapshot } from "./w
 const repository = resolve(import.meta.dir, "../../..");
 const memoryFabProjectDir = join(repository, "examples/memory-fab");
 const memoryFabSnapshot = openProjectWorkbenchSnapshot(memoryFabProjectDir);
+const currentRunId = "110-candidate-trial-run-105-normal-particle-suppress";
 
 test("observation brief keeps the Objective WIP tradeoff visible after current losses are bounded", async () => {
   const snapshot = structuredClone(await memoryFabSnapshot);
   snapshot.diagnostics = snapshot.diagnostics.filter((diagnostic) => diagnostic.severity === "info");
   snapshot.lossDispositions = [];
-  const brief = buildFactoryObservationBrief(snapshot, "105-simulate");
+  const brief = buildFactoryObservationBrief(snapshot, currentRunId);
   expect(brief.version).toBe(5);
   expect(brief.status).toBe("ready");
   expect(brief.authority).toBe("human-or-agent");
@@ -27,13 +28,13 @@ test("observation brief keeps the Objective WIP tradeoff visible after current l
   });
   expect(brief.evidence.state).toBe("compatible");
   expect(brief.evidence.run).toEqual(expect.objectContaining({
-    id: "105-simulate",
+    id: currentRunId,
     resultHash: expect.any(String),
-    decision: "BASELINE",
+    decision: "TRIAL",
   }));
   expect(brief.evidence.sourceLotServices).toEqual(expect.arrayContaining([
     expect.objectContaining({
-      analysisHash: "93b87b1949dea24903070c3576bcce8b6fe4fc8fa44d9da3f7377738a47ff01f",
+      analysisHash: "e3a9603cecb16cc7027c5f215bfc6c5c1330dd1ef2b599f0efd40aa8e6ec73a1",
       query: expect.objectContaining({ device: "burn-in-1" }),
     }),
   ]));
@@ -41,35 +42,35 @@ test("observation brief keeps the Objective WIP tradeoff visible after current l
   expect(brief.leadingObjectiveTradeoff).toEqual({
     component: "wip",
     contribution: -73.78575000000001,
-    runId: "105-simulate",
+    runId: currentRunId,
     subjects: [
       { kind: "device", id: "burn-in-1" },
       { kind: "device", id: "packaging-1" },
     ],
-    summary: "49.191 average dram-device-equivalent (28.039 raw WIP items) contributes -73.786 to the exact Objective score; leading equivalent exposure is 9.466 at burn-in-1.package-input and 6.874 at packaging-1.die-input.",
+    summary: "49.191 average dram-device-equivalent (28.331 raw WIP items) contributes -73.786 to the exact Objective score; leading equivalent exposure is 9.466 at burn-in-1.package-input and 7.160 at packaging-1.die-input.",
     interpretation: "objective-accounting-not-causal-loss",
   });
   expect(brief.id).toHaveLength(64);
   expect(brief.views[0]).toEqual(expect.objectContaining({
     id: "factory-overview",
     kind: "factory-overview",
-    studioRoute: "/memory-fab/factory?run=105-simulate",
+    studioRoute: `/memory-fab/factory?run=${currentRunId}`,
     required: true,
   }));
   expect(brief.views).toHaveLength(3);
   expect(brief.views).toEqual(expect.arrayContaining([
     expect.objectContaining({
       kind: "factory-focus",
-      studioRoute: "/memory-fab/factory/devices/burn-in-1?run=105-simulate",
+      studioRoute: `/memory-fab/factory/devices/burn-in-1?run=${currentRunId}`,
     }),
     expect.objectContaining({
       kind: "factory-focus",
-      studioRoute: "/memory-fab/factory/devices/packaging-1?run=105-simulate",
+      studioRoute: `/memory-fab/factory/devices/packaging-1?run=${currentRunId}`,
     }),
   ]));
   expect(brief.handoff.requiredStatements).toHaveLength(4);
   expect(brief.handoff.nextStep).toContain("Use the Objective tradeoff and Resource-qualified views");
-  expect(buildFactoryObservationBrief(snapshot, "105-simulate")).toEqual(brief);
+  expect(buildFactoryObservationBrief(snapshot, currentRunId)).toEqual(brief);
   expect(() => buildFactoryObservationBrief(snapshot, "missing-run")).toThrow("Unknown immutable run 'missing-run'");
 });
 
@@ -84,7 +85,7 @@ async function observationBriefForDiagnostic(code: string) {
     target: { kind: "diagnostic", diagnosticId: diagnostic.id },
   };
   snapshot.lossDispositions = snapshot.lossDispositions.filter((item) => item.diagnosticId !== diagnostic.id);
-  return buildFactoryObservationBrief(snapshot as ProjectWorkbenchSnapshot, "105-simulate");
+  return buildFactoryObservationBrief(snapshot as ProjectWorkbenchSnapshot, currentRunId);
 }
 
 test("observation brief exposes the exact shipping grid for power interruption", async () => {
@@ -98,9 +99,9 @@ test("observation brief exposes the exact shipping grid for power interruption",
     ],
   }));
   expect(brief.views).toEqual(expect.arrayContaining([
-    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/substrate-receiving-to-packaging-loader?run=105-simulate" }),
-    expect.objectContaining({ studioRoute: "/memory-fab/factory/connections/substrate-receiving-to-packaging?run=105-simulate" }),
-    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/shipping-power?run=105-simulate" }),
+    expect.objectContaining({ studioRoute: `/memory-fab/factory/devices/substrate-receiving-to-packaging-loader?run=${currentRunId}` }),
+    expect.objectContaining({ studioRoute: `/memory-fab/factory/connections/substrate-receiving-to-packaging?run=${currentRunId}` }),
+    expect.objectContaining({ studioRoute: `/memory-fab/factory/devices/shipping-power?run=${currentRunId}` }),
   ]));
 });
 
@@ -114,7 +115,7 @@ test("observation brief exposes the exact release boundary for release admission
     ],
   }));
   expect(brief.views).toEqual(expect.arrayContaining([
-    expect.objectContaining({ kind: "factory-focus", studioRoute: "/memory-fab/factory/devices/lot-release?run=105-simulate" }),
+    expect.objectContaining({ kind: "factory-focus", studioRoute: `/memory-fab/factory/devices/lot-release?run=${currentRunId}` }),
     expect.objectContaining({ kind: "catalog-focus", studioRoute: "/memory-fab/catalog/routes/dram-front-end" }),
   ]));
 });
@@ -129,8 +130,8 @@ test("observation brief exposes the exact equipment and service path for mainten
     ],
   }));
   expect(brief.views).toEqual(expect.arrayContaining([
-    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/lithography-1?run=105-simulate" }),
-    expect.objectContaining({ studioRoute: "/memory-fab/factory/devices/maintenance-service-1?run=105-simulate" }),
+    expect.objectContaining({ studioRoute: `/memory-fab/factory/devices/lithography-1?run=${currentRunId}` }),
+    expect.objectContaining({ studioRoute: `/memory-fab/factory/devices/maintenance-service-1?run=${currentRunId}` }),
   ]));
 });
 

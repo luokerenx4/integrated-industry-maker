@@ -16,9 +16,7 @@ There are no active plans.
 
 ## Proposed plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/run-105-loss-requalification]] | Requalify remaining Run-105 physical-loss branches from exact current evidence, beginning with yield quality. | 2026-07-31 |
+There are no proposed plans.
 
 ## Paused plans
 
@@ -28,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/run-105-loss-requalification]] | Requalify Run-105 yield quality from exact observation through an Investigation-owned Candidate, explicit KEEP decision, and verified current handoff. | 2026-07-31 |
 | [[plans/investigation-diagnostic-disposition]] | Let explicit current Investigation decisions disposition exact diagnostics and advance the shared Workbench queue without weakening evidence identity. | 2026-07-31 |
 | [[plans/single-snapshot-design-session-bootstrap]] | Open one exact Investigation/factory Design Session from one authoritative Workbench snapshot per surface request. | 2026-07-31 |
 | [[plans/investigation-centered-design-session]] | Make one Investigation the resumable human/Agent surface for observation, hypothesis, Candidate review/trial/comparison, and explicit disposition. | 2026-07-31 |

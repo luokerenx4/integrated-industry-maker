@@ -1,0 +1,88 @@
+{
+  "author": "agent",
+  "entryHash": "bb001aa3adf1b78712bef8d5377c5846a252cb595d4d7131cada30b7bcb85ecc",
+  "evidence": [
+    "operating-run",
+    "diagnostic",
+    "particle-suppression-trial"
+  ],
+  "id": "observe-particle-suppression-trial",
+  "introducedAnchors": [
+    {
+      "comparisonHash": "3e2adf2632cb255114e2bd3a008b7e25c70e23eee996cc12de6f403f04a7039a",
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:furnace-1+connection:deposition-to-batch-furnace+device:deposition-1:d45d1bb672",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:furnace-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 110-candidate-trial-run-105-normal-particle-suppress (signal 0.2050). 9/10 active flow Devices accumulated 237.2 explicit material-shortage device-s inside 1157.5 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1130.5 of 1367.8 flow input-wait device-s remained outside ranked shortage intervals, with 236.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "furnace-1",
+            "kind": "device"
+          },
+          {
+            "id": "deposition-to-batch-furnace",
+            "kind": "connection"
+          },
+          {
+            "id": "deposition-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/10 active flow Devices accumulated 237.2 explicit material-shortage device-s inside 1157.5 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1130.5 of 1367.8 flow input-wait device-s remained outside ranked shortage intervals, with 236.0 additional exception-only device-s excluded from ranking."
+      },
+      "from": {
+        "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "353061d1b81789346483a196dd373568d2cacd67ea12b05e9374cec675fe2f8e",
+        "runId": "105-simulate"
+      },
+      "hashes": {
+        "blueprintHash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+        "engineVersion": "inm-sim/0.92.0",
+        "executionHash": "2d9a503816930e6f31bd22de40c4ccedc89472c6fe20e3c4f3af3d3645d548c4",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "particle-suppression-trial",
+      "intervention": {
+        "from": {
+          "hash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+          "id": "generated-dram-fab"
+        },
+        "kind": "blueprint",
+        "to": {
+          "hash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+          "id": "generated-dram-fab"
+        }
+      },
+      "kind": "run-comparison",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "to": {
+        "blueprintHash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "8322a0ce3d626c9859460cbb55d8075c4b7f3076d4e88fe93e1bdd000e862707",
+        "runId": "110-candidate-trial-run-105-normal-particle-suppress"
+      }
+    }
+  ],
+  "investigation": "run-105-layer-two-quality",
+  "kind": "observation",
+  "previousEntryHash": "56cad9b6270ab727ee63dde17add39199e8455ad38154b36c8fd6b0e81673fb6",
+  "sequence": 3,
+  "statement": "The exact Candidate trial raises first-pass yield from 83.3% to 91.7%, prevents two of three authored defects instead of one, removes one rework cycle, improves score by 0.546577 in the mixed-quality case, and shortens mean transport time by 0.233 seconds. Completed and on-time lots, good yield, WIP, build cost, area, scrap, escapes, capacity readiness, and physical layout remain unchanged. The cost is a small energy-only score regression of 0.001175 to 0.003525 in three non-target locked cases; lithography interruption improves by 2.284085.",
+  "version": 1
+}

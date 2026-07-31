@@ -665,7 +665,7 @@ test("current commissioned fab prevents latent etch damage without reintroducing
     outcome: {
       completed: 12,
       inProgress: 0,
-      firstPassYield: 10 / 12,
+      firstPassYield: 11 / 12,
       deliveryShortfall: 0,
       deliveryOverflow: 38,
       portfolioNetValue: 344,
@@ -676,15 +676,15 @@ test("current commissioned fab prevents latent etch damage without reintroducing
   expect(fabLoss.buckets.find((bucket) => bucket.id === "yield-quality")).toEqual(expect.objectContaining({
     evidence: expect.objectContaining({
       authoredDefectInstances: 3,
-      preventedDefectInstances: 1,
-      appliedDefectInstances: 2,
-      preventedLots: 1,
+      preventedDefectInstances: 2,
+      appliedDefectInstances: 1,
+      preventedLots: 2,
     }),
   }));
   expect(project.blueprint.devices.find((device) => device.id === "etch-l2")).toEqual(expect.objectContaining({
     asset: "closed-loop-plasma-etch-bay",
     recipes: expect.arrayContaining([
-      expect.objectContaining({ process: "etch-cell-layer-2", mode: "closed-loop-control" }),
+      expect.objectContaining({ process: "etch-cell-layer-2", mode: "particle-suppression" }),
       expect.objectContaining({ process: "etch-cell-layer-2", mode: "closed-loop-fast-4-5" }),
     ]),
   }));
@@ -1090,7 +1090,7 @@ test("focused layer-two control targets the current etch-origin defect count exa
     scenario: "production-window",
     objective: "dram-output",
   });
-  loaded.blueprint = JSON.parse(await readFile(resolve(root, "runs/097-simulate/blueprint.json"), "utf8"));
+  loaded.blueprint = JSON.parse(await readFile(resolve(root, "runs/105-simulate/blueprint.json"), "utf8"));
   const project = compileFactoryProject(loaded);
   const result = runUntil(project, undefined, { seed: 42 });
   const fabLoss = analyzeFabLossProfile(result.metrics, project.scenario.durationTicks, project, result.events)!;
@@ -1129,11 +1129,18 @@ test("focused layer-two control targets the current etch-origin defect count exa
       metric: "introducedDefectInstances",
       direction: "decrease",
     },
-    patch: [{
-      op: "replace",
-      path: `/devices/${etchIndex}/recipes/0/mode`,
-      value: "particle-suppression",
-    }],
+    patch: [
+      {
+        op: "replace",
+        path: `/devices/${etchIndex}/policy/cadenceControl/normalMode`,
+        value: "particle-suppression",
+      },
+      {
+        op: "replace",
+        path: `/devices/${etchIndex}/recipes/0/mode`,
+        value: "particle-suppression",
+      },
+    ],
   });
   expect(() => compileFactoryProject({
     ...loaded,

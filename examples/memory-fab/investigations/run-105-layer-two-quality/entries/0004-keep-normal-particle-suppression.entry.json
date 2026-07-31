@@ -1,0 +1,34 @@
+{
+  "author": "agent",
+  "disposition": "keep",
+  "entryHash": "73c8f78ef93dd531c236cbcfe9eb541f875e52036d6ee3a17cfbf712d01f6546",
+  "evidence": [
+    "diagnostic",
+    "particle-suppression-trial",
+    "particle-suppression-review"
+  ],
+  "id": "keep-normal-particle-suppression",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "run-105-normal-particle-suppression",
+      "currentCandidateHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+      "id": "particle-suppression-review",
+      "kind": "candidate-review",
+      "proposalHash": "d2175d237a7225f2d2267108ad3dce9339ec2be2e570215f46221cb2660c35f6",
+      "proposedCandidateHash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+      "reviewResultHash": "9f0c6d4ef487f0e46e2804e6f07c90243b8afbf55e00fdc0ecd10df79cd4204f",
+      "verdict": "KEEP"
+    }
+  ],
+  "investigation": "run-105-layer-two-quality",
+  "kind": "decision",
+  "previousEntryHash": "bb001aa3adf1b78712bef8d5377c5846a252cb595d4d7131cada30b7bcb85ecc",
+  "sequence": 4,
+  "statement": "KEEP the normal-mode particle-suppression intervention. Its exact locked review passes all seven outcome guardrails and the trial materially reduces the targeted quality/rework exposure while preserving output, service, capacity, WIP, cost, area, scrap, and escapes. The small energy-only regressions in three non-target cases are accepted because they are orders of magnitude smaller than the measured target benefit and do not cross any operating guardrail.",
+  "target": {
+    "anchorId": "diagnostic",
+    "kind": "diagnostic"
+  },
+  "version": 1
+}

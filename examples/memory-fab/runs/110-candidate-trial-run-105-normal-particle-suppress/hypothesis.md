@@ -1,0 +1,1 @@
+Change etch-l2's cadence-controller normal mode and matching normal recipe together from closed-loop-control to particle-suppression, while retaining closed-loop-fast-4-5 as the shortage-recovery mode. This isolates inline particle prevention to the four normal jobs instead of adding equipment or changing transport.

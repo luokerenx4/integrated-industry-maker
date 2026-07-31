@@ -1,0 +1,70 @@
+{
+  "anchors": [
+    {
+      "id": "operating-run",
+      "kind": "operating-run",
+      "resultHash": "353061d1b81789346483a196dd373568d2cacd67ea12b05e9374cec675fe2f8e",
+      "runId": "105-simulate"
+    },
+    {
+      "code": "fab-loss.yield-quality",
+      "diagnosticId": "fab-loss.yield-quality:device:etch-l2+route:dram-front-end+project:memory-fab:66eb2ee1b3",
+      "id": "diagnostic",
+      "kind": "diagnostic",
+      "loss": {
+        "bucket": "yield-quality",
+        "contributorId": "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2"
+      },
+      "message": "Verified yield and quality loss is ranked 2 in compatible run 105-simulate (signal 0.1667). 10/12 inspected lots passed first inspection; 2 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 1/3 authored defect instances across 1 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 leads with 0 scrap dispositions.",
+      "priority": 89,
+      "runId": "105-simulate",
+      "severity": "warning",
+      "subjects": [
+        {
+          "id": "etch-l2",
+          "kind": "device"
+        },
+        {
+          "id": "dram-front-end",
+          "kind": "route"
+        },
+        {
+          "id": "memory-fab",
+          "kind": "project"
+        }
+      ],
+      "summary": "10/12 inspected lots passed first inspection; 2 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 1/3 authored defect instances across 1 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 leads with 0 scrap dispositions."
+    }
+  ],
+  "authority": "human-or-agent",
+  "hashes": {
+    "blueprintHash": "16ca367007ed24ae37678e214d37b1559525d83bf7035667d585b205123f1bb7",
+    "engineVersion": "inm-sim/0.92.0",
+    "executionHash": "b8b5653fd5fa7a0481cc632deb8a4e3bf23cb1e71923734db74941e48880d6d4",
+    "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+    "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+    "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+    "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+  },
+  "id": "run-105-layer-two-quality",
+  "initialNextAction": {
+    "actionLabel": "OPEN DESIGN LOOP",
+    "effect": "read-only",
+    "id": "design.inspect:layer-two-particle-control:fab-loss.yield-quality:device:etch-l2+route:dram-front-end+project:memory-fab:66eb2ee1b3",
+    "reason": "Verified yield and quality loss is ranked 2 in compatible run 105-simulate (signal 0.1667). 10/12 inspected lots passed first inspection; 2 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 1/3 authored defect instances across 1 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 leads with 0 scrap dispositions. Open the aligned Design Program brief before choosing whether to create bounded locked-case evidence.",
+    "studioRoute": "/memory-fab/designs/layer-two-particle-control",
+    "title": "Investigate the leading loss with Layer-two Particle Control"
+  },
+  "manifestHash": "19b7b5f45193178e0389c19288f641757ba2f3c07adff6c2bcbbfdec205b2f91",
+  "name": "Run 105 layer-two quality requalification",
+  "project": "memory-fab",
+  "question": "Can the existing layer-two etch cell reduce exact etch-origin rework under the current cadence-control contract without regressing any locked operating case?",
+  "selection": {
+    "blueprint": "generated-dram-fab",
+    "objective": "dram-output",
+    "productionPlan": "production-window",
+    "scenario": "production-window",
+    "world": "cleanroom"
+  },
+  "version": 1
+}
