@@ -1,0 +1,79 @@
+{
+  "author": "agent",
+  "entryHash": "440874e05109686911e5db21a0f8a1aa015d219d27ccf662dbdd6eb57c7476a0",
+  "evidence": [
+    "run-112-critical-dimension-factory"
+  ],
+  "id": "observe-run-112-critical-dimension",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "causalHash": "8ad9e55a041d65dc434149a5d92f540ba96e2c100d0f761d22b4e5b093df2153",
+        "code": "fab-loss.yield-quality",
+        "diagnosticId": "fab-loss.yield-quality:device:etch-l2+route:dram-front-end+project:memory-fab:b4d2f8e976",
+        "loss": {
+          "bucket": "yield-quality",
+          "contributorId": "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2:critical-dimension"
+        },
+        "message": "Verified yield and quality loss is ranked 3 in compatible run 112-simulate (signal 0.0833). 11/12 inspected lots passed first inspection; 1 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 2/3 authored defect instances across 2 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 / critical-dimension leads with 0 scrap dispositions.",
+        "priority": 88,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "etch-l2",
+            "kind": "device"
+          },
+          {
+            "id": "dram-front-end",
+            "kind": "route"
+          },
+          {
+            "id": "memory-fab",
+            "kind": "project"
+          }
+        ],
+        "summary": "11/12 inspected lots passed first inspection; 1 reworked, 0 scrapped, 0 escaped, and 0 lot-derived output units were lost. Mode controls prevented 2/3 authored defect instances across 2 lots. 1 defect-origin contributors are traceable; etch-cell-layer-2 / critical-dimension leads with 0 scrap dispositions."
+      },
+      "hashes": {
+        "blueprintHash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+        "engineVersion": "inm-sim/0.93.1",
+        "executionHash": "0672ae83c9384a33aee3ec0362b4aa4d5e0146ff34fee0b2fe32a41129217a79",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "run-112-critical-dimension-factory",
+      "kind": "factory-observation",
+      "resultHash": "e431a41f9560f7d9f1a925d6b088a93696e4d11bc55bfe4431ffa41deba3622b",
+      "runId": "112-simulate",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "sourceLotServices": [
+        {
+          "analysisHash": "7869e72a53378716500c2e7f4eff96ab5b3bfdf77629ac779bc17805422e3e35",
+          "device": "burn-in-1",
+          "inputBuffer": "package-input",
+          "inputResource": "packaged-dram-device"
+        },
+        {
+          "analysisHash": "cfeb088e4532416374cd62197ea8cb8395f9b9aa1384e623dc7d68c4d7ad8486",
+          "device": "packaging-1",
+          "inputBuffer": "die-input",
+          "inputResource": "known-good-dram-die"
+        }
+      ]
+    }
+  ],
+  "investigation": "run-112-dimensional-stability",
+  "kind": "observation",
+  "previousEntryHash": null,
+  "sequence": 1,
+  "statement": "Run 112 applies exactly one critical-dimension defect to dram-lot-03 during normal particle-suppression etch. Inspection detects it, advanced recovery repairs it, and the other particle and latent-electrical excursions are already prevented by their selected modes.",
+  "version": 1
+}

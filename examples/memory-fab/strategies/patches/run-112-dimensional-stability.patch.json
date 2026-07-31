@@ -1,0 +1,12 @@
+[
+  {
+    "op": "replace",
+    "path": "/devices/61/policy/cadenceControl/normalMode",
+    "value": "dimensional-stability"
+  },
+  {
+    "op": "replace",
+    "path": "/devices/61/recipes/0/mode",
+    "value": "dimensional-stability"
+  }
+]

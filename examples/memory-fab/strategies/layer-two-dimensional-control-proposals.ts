@@ -4,14 +4,14 @@ import type {
   ProjectProposalProvider,
 } from "./runtime-api";
 
-const contributorId = "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2:particle-contamination";
-const strategy = "recipe:particle-suppression-layer-two-etch";
+const contributorId = "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2:critical-dimension";
+const strategy = "recipe:dimensional-stability-layer-two-etch";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function currentParticleControlPatch(
+function dimensionalStabilityPatch(
   blueprint: ProjectProposalContext["blueprint"],
 ): JsonPatchOperation[] | null {
   const deviceIndex = blueprint.devices.findIndex((device) => device.id === "etch-l2");
@@ -26,7 +26,7 @@ function currentParticleControlPatch(
     || !isRecord(cadenceControl)
     || cadenceControl.kind !== "downstream-coverage-recovery"
     || cadenceControl.process !== "etch-cell-layer-2"
-    || cadenceControl.normalMode !== "closed-loop-control"
+    || cadenceControl.normalMode !== "particle-suppression"
     || cadenceControl.recoveryMode !== "closed-loop-fast-4-5") return null;
   const normalRecipeIndex = device.recipes.findIndex((recipe) =>
     isRecord(recipe)
@@ -41,17 +41,17 @@ function currentParticleControlPatch(
     {
       op: "replace",
       path: `/devices/${deviceIndex}/policy/cadenceControl/normalMode`,
-      value: "particle-suppression",
+      value: "dimensional-stability",
     },
     {
       op: "replace",
       path: `/devices/${deviceIndex}/recipes/${normalRecipeIndex}/mode`,
-      value: "particle-suppression",
+      value: "dimensional-stability",
     },
   ];
 }
 
-function observesCurrentParticleExcursion(context: Readonly<ProjectProposalContext>): boolean {
+function observesResidualDimensionalExcursion(context: Readonly<ProjectProposalContext>): boolean {
   if (context.branch.role !== "leader" || !context.fabLoss?.chain.includes("yield-quality")) return false;
   const bucket = context.fabLoss.buckets.find((item) => item.id === "yield-quality");
   const contributor = bucket?.contributors.find((item) => item.id === contributorId);
@@ -61,7 +61,7 @@ function observesCurrentParticleExcursion(context: Readonly<ProjectProposalConte
     && contributor.processes.length === 1
     && contributor.processes[0] === "etch-cell-layer-2"
     && contributor.defects.length === 1
-    && contributor.defects[0] === "particle-contamination"
+    && contributor.defects[0] === "critical-dimension"
     && contributor.subjects.some((subject) => subject.kind === "device" && subject.id === "etch-l2")
     && typeof contributor.evidence.introducedDefectInstances === "number"
     && contributor.evidence.introducedDefectInstances > 0;
@@ -70,14 +70,14 @@ function observesCurrentParticleExcursion(context: Readonly<ProjectProposalConte
 export default {
   apiVersion: 10,
   propose(context) {
-    if (!observesCurrentParticleExcursion(context)
+    if (!observesResidualDimensionalExcursion(context)
       || context.history.some((item) => item.strategy === strategy)) return null;
-    const patch = currentParticleControlPatch(context.blueprint);
+    const patch = dimensionalStabilityPatch(context.blueprint);
     if (!patch) return null;
     return {
       strategy,
-      hypothesis: "Selecting the catalogued layer-two particle-suppression mode can prevent the observed particle-contamination instance before inspection and rework.",
-      expectedEffect: "Reduce exact etch-origin introduced defect instances while charging the mode's authored 13/10 active-power envelope across every locked case.",
+      hypothesis: "Running normal layer-two etch with the installed tool's dimensional-stability control can prevent the residual critical-dimension excursion without changing cadence or recovery policy.",
+      expectedEffect: "Reduce the exact critical-dimension origin from one instance to zero while preserving particle and latent-electrical prevention and charging the authored 3/2 active-power envelope in every locked case.",
       addressedLoss: "yield-quality",
       addressedLossTarget: {
         contributor: contributorId,

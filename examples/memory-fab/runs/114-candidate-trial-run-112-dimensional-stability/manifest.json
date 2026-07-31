@@ -1,0 +1,33 @@
+{
+  "candidate": {
+    "id": "run-112-dimensional-stability",
+    "proposalHash": "d957f4e8fd66876e9b5af1f9bc0c080bb5e5cbd5ffc0c888659ceb28f389f2af",
+    "reviewResultHash": "3130125668de67ca25f8f9a8af8b567a713d79bf4b07c82e32a27697e80617ca",
+    "reviewVerdict": "KEEP"
+  },
+  "createdAt": "2026-07-31T09:38:38.333Z",
+  "decision": "TRIAL",
+  "engineVersion": "inm-sim/0.93.1",
+  "hashes": {
+    "blueprintHash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+    "engineVersion": "inm-sim/0.93.1",
+    "executionHash": "756abdd1d3c8688aba65dd8df430ad914cf7a5a4fb84e1789be8cb58cae92def",
+    "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+    "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+    "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+    "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+  },
+  "parentRun": "112-simulate",
+  "resultHash": "89c183540d7a0daa3810e72741837319cd8742ccefc3f963e03cd7a386a77e3c",
+  "runKey": "e6779fbf6cab0887932a02bd095306e42aaf7b13a6c1830d5e474458de9026f6",
+  "seed": 42,
+  "selection": {
+    "blueprint": "generated-dram-fab",
+    "objective": "dram-output",
+    "productionPlan": "production-window",
+    "scenario": "production-window",
+    "world": "cleanroom"
+  },
+  "status": "completed",
+  "version": 1
+}

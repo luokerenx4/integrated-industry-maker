@@ -186,6 +186,27 @@
           "particle-contamination"
         ],
         "minimumInputTreatmentLevel": 0
+      },
+      {
+        "id": "dimensional-stability",
+        "name": "Inline dimensional stability control",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 1,
+          "denominator": 1
+        },
+        "powerMultiplier": {
+          "numerator": 3,
+          "denominator": 2
+        },
+        "auxiliaryInputs": [],
+        "preventsDefects": [
+          "critical-dimension",
+          "latent-electrical",
+          "particle-contamination"
+        ],
+        "minimumInputTreatmentLevel": 0
       }
     ],
     "changeover": {

@@ -660,3 +660,42 @@ test("quality contributors trace authored, drift, and Q-time defects to separate
     },
   ]);
 });
+
+test("quality contributor identity separates defect classes at one physical origin", async () => {
+  const project = compileFactoryProject(await loadFactoryProject(resolve("examples/memory-fab")));
+  const events = [
+    {
+      type: "lot.quality-excursion", tick: 10, device: "etch-l2", lot: "lot-a",
+      process: "etch-cell-layer-2", mode: "qualified", excursion: "authored-combined",
+      authoredDefects: ["critical-dimension", "particle-contamination"], preventedDefects: [],
+      defects: ["critical-dimension", "particle-contamination"],
+    },
+    {
+      type: "lot.inspected", tick: 20, device: "inspection-1", lot: "lot-a",
+      process: "inspect-final-pattern-deep", result: "reject",
+      detectedDefects: ["critical-dimension", "particle-contamination"], reworkCycles: 0,
+    },
+    {
+      type: "lot.reworked", tick: 30, device: "rework-1", lot: "lot-a",
+      process: "recover-final-pattern-advanced", repairedDefects: ["critical-dimension", "particle-contamination"],
+      remainingDefects: [], reworkCycles: 1,
+    },
+  ] as unknown as FactoryEvent[];
+
+  const contributors = analyzeQualityContributors(project, events);
+  expect(contributors).toHaveLength(2);
+  expect(contributors.map((contributor) => contributor.id)).toEqual([
+    "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2:critical-dimension",
+    "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2:particle-contamination",
+  ]);
+  expect(contributors.map((contributor) => contributor.defects)).toEqual([
+    ["critical-dimension"],
+    ["particle-contamination"],
+  ]);
+  expect(contributors.reduce((total, contributor) =>
+    total + contributor.evidence.introducedDefectInstances!, 0)).toBe(2);
+  expect(contributors.every((contributor) =>
+    contributor.evidence.originEvents === 1
+    && contributor.evidence.introducedLots === 1
+    && contributor.evidence.repairedLots === 1)).toBeTrue();
+});

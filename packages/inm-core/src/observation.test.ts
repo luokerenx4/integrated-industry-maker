@@ -8,7 +8,7 @@ import { openProjectWorkbenchSnapshot, type ProjectWorkbenchSnapshot } from "./w
 const repository = resolve(import.meta.dir, "../../..");
 const memoryFabProjectDir = join(repository, "examples/memory-fab");
 const memoryFabSnapshot = openProjectWorkbenchSnapshot(memoryFabProjectDir);
-const currentRunId = "112-simulate";
+const currentRunId = "114-candidate-trial-run-112-dimensional-stability";
 
 test("observation brief keeps the Objective WIP tradeoff visible after current losses are bounded", async () => {
   const snapshot = structuredClone(await memoryFabSnapshot);
@@ -30,11 +30,11 @@ test("observation brief keeps the Objective WIP tradeoff visible after current l
   expect(brief.evidence.run).toEqual(expect.objectContaining({
     id: currentRunId,
     resultHash: expect.any(String),
-    decision: "BASELINE",
+    decision: "TRIAL",
   }));
   expect(brief.evidence.sourceLotServices).toEqual(expect.arrayContaining([
     expect.objectContaining({
-      analysisHash: "7869e72a53378716500c2e7f4eff96ab5b3bfdf77629ac779bc17805422e3e35",
+      analysisHash: "4b7e5ccecac2ab09faf6322a2101553851bab42a2e94817a2ee94aaa3b416f50",
       query: expect.objectContaining({ device: "burn-in-1" }),
     }),
   ]));

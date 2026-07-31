@@ -17,7 +17,7 @@ import { SCORE_BREAKDOWN_COMPONENTS, type Blueprint, type FactoryMetrics } from 
 import { stableStringify } from "./utils";
 
 export interface ProjectProposalContext {
-  apiVersion: 9;
+  apiVersion: 10;
   iteration: number;
   branch: ResearchBranchContext;
   promotionBoundary: ResearchPromotionBoundary;
@@ -30,7 +30,7 @@ export interface ProjectProposalContext {
 }
 
 export interface ProjectProposalProvider {
-  apiVersion: 9;
+  apiVersion: 10;
   propose(context: Readonly<ProjectProposalContext>): ResearchProposal | null;
 }
 
@@ -130,8 +130,8 @@ export class ProjectStrategyResearchAgent {
       throw new Error(`Cannot load project proposal provider '${this.entry}': ${error instanceof Error ? error.message : String(error)}`);
     }
     const provider = module.default;
-    if (!isRecord(provider) || provider.apiVersion !== 9 || typeof provider.propose !== "function") {
-      throw new Error(`Project proposal provider '${this.entry}' default export must define apiVersion: 9 and synchronous propose(context)`);
+    if (!isRecord(provider) || provider.apiVersion !== 10 || typeof provider.propose !== "function") {
+      throw new Error(`Project proposal provider '${this.entry}' default export must define apiVersion: 10 and synchronous propose(context)`);
     }
     return provider as unknown as ProjectProposalProvider;
   }
@@ -139,7 +139,7 @@ export class ProjectStrategyResearchAgent {
   async propose(input: BranchResearchInput): Promise<ResearchProposal> {
     const provider = await this.provider;
     const context = (): Readonly<ProjectProposalContext> => freezeDeep({
-      apiVersion: 9,
+      apiVersion: 10,
       iteration: input.iteration,
       branch: structuredClone(input.branch),
       promotionBoundary: structuredClone(input.promotionBoundary),

@@ -98,7 +98,7 @@ function observesExactDieHandoffBlocking(
 }
 
 export default {
-  apiVersion: 9,
+  apiVersion: 10,
   propose(context) {
     if (!observesExactDieHandoffBlocking(context)) return null;
     const used = new Set(context.history.map((item) => item.strategy));

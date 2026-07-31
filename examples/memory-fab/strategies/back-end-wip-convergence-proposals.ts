@@ -104,7 +104,7 @@ function recipePatch(
 }
 
 export default {
-  apiVersion: 9,
+  apiVersion: 10,
   propose(context) {
     if (context.branch.role !== "leader") return null;
     const currentBurnInWip = observedAverageInventory(context, burnInLocation);

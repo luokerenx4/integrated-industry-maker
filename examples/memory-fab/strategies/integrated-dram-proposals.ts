@@ -932,7 +932,7 @@ const candidates: Candidate[] = [
 ];
 
 export default {
-  apiVersion: 9,
+  apiVersion: 10,
   propose(context) {
     const used = new Set(context.history.map((item) => item.strategy));
     const blockingCases = context.promotionBoundary.guardrail.violations;

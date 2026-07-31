@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "id": "layer-two-particle-control",
-  "name": "Layer-two Particle Control",
-  "description": "Evaluate the commissioned layer-two etch particle-suppression mode against its exact observed defect-origin target while preserving every locked operating case.",
+  "id": "layer-two-dimensional-control",
+  "name": "Layer-two Dimensional Stability",
+  "description": "Evaluate one commissioned-tool dimensional-stability mode against the exact residual critical-dimension origin while preserving the locked memory-fab operating envelope.",
   "benchmark": "greenfield-dram-design",
   "seed": {
     "kind": "blueprint",
@@ -12,7 +12,7 @@
     "kind": "loss",
     "loss": "yield-quality",
     "target": {
-      "contributor": "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2:particle-contamination",
+      "contributor": "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2:critical-dimension",
       "metric": "introducedDefectInstances",
       "direction": "decrease"
     }
@@ -20,19 +20,19 @@
   "driverCase": "mixed-quality",
   "currentBestGuardrail": {
     "kind": "uniform",
-    "maximumCaseScoreRegression": 0
+    "maximumCaseScoreRegression": 0.02
   },
   "frontier": {
     "maximumAlternativeBranches": 0
   },
   "proposal": {
     "kind": "project-strategy",
-    "entry": "strategies/layer-two-particle-control-proposals.ts",
+    "entry": "strategies/layer-two-dimensional-control-proposals.ts",
     "decisionFamilies": [
       "recipe"
     ]
   },
   "budget": {
-    "maxCandidates": 2
+    "maxCandidates": 1
   }
 }

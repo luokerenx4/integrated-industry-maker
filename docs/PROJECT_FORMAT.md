@@ -1019,7 +1019,7 @@ Optional `weights.electricityCost` penalizes Scenario-valued electricity energy 
     "kind": "loss",
     "loss": "yield-quality",
     "target": {
-      "contributor": "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2",
+      "contributor": "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2:particle-contamination",
       "metric": "introducedDefectInstances",
       "direction": "decrease"
     }

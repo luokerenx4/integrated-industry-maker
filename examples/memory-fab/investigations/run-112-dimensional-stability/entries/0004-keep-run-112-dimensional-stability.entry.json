@@ -1,0 +1,30 @@
+{
+  "author": "agent",
+  "disposition": "keep",
+  "entryHash": "0d3b347846d15a1902343af04703346fd59cdd623c7ccdc6d13e297a33aa2eb2",
+  "evidence": [
+    "run-112-critical-dimension-factory",
+    "run-112-dimensional-stability-comparison",
+    "run-112-dimensional-stability-review"
+  ],
+  "id": "keep-run-112-dimensional-stability",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "run-112-dimensional-stability",
+      "currentCandidateHash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+      "id": "run-112-dimensional-stability-review",
+      "kind": "candidate-review",
+      "proposalHash": "d957f4e8fd66876e9b5af1f9bc0c080bb5e5cbd5ffc0c888659ceb28f389f2af",
+      "proposedCandidateHash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+      "reviewResultHash": "3130125668de67ca25f8f9a8af8b567a713d79bf4b07c82e32a27697e80617ca",
+      "verdict": "KEEP"
+    }
+  ],
+  "investigation": "run-112-dimensional-stability",
+  "kind": "decision",
+  "previousEntryHash": "aa53c0149e3b43d91963e59818809e0ef2df5506415b3a8a028049e0916fa23e",
+  "sequence": 4,
+  "statement": "KEEP the dimensional-stability intervention. It removes the exact critical-dimension origin and rework in Run 112, preserves 12/12 completion and on-time service, 88 delivered devices, WIP, capital, area, scrap, and escapes, and improves the current five-case aggregate by 0.253889. Accept the isolated steady/facility energy-score costs of 0.004700 and 0.002350 because they cross no guardrail and are outweighed by repeatable mixed-quality, quality-excursion, and lithography-interruption gains.",
+  "version": 1
+}

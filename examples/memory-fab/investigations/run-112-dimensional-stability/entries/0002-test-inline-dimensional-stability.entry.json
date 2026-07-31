@@ -1,0 +1,17 @@
+{
+  "author": "agent",
+  "entryHash": "be15556360aa0b99dc5be29f8607896f40ad53343546496a0ff54d187c5279f6",
+  "evidence": [
+    "run-112-critical-dimension-factory"
+  ],
+  "expectedEffect": "Reduce the exact critical-dimension origin from one instance to zero, preserve particle and latent prevention, and expose every delivery, service, WIP, energy, and interruption trade under the locked five-case Benchmark.",
+  "id": "test-inline-dimensional-stability",
+  "intervention": "blueprint",
+  "introducedAnchors": [],
+  "investigation": "run-112-dimensional-stability",
+  "kind": "hypothesis",
+  "previousEntryHash": "440874e05109686911e5db21a0f8a1aa015d219d27ccf662dbdd6eb57c7476a0",
+  "sequence": 2,
+  "statement": "Use the installed closed-loop etch tool's explicit dimensional-stability normal mode while retaining the existing fast recovery mode and cadence controller.",
+  "version": 1
+}

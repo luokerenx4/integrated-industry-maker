@@ -1,0 +1,29 @@
+{
+  "baseCandidateHash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "Reduce the exact critical-dimension origin from one instance to zero, preserve particle and latent prevention, and expose every delivery, service, WIP, energy, and interruption trade under the locked five-case Benchmark.",
+  "hypothesis": "Use the installed closed-loop etch tool's explicit dimensional-stability normal mode while retaining the existing fast recovery mode and cadence controller.",
+  "id": "run-112-dimensional-stability",
+  "name": "Run 112 Inline Dimensional Stability",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/61/policy/cadenceControl/normalMode",
+      "value": "dimensional-stability"
+    },
+    {
+      "op": "replace",
+      "path": "/devices/61/recipes/0/mode",
+      "value": "dimensional-stability"
+    }
+  ],
+  "source": {
+    "entry": "test-inline-dimensional-stability",
+    "entryHash": "be15556360aa0b99dc5be29f8607896f40ad53343546496a0ff54d187c5279f6",
+    "investigation": "run-112-dimensional-stability",
+    "kind": "investigation-hypothesis",
+    "manifestHash": "2815ecea48282e5060b576a9b68ad59212963b1fd1e30c21b043e87ffca71afc",
+    "project": "memory-fab"
+  },
+  "version": 1
+}

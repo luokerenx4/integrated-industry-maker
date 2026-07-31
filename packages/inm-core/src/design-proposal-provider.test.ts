@@ -387,7 +387,7 @@ test("memory-fab project provider reaches the measured delivery mismatch after h
   const metrics = result.metrics;
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
   expect(fabLoss).toMatchObject({
-    version: 9,
+    version: 10,
     outcome: { deliveryShortfall: 18, deliveryOverflow: 8, portfolioNetValue: -64 },
   });
   expect(fabLoss.buckets.find((bucket) => bucket.id === "delivery-portfolio")).toMatchObject({
@@ -448,7 +448,7 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
 
   expect(fabLoss).toMatchObject({
-    version: 9,
+    version: 10,
     outcome: {
       completed: 5,
       inProgress: 5,
@@ -522,14 +522,14 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
       equipmentDriftDefects: 3,
       leadingDriftDeviceLots: 2,
       leadingDriftDeviceDefects: 2,
-      originContributors: 5,
+      originContributors: 7,
       subjectIntroducedLots: 5,
       subjectPersistentLots: 4,
       subjectScrappedLots: 2,
     },
   });
   expect(yieldQuality?.contributors[0]).toMatchObject({
-    label: "final-inspection",
+    label: "final-inspection / particle-contamination",
     mechanism: "route-q-time-defect",
     defects: ["particle-contamination"],
     lots: ["dram-lot-03", "dram-lot-05", "dram-lot-09", "dram-lot-10", "dram-lot-11"],
@@ -645,7 +645,7 @@ test("pre-intervention commissioned evidence exposes the exact Q-time mechanisms
   });
 });
 
-test("current commissioned fab prevents latent etch damage without reintroducing final-inspection Q-time", async () => {
+test("current commissioned fab prevents all authored etch excursions without reintroducing final-inspection Q-time", async () => {
   const root = resolve("examples/memory-fab");
   const loaded = await loadFactoryProject(root, {
     blueprint: "generated-dram-fab", scenario: "production-window", objective: "dram-output",
@@ -661,11 +661,11 @@ test("current commissioned fab prevents latent etch damage without reintroducing
   const qTime = fabLoss.buckets.find((bucket) => bucket.id === "q-time");
 
   expect(fabLoss).toMatchObject({
-    version: 9,
+    version: 10,
     outcome: {
       completed: 12,
       inProgress: 0,
-      firstPassYield: 11 / 12,
+      firstPassYield: 1,
       deliveryShortfall: 0,
       deliveryOverflow: 38,
       portfolioNetValue: 344,
@@ -673,27 +673,38 @@ test("current commissioned fab prevents latent etch damage without reintroducing
     },
   });
   expect(qTime).toBeUndefined();
-  expect(fabLoss.buckets.find((bucket) => bucket.id === "yield-quality")).toEqual(expect.objectContaining({
-    evidence: expect.objectContaining({
-      authoredDefectInstances: 3,
-      preventedDefectInstances: 2,
-      appliedDefectInstances: 1,
-      preventedLots: 2,
-    }),
+  expect(fabLoss.buckets.find((bucket) => bucket.id === "yield-quality")).toBeUndefined();
+  expect(result.metrics.qualityFlow.qualityControl).toEqual(expect.objectContaining({
+    authoredDefectInstances: 3,
+    preventedDefectInstances: 3,
+    appliedDefectInstances: 0,
+    preventedLots: 3,
+    devices: {
+      "etch-l2": expect.objectContaining({
+        authoredDefectInstances: 3,
+        preventedDefectInstances: 3,
+        appliedDefectInstances: 0,
+        preventedByClass: {
+          "critical-dimension": 1,
+          "latent-electrical": 1,
+          "particle-contamination": 1,
+        },
+      }),
+    },
   }));
   expect(project.blueprint.devices.find((device) => device.id === "etch-l2")).toEqual(expect.objectContaining({
     asset: "closed-loop-plasma-etch-bay",
     recipes: expect.arrayContaining([
-      expect.objectContaining({ process: "etch-cell-layer-2", mode: "particle-suppression" }),
+      expect.objectContaining({ process: "etch-cell-layer-2", mode: "dimensional-stability" }),
       expect.objectContaining({ process: "etch-cell-layer-2", mode: "closed-loop-fast-4-5" }),
     ]),
   }));
   expect(project.deviceAssets["closed-loop-plasma-etch-bay"]?.production?.modes).toContainEqual(
     expect.objectContaining({
-      id: "particle-suppression",
+      id: "dimensional-stability",
       durationMultiplier: { numerator: 1, denominator: 1 },
-      powerMultiplier: { numerator: 13, denominator: 10 },
-      preventsDefects: ["latent-electrical", "particle-contamination"],
+      powerMultiplier: { numerator: 3, denominator: 2 },
+      preventsDefects: ["critical-dimension", "latent-electrical", "particle-contamination"],
     }),
   );
   expect(project.blueprint.devices.find((device) => device.id === "inspection-1")?.asset)
@@ -717,7 +728,7 @@ test("historical commissioned yield evidence reproduces the dedicated etch quali
   const fabLoss = analyzeFabLossProfile(metrics, project.scenario.durationTicks, project, result.events)!;
 
   expect(fabLoss).toMatchObject({
-    version: 9,
+    version: 10,
     outcome: {
       completed: 6,
       inProgress: 4,
@@ -742,7 +753,7 @@ test("historical commissioned yield evidence reproduces the dedicated etch quali
         equipmentDriftDefects: 8,
         leadingDriftDeviceLots: 6,
         leadingDriftDeviceDefects: 6,
-        originContributors: 5,
+        originContributors: 7,
         subjectIntroducedLots: 4,
         subjectPersistentLots: 4,
         subjectScrappedLots: 2,
@@ -1125,7 +1136,7 @@ test("focused layer-two control targets the current etch-origin defect count exa
     expectedEffect: "Reduce exact etch-origin introduced defect instances while charging the mode's authored 13/10 active-power envelope across every locked case.",
     addressedLoss: "yield-quality",
     addressedLossTarget: {
-      contributor: "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2",
+      contributor: "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2:particle-contamination",
       metric: "introducedDefectInstances",
       direction: "decrease",
     },
@@ -1156,6 +1167,104 @@ test("focused layer-two control targets the current etch-origin defect count exa
       decision: "REVERT",
       score: 0,
       scoreDelta: -1,
+    }],
+  })).rejects.toBeInstanceOf(ProjectProposalExhaustedError);
+});
+
+test("layer-two dimensional control targets only the residual critical-dimension origin", async () => {
+  const root = resolve("examples/memory-fab");
+  const loaded = await loadFactoryProject(root, {
+    blueprint: "generated-dram-fab",
+    productionPlan: "production-window",
+    scenario: "production-window",
+    objective: "dram-output",
+  });
+  loaded.blueprint = JSON.parse(await readFile(resolve(root, "runs/112-simulate/blueprint.json"), "utf8"));
+  const project = compileFactoryProject(loaded);
+  const result = runUntil(project, undefined, { seed: 42 });
+  const fabLoss = analyzeFabLossProfile(result.metrics, project.scenario.durationTicks, project, result.events)!;
+  const input = {
+    iteration: 1,
+    branch: { nodeId: "seed", role: "leader" as const, depth: 0, leaderNodeId: "seed" },
+    promotionBoundary: {
+      leaderNodeId: "seed",
+      selectedNodeId: "seed",
+      promotable: true,
+      aggregate: { leaderScore: 0, selectedScore: 0, scoreDelta: 0 },
+      cases: [],
+      limitingCase: null,
+      guardrail: { kind: "uniform" as const, passed: true, violations: [] },
+    },
+    project,
+    blueprint: project.blueprint,
+    metrics: result.metrics,
+    fabLoss,
+    production: analyzeProduction(project),
+    capacityPlan: planProductionCapacity(project),
+    history: [],
+  };
+  const agent = new ProjectStrategyResearchAgent(root, "strategies/layer-two-dimensional-control-proposals.ts");
+  const proposal = await agent.propose(input);
+  const etchIndex = project.blueprint.devices.findIndex((device) => device.id === "etch-l2");
+  const etch = project.blueprint.devices[etchIndex]!;
+  const normalRecipeIndex = etch.recipes!.findIndex((recipe) => recipe.mode === "particle-suppression");
+
+  expect(fabLoss.buckets.find((bucket) => bucket.id === "yield-quality")?.contributors)
+    .toEqual(expect.arrayContaining([expect.objectContaining({
+      id: "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2:critical-dimension",
+      defects: ["critical-dimension"],
+      lots: ["dram-lot-03"],
+      evidence: expect.objectContaining({ introducedDefectInstances: 1 }),
+    })]));
+  expect(proposal).toEqual({
+    strategy: "recipe:dimensional-stability-layer-two-etch",
+    hypothesis: "Running normal layer-two etch with the installed tool's dimensional-stability control can prevent the residual critical-dimension excursion without changing cadence or recovery policy.",
+    expectedEffect: "Reduce the exact critical-dimension origin from one instance to zero while preserving particle and latent-electrical prevention and charging the authored 3/2 active-power envelope in every locked case.",
+    addressedLoss: "yield-quality",
+    addressedLossTarget: {
+      contributor: "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2:critical-dimension",
+      metric: "introducedDefectInstances",
+      direction: "decrease",
+    },
+    patch: [
+      {
+        op: "replace",
+        path: `/devices/${etchIndex}/policy/cadenceControl/normalMode`,
+        value: "dimensional-stability",
+      },
+      {
+        op: "replace",
+        path: `/devices/${etchIndex}/recipes/${normalRecipeIndex}/mode`,
+        value: "dimensional-stability",
+      },
+    ],
+  });
+  expect(() => compileFactoryProject({
+    ...loaded,
+    blueprint: applyResearchPatch(project.blueprint, proposal.patch),
+  })).not.toThrow();
+
+  const commissionedProject = compileFactoryProject(await loadFactoryProject(root, {
+    blueprint: "generated-dram-fab",
+    productionPlan: "production-window",
+    scenario: "production-window",
+    objective: "dram-output",
+  }));
+  await expect(agent.propose({
+    ...input,
+    project: commissionedProject,
+    blueprint: commissionedProject.blueprint,
+  })).rejects.toBeInstanceOf(ProjectProposalExhaustedError);
+  await expect(agent.propose({
+    ...input,
+    history: [{
+      iteration: 1,
+      strategy: proposal.strategy!,
+      hypothesis: proposal.hypothesis,
+      addressedLoss: proposal.addressedLoss,
+      decision: "KEEP",
+      score: 1,
+      scoreDelta: 1,
     }],
   })).rejects.toBeInstanceOf(ProjectProposalExhaustedError);
 });
@@ -1369,21 +1478,21 @@ test("project proposal providers cannot ignore or fabricate Core-owned loss evid
   await mkdir(resolve(providerRoot, "strategies"));
   const proposal = `{ strategy: "dispatch:test", hypothesis: "test", patch: [{ op: "add", path: "/policies/lotRelease", value: {} }] }`;
   await writeFile(resolve(providerRoot, "strategies/causal-transport.ts"), `export default {
-    apiVersion: 9,
+    apiVersion: 10,
     propose(context) {
       const contributor = context.fabLoss?.buckets.find((bucket) => bucket.id === "transport-blocking")?.contributors[0];
-      if (context.fabLoss?.version !== 9 || !contributor?.mechanism.startsWith("transport-")
+      if (context.fabLoss?.version !== 10 || !contributor?.mechanism.startsWith("transport-")
         || contributor.evidence.blockedItemTicks !== contributor.evidence.lineContentionTicks
           + contributor.evidence.endpointCapacityTicks + contributor.evidence.endpointPowerTicks
           + contributor.evidence.endpointFailureTicks) throw new Error("missing exact causal transport profile");
       return { ...${proposal}, addressedLoss: "transport-blocking" };
     },
   };\n`);
-  await writeFile(resolve(providerRoot, "strategies/missing.ts"), `export default { apiVersion: 9, propose() { return ${proposal}; } };\n`);
-  await writeFile(resolve(providerRoot, "strategies/fabricated.ts"), `export default { apiVersion: 9, propose() { return { ...${proposal}, addressedLoss: "release-admission" }; } };\n`);
-  await writeFile(resolve(providerRoot, "strategies/fabricated-case.ts"), `export default { apiVersion: 9, propose() { return { ...${proposal}, addressedCase: "quality-excursion" }; } };\n`);
-  await writeFile(resolve(providerRoot, "strategies/target-without-loss.ts"), `export default { apiVersion: 9, propose() { return { ...${proposal}, addressedLossTarget: { contributor: "missing", metric: "starvationTicks", direction: "decrease" } }; } };\n`);
-  await writeFile(resolve(providerRoot, "strategies/fabricated-target.ts"), `export default { apiVersion: 9, propose(context) { return { ...${proposal}, addressedLoss: context.fabLoss.chain[0], addressedLossTarget: { contributor: "missing", metric: "starvationTicks", direction: "decrease" } }; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/missing.ts"), `export default { apiVersion: 10, propose() { return ${proposal}; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/fabricated.ts"), `export default { apiVersion: 10, propose() { return { ...${proposal}, addressedLoss: "release-admission" }; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/fabricated-case.ts"), `export default { apiVersion: 10, propose() { return { ...${proposal}, addressedCase: "quality-excursion" }; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/target-without-loss.ts"), `export default { apiVersion: 10, propose() { return { ...${proposal}, addressedLossTarget: { contributor: "missing", metric: "starvationTicks", direction: "decrease" } }; } };\n`);
+  await writeFile(resolve(providerRoot, "strategies/fabricated-target.ts"), `export default { apiVersion: 10, propose(context) { return { ...${proposal}, addressedLoss: context.fabLoss.chain[0], addressedLossTarget: { contributor: "missing", metric: "starvationTicks", direction: "decrease" } }; } };\n`);
   await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/causal-transport.ts").propose(unmatched))
     .resolves.toMatchObject({ addressedLoss: "transport-blocking" });
   await expect(new ProjectStrategyResearchAgent(providerRoot, "strategies/missing.ts").propose(input)).rejects.toThrow("must name addressedLoss");

@@ -148,7 +148,7 @@ function observesExactQueue(context: Readonly<ProjectProposalContext>): boolean 
 }
 
 export default {
-  apiVersion: 9,
+  apiVersion: 10,
   propose(context) {
     if (!observesExactQueue(context)) return null;
     const used = new Set(context.history.map((item) => item.strategy));

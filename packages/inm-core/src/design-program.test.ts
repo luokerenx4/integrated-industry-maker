@@ -191,13 +191,33 @@ test("memory-fab exposes authored and synthesis-seeded Design Programs with read
       budget: { maxCandidates: 7 },
     }),
     expect.objectContaining({
+      id: "layer-two-dimensional-control",
+      benchmark: "greenfield-dram-design",
+      seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
+      focus: {
+        kind: "loss",
+        loss: "yield-quality",
+        target: { contributor: "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2:critical-dimension", metric: "introducedDefectInstances", direction: "decrease" },
+      },
+      driverCase: "mixed-quality",
+      currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0.02 },
+      frontier: { maximumAlternativeBranches: 0 },
+      proposal: {
+        kind: "project-strategy",
+        entry: "strategies/layer-two-dimensional-control-proposals.ts",
+        decisionFamilies: ["recipe"],
+      },
+      locked: true,
+      budget: { maxCandidates: 1 },
+    }),
+    expect.objectContaining({
       id: "layer-two-particle-control",
       benchmark: "greenfield-dram-design",
       seed: { kind: "blueprint", blueprint: "generated-dram-fab" },
       focus: {
         kind: "loss",
         loss: "yield-quality",
-        target: { contributor: "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2", metric: "introducedDefectInstances", direction: "decrease" },
+        target: { contributor: "quality:quality-excursion:dram-front-end:etch-cell-layer-2:etch-l2:etch-cell-layer-2:particle-contamination", metric: "introducedDefectInstances", direction: "decrease" },
       },
       driverCase: "mixed-quality",
       currentBestGuardrail: { kind: "uniform", maximumCaseScoreRegression: 0 },
@@ -481,7 +501,7 @@ test("loss-focused Design rejects a proposal outside its exact contributor and m
   program.proposal.entry = "strategies/test-loss-target-proposal.ts";
   await writeFile(path, `${JSON.stringify(program, null, 2)}\n`);
   await writeFile(join(copy, program.proposal.entry), `export default {
-  apiVersion: 9,
+  apiVersion: 10,
   propose() {
     return {
       strategy: "test:exact-loss-target",
@@ -615,7 +635,7 @@ test("commissioned Design pins its live promotion base and rejects a score winne
       addressedLoss: "delivery-portfolio",
       driverEvidence: {
         fabLoss: {
-          version: 9,
+          version: 10,
           primary: { id: "delivery-portfolio" },
           outcome: { deliveryShortfall: 18, deliveryOverflow: 16, portfolioNetValue: -48 },
         },
@@ -663,7 +683,7 @@ test("Design stops only after every retained frontier node is search-exhausted",
   const copy = join(root, "memory-fab");
   await cp(projectDir, copy, { recursive: true, filter: (source) => !source.split("/").includes("design-runs") });
   await writeFile(join(copy, "strategies", "integrated-dram-proposals.ts"), `export default {
-  apiVersion: 9,
+  apiVersion: 10,
   propose() { return null; },
 };
 `);
@@ -822,7 +842,7 @@ test("a synthesis-seeded Design Program is deterministic, immutable, and applies
     addressedLoss: "q-time",
     driverEvidence: {
       metricsHash: hashValue(driverMetrics),
-      fabLoss: { version: 9, family: "dram-wafer", primary: { id: "q-time" } },
+      fabLoss: { version: 10, family: "dram-wafer", primary: { id: "q-time" } },
     },
     promotionBoundary: { leaderNodeId: "seed", selectedNodeId: "seed", promotable: true },
     decisionEvidence: { guardrail: { kind: "uniform", passed: true, violations: [] } },

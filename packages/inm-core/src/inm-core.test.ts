@@ -2222,7 +2222,7 @@ describe("blueprint compiler", () => {
     }));
   }, 30_000);
 
-  test("adaptive layer-two modes preserve authored excursions while preventing exact defects", async () => {
+  test("adaptive layer-two modes preserve authored excursions while preventing every commissioned defect class", async () => {
     const source = await loadFactoryProject(memoryFab, {
       blueprint: "generated-dram-fab",
       scenario: "production-window",
@@ -2231,11 +2231,11 @@ describe("blueprint compiler", () => {
     const project = compileFactoryProject(source);
     const plan = project.devices["etch-l2"]!.processPlans[0]!;
     expect(plan.mode).toEqual(expect.objectContaining({
-      id: "particle-suppression",
-      preventsDefects: ["latent-electrical", "particle-contamination"],
+      id: "dimensional-stability",
+      preventsDefects: ["critical-dimension", "latent-electrical", "particle-contamination"],
     }));
     expect(analyzeProduction(project).devices.find((device) => device.device === "etch-l2")).toEqual(expect.objectContaining({
-      preventsDefects: ["latent-electrical", "particle-contamination"],
+      preventsDefects: ["critical-dimension", "latent-electrical", "particle-contamination"],
     }));
 
     const result = runUntil(project, undefined, { seed: 42 });
@@ -2251,17 +2251,17 @@ describe("blueprint compiler", () => {
     expect(result.metrics.qualityFlow.qualityControl).toEqual({
       authoredExcursions: 3,
       authoredDefectInstances: 3,
-      preventedDefectInstances: 2,
-      appliedDefectInstances: 1,
-      preventedLots: 2,
+      preventedDefectInstances: 3,
+      appliedDefectInstances: 0,
+      preventedLots: 3,
       devices: {
         "etch-l2": {
           mode: "mixed",
           authoredDefectInstances: 3,
-          preventedDefectInstances: 2,
-          appliedDefectInstances: 1,
+          preventedDefectInstances: 3,
+          appliedDefectInstances: 0,
           lots: ["dram-lot-03", "dram-lot-08", "dram-lot-11"],
-          preventedByClass: { "latent-electrical": 1, "particle-contamination": 1 },
+          preventedByClass: { "critical-dimension": 1, "latent-electrical": 1, "particle-contamination": 1 },
         },
       },
     });

@@ -82,7 +82,7 @@ export interface FabLossBucket {
 }
 
 export interface FabLossProfile {
-  version: 9;
+  version: 10;
   family: string;
   outcome: {
     scheduled: number;
@@ -974,28 +974,29 @@ export function analyzeQualityContributors(
     const eventGroups = new Set<string>();
     for (const lot of lots) {
       const location = routeStepForOrigin(event, lot, events, project);
-      const id = `quality:${mechanism}:${location?.route ?? "unrouted"}:${location?.step ?? event.process}:${event.device}:${event.process}`;
-      const group = groups.get(id) ?? {
-        label: location?.step ?? event.process,
-        mechanism,
-        route: location?.route ?? null,
-        step: location?.step ?? null,
-        process: event.process,
-        device: event.device,
-        originEvents: 0,
-        introducedDefectInstances: 0,
-        lotDefects: new Map<string, Map<string, number>>(),
-      };
-      if (!eventGroups.has(id)) {
-        group.originEvents++;
-        eventGroups.add(id);
+      for (const defect of event.defects) {
+        const id = `quality:${mechanism}:${location?.route ?? "unrouted"}:${location?.step ?? event.process}:${event.device}:${event.process}:${defect}`;
+        const group = groups.get(id) ?? {
+          label: `${location?.step ?? event.process} / ${defect}`,
+          mechanism,
+          route: location?.route ?? null,
+          step: location?.step ?? null,
+          process: event.process,
+          device: event.device,
+          originEvents: 0,
+          introducedDefectInstances: 0,
+          lotDefects: new Map<string, Map<string, number>>(),
+        };
+        if (!eventGroups.has(id)) {
+          group.originEvents++;
+          eventGroups.add(id);
+        }
+        group.introducedDefectInstances++;
+        const lotOrigin = group.lotDefects.get(lot) ?? new Map<string, number>();
+        lotOrigin.set(defect, Math.min(lotOrigin.get(defect) ?? event.tick, event.tick));
+        group.lotDefects.set(lot, lotOrigin);
+        groups.set(id, group);
       }
-      group.introducedDefectInstances += event.defects.length;
-      const lotOrigin = group.lotDefects.get(lot) ?? new Map<string, number>();
-      event.defects.forEach((defect) =>
-        lotOrigin.set(defect, Math.min(lotOrigin.get(defect) ?? event.tick, event.tick)));
-      group.lotDefects.set(lot, lotOrigin);
-      groups.set(id, group);
     }
   }
 
@@ -1928,7 +1929,7 @@ export function analyzeFabLossProfile(
 
   buckets.sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
   return {
-    version: 9,
+    version: 10,
     family: metrics.lotFlow.family,
     outcome: {
       scheduled: metrics.lotFlow.scheduled, released: metrics.lotFlow.released, completed: metrics.lotFlow.completed,
