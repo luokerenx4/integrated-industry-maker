@@ -2180,14 +2180,29 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
           diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:device:furnace-1/),
         }),
       }),
+      expect.objectContaining({
+        state: "current",
+        disposition: "discard",
+        queueEffect: "suppressed",
+        source: expect.objectContaining({
+          investigationId: "run-110-probe-queue",
+          entryId: "discard-qualified-probe-cycle-95",
+        }),
+        target: expect.objectContaining({
+          anchorId: "diagnostic",
+          code: "fab-loss.queue-congestion",
+          diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:device:probe-1/),
+        }),
+      }),
     ]);
     expect(result.nextAction).toEqual(expect.objectContaining({
-      id: expect.stringMatching(/^observation:fab-loss\.queue-congestion:device:probe-1/),
-      title: "Observe the leading loss before authoring an intervention",
-      actionLabel: "OBSERVE CURRENT FACTORY",
+      id: expect.stringMatching(/^design\.inspect:lithography-maintenance-convergence:fab-loss\.maintenance-qualification:/),
+      title: "Investigate the leading loss with Lithography Maintenance Convergence",
+      actionLabel: "OPEN DESIGN LOOP",
       target: expect.objectContaining({
-        kind: "diagnostic",
-        diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:device:probe-1/),
+        kind: "design-program",
+        programId: "lithography-maintenance-convergence",
+        diagnosticId: expect.stringMatching(/^fab-loss\.maintenance-qualification:/),
       }),
     }));
     expect(JSON.parse(objective.stdout).data.result).toEqual(expect.objectContaining({
@@ -2206,9 +2221,18 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
             entryId: "defer-run-110-furnace-local-branch",
           }),
         }),
+        expect.objectContaining({
+          state: "current",
+          disposition: "discard",
+          queueEffect: "suppressed",
+          source: expect.objectContaining({
+            investigationId: "run-110-probe-queue",
+            entryId: "discard-qualified-probe-cycle-95",
+          }),
+        }),
       ],
     });
-    expect(human.stdout).toContain("Next action: Observe the leading loss before authoring an intervention");
+    expect(human.stdout).toContain("Next action: Investigate the leading loss with Lithography Maintenance Convergence");
     return;
   }
   if (currentInspection?.evidence.state === "missing"

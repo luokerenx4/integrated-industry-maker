@@ -1,0 +1,24 @@
+{
+  "baseCandidateHash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+  "benchmark": "greenfield-dram-design",
+  "expectedEffect": "The exact probe-1/probe-sort-dram-standard queueTicks contributor must decrease under all five locked Benchmark cases while current delivery, on-time lots, first-pass yield, scrap/escape, Q-time, total cost, peak-power satisfaction, and spatial fit remain non-regressive. Any benefit displaced into burn-in/packaging WIP or service is a reject or revise, not an optimization.",
+  "hypothesis": "Add one explicit qualified high-throughput Probe operating mode and select it only on probe-1. Shorten its cycle from 8,000 to 7,600 ticks (19/20) while raising active power by the reciprocal 20/19 so per-cycle energy is unchanged. This is the smallest previously studied physical step and does not alter releases, routing, dispatch, buffers, process yield, or downstream equipment.",
+  "id": "qualified-probe-cycle-95",
+  "name": "Qualified Probe cycle 95",
+  "patch": [
+    {
+      "op": "replace",
+      "path": "/devices/8/recipe/mode",
+      "value": "qualified-high-throughput-95"
+    }
+  ],
+  "source": {
+    "entry": "qualified-probe-cycle-95",
+    "entryHash": "b6d9235363b890db86d5dcb1d04c93e85a04fa4e7a4d60bc88fbbc06733ceb59",
+    "investigation": "run-110-probe-queue",
+    "kind": "investigation-hypothesis",
+    "manifestHash": "423b8f2296e2796238827dadece153e54d3e38fd84d9beae3a7078aad6735f49",
+    "project": "memory-fab"
+  },
+  "version": 1
+}

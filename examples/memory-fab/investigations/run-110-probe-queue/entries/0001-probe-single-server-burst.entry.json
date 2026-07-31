@@ -1,0 +1,76 @@
+{
+  "author": "agent",
+  "entryHash": "ce6ce2a91bdad0b664e0c39605e6b7c92f84be94b3c985dd7a6cc50d00cacc8d",
+  "evidence": [
+    "operating-run",
+    "diagnostic",
+    "probe-queue-current-factory"
+  ],
+  "id": "probe-single-server-burst",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "code": "fab-loss.queue-congestion",
+        "diagnosticId": "fab-loss.queue-congestion:device:probe-1+route:dram-front-end:51f15dc81b",
+        "loss": {
+          "bucket": "queue-congestion",
+          "contributorId": "device:probe-1:process-queue-wait:dram-front-end:probe-dram:probe-sort-dram-standard"
+        },
+        "message": "Tracked-lot queue congestion is ranked 2 in compatible run 110-candidate-trial-run-105-normal-particle-suppress (signal 0.0945). Tracked lots averaged 5.6 s queued in a 59.6 s cycle; probe-1/probe-sort-dram-standard accounts for 22.0 s across 9 lots (32.6%).",
+        "priority": 89,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "probe-1",
+            "kind": "device"
+          },
+          {
+            "id": "dram-front-end",
+            "kind": "route"
+          }
+        ],
+        "summary": "Tracked lots averaged 5.6 s queued in a 59.6 s cycle; probe-1/probe-sort-dram-standard accounts for 22.0 s across 9 lots (32.6%)."
+      },
+      "hashes": {
+        "blueprintHash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+        "engineVersion": "inm-sim/0.92.0",
+        "executionHash": "2d9a503816930e6f31bd22de40c4ccedc89472c6fe20e3c4f3af3d3645d548c4",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "probe-queue-current-factory",
+      "kind": "factory-observation",
+      "resultHash": "8322a0ce3d626c9859460cbb55d8075c4b7f3076d4e88fe93e1bdd000e862707",
+      "runId": "110-candidate-trial-run-105-normal-particle-suppress",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "sourceLotServices": [
+        {
+          "analysisHash": "e3a9603cecb16cc7027c5f215bfc6c5c1330dd1ef2b599f0efd40aa8e6ec73a1",
+          "device": "burn-in-1",
+          "inputBuffer": "package-input",
+          "inputResource": "packaged-dram-device"
+        },
+        {
+          "analysisHash": "69bd8669c2f7410ee73eaf6281777046bc85872e755f002db742911b2a52afd4",
+          "device": "packaging-1",
+          "inputBuffer": "die-input",
+          "inputResource": "known-good-dram-die"
+        }
+      ]
+    }
+  ],
+  "investigation": "run-110-probe-queue",
+  "kind": "observation",
+  "previousEntryHash": null,
+  "sequence": 1,
+  "statement": "Run 110's probe-1 processes twelve wafer lots for exactly 96,000 ticks with zero interruption, idle, unpowered, failure, or blocked-output time, yet nine lots wait 21,997 queue ticks (maximum 11,644). The incoming inspection-to-probe line delivers all twelve wafers at 1.3% line utilization with zero blocked item-ticks. The outgoing probe-to-packaging line accumulates 118,200 blocked die-item ticks, but the 128-die Probe buffer absorbs that congestion and Probe records zero blocked-output time. The visible work cell therefore agrees with typed evidence: this exact loss is burst arrival against one 8,000-tick Probe server, not local transport capacity or equipment interruption.",
+  "version": 1
+}

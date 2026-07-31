@@ -1,0 +1,89 @@
+{
+  "author": "agent",
+  "entryHash": "63d12ed5bdb260a84075fd0a7916a5c4f38734dff1047719c0f9a054c26c2ce2",
+  "evidence": [
+    "operating-run",
+    "diagnostic",
+    "probe-queue-current-factory",
+    "probe-cycle-95-comparison"
+  ],
+  "id": "probe-cycle-95-displacement",
+  "introducedAnchors": [
+    {
+      "comparisonHash": "328ac6a600701c77abd59743f389d90286421bbaf4f74a33e752ad98ca0f90d6",
+      "diagnostic": {
+        "code": "fab-loss.input-starvation",
+        "diagnosticId": "fab-loss.input-starvation:device:furnace-1+connection:deposition-to-batch-furnace+device:deposition-1:fb14e6dd11",
+        "loss": {
+          "bucket": "input-starvation",
+          "contributorId": "device:furnace-1:material-input-shortage"
+        },
+        "message": "Productive-equipment input starvation is ranked 1 in compatible run 111-candidate-trial-qualified-probe-cycle-95 (signal 0.1994). 9/10 active flow Devices accumulated 228.9 explicit material-shortage device-s inside 1148.1 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1143.7 of 1372.6 flow input-wait device-s remained outside ranked shortage intervals, with 236.0 additional exception-only device-s excluded from ranking.",
+        "priority": 90,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "furnace-1",
+            "kind": "device"
+          },
+          {
+            "id": "deposition-to-batch-furnace",
+            "kind": "connection"
+          },
+          {
+            "id": "deposition-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "9/10 active flow Devices accumulated 228.9 explicit material-shortage device-s inside 1148.1 device-s of repeated production opportunity; 0.0 eligible inter-job device-s remained unattributed rather than being guessed as material loss, and 1143.7 of 1372.6 flow input-wait device-s remained outside ranked shortage intervals, with 236.0 additional exception-only device-s excluded from ranking."
+      },
+      "from": {
+        "blueprintHash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "8322a0ce3d626c9859460cbb55d8075c4b7f3076d4e88fe93e1bdd000e862707",
+        "runId": "110-candidate-trial-run-105-normal-particle-suppress"
+      },
+      "hashes": {
+        "blueprintHash": "adf61ad613fd3766b12ebaea577e1698ef31b2e20b96046d263adc4f9ee5a95e",
+        "engineVersion": "inm-sim/0.92.0",
+        "executionHash": "c75327198b7f3113a89792ec5fb389ca9bd898ea368328e5439bd1596334bebe",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "probe-cycle-95-comparison",
+      "intervention": {
+        "from": {
+          "hash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+          "id": "generated-dram-fab"
+        },
+        "kind": "blueprint",
+        "to": {
+          "hash": "adf61ad613fd3766b12ebaea577e1698ef31b2e20b96046d263adc4f9ee5a95e",
+          "id": "generated-dram-fab"
+        }
+      },
+      "kind": "run-comparison",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "to": {
+        "blueprintHash": "adf61ad613fd3766b12ebaea577e1698ef31b2e20b96046d263adc4f9ee5a95e",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "resultHash": "4f7f3ae7d0cd3da9a5280deb3be60c483b1f80a89d6920f7b3e314df1f97345b",
+        "runId": "111-candidate-trial-qualified-probe-cycle-95"
+      }
+    }
+  ],
+  "investigation": "run-110-probe-queue",
+  "kind": "observation",
+  "previousEntryHash": "b6d9235363b890db86d5dcb1d04c93e85a04fa4e7a4d60bc88fbbc06733ceb59",
+  "sequence": 3,
+  "statement": "The exact TRIAL reduces the Probe contributor from 21,997 to 17,063 queue ticks (-4,934; -22.4%), removes one contributing lot, and cuts its maximum segment from 11,644 to 6,621 ticks. That local gain is displaced downstream: delivered devices fall 88 to 78, average WIP rises 49.1905 to 52.2903 equivalent units, total energy rises by about 1.445 MJ, and current-factory score falls 4.13438 in the mixed-quality operating case. All twelve wafer lots still complete on time with unchanged first-pass yield, so the failure is precisely terminal-flow timing and WIP, not Probe quality or wafer service.",
+  "version": 1
+}

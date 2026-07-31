@@ -1,0 +1,19 @@
+{
+  "author": "agent",
+  "entryHash": "b6d9235363b890db86d5dcb1d04c93e85a04fa4e7a4d60bc88fbbc06733ceb59",
+  "evidence": [
+    "operating-run",
+    "diagnostic",
+    "probe-queue-current-factory"
+  ],
+  "expectedEffect": "The exact probe-1/probe-sort-dram-standard queueTicks contributor must decrease under all five locked Benchmark cases while current delivery, on-time lots, first-pass yield, scrap/escape, Q-time, total cost, peak-power satisfaction, and spatial fit remain non-regressive. Any benefit displaced into burn-in/packaging WIP or service is a reject or revise, not an optimization.",
+  "id": "qualified-probe-cycle-95",
+  "intervention": "blueprint",
+  "introducedAnchors": [],
+  "investigation": "run-110-probe-queue",
+  "kind": "hypothesis",
+  "previousEntryHash": "ce6ce2a91bdad0b664e0c39605e6b7c92f84be94b3c985dd7a6cc50d00cacc8d",
+  "sequence": 2,
+  "statement": "Add one explicit qualified high-throughput Probe operating mode and select it only on probe-1. Shorten its cycle from 8,000 to 7,600 ticks (19/20) while raising active power by the reciprocal 20/19 so per-cycle energy is unchanged. This is the smallest previously studied physical step and does not alter releases, routing, dispatch, buffers, process yield, or downstream equipment.",
+  "version": 1
+}

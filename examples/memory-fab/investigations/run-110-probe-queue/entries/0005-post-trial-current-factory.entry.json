@@ -1,0 +1,77 @@
+{
+  "author": "agent",
+  "entryHash": "fb31e93ad8e72e90635dbfb49c659fc78375a2cbf7493a80ff9025ea2522e82d",
+  "evidence": [
+    "probe-cycle-95-comparison",
+    "qualified-probe-cycle-95-review",
+    "diagnostic",
+    "post-trial-current-factory"
+  ],
+  "id": "post-trial-current-factory",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "code": "fab-loss.maintenance-qualification",
+        "diagnosticId": "fab-loss.maintenance-qualification:device:lithography-1+device:maintenance-service-1:6d5f2bfa29",
+        "loss": {
+          "bucket": "maintenance-qualification",
+          "contributorId": "device:lithography-1:maintenance-qualification"
+        },
+        "message": "Maintenance and qualification is ranked 3 in compatible run 110-candidate-trial-run-105-normal-particle-suppress (signal 0.0861). 8 maintenance and 8 qualification completions consumed 124.0 service/wait device-s; lithography-1 owns 34.0 s (27.4%).",
+        "priority": 88,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "lithography-1",
+            "kind": "device"
+          },
+          {
+            "id": "maintenance-service-1",
+            "kind": "device"
+          }
+        ],
+        "summary": "8 maintenance and 8 qualification completions consumed 124.0 service/wait device-s; lithography-1 owns 34.0 s (27.4%)."
+      },
+      "hashes": {
+        "blueprintHash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+        "engineVersion": "inm-sim/0.92.0",
+        "executionHash": "2d9a503816930e6f31bd22de40c4ccedc89472c6fe20e3c4f3af3d3645d548c4",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "post-trial-current-factory",
+      "kind": "factory-observation",
+      "resultHash": "8322a0ce3d626c9859460cbb55d8075c4b7f3076d4e88fe93e1bdd000e862707",
+      "runId": "110-candidate-trial-run-105-normal-particle-suppress",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "sourceLotServices": [
+        {
+          "analysisHash": "e3a9603cecb16cc7027c5f215bfc6c5c1330dd1ef2b599f0efd40aa8e6ec73a1",
+          "device": "burn-in-1",
+          "inputBuffer": "package-input",
+          "inputResource": "packaged-dram-device"
+        },
+        {
+          "analysisHash": "69bd8669c2f7410ee73eaf6281777046bc85872e755f002db742911b2a52afd4",
+          "device": "packaging-1",
+          "inputBuffer": "die-input",
+          "inputResource": "known-good-dram-die"
+        }
+      ]
+    }
+  ],
+  "investigation": "run-110-probe-queue",
+  "kind": "observation",
+  "previousEntryHash": "ae3b686bd8ec6bb938981db084c5c9df9a36a5f88dd6e71d64ea72919ac91f07",
+  "sequence": 5,
+  "statement": "The selected commissioned Blueprint remains unchanged after the discarded TRIAL and resolves to the same immutable Run 110 operating checkpoint: 88 delivered devices, 12 on-time completed lots, 91.7% first-pass yield, 49.1905 average WIP, and the exact 21,997-tick Probe queue contributor. The newly catalogued mode is unused, so selection-scoped execution identity correctly reuses the current Run instead of fabricating a new baseline.",
+  "version": 1
+}

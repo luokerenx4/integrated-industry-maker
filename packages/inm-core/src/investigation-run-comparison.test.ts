@@ -96,6 +96,25 @@ test("an immutable Run comparison accumulates as exact Investigation and Candida
       }),
     ]));
 
+    const probeAssetPath = join(projectDir, "assets/devices/dram-wafer-probe-cell/asset.json");
+    const probeAsset = JSON.parse(await readFile(probeAssetPath, "utf8"));
+    probeAsset.production.modes.push({
+      id: "unused-investigation-test-mode",
+      name: "Unused Investigation test mode",
+      inputCycles: 1,
+      outputCycles: 1,
+      durationMultiplier: { numerator: 19, denominator: 20 },
+      powerMultiplier: { numerator: 20, denominator: 19 },
+      auxiliaryInputs: [],
+      preventsDefects: [],
+      minimumInputTreatmentLevel: 0,
+    });
+    await writeFile(probeAssetPath, `${JSON.stringify(probeAsset, null, 2)}\n`);
+    const afterUnusedCatalogOption = await inspectIndustrialInvestigation(projectDir, "compact-cell-evidence");
+    expect(afterUnusedCatalogOption.state).toBe("current");
+    expect(afterUnusedCatalogOption.anchors.find((item) =>
+      item.anchor.id === "compact-cell-comparison")?.state).toBe("current");
+
     const hypothesis = await appendIndustrialInvestigationEntry(
       projectDir,
       "compact-cell-evidence",

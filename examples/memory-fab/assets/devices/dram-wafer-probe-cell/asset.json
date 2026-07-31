@@ -90,6 +90,23 @@
         "auxiliaryInputs": [],
         "preventsDefects": [],
         "minimumInputTreatmentLevel": 0
+      },
+      {
+        "id": "qualified-high-throughput-95",
+        "name": "Qualified high-throughput 95% cycle",
+        "inputCycles": 1,
+        "outputCycles": 1,
+        "durationMultiplier": {
+          "numerator": 19,
+          "denominator": 20
+        },
+        "powerMultiplier": {
+          "numerator": 20,
+          "denominator": 19
+        },
+        "auxiliaryInputs": [],
+        "preventsDefects": [],
+        "minimumInputTreatmentLevel": 0
       }
     ]
   },

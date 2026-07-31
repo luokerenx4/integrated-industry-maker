@@ -12,6 +12,8 @@ This file is the repository-level index of planned and completed engineering wor
 
 ## Active plans
 
+| Plan | Outcome | Updated |
+| --- | --- | --- |
 There are no active plans.
 
 ## Proposed plans
@@ -26,6 +28,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/run-110-probe-queue-convergence]] | Carry the exact Run 110 Probe queue contributor through current spatial observation and one distinct intervention or bounded defer decision. | 2026-07-31 |
 | [[plans/exact-loss-program-handoff]] | Bind loss-focused Design Programs to exact measured targets and hand Run 110 furnace starvation to the correct Investigation and observation path. | 2026-07-31 |
 | [[plans/run-105-loss-requalification]] | Requalify Run-105 yield quality from exact observation through an Investigation-owned Candidate, explicit KEEP decision, and verified current handoff. | 2026-07-31 |
 | [[plans/investigation-diagnostic-disposition]] | Let explicit current Investigation decisions disposition exact diagnostics and advance the shared Workbench queue without weakening evidence identity. | 2026-07-31 |

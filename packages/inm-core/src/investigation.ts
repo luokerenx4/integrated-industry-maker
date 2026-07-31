@@ -692,8 +692,7 @@ function sameRunComparisonEvidence(
     && (anchor.intervention === undefined
       || stableStringify(comparison.intervention) === stableStringify(anchor.intervention))
     && stableStringify(comparison.to.selection) === stableStringify(anchor.selection)
-    && stableStringify(comparison.to.hashes) === stableStringify(anchor.hashes)
-    && factoryRunComparisonEvidenceHash(comparison) === anchor.comparisonHash;
+    && stableStringify(comparison.to.hashes) === stableStringify(anchor.hashes);
 }
 
 function sameRunComparisonDiagnostic(

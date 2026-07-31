@@ -1,0 +1,36 @@
+{
+  "author": "agent",
+  "disposition": "discard",
+  "entryHash": "ae3b686bd8ec6bb938981db084c5c9df9a36a5f88dd6e71d64ea72919ac91f07",
+  "evidence": [
+    "operating-run",
+    "probe-queue-current-factory",
+    "probe-cycle-95-comparison",
+    "qualified-probe-cycle-95-review",
+    "diagnostic"
+  ],
+  "id": "discard-qualified-probe-cycle-95",
+  "introducedAnchors": [
+    {
+      "benchmark": "greenfield-dram-design",
+      "candidateId": "qualified-probe-cycle-95",
+      "currentCandidateHash": "1e1211d6be36b57d743e09c742e322948a705d45aaf4287dca09b976a5fe1c6a",
+      "id": "qualified-probe-cycle-95-review",
+      "kind": "candidate-review",
+      "proposalHash": "1a72349dd8ebfd7d55db6db8eef8d8d625ac25721f1a8b1c8f66d047aee6b381",
+      "proposedCandidateHash": "adf61ad613fd3766b12ebaea577e1698ef31b2e20b96046d263adc4f9ee5a95e",
+      "reviewResultHash": "2430f02e1eeedc905da699df2a70e1c3a5c89676749f0c580c8c94cbe6935cbd",
+      "verdict": "KEEP"
+    }
+  ],
+  "investigation": "run-110-probe-queue",
+  "kind": "decision",
+  "previousEntryHash": "63d12ed5bdb260a84075fd0a7916a5c4f38734dff1047719c0f9a054c26c2ce2",
+  "sequence": 4,
+  "statement": "Discard this Candidate. The 22.4% exact Probe queue reduction is real, but it is a local acceleration that changes die arrival phase faster than the commissioned packaging/burn-in/shipping system can absorb it. Ten fewer devices cross the terminal boundary and average WIP increases, so the intervention violates its own non-displacement guard despite the legacy Benchmark's baseline-relative KEEP label. Retain qualified-high-throughput-95 only as an explicit catalog capability and negative experiment boundary; do not apply it to the commissioned Blueprint. Any future Probe acceleration must be co-designed with the downstream handoff rather than revising this isolated mode.",
+  "target": {
+    "anchorId": "diagnostic",
+    "kind": "diagnostic"
+  },
+  "version": 1
+}
