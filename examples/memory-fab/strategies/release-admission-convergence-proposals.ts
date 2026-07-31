@@ -69,7 +69,7 @@ function observesExactReleaseWait(context: Readonly<ProjectProposalContext>): bo
 }
 
 export default {
-  apiVersion: 8,
+  apiVersion: 9,
   propose(context) {
     if (!observesExactReleaseWait(context)
       || context.history.some((item) => item.strategy === strategy)) return null;

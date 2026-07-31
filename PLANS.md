@@ -26,6 +26,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/maintenance-ready-work-attribution]] | Separate maintenance workload from exact overlap with physically ready production work across shared human/Agent evidence. | 2026-07-31 |
 | [[plans/run-110-lithography-maintenance-convergence]] | Carry Run 110's exact lithography maintenance/qualification contributor through one bounded cadence intervention and explicit industrial decision. | 2026-07-31 |
 | [[plans/run-110-probe-queue-convergence]] | Carry the exact Run 110 Probe queue contributor through current spatial observation and one distinct intervention or bounded defer decision. | 2026-07-31 |
 | [[plans/exact-loss-program-handoff]] | Bind loss-focused Design Programs to exact measured targets and hand Run 110 furnace starvation to the correct Investigation and observation path. | 2026-07-31 |

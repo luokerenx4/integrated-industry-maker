@@ -1,0 +1,1188 @@
+{
+  "averageBeltItems": 0.48333333333333334,
+  "averageBlockedBeltItems": 0,
+  "averageWipEquivalentUnits": 5.832141666666667,
+  "batchFlow": {
+    "averageLotsPerJob": 0,
+    "batchOperations": 0,
+    "formationDevices": {},
+    "formationHolds": 0,
+    "formationHoldTicks": 0,
+    "jobs": 0,
+    "lots": 0,
+    "meanQueueWaitTicksPerLot": 0,
+    "operations": {},
+    "preferredReleases": 0,
+    "timeoutReleases": 0
+  },
+  "beltCellUtilization": 0.01611111111111111,
+  "blockedOutputTime": {
+    "assembler-1": 0,
+    "coal-assembly-to-splitter-loader": 0,
+    "coal-assembly-to-splitter-unloader": 0,
+    "coal-forge-to-generator-loader": 0,
+    "coal-forge-to-generator-unloader": 0,
+    "coal-miner-assembly": 82000,
+    "coal-miner-forge": 0,
+    "coal-splitter-assembly": 0,
+    "coal-splitter-to-assembler-loader": 0,
+    "coal-splitter-to-assembler-unloader": 0,
+    "coal-splitter-to-generator-loader": 0,
+    "coal-splitter-to-generator-unloader": 0,
+    "gear-to-output-loader": 0,
+    "gear-to-output-unloader": 0,
+    "generator-1": 0,
+    "generator-2": 0,
+    "ore-source-1": 40849,
+    "ore-to-smelter-loader": 0,
+    "ore-to-smelter-unloader": 0,
+    "output-1": 0,
+    "plate-to-station-loader": 0,
+    "plate-to-station-unloader": 0,
+    "smelter-1": 0,
+    "station-demand": 0,
+    "station-supply": 0,
+    "station-to-assembler-loader": 0,
+    "station-to-assembler-unloader": 0,
+    "storage-forge": 0,
+    "wind-assembly-recipe-line": 0
+  },
+  "bottleneckEntity": "smelter-1",
+  "cadenceControl": {
+    "devices": {}
+  },
+  "carrierMissions": 5,
+  "carrierReturns": 4,
+  "completedOrders": 9,
+  "consumed": {
+    "gear": 9
+  },
+  "deliveryPortfolio": {
+    "contracts": {
+      "primary": {
+        "delivered": 9,
+        "demand": 24,
+        "fulfillment": 0.375,
+        "grossValue": 0,
+        "name": "Sustain Gear Throughput",
+        "netValue": 0,
+        "overflow": 0,
+        "region": "assembly-zone",
+        "resource": "gear",
+        "shortfall": 15,
+        "shortfallPenalty": 0,
+        "valued": 9
+      }
+    },
+    "delivered": 9,
+    "demanded": 24,
+    "fulfillment": 0.375,
+    "grossValue": 0,
+    "netValue": 0,
+    "netValuePerMinute": 0,
+    "overflow": 0,
+    "shortfallPenalty": 0,
+    "valued": 9
+  },
+  "electricityCosts": {
+    "demandChargeMicroCurrency": 0,
+    "energyChargeMicroCurrency": 0,
+    "regions": {},
+    "totalMicroCurrency": 0
+  },
+  "energyConsumedMilliJoules": 227679672,
+  "energyStorage": {
+    "grid-assembly-zone-generator-2": {
+      "capacityMilliJoules": 0,
+      "chargedMilliJoules": 0,
+      "dischargedMilliJoules": 0,
+      "initialMilliJoules": 0,
+      "storedMilliJoules": 0
+    },
+    "grid-forge-zone-generator-1": {
+      "capacityMilliJoules": 3600000,
+      "chargedMilliJoules": 2717513,
+      "dischargedMilliJoules": 2135935,
+      "initialMilliJoules": 0,
+      "storedMilliJoules": 581578
+    }
+  },
+  "equipmentEnergyManagement": {
+    "devices": {},
+    "totalSleepingTicks": 0,
+    "totalSleeps": 0,
+    "totalWakeTicks": 0,
+    "totalWakeups": 0
+  },
+  "equipmentMaintenance": {
+    "devices": {},
+    "providers": {},
+    "qualificationConsumables": {},
+    "serviceConsumables": {},
+    "totalAssetLimit": 0,
+    "totalCalendarTriggered": 0,
+    "totalCancelled": 0,
+    "totalCompleted": 0,
+    "totalCrewBlocks": 0,
+    "totalCrewWaitReadyWorkOverlapTicks": 0,
+    "totalCrewWaitTicks": 0,
+    "totalDriftDefects": 0,
+    "totalDriftedJobs": 0,
+    "totalDriftedLots": 0,
+    "totalIdleWindowTicks": 0,
+    "totalInputBlocks": 0,
+    "totalInputWaitReadyWorkOverlapTicks": 0,
+    "totalInputWaitTicks": 0,
+    "totalMaintenanceTicks": 0,
+    "totalOpportunistic": 0,
+    "totalPlannedBoundary": 0,
+    "totalQualificationCancelled": 0,
+    "totalQualificationCompleted": 0,
+    "totalQualificationCrewTicks": 0,
+    "totalQualificationReadyWorkOverlapTicks": 0,
+    "totalQualificationTicks": 0,
+    "totalReadyWorkIntervals": 0,
+    "totalReadyWorkOverlapTicks": 0,
+    "totalServiceCrewTicks": 0,
+    "totalServiceReadyWorkOverlapTicks": 0,
+    "totalUsageTriggered": 0
+  },
+  "equipmentSetups": {
+    "campaignMaximumHoldReleases": 0,
+    "campaignMinimumLotReleases": 0,
+    "devices": {},
+    "totalCampaignHolds": 0,
+    "totalCampaignHoldTicks": 0,
+    "totalChangeovers": 0,
+    "totalSetupTicks": 0
+  },
+  "extracted": {
+    "coal": 50,
+    "iron-ore": 68
+  },
+  "failedTime": {
+    "assembler-1": 0,
+    "coal-assembly-to-splitter-loader": 0,
+    "coal-assembly-to-splitter-unloader": 0,
+    "coal-forge-to-generator-loader": 0,
+    "coal-forge-to-generator-unloader": 0,
+    "coal-miner-assembly": 0,
+    "coal-miner-forge": 0,
+    "coal-splitter-assembly": 0,
+    "coal-splitter-to-assembler-loader": 0,
+    "coal-splitter-to-assembler-unloader": 0,
+    "coal-splitter-to-generator-loader": 0,
+    "coal-splitter-to-generator-unloader": 0,
+    "gear-to-output-loader": 0,
+    "gear-to-output-unloader": 0,
+    "generator-1": 0,
+    "generator-2": 0,
+    "ore-source-1": 0,
+    "ore-to-smelter-loader": 0,
+    "ore-to-smelter-unloader": 0,
+    "output-1": 0,
+    "plate-to-station-loader": 0,
+    "plate-to-station-unloader": 0,
+    "smelter-1": 0,
+    "station-demand": 0,
+    "station-supply": 0,
+    "station-to-assembler-loader": 0,
+    "station-to-assembler-unloader": 0,
+    "storage-forge": 0,
+    "wind-assembly-recipe-line": 0
+  },
+  "finalScore": 9.922505779999998,
+  "fuelConsumed": {
+    "coal": 4
+  },
+  "highSpeedMissions": 0,
+  "idleTime": {
+    "assembler-1": 0,
+    "coal-assembly-to-splitter-loader": 112500,
+    "coal-assembly-to-splitter-unloader": 112500,
+    "coal-forge-to-generator-loader": 118536,
+    "coal-forge-to-generator-unloader": 118500,
+    "coal-miner-assembly": 0,
+    "coal-miner-forge": 0,
+    "coal-splitter-assembly": 120000,
+    "coal-splitter-to-assembler-loader": 115750,
+    "coal-splitter-to-assembler-unloader": 115750,
+    "coal-splitter-to-generator-loader": 118750,
+    "coal-splitter-to-generator-unloader": 118750,
+    "gear-to-output-loader": 117750,
+    "gear-to-output-unloader": 117750,
+    "generator-1": 0,
+    "generator-2": 0,
+    "ore-source-1": 0,
+    "ore-to-smelter-loader": 68038,
+    "ore-to-smelter-unloader": 102563,
+    "output-1": 0,
+    "plate-to-station-loader": 112946,
+    "plate-to-station-unloader": 112881,
+    "smelter-1": 0,
+    "station-demand": 120000,
+    "station-supply": 120000,
+    "station-to-assembler-loader": 115500,
+    "station-to-assembler-unloader": 115500,
+    "storage-forge": 120000,
+    "wind-assembly-recipe-line": 120000
+  },
+  "infeasibleReason": null,
+  "inventoryAccounting": {
+    "averageExcludedInventory": 50.46225833333334,
+    "averageRawWipInventory": 5.832141666666667,
+    "averageTotalInventory": 56.2944,
+    "averageWipEquivalentUnits": 5.832141666666667,
+    "locations": {
+      "buffer:assembler-1:input-primary:iron-plate": {
+        "averageInventory": 0.6971666666666667,
+        "averageWipEquivalentUnits": 0.6971666666666667,
+        "buffer": "input-primary",
+        "device": "assembler-1",
+        "equivalentUnitsPerItem": 1,
+        "finalInventory": 0,
+        "finalWipEquivalentUnits": 0,
+        "kind": "buffer",
+        "peakInventory": 4,
+        "peakWipEquivalentUnits": 4,
+        "resource": "iron-plate"
+      },
+      "buffer:station-demand:storage:iron-plate": {
+        "averageInventory": 0.07083333333333333,
+        "averageWipEquivalentUnits": 0.07083333333333333,
+        "buffer": "storage",
+        "device": "station-demand",
+        "equivalentUnitsPerItem": 1,
+        "finalInventory": 0,
+        "finalWipEquivalentUnits": 0,
+        "kind": "buffer",
+        "peakInventory": 5,
+        "peakWipEquivalentUnits": 5,
+        "resource": "iron-plate"
+      },
+      "buffer:station-supply:storage:iron-plate": {
+        "averageInventory": 2.3150333333333335,
+        "averageWipEquivalentUnits": 2.3150333333333335,
+        "buffer": "storage",
+        "device": "station-supply",
+        "equivalentUnitsPerItem": 1,
+        "finalInventory": 1,
+        "finalWipEquivalentUnits": 1,
+        "kind": "buffer",
+        "peakInventory": 6,
+        "peakWipEquivalentUnits": 6,
+        "resource": "iron-plate"
+      },
+      "in-process:assembler-1:assemble-gear:iron-plate": {
+        "averageInventory": 0.45,
+        "averageWipEquivalentUnits": 0.45,
+        "device": "assembler-1",
+        "equivalentUnitsPerItem": 1,
+        "finalInventory": 0,
+        "finalWipEquivalentUnits": 0,
+        "kind": "in-process",
+        "peakInventory": 2,
+        "peakWipEquivalentUnits": 2,
+        "process": "assemble-gear",
+        "resource": "iron-plate"
+      },
+      "local-transit:plate-to-station:belt:iron-plate": {
+        "averageInventory": 0.0625,
+        "averageWipEquivalentUnits": 0.0625,
+        "connection": "plate-to-station",
+        "equivalentUnitsPerItem": 1,
+        "finalInventory": 0,
+        "finalWipEquivalentUnits": 0,
+        "kind": "local-transit",
+        "peakInventory": 1,
+        "peakWipEquivalentUnits": 1,
+        "phase": "belt",
+        "resource": "iron-plate"
+      },
+      "local-transit:plate-to-station:loading:iron-plate": {
+        "averageInventory": 0.05878333333333333,
+        "averageWipEquivalentUnits": 0.05878333333333333,
+        "connection": "plate-to-station",
+        "equivalentUnitsPerItem": 1,
+        "finalInventory": 0,
+        "finalWipEquivalentUnits": 0,
+        "kind": "local-transit",
+        "peakInventory": 1,
+        "peakWipEquivalentUnits": 1,
+        "phase": "loading",
+        "resource": "iron-plate"
+      },
+      "local-transit:plate-to-station:unloading:iron-plate": {
+        "averageInventory": 0.059325,
+        "averageWipEquivalentUnits": 0.059325,
+        "connection": "plate-to-station",
+        "equivalentUnitsPerItem": 1,
+        "finalInventory": 0,
+        "finalWipEquivalentUnits": 0,
+        "kind": "local-transit",
+        "peakInventory": 1,
+        "peakWipEquivalentUnits": 1,
+        "phase": "unloading",
+        "resource": "iron-plate"
+      },
+      "local-transit:station-to-assembler:belt:iron-plate": {
+        "averageInventory": 0.045,
+        "averageWipEquivalentUnits": 0.045,
+        "connection": "station-to-assembler",
+        "equivalentUnitsPerItem": 1,
+        "finalInventory": 0,
+        "finalWipEquivalentUnits": 0,
+        "kind": "local-transit",
+        "peakInventory": 2,
+        "peakWipEquivalentUnits": 2,
+        "phase": "belt",
+        "resource": "iron-plate"
+      },
+      "local-transit:station-to-assembler:loading:iron-plate": {
+        "averageInventory": 0.0375,
+        "averageWipEquivalentUnits": 0.0375,
+        "connection": "station-to-assembler",
+        "equivalentUnitsPerItem": 1,
+        "finalInventory": 0,
+        "finalWipEquivalentUnits": 0,
+        "kind": "local-transit",
+        "peakInventory": 1,
+        "peakWipEquivalentUnits": 1,
+        "phase": "loading",
+        "resource": "iron-plate"
+      },
+      "local-transit:station-to-assembler:unloading:iron-plate": {
+        "averageInventory": 0.0375,
+        "averageWipEquivalentUnits": 0.0375,
+        "connection": "station-to-assembler",
+        "equivalentUnitsPerItem": 1,
+        "finalInventory": 0,
+        "finalWipEquivalentUnits": 0,
+        "kind": "local-transit",
+        "peakInventory": 1,
+        "peakWipEquivalentUnits": 1,
+        "phase": "unloading",
+        "resource": "iron-plate"
+      },
+      "station-transit:inter-zone-main:inter-zone-main%3Airon-plate%3Astation-supply-%3Estation-demand:iron-plate": {
+        "averageInventory": 1.9985,
+        "averageWipEquivalentUnits": 1.9985,
+        "equivalentUnitsPerItem": 1,
+        "finalInventory": 6,
+        "finalWipEquivalentUnits": 6,
+        "kind": "station-transit",
+        "network": "inter-zone-main",
+        "peakInventory": 6,
+        "peakWipEquivalentUnits": 6,
+        "resource": "iron-plate",
+        "route": "inter-zone-main:iron-plate:station-supply->station-demand"
+      }
+    },
+    "peakRawWipInventory": 10,
+    "peakTotalInventory": 68,
+    "peakWipEquivalentUnits": 10,
+    "resources": {
+      "coal": {
+        "averageInventory": 35.556441666666665,
+        "averageWipEquivalentUnits": 0,
+        "finalInventory": 39,
+        "finalWipEquivalentUnits": 0,
+        "includedInWip": false,
+        "peakInventory": 41,
+        "peakWipEquivalentUnits": 0,
+        "wipEquivalentUnitsPerItem": null
+      },
+      "gear": {
+        "averageInventory": 0.075,
+        "averageWipEquivalentUnits": 0,
+        "finalInventory": 0,
+        "finalWipEquivalentUnits": 0,
+        "includedInWip": false,
+        "peakInventory": 1,
+        "peakWipEquivalentUnits": 0,
+        "wipEquivalentUnitsPerItem": null
+      },
+      "iron-ore": {
+        "averageInventory": 14.830816666666667,
+        "averageWipEquivalentUnits": 0,
+        "finalInventory": 18,
+        "finalWipEquivalentUnits": 0,
+        "includedInWip": false,
+        "peakInventory": 18,
+        "peakWipEquivalentUnits": 0,
+        "wipEquivalentUnitsPerItem": null
+      },
+      "iron-plate": {
+        "averageInventory": 5.832141666666667,
+        "averageWipEquivalentUnits": 5.832141666666667,
+        "finalInventory": 7,
+        "finalWipEquivalentUnits": 7,
+        "includedInWip": true,
+        "peakInventory": 10,
+        "peakWipEquivalentUnits": 10,
+        "wipEquivalentUnitsPerItem": 1
+      }
+    },
+    "wipEquivalentUnit": "gear-equivalent"
+  },
+  "lotFlow": {
+    "completed": 0,
+    "family": null,
+    "inProgress": 0,
+    "maximumCycleTimeTicks": 0,
+    "maximumTardinessTicks": 0,
+    "meanCycleTimeTicks": 0,
+    "meanProcessTimeTicks": 0,
+    "meanQueueTimeTicks": 0,
+    "meanTardinessTicks": 0,
+    "meanTransportTimeTicks": 0,
+    "onTimeCompleted": 0,
+    "p95CycleTimeTicks": 0,
+    "pendingRelease": 0,
+    "released": 0,
+    "scheduled": 0,
+    "scrapped": 0
+  },
+  "lotOutputFlow": {
+    "actualOutputs": {},
+    "actualUnits": 0,
+    "jobs": 0,
+    "lostOutputs": {},
+    "lostUnits": 0,
+    "nominalOutputs": {},
+    "nominalUnits": 0,
+    "outputRatio": 1,
+    "processes": {}
+  },
+  "machineUtilization": {
+    "assembler-1": 0.225,
+    "coal-assembly-to-splitter-loader": 0.0625,
+    "coal-assembly-to-splitter-unloader": 0.0625,
+    "coal-forge-to-generator-loader": 0.0122,
+    "coal-forge-to-generator-unloader": 0.0125,
+    "coal-miner-assembly": 0.31666666666666665,
+    "coal-miner-forge": 0.1239,
+    "coal-splitter-assembly": 0,
+    "coal-splitter-to-assembler-loader": 0.035416666666666666,
+    "coal-splitter-to-assembler-unloader": 0.035416666666666666,
+    "coal-splitter-to-generator-loader": 0.010416666666666666,
+    "coal-splitter-to-generator-unloader": 0.010416666666666666,
+    "gear-to-output-loader": 0.01875,
+    "gear-to-output-unloader": 0.01875,
+    "generator-1": 1,
+    "generator-2": 1,
+    "ore-source-1": 0.6595916666666667,
+    "ore-to-smelter-loader": 0.43301666666666666,
+    "ore-to-smelter-unloader": 0.14530833333333334,
+    "output-1": 0,
+    "plate-to-station-loader": 0.05878333333333333,
+    "plate-to-station-unloader": 0.059325,
+    "smelter-1": 0.9696166666666667,
+    "station-demand": 0,
+    "station-supply": 0,
+    "station-to-assembler-loader": 0.0375,
+    "station-to-assembler-unloader": 0.0375,
+    "storage-forge": 0,
+    "wind-assembly-recipe-line": 0
+  },
+  "materialTreatment": {
+    "agentsConsumed": {},
+    "treated": {}
+  },
+  "objectiveConstraints": [
+    {
+      "actual": 25440,
+      "deficit": 0,
+      "id": "objective:max-build-cost",
+      "label": "Maximum build cost",
+      "metric": "totalBuildCost",
+      "operator": "maximum",
+      "passed": true,
+      "source": "objective",
+      "threshold": 35000,
+      "unit": "currency"
+    },
+    {
+      "actual": 106,
+      "deficit": 0,
+      "id": "objective:max-occupied-area",
+      "label": "Maximum occupied area",
+      "metric": "occupiedArea",
+      "operator": "maximum",
+      "passed": true,
+      "source": "objective",
+      "threshold": 240,
+      "unit": "area"
+    },
+    {
+      "actual": 9,
+      "deficit": 0,
+      "id": "objective:min-production",
+      "label": "Minimum target production",
+      "metric": "targetProduction",
+      "operator": "minimum",
+      "passed": true,
+      "source": "objective",
+      "threshold": 5,
+      "unit": "items"
+    }
+  ],
+  "occupiedArea": 106,
+  "onTimeDelivery": 0.375,
+  "peakBeltItems": 4,
+  "powerGrids": {
+    "grid-assembly-zone-generator-2": {
+      "averageSatisfactionPpm": 1000000,
+      "curtailedMilliJoules": 83738750,
+      "demandMilliJoules": 108261250,
+      "generatedMilliJoules": 192000000,
+      "minimumSatisfactionPpm": 1000000,
+      "peakDeficitMilliWatts": 0,
+      "peakDemandMilliWatts": 1299500,
+      "peakGenerationMilliWatts": 1600000,
+      "peakSurplusMilliWatts": 860000,
+      "requiredStorageCapacityMilliJoules": 0,
+      "servedMilliJoules": 108261250,
+      "unservedMilliJoules": 0
+    },
+    "grid-forge-zone-generator-1": {
+      "averageSatisfactionPpm": 880251.7814083333,
+      "curtailedMilliJoules": 0,
+      "demandMilliJoules": 137115377,
+      "generatedMilliJoules": 120000000,
+      "minimumSatisfactionPpm": 776699,
+      "peakDeficitMilliWatts": 287500,
+      "peakDemandMilliWatts": 1287500,
+      "peakGenerationMilliWatts": 1000000,
+      "peakSurplusMilliWatts": 111000,
+      "requiredStorageCapacityMilliJoules": 15362977,
+      "servedMilliJoules": 119418422,
+      "unservedMilliJoules": 17696955
+    }
+  },
+  "produced": {
+    "coal": 50,
+    "gear": 9,
+    "iron-ore": 68,
+    "iron-plate": 25
+  },
+  "productionTooling": {
+    "devices": {},
+    "providers": {},
+    "resources": {},
+    "totalAllocations": 0,
+    "totalCancelled": 0,
+    "totalCompleted": 0,
+    "totalInputBlocks": 0,
+    "totalInputWaitTicks": 0,
+    "totalOccupiedTicks": 0,
+    "totalUnitTicks": 0
+  },
+  "productionUtilities": {
+    "devices": {},
+    "providers": {},
+    "totalAllocations": 0,
+    "totalCancelled": 0,
+    "totalCompleted": 0,
+    "totalInputBlocks": 0,
+    "totalInputWaitTicks": 0,
+    "totalOccupiedTicks": 0,
+    "totalProviderInterruptions": 0,
+    "totalUnitTicks": 0,
+    "utilities": {}
+  },
+  "qualityFlow": {
+    "activeDefects": 0,
+    "defectFreeCompleted": 0,
+    "escapedDefects": 0,
+    "firstPassCompleted": 0,
+    "firstPassYield": 0,
+    "goodYield": 0,
+    "inspectedLots": 0,
+    "passedInspections": 0,
+    "qualityControl": {
+      "appliedDefectInstances": 0,
+      "authoredDefectInstances": 0,
+      "authoredExcursions": 0,
+      "devices": {},
+      "preventedDefectInstances": 0,
+      "preventedLots": 0
+    },
+    "rejectedInspections": 0,
+    "reworkedLots": 0,
+    "scrapDispositions": 0,
+    "totalInspections": 0,
+    "totalReworkCycles": 0
+  },
+  "releaseFlow": {
+    "actualSpanTicks": 0,
+    "capacityBlockedLots": 0,
+    "capacityBlockedTicks": 0,
+    "control": "open-loop",
+    "controlBlockedLots": 0,
+    "controlBlockedTicks": 0,
+    "dispatch": null,
+    "maximumReleaseDelayTicks": 0,
+    "maximumWip": null,
+    "meanActualIntervalTicks": 0,
+    "meanPlannedIntervalTicks": 0,
+    "meanReleaseDelayTicks": 0,
+    "peakActiveLots": 0,
+    "pending": 0,
+    "plannedSpanTicks": 0,
+    "released": 0,
+    "reopenAtWip": null,
+    "scheduled": 0,
+    "serviceLevelAfterTicks": null,
+    "serviceLevelOpenings": 0,
+    "serviceProtectedReleases": 0
+  },
+  "resourceNodes": {
+    "coal-seam-assembly": {
+      "depleted": false,
+      "extracted": 38,
+      "initial": 40,
+      "remaining": 2,
+      "reserved": 0
+    },
+    "coal-seam-forge": {
+      "depleted": true,
+      "extracted": 12,
+      "initial": 12,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-1": {
+      "depleted": true,
+      "extracted": 30,
+      "initial": 30,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-2": {
+      "depleted": true,
+      "extracted": 30,
+      "initial": 30,
+      "remaining": 0,
+      "reserved": 0
+    },
+    "iron-vein-3": {
+      "depleted": false,
+      "extracted": 8,
+      "initial": 30,
+      "remaining": 22,
+      "reserved": 0
+    }
+  },
+  "routeFlow": {},
+  "scoreBreakdown": {
+    "blocked": -2.0474833333333335,
+    "buildCost": -12.72,
+    "changeovers": 0,
+    "constraintPenalty": 0,
+    "cycleTime": 0,
+    "deliveryValue": 0,
+    "electricityCost": 0,
+    "energy": -2.27679672,
+    "occupiedArea": -21.200000000000003,
+    "onTimeDelivery": 3.75,
+    "qualityEscapes": 0,
+    "rework": 0,
+    "tardiness": 0,
+    "throughput": 45,
+    "wip": -0.5832141666666667
+  },
+  "sleepingTime": {
+    "assembler-1": 0,
+    "coal-assembly-to-splitter-loader": 0,
+    "coal-assembly-to-splitter-unloader": 0,
+    "coal-forge-to-generator-loader": 0,
+    "coal-forge-to-generator-unloader": 0,
+    "coal-miner-assembly": 0,
+    "coal-miner-forge": 0,
+    "coal-splitter-assembly": 0,
+    "coal-splitter-to-assembler-loader": 0,
+    "coal-splitter-to-assembler-unloader": 0,
+    "coal-splitter-to-generator-loader": 0,
+    "coal-splitter-to-generator-unloader": 0,
+    "gear-to-output-loader": 0,
+    "gear-to-output-unloader": 0,
+    "generator-1": 0,
+    "generator-2": 0,
+    "ore-source-1": 0,
+    "ore-to-smelter-loader": 0,
+    "ore-to-smelter-unloader": 0,
+    "output-1": 0,
+    "plate-to-station-loader": 0,
+    "plate-to-station-unloader": 0,
+    "smelter-1": 0,
+    "station-demand": 0,
+    "station-supply": 0,
+    "station-to-assembler-loader": 0,
+    "station-to-assembler-unloader": 0,
+    "storage-forge": 0,
+    "wind-assembly-recipe-line": 0
+  },
+  "sourceLotLineage": {
+    "commingledJobs": 0,
+    "createdUnits": 0,
+    "deliveredUnits": 0,
+    "discardedUnits": 0,
+    "finalWipUnits": 0,
+    "producedUnits": 0,
+    "sourceLots": [],
+    "sourceSets": []
+  },
+  "stationEnergy": {
+    "station-demand": {
+      "capacityMilliJoules": 12000000,
+      "chargedMilliJoules": 12000000,
+      "configuredChargeMilliWatts": 300000,
+      "initialMilliJoules": 0,
+      "spentMilliJoules": 0,
+      "storedMilliJoules": 12000000
+    },
+    "station-supply": {
+      "capacityMilliJoules": 12000000,
+      "chargedMilliJoules": 22194999.99999994,
+      "configuredChargeMilliWatts": 300000,
+      "initialMilliJoules": 0,
+      "spentMilliJoules": 11300000,
+      "storedMilliJoules": 10895000
+    }
+  },
+  "stationFleets": {
+    "inter-zone-main:station-demand": {
+      "activeMissions": 0,
+      "carrierAsset": "line-haul-carrier",
+      "completedReturns": 0,
+      "configuredCarriers": 0,
+      "network": "inter-zone-main",
+      "station": "station-demand",
+      "utilization": 0
+    },
+    "inter-zone-main:station-supply": {
+      "activeMissions": 1,
+      "carrierAsset": "line-haul-carrier",
+      "completedReturns": 4,
+      "configuredCarriers": 1,
+      "network": "inter-zone-main",
+      "station": "station-supply",
+      "utilization": 0.83475
+    }
+  },
+  "throughputPerMinute": 4.5,
+  "totalBuildCost": 25440,
+  "transportCongestion": 0.10707098765432113,
+  "transportEnergyConsumedMilliJoules": 1088696.117118,
+  "transportFlows": {
+    "coal-assembly-to-splitter": {
+      "averageInFlightItems": 0.175,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "coal": 30
+      },
+      "deliveredItems": 30,
+      "deliveredItemsPerMinute": 15,
+      "departedByResource": {
+        "coal": 30
+      },
+      "departedItems": 30,
+      "departedItemsPerMinute": 15,
+      "utilization": 0.0625
+    },
+    "coal-forge-to-generator": {
+      "averageInFlightItems": 0.0372,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "coal": 5
+      },
+      "deliveredItems": 5,
+      "deliveredItemsPerMinute": 2.5,
+      "departedByResource": {
+        "coal": 5
+      },
+      "departedItems": 5,
+      "departedItemsPerMinute": 2.5,
+      "utilization": 0.010416666666666666
+    },
+    "coal-splitter-to-assembler": {
+      "averageInFlightItems": 0.18416666666666667,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "coal": 17
+      },
+      "deliveredItems": 17,
+      "deliveredItemsPerMinute": 8.5,
+      "departedByResource": {
+        "coal": 17
+      },
+      "departedItems": 17,
+      "departedItemsPerMinute": 8.5,
+      "utilization": 0.035416666666666666
+    },
+    "coal-splitter-to-generator": {
+      "averageInFlightItems": 0.03333333333333333,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "coal": 5
+      },
+      "deliveredItems": 5,
+      "deliveredItemsPerMinute": 2.5,
+      "departedByResource": {
+        "coal": 5
+      },
+      "departedItems": 5,
+      "departedItemsPerMinute": 2.5,
+      "utilization": 0.010416666666666666
+    },
+    "gear-to-output": {
+      "averageInFlightItems": 0.075,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "gear": 9
+      },
+      "deliveredItems": 9,
+      "deliveredItemsPerMinute": 4.5,
+      "departedByResource": {
+        "gear": 9
+      },
+      "departedItems": 9,
+      "departedItemsPerMinute": 4.5,
+      "utilization": 0.01875
+    },
+    "ore-to-smelter": {
+      "averageInFlightItems": 0.728325,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
+      "capacityItemsPerMinute": 80,
+      "deliveredByResource": {
+        "iron-ore": 60
+      },
+      "deliveredItems": 60,
+      "deliveredItemsPerMinute": 30,
+      "departedByResource": {
+        "iron-ore": 60
+      },
+      "departedItems": 60,
+      "departedItemsPerMinute": 30,
+      "utilization": 0.375
+    },
+    "plate-to-station": {
+      "averageInFlightItems": 0.18060833333333334,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "iron-plate": 25
+      },
+      "deliveredItems": 25,
+      "deliveredItemsPerMinute": 12.5,
+      "departedByResource": {
+        "iron-plate": 25
+      },
+      "departedItems": 25,
+      "departedItemsPerMinute": 12.5,
+      "utilization": 0.052083333333333336
+    },
+    "station-to-assembler": {
+      "averageInFlightItems": 0.12,
+      "blockedFraction": 0,
+      "blockedItemTicks": 0,
+      "blockedItemTicksByCause": {
+        "endpoint-capacity": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-failure": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "endpoint-power": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        },
+        "line-contention": {
+          "line": 0,
+          "loader": 0,
+          "unloader": 0
+        }
+      },
+      "capacityItemsPerMinute": 240,
+      "deliveredByResource": {
+        "iron-plate": 18
+      },
+      "deliveredItems": 18,
+      "deliveredItemsPerMinute": 9,
+      "departedByResource": {
+        "iron-plate": 18
+      },
+      "departedItems": 18,
+      "departedItemsPerMinute": 9,
+      "utilization": 0.0375
+    }
+  },
+  "transportStageUtilization": {
+    "coal-assembly-to-splitter": {
+      "loader": 0.0625,
+      "unloader": 0.0625
+    },
+    "coal-forge-to-generator": {
+      "loader": 0.0122,
+      "unloader": 0.0125
+    },
+    "coal-splitter-to-assembler": {
+      "loader": 0.035416666666666666,
+      "unloader": 0.035416666666666666
+    },
+    "coal-splitter-to-generator": {
+      "loader": 0.010416666666666666,
+      "unloader": 0.010416666666666666
+    },
+    "gear-to-output": {
+      "loader": 0.01875,
+      "unloader": 0.01875
+    },
+    "ore-to-smelter": {
+      "loader": 0.43301666666666666,
+      "unloader": 0.14530833333333334
+    },
+    "plate-to-station": {
+      "loader": 0.05878333333333333,
+      "unloader": 0.059325
+    },
+    "station-to-assembler": {
+      "loader": 0.0375,
+      "unloader": 0.0375
+    }
+  },
+  "unpoweredTime": {
+    "assembler-1": 0,
+    "coal-assembly-to-splitter-loader": 0,
+    "coal-assembly-to-splitter-unloader": 0,
+    "coal-forge-to-generator-loader": 0,
+    "coal-forge-to-generator-unloader": 0,
+    "coal-miner-assembly": 0,
+    "coal-miner-forge": 0,
+    "coal-splitter-assembly": 0,
+    "coal-splitter-to-assembler-loader": 0,
+    "coal-splitter-to-assembler-unloader": 0,
+    "coal-splitter-to-generator-loader": 0,
+    "coal-splitter-to-generator-unloader": 0,
+    "gear-to-output-loader": 0,
+    "gear-to-output-unloader": 0,
+    "generator-1": 0,
+    "generator-2": 0,
+    "ore-source-1": 0,
+    "ore-to-smelter-loader": 0,
+    "ore-to-smelter-unloader": 0,
+    "output-1": 0,
+    "plate-to-station-loader": 0,
+    "plate-to-station-unloader": 0,
+    "smelter-1": 0,
+    "station-demand": 0,
+    "station-supply": 0,
+    "station-to-assembler-loader": 0,
+    "station-to-assembler-unloader": 0,
+    "storage-forge": 0,
+    "wind-assembly-recipe-line": 0
+  },
+  "waitingInputTime": {
+    "assembler-1": 93000,
+    "coal-assembly-to-splitter-loader": 0,
+    "coal-assembly-to-splitter-unloader": 0,
+    "coal-forge-to-generator-loader": 0,
+    "coal-forge-to-generator-unloader": 0,
+    "coal-miner-assembly": 0,
+    "coal-miner-forge": 105132,
+    "coal-splitter-assembly": 0,
+    "coal-splitter-to-assembler-loader": 0,
+    "coal-splitter-to-assembler-unloader": 0,
+    "coal-splitter-to-generator-loader": 0,
+    "coal-splitter-to-generator-unloader": 0,
+    "gear-to-output-loader": 0,
+    "gear-to-output-unloader": 0,
+    "generator-1": 0,
+    "generator-2": 0,
+    "ore-source-1": 0,
+    "ore-to-smelter-loader": 0,
+    "ore-to-smelter-unloader": 0,
+    "output-1": 120000,
+    "plate-to-station-loader": 0,
+    "plate-to-station-unloader": 0,
+    "smelter-1": 3646,
+    "station-demand": 0,
+    "station-supply": 0,
+    "station-to-assembler-loader": 0,
+    "station-to-assembler-unloader": 0,
+    "storage-forge": 0,
+    "wind-assembly-recipe-line": 0
+  }
+}

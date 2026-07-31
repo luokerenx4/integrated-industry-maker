@@ -735,12 +735,55 @@ export function evaluateFactory(
         qualificationConsumables: { ...runtime.maintenance!.qualificationConsumables },
         ...(runtime.maintenance!.qualificationPending ? { qualificationPending: { ...runtime.maintenance!.qualificationPending } } : {}),
         ...(runtime.maintenance!.wait ? { wait: { ...runtime.maintenance!.wait } } : {}),
+        ...(runtime.maintenance!.readyWork ? { readyWork: {
+          ...runtime.maintenance!.readyWork,
+          plans: structuredClone(runtime.maintenance!.readyWork.plans),
+        } } : {}),
       };
       if (maintenance.wait) {
         const key = maintenance.wait.reason === "consumable" ? "inputWaitTicks" : "crewWaitTicks";
         maintenance[key] += state.tick - maintenance.wait.sinceTick;
       }
-      return [id, maintenance];
+      const activeMaintenance = runtime.activeJob?.maintenance;
+      if (activeMaintenance) {
+        const key = activeMaintenance.phase === "service" ? "maintenanceTicks" : "qualificationTicks";
+        maintenance[key] += state.tick - runtime.activeJob!.startedAt;
+      }
+      if (maintenance.readyWork) {
+        const readyTicks = state.tick - maintenance.readyWork.sinceTick;
+        maintenance.readyWorkOverlapTicks += readyTicks;
+        const key = maintenance.readyWork.state === "work"
+          ? maintenance.readyWork.phase === "service"
+            ? "serviceReadyWorkOverlapTicks"
+            : "qualificationReadyWorkOverlapTicks"
+          : maintenance.readyWork.reason === "consumable"
+            ? "inputWaitReadyWorkOverlapTicks"
+            : "crewWaitReadyWorkOverlapTicks";
+        maintenance[key] += readyTicks;
+      }
+      const readyWorkPhaseTicks = maintenance.serviceReadyWorkOverlapTicks
+        + maintenance.qualificationReadyWorkOverlapTicks
+        + maintenance.inputWaitReadyWorkOverlapTicks
+        + maintenance.crewWaitReadyWorkOverlapTicks;
+      if (readyWorkPhaseTicks !== maintenance.readyWorkOverlapTicks) {
+        throw new Error(
+          `Maintenance ready-work phase attribution for '${id}' is ${readyWorkPhaseTicks}, not ${maintenance.readyWorkOverlapTicks}`,
+        );
+      }
+      const workloadTicks = maintenance.maintenanceTicks
+        + maintenance.qualificationTicks
+        + maintenance.inputWaitTicks
+        + maintenance.crewWaitTicks;
+      if (maintenance.readyWorkOverlapTicks > workloadTicks) {
+        throw new Error(
+          `Maintenance ready-work overlap for '${id}' is ${maintenance.readyWorkOverlapTicks}, above ${workloadTicks} workload ticks`,
+        );
+      }
+      const measured = {
+        ...maintenance,
+        idleWindowTicks: workloadTicks - maintenance.readyWorkOverlapTicks,
+      };
+      return [id, measured];
     }));
   const maintenanceProviders = Object.fromEntries(Object.entries(state.devices).filter(([, runtime]) => runtime.maintenanceProvider)
     .sort(([left], [right]) => left.localeCompare(right)).map(([id, runtime]) => [id, {
@@ -752,8 +795,8 @@ export function evaluateFactory(
     const provider = maintenanceProviders[job.provider];
     if (!provider) continue;
     const activeCrewTicks = Math.max(0, state.tick - runtime.activeJob!.startedAt) * job.crews;
-    provider.serviceCrewTicks += activeCrewTicks;
     if (job.phase === "qualification") provider.qualificationCrewTicks += activeCrewTicks;
+    else provider.serviceCrewTicks += activeCrewTicks;
   }
   const serviceConsumables = Object.values(maintenanceDevices).reduce<Record<string, number>>((totals, maintenance) => {
     for (const [resource, count] of Object.entries(maintenance.serviceConsumables)) totals[resource] = (totals[resource] ?? 0) + count;
@@ -782,6 +825,13 @@ export function evaluateFactory(
     totalCrewWaitTicks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.crewWaitTicks, 0),
     totalInputBlocks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.inputBlocks, 0),
     totalCrewBlocks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.crewBlocks, 0),
+    totalReadyWorkOverlapTicks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.readyWorkOverlapTicks, 0),
+    totalIdleWindowTicks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.idleWindowTicks, 0),
+    totalServiceReadyWorkOverlapTicks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.serviceReadyWorkOverlapTicks, 0),
+    totalQualificationReadyWorkOverlapTicks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.qualificationReadyWorkOverlapTicks, 0),
+    totalInputWaitReadyWorkOverlapTicks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.inputWaitReadyWorkOverlapTicks, 0),
+    totalCrewWaitReadyWorkOverlapTicks: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.crewWaitReadyWorkOverlapTicks, 0),
+    totalReadyWorkIntervals: Object.values(maintenanceDevices).reduce((sum, maintenance) => sum + maintenance.readyWorkIntervals, 0),
     totalServiceCrewTicks: Object.values(maintenanceProviders).reduce((sum, provider) => sum + provider.serviceCrewTicks, 0),
     totalQualificationCrewTicks: Object.values(maintenanceProviders).reduce((sum, provider) => sum + provider.qualificationCrewTicks, 0),
     serviceConsumables,

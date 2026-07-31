@@ -39,7 +39,7 @@ test("immutable Run comparison explains the commissioned compact inspection-rewo
     version: 2,
     project: { id: "memory-fab" },
     context: {
-      engineVersion: "inm-sim/0.92.0",
+      engineVersion: "inm-sim/0.93.1",
       seed: 42,
       durationTicks: 240_000,
     },

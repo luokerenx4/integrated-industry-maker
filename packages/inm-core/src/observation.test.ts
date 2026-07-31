@@ -8,7 +8,7 @@ import { openProjectWorkbenchSnapshot, type ProjectWorkbenchSnapshot } from "./w
 const repository = resolve(import.meta.dir, "../../..");
 const memoryFabProjectDir = join(repository, "examples/memory-fab");
 const memoryFabSnapshot = openProjectWorkbenchSnapshot(memoryFabProjectDir);
-const currentRunId = "110-candidate-trial-run-105-normal-particle-suppress";
+const currentRunId = "112-simulate";
 
 test("observation brief keeps the Objective WIP tradeoff visible after current losses are bounded", async () => {
   const snapshot = structuredClone(await memoryFabSnapshot);
@@ -30,11 +30,11 @@ test("observation brief keeps the Objective WIP tradeoff visible after current l
   expect(brief.evidence.run).toEqual(expect.objectContaining({
     id: currentRunId,
     resultHash: expect.any(String),
-    decision: "TRIAL",
+    decision: "BASELINE",
   }));
   expect(brief.evidence.sourceLotServices).toEqual(expect.arrayContaining([
     expect.objectContaining({
-      analysisHash: "e3a9603cecb16cc7027c5f215bfc6c5c1330dd1ef2b599f0efd40aa8e6ec73a1",
+      analysisHash: "7869e72a53378716500c2e7f4eff96ab5b3bfdf77629ac779bc17805422e3e35",
       query: expect.objectContaining({ device: "burn-in-1" }),
     }),
   ]));
@@ -125,12 +125,12 @@ test("observation brief exposes the exact equipment and service path for mainten
   expect(brief.leadingDiagnostic).toEqual(expect.objectContaining({
     code: "fab-loss.maintenance-qualification",
     subjects: [
-      { kind: "device", id: "lithography-1" },
+      { kind: "device", id: "etch-1" },
       { kind: "device", id: "maintenance-service-1" },
     ],
   }));
   expect(brief.views).toEqual(expect.arrayContaining([
-    expect.objectContaining({ studioRoute: `/memory-fab/factory/devices/lithography-1?run=${currentRunId}` }),
+    expect.objectContaining({ studioRoute: `/memory-fab/factory/devices/etch-1?run=${currentRunId}` }),
     expect.objectContaining({ studioRoute: `/memory-fab/factory/devices/maintenance-service-1?run=${currentRunId}` }),
   ]));
 });

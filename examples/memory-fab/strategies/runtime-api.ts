@@ -73,7 +73,7 @@ export type InputSupplyState =
   | "source-empty";
 
 export interface FabLossProfile {
-  version: 8;
+  version: 9;
   family: string;
   outcome: Record<string, number>;
   primary: FabLossBucket | null;
@@ -123,6 +123,7 @@ export interface FabLossContributor {
   step: string | null;
   resources: string[];
   processes: string[];
+  readyWorkPlans?: Array<{ process: string; mode: string }>;
   defects: string[];
   lots: string[];
   subjects: Array<{ kind: "project" | "device" | "connection" | "route"; id: string }>;
@@ -159,7 +160,7 @@ export interface FabLossContributor {
 }
 
 export interface ProjectProposalContext {
-  apiVersion: 8;
+  apiVersion: 9;
   iteration: number;
   branch: {
     nodeId: string;
@@ -245,7 +246,7 @@ export type ResearchObjectiveTarget =
   };
 
 export interface ProjectProposalProvider {
-  apiVersion: 8;
+  apiVersion: 9;
   propose(context: Readonly<ProjectProposalContext>): {
     strategy: string;
     hypothesis: string;

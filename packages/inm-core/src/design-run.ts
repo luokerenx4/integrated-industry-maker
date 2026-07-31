@@ -359,7 +359,7 @@ function validDriverEvidence(value: unknown): value is DesignDriverEvidence {
   );
   if (!validObjective) return false;
   if (evidence.fabLoss === null) return true;
-  return evidence.fabLoss?.version === 8
+  return evidence.fabLoss?.version === 9
     && typeof evidence.fabLoss.family === "string"
     && !Object.hasOwn(evidence.fabLoss, "run")
     && Array.isArray(evidence.fabLoss.chain)

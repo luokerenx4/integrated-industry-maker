@@ -99,7 +99,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.status).toEqual(expect.objectContaining({
     capacity: { state: "ready", gapCount: 0, gapsByKind: {} },
     flow: { state: "at-risk", warningCount: 8, infoCount: 9 },
-    evidence: { state: "current", runId: "110-candidate-trial-run-105-normal-particle-suppress" },
+    evidence: { state: "current", runId: "112-simulate" },
     review: { state: "stale", pendingCount: 0, disposedCount: 1, staleCount: 29, verifiedCount: 1 },
   }));
   expect(snapshot.selection.blueprint.id).toBe("generated-dram-fab");
@@ -113,7 +113,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.objective.wipAccounting.resources.map((entry) => entry.resource))
     .not.toContain("dram-package-substrate");
   expect(snapshot.inventoryAccounting).toEqual(expect.objectContaining({
-    runId: "110-candidate-trial-run-105-normal-particle-suppress",
+    runId: "112-simulate",
     wipEquivalentUnit: "dram-device-equivalent",
     averageRawWipInventory: 28.331025,
     averageWipEquivalentUnits: 49.1905,
@@ -133,7 +133,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     averageInventory: 9.465691666666666,
   }));
   expect(snapshot.sourceLotLineage).toEqual(expect.objectContaining({
-    runId: "110-candidate-trial-run-105-normal-particle-suppress",
+    runId: "112-simulate",
     createdUnits: 96,
     deliveredUnits: 88,
     discardedUnits: 0,
@@ -158,8 +158,8 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     .toEqual(expect.objectContaining({
       version: 1,
       kind: "source-lot-service",
-      analysisHash: "e3a9603cecb16cc7027c5f215bfc6c5c1330dd1ef2b599f0efd40aa8e6ec73a1",
-      run: expect.objectContaining({ id: "110-candidate-trial-run-105-normal-particle-suppress", endTick: 240000 }),
+      analysisHash: "7869e72a53378716500c2e7f4eff96ab5b3bfdf77629ac779bc17805422e3e35",
+      run: expect.objectContaining({ id: "112-simulate", endTick: 240000 }),
       query: {
         device: "burn-in-1",
         inputBuffer: "package-input",
@@ -184,7 +184,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       ]),
     }));
   expect(snapshot.objectiveEvidence).toEqual(expect.objectContaining({
-    runId: "110-candidate-trial-run-105-normal-particle-suppress",
+    runId: "112-simulate",
     finalScore: 0.7449870058333197,
     dominantPenalty: { id: "wip", contribution: -73.78575000000001, role: "penalty" },
     wip: expect.objectContaining({
@@ -226,16 +226,16 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   expect(snapshot.objectiveEvidence!.components.reduce((sum, component) => sum + component.contribution, 0))
     .toBeCloseTo(snapshot.objectiveEvidence!.finalScore, 12);
   expect(snapshot.lossAttribution).toEqual(expect.objectContaining({
-    version: 8,
+    version: 9,
     chain: [
       "input-starvation",
       "queue-congestion",
-      "maintenance-qualification",
       "yield-quality",
       "release-admission",
       "transport-blocking",
       "power-interruption",
       "setup-campaign",
+      "maintenance-qualification",
     ],
   }));
   expect(snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "power-interruption")).toMatchObject({
@@ -297,55 +297,61 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
   });
   expect(snapshot.lossAttribution?.buckets.find((bucket) => bucket.id === "maintenance-qualification")).toMatchObject({
     evidence: {
-      maintenanceTicks: 94_000,
+      maintenanceTicks: 64_000,
       qualificationTicks: 30_000,
       inputWaitTicks: 0,
       crewWaitTicks: 0,
-      totalTicks: 124_000,
-      attributedTicks: 124_000,
+      totalTicks: 94_000,
+      attributedTicks: 94_000,
       unattributedTicks: 0,
       contributors: 4,
+      readyWorkOverlapTicks: 23_143,
+      idleWindowTicks: 70_857,
     },
     subjects: [
-      { kind: "device", id: "lithography-1" },
+      { kind: "device", id: "etch-1" },
       { kind: "device", id: "maintenance-service-1" },
     ],
     contributors: [
       expect.objectContaining({
-        id: "device:lithography-1:maintenance-qualification",
-        label: "lithography-1",
+        id: "device:etch-1:maintenance-qualification",
+        label: "etch-1",
         resources: ["chamber-clean-kit", "tool-qualification-wafer"],
         subjects: [
-          { kind: "device", id: "lithography-1" },
+          { kind: "device", id: "etch-1" },
           { kind: "device", id: "maintenance-service-1" },
         ],
         evidence: expect.objectContaining({
-          totalTicks: 34_000,
-          maintenanceTicks: 26_000,
-          qualificationTicks: 8_000,
+          totalTicks: 21_000,
+          maintenanceTicks: 14_000,
+          qualificationTicks: 7_000,
           inputWaitTicks: 0,
           crewWaitTicks: 0,
+          readyWorkOverlapTicks: 17_000,
+          idleWindowTicks: 4_000,
           usageTriggered: 2,
           calendarTriggered: 0,
-          plannedBoundary: 2,
-          opportunistic: 0,
+          plannedBoundary: 0,
+          opportunistic: 2,
         }),
+        readyWorkPlans: [{ process: "etch-cell-layer-1", mode: "qualified" }],
         consumables: {
           service: { "chamber-clean-kit": 2 },
           qualification: { "tool-qualification-wafer": 2 },
         },
       }),
       expect.objectContaining({
-        id: "device:lithography-l2:maintenance-qualification",
-        evidence: expect.objectContaining({ totalTicks: 34_000, opportunistic: 2 }),
-      }),
-      expect.objectContaining({
-        id: "device:etch-1:maintenance-qualification",
-        evidence: expect.objectContaining({ totalTicks: 28_000, opportunistic: 2 }),
-      }),
-      expect.objectContaining({
         id: "device:etch-l2:maintenance-qualification",
-        evidence: expect.objectContaining({ totalTicks: 28_000, opportunistic: 2 }),
+        evidence: expect.objectContaining({ totalTicks: 21_000, readyWorkOverlapTicks: 3_333, opportunistic: 2 }),
+      }),
+      expect.objectContaining({
+        id: "device:lithography-l2:maintenance-qualification",
+        evidence: expect.objectContaining({ totalTicks: 26_000, readyWorkOverlapTicks: 2_810, opportunistic: 2 }),
+      }),
+      expect.objectContaining({
+        id: "device:lithography-1:maintenance-qualification",
+        evidence: expect.objectContaining({ totalTicks: 26_000, readyWorkOverlapTicks: 0, plannedBoundary: 2 }),
+        readyWorkPlans: [],
       }),
     ],
   });
@@ -580,43 +586,15 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     candidate.id === "qualified-probe-cycle-95")?.investigationDisposition)
     .toEqual(expect.objectContaining({ disposition: "discard" }));
   expect(snapshot.nextAction.id).not.toBe("candidate.apply:incumbent-five-performance-seven-commercial");
-  expect(snapshot.investigationDiagnosticDispositions).toEqual([
-    expect.objectContaining({
-      disposition: "defer",
-      queueEffect: "suppressed",
-      target: expect.objectContaining({
-        anchorId: "run-110-furnace-factory",
-        code: "fab-loss.input-starvation",
-        diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:device:furnace-1/),
-      }),
-      source: expect.objectContaining({
-        investigationId: "run-110-furnace-supply",
-        entryId: "defer-run-110-furnace-local-branch",
-      }),
-    }),
-    expect.objectContaining({
-      disposition: "discard",
-      queueEffect: "suppressed",
-      target: expect.objectContaining({
-        anchorId: "diagnostic",
-        code: "fab-loss.queue-congestion",
-        diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:device:probe-1/),
-      }),
-      source: expect.objectContaining({
-        investigationId: "run-110-probe-queue",
-        entryId: "discard-qualified-probe-cycle-95",
-      }),
-    }),
-  ]);
+  expect(snapshot.investigationDiagnosticDispositions).toEqual([]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.inspect:lithography-maintenance-convergence:fab-loss\.maintenance-qualification:/),
+    id: expect.stringMatching(/^observation:fab-loss\.input-starvation:/),
     effect: "read-only",
     requiresConfirmation: false,
-    studioRoute: "/memory-fab/designs/lithography-maintenance-convergence",
+    studioRoute: "/memory-fab/factory?run=112-simulate",
     target: expect.objectContaining({
-      kind: "design-program",
-      programId: "lithography-maintenance-convergence",
-      diagnosticId: expect.stringMatching(/^fab-loss\.maintenance-qualification:/),
+      kind: "diagnostic",
+      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
     }),
   }));
   const leadingDiagnostic = snapshot.diagnostics.find((diagnostic) =>
@@ -681,13 +659,13 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
       "--production-plan", "production-window",
       "--scenario", "production-window",
       "--objective", "dram-output",
-      "--run", "110-candidate-trial-run-105-normal-particle-suppress",
+      "--run", "112-simulate",
       "--json",
     ],
-    studioRoute: "/memory-fab/factory?run=110-candidate-trial-run-105-normal-particle-suppress",
+    studioRoute: "/memory-fab/factory?run=112-simulate",
     target: expect.objectContaining({
       kind: "diagnostic",
-      diagnosticId: expect.stringMatching(/^fab-loss\.maintenance-qualification:device:lithography-1/),
+      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:device:probe-1/),
     }),
   }));
   const exhaustedId = "f".repeat(64);
@@ -850,33 +828,14 @@ test("shared handoff retires stale inspection evidence and advances to the curre
   const objectiveAuthority = snapshot.designPrograms
     .find((program) => program.id === "back-end-wip-convergence")?.evidence.authorityRunId;
   expect(objectiveAuthority).toBeNull();
-  expect(snapshot.investigationDiagnosticDispositions).toEqual([
-    expect.objectContaining({
-      disposition: "defer",
-      queueEffect: "suppressed",
-      target: expect.objectContaining({
-        anchorId: "run-110-furnace-factory",
-        code: "fab-loss.input-starvation",
-      }),
-    }),
-    expect.objectContaining({
-      disposition: "discard",
-      queueEffect: "suppressed",
-      target: expect.objectContaining({
-        anchorId: "diagnostic",
-        code: "fab-loss.queue-congestion",
-      }),
-    }),
-  ]);
+  expect(snapshot.investigationDiagnosticDispositions).toEqual([]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    title: "Expand Lithography Maintenance Convergence's intervention portfolio",
-    actionLabel: "REVIEW EXHAUSTED DESIGN",
+    title: "Observe the leading loss before authoring an intervention",
+    actionLabel: "OBSERVE CURRENT FACTORY",
+    studioRoute: "/memory-fab/factory?run=112-simulate",
     target: expect.objectContaining({
-      kind: "design-run",
-      phase: "exhausted",
-      programId: "lithography-maintenance-convergence",
-      runId: "7aa9b6deda434851a4802b6f47251b53cfd7688a711a0862958bcc024ebca32e",
-      diagnosticId: expect.stringMatching(/^fab-loss\.maintenance-qualification:/),
+      kind: "diagnostic",
+      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
     }),
   }));
 });
@@ -940,7 +899,8 @@ test("an active physical loss still outranks current Objective Design evidence",
       state: "missing",
       authorityRunId: null,
       currentRuns: 0,
-      historicalRuns: expect.any(Number),
+      historicalRuns: 0,
+      invalidRuns: 9,
     }));
     if (snapshot.investigationDiagnosticDispositions.some((disposition) =>
       disposition.queueEffect === "suppressed"
@@ -960,10 +920,10 @@ test("an active physical loss still outranks current Objective Design evidence",
       return;
     }
     expect(snapshot.nextAction).toEqual(expect.objectContaining({
-      title: "Investigate the leading loss with Inspection Supply Path Convergence",
+      title: "Observe the leading loss before authoring an intervention",
+      actionLabel: "OBSERVE CURRENT FACTORY",
       target: expect.objectContaining({
-        kind: "design-program",
-        programId: "inspection-supply-path",
+        kind: "diagnostic",
         diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
       }),
     }));
@@ -1268,8 +1228,7 @@ test("bounded loss disposition expires on any changed authority, target evidence
   if (!disposition) {
     expect(snapshot.designPrograms.some((program) =>
       program.evidence.currentRuns === 0
-      && program.evidence.historicalRuns > 0
-      && program.evidence.runs.some((run) => run.currentness.reasons.includes("engine-version-mismatch")))).toBeTrue();
+      && program.evidence.invalidRuns > 0)).toBeTrue();
     return;
   }
   const loaded = await loadDesignRun(projectDir, disposition.source.programId, disposition.source.runId);
@@ -1519,22 +1478,12 @@ test("a pre-contract Candidate and Design lineage remain historical after apply"
     authorityRunId: null,
     currentRuns: 0,
     commissionedRuns: 0,
-    historicalRuns: 5,
-    invalidRuns: 4,
+    historicalRuns: 0,
+    invalidRuns: 9,
   }));
-  expect(evidence.runs.find((run) =>
-    run.id === "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06"))
-    .toEqual(expect.objectContaining({
-    outcome: "promotable",
-    currentness: expect.objectContaining({
-      state: "historical",
-      reasons: expect.arrayContaining([
-        "engine-version-mismatch",
-        "driver-selection-mismatch",
-        "driver-hashes-mismatch",
-      ]),
-    }),
-  }));
+  expect(evidence.runs).toEqual([]);
+  expect(evidence.invalid.map((run) => run.id))
+    .toContain("966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06");
   expect(snapshot.lossDispositions.some((disposition) =>
     disposition.source.programId === "inspection-supply-path")).toBeFalse();
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
@@ -1558,7 +1507,8 @@ test("a pre-contract Candidate and Design lineage remain historical after apply"
     authorityRunId: null,
     currentRuns: 0,
     commissionedRuns: 0,
-    historicalRuns: 5,
+    historicalRuns: 0,
+    invalidRuns: 9,
   }));
   expect(brokenSnapshot.lossDispositions.some((disposition) =>
     disposition.source.programId === "inspection-supply-path")).toBeFalse();
@@ -1588,11 +1538,10 @@ test("a non-KEEP Candidate receipt resolves review work without displacing curre
     verifiedCount: 1,
   });
   expect(reviewed.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringContaining("design.inspect:lithography-maintenance-convergence"),
+    id: expect.stringMatching(/^observation:fab-loss\.input-starvation:/),
     target: expect.objectContaining({
-      kind: "design-program",
-      programId: "lithography-maintenance-convergence",
-      diagnosticId: expect.stringMatching(/^fab-loss\.maintenance-qualification:/),
+      kind: "diagnostic",
+      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
     }),
   }));
 }, 20_000);

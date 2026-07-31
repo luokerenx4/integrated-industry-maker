@@ -23,8 +23,8 @@
     "cases": {
       "small-batch-line-haul": {
         "blueprintHash": "10c43cbb57a2aa4494b39b2b2f6c229c1b23f9027b9131ff23cc922798a304d3",
-        "engineVersion": "inm-sim/0.92.0",
-        "executionHash": "e1596293b6f7507bbe9c8f29ac58c2f529dabcb960cee4bafd42b987a186072c",
+        "engineVersion": "inm-sim/0.93.1",
+        "executionHash": "2f5b60d516562614213b11e896761dbea54d5b684a4faa63304dd2968e58f3b8",
         "objectiveHash": "8f797af70982a5fa1363919ba58a840ca5b6fb613abb1f8ee309bec7018b9f70",
         "productionPlanHash": "fa712887abe4b19945a3cd4b6cc508eb5846bc37964d48784f13e916ee02ad48",
         "scenarioHash": "ba90230fc2542e93f3729dd95927af96ba3c37f2c52e53abf6717945f20a8c83",

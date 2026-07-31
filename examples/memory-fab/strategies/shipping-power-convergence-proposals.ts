@@ -54,7 +54,7 @@ function observesExactShippingGridInterruption(
 }
 
 export default {
-  apiVersion: 8,
+  apiVersion: 9,
   propose(context) {
     if (!observesExactShippingGridInterruption(context)
       || context.history.some((item) => item.strategy === strategy)) return null;

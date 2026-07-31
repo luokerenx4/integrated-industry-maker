@@ -3,7 +3,7 @@ import { cp, mkdir, mkdtemp, readFile, readdir, symlink, writeFile } from "node:
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import {
-  ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeFabLossProfile, analyzeProduction, applyBlueprintPatch, applyCandidateChangeSet, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel, evaluateBlueprintBenchmark,
+  ExternalCommandResearchAgent, HeuristicResearchAgent, InmValidationError, analyzeFabLossProfile, analyzeMaintenanceQualification, analyzeProduction, applyBlueprintPatch, applyCandidateChangeSet, applyResearchPatch, compareFactoryBlueprints, compileFactoryProject, createFactorySceneModel, evaluateBlueprintBenchmark,
   findBlueprintConnectionPath, listRuns, loadBlueprintBenchmark, loadFactoryProject, lockBlueprintBenchmark, openFactoryProject, optimizeResourceDemand, optimizeResourceDemands, optimizeSpatialResourceDemand, planProductionCapacity, replayFactoryEvents, researchFactory, runUntil,
   connectionDispatchProfiles, effectiveDispatchPolicy, hashValue, listCandidateChangeSets, previewCandidateChangeSet, stableStringify, stationRouteDispatchProfile, synthesizeFactoryBlueprint, validateResearchPatch, verifyRunReplay, writeRunArtifact, SeededRandom, evaluatePowerEnvelope, optimizePowerInfrastructure,
   parallelizeWorkCenter, rotatePortSide, specializeSharedWorkCenterCandidates, transportEndpointRotation, blueprintSchema,
@@ -963,7 +963,8 @@ describe("blueprint compiler", () => {
       return source;
     };
 
-    const assetLimited = runUntil(compileFactoryProject(await maintenanceSource(2)), undefined, { untilTick: 14_000 });
+    const assetLimitedProject = compileFactoryProject(await maintenanceSource(2));
+    const assetLimited = runUntil(assetLimitedProject, undefined, { untilTick: 14_000 });
     expect(assetLimited.events.filter((event) => event.type === "device.maintenance-start")).toEqual([
       expect.objectContaining({
         tick: 8_000, device: "smelter-1", cause: "asset-limit", jobsSinceMaintenance: 2,
@@ -983,27 +984,83 @@ describe("blueprint compiler", () => {
       }),
     ]);
     expect(assetLimited.events.filter((event) => event.type === "device.finish").map((event) => event.tick)).toEqual([4_000, 8_000, 13_500]);
+    expect(assetLimited.events.filter((event) =>
+      event.type === "device.maintenance-ready-work-start")).toEqual([
+      expect.objectContaining({
+        tick: 8_000, device: "smelter-1", phase: "service", state: "work",
+        plans: [{ process: "smelt-iron", mode: "standard" }],
+      }),
+      expect.objectContaining({
+        tick: 9_000, device: "smelter-1", phase: "qualification", state: "work",
+        plans: [{ process: "smelt-iron", mode: "standard" }],
+      }),
+    ]);
+    expect(assetLimited.events.filter((event) =>
+      event.type === "device.maintenance-ready-work-finish").map((event) =>
+      [event.tick, event.phase, event.state, event.durationTicks])).toEqual([
+      [9_000, "service", "work", 1_000],
+      [9_500, "qualification", "work", 500],
+    ]);
     expect(assetLimited.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
-      totalCompleted: 1, totalAssetLimit: 1, totalPlannedBoundary: 0, totalOpportunistic: 0, totalCancelled: 0, totalMaintenanceTicks: 1_500,
+      totalCompleted: 1, totalAssetLimit: 1, totalPlannedBoundary: 0, totalOpportunistic: 0, totalCancelled: 0, totalMaintenanceTicks: 1_000,
       totalQualificationCompleted: 1, totalQualificationCancelled: 0, totalQualificationTicks: 500,
-      totalServiceCrewTicks: 1_500, totalQualificationCrewTicks: 500,
+      totalReadyWorkOverlapTicks: 1_500, totalIdleWindowTicks: 0,
+      totalServiceReadyWorkOverlapTicks: 1_000, totalQualificationReadyWorkOverlapTicks: 500,
+      totalInputWaitReadyWorkOverlapTicks: 0, totalCrewWaitReadyWorkOverlapTicks: 0,
+      totalReadyWorkIntervals: 2,
+      totalServiceCrewTicks: 1_000, totalQualificationCrewTicks: 500,
       serviceConsumables: { coal: 1 }, qualificationConsumables: { coal: 1 },
     }));
     expect(assetLimited.metrics.equipmentMaintenance.devices["smelter-1"]).toEqual(expect.objectContaining({ jobsSinceMaintenance: 1 }));
     expect(assetLimited.metrics.equipmentMaintenance.providers["maintenance-bay-1"]).toEqual(expect.objectContaining({
       crews: 1, peakCrewsInUse: 1, assignments: 2, completed: 2, cancelled: 0,
-      serviceCrewTicks: 1_500, qualificationAssignments: 1, qualificationCompleted: 1,
+      serviceCrewTicks: 1_000, qualificationAssignments: 1, qualificationCompleted: 1,
       qualificationCrewTicks: 500, consumables: { coal: 2 },
+    }));
+    expect(analyzeMaintenanceQualification(
+      assetLimited.metrics,
+      assetLimitedProject.scenario.durationTicks,
+      assetLimitedProject,
+      assetLimited.events,
+    )).toEqual(expect.objectContaining({
+      score: 1_500 / assetLimitedProject.scenario.durationTicks,
+      evidence: expect.objectContaining({
+        totalTicks: 1_500, readyWorkOverlapTicks: 1_500, idleWindowTicks: 0,
+        serviceReadyWorkOverlapTicks: 1_000, qualificationReadyWorkOverlapTicks: 500,
+      }),
+      contributors: [expect.objectContaining({
+        id: "device:smelter-1:maintenance-qualification",
+        processes: ["smelt-iron"],
+        readyWorkPlans: [{ process: "smelt-iron", mode: "standard" }],
+        evidence: expect.objectContaining({
+          totalTicks: 1_500, maintenanceTicks: 1_000, qualificationTicks: 500,
+          readyWorkOverlapTicks: 1_500, idleWindowTicks: 0,
+        }),
+      })],
     }));
 
     const opportunisticSource = await maintenanceSource(3, { opportunistic: { afterJobs: 2 } });
     opportunisticSource.scenario.initialBuffers!["smelter-1"] = { input: { "iron-ore": 4 } };
-    const opportunistic = runUntil(compileFactoryProject(opportunisticSource), undefined, { untilTick: 10_000 });
+    const opportunisticProject = compileFactoryProject(opportunisticSource);
+    const opportunistic = runUntil(opportunisticProject, undefined, { untilTick: 10_000 });
     expect(opportunistic.events.filter((event) => event.type === "device.maintenance-start")).toEqual([
       expect.objectContaining({ tick: 8_000, cause: "opportunistic", jobsSinceMaintenance: 2 }),
     ]);
     expect(opportunistic.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
       totalCompleted: 1, totalAssetLimit: 0, totalPlannedBoundary: 0, totalOpportunistic: 1,
+      totalMaintenanceTicks: 1_000, totalQualificationTicks: 500,
+      totalReadyWorkOverlapTicks: 0, totalIdleWindowTicks: 1_500,
+    }));
+    expect(analyzeMaintenanceQualification(
+      opportunistic.metrics,
+      opportunisticProject.scenario.durationTicks,
+      opportunisticProject,
+      opportunistic.events,
+    )).toEqual(expect.objectContaining({
+      score: 0,
+      evidence: expect.objectContaining({
+        totalTicks: 1_500, readyWorkOverlapTicks: 0, idleWindowTicks: 1_500,
+      }),
     }));
 
     const plannedSource = await maintenanceSource(3, { planned: { afterJobs: 2 } });
@@ -1014,6 +1071,7 @@ describe("blueprint compiler", () => {
     expect(planned.events.filter((event) => event.type === "device.finish").map((event) => event.tick)).toEqual([4_000, 8_000, 13_500]);
     expect(planned.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
       totalCompleted: 1, totalAssetLimit: 0, totalPlannedBoundary: 1, totalOpportunistic: 0,
+      totalReadyWorkOverlapTicks: 1_500, totalIdleWindowTicks: 0,
     }));
 
     const calendarMandatorySource = await maintenanceSource(100);
@@ -1048,6 +1106,7 @@ describe("blueprint compiler", () => {
     expect(calendarEarly.events.filter((event) => event.type === "device.finish").map((event) => event.tick)).toEqual([4_000, 14_000]);
     expect(calendarEarly.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
       totalCompleted: 1, totalAssetLimit: 0, totalPlannedBoundary: 0, totalOpportunistic: 1, totalUsageTriggered: 0, totalCalendarTriggered: 1,
+      totalReadyWorkOverlapTicks: 0, totalIdleWindowTicks: 1_500,
     }));
 
     const calendarPlannedSource = await maintenanceSource(100, { planned: { afterQualificationTicks: 7_000 } });
@@ -1065,6 +1124,46 @@ describe("blueprint compiler", () => {
     expect(calendarPlanned.events.filter((event) => event.type === "device.finish").map((event) => event.tick)).toEqual([4_000, 14_000]);
     expect(calendarPlanned.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
       totalCompleted: 1, totalAssetLimit: 0, totalPlannedBoundary: 1, totalOpportunistic: 0, totalUsageTriggered: 0, totalCalendarTriggered: 1,
+      totalReadyWorkOverlapTicks: 0, totalIdleWindowTicks: 1_500,
+    }));
+
+    const midServiceArrivalSource = await maintenanceSource(100, { planned: { afterQualificationTicks: 7_000 } });
+    midServiceArrivalSource.deviceAssets.smelter!.production!.maintenance!.maximumQualificationTicks = 20_000;
+    midServiceArrivalSource.deviceAssets.smelter!.production!.maintenance!.durationTicks = 4_000;
+    midServiceArrivalSource.scenario.initialBuffers!["smelter-1"] = { input: { "iron-ore": 2 } };
+    midServiceArrivalSource.productionPlan.materialDeliveries = [{
+      id: "mid-service-ore", device: "smelter-1", buffer: "input", resource: "iron-ore", count: 2, releaseTick: 10_000,
+    }];
+    const midServiceArrivalProject = compileFactoryProject(midServiceArrivalSource);
+    const midServiceArrival = runUntil(midServiceArrivalProject, undefined, { untilTick: 15_500 });
+    expect(midServiceArrival.events.filter((event) =>
+      event.type === "device.maintenance-ready-work-start").map((event) =>
+      [event.tick, event.phase, event.state, event.plans])).toEqual([
+      [10_000, "service", "work", [{ process: "smelt-iron", mode: "standard" }]],
+      [11_000, "qualification", "work", [{ process: "smelt-iron", mode: "standard" }]],
+    ]);
+    expect(midServiceArrival.events.filter((event) =>
+      event.type === "device.maintenance-ready-work-finish").map((event) =>
+      [event.tick, event.phase, event.durationTicks])).toEqual([
+      [11_000, "service", 1_000],
+      [11_500, "qualification", 500],
+    ]);
+    expect(midServiceArrival.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
+      totalMaintenanceTicks: 4_000, totalQualificationTicks: 500,
+      totalReadyWorkOverlapTicks: 1_500, totalIdleWindowTicks: 3_000,
+      totalServiceReadyWorkOverlapTicks: 1_000, totalQualificationReadyWorkOverlapTicks: 500,
+      totalReadyWorkIntervals: 2,
+    }));
+    expect(analyzeMaintenanceQualification(
+      midServiceArrival.metrics,
+      midServiceArrivalProject.scenario.durationTicks,
+      midServiceArrivalProject,
+      midServiceArrival.events,
+    )).toEqual(expect.objectContaining({
+      score: 1_500 / midServiceArrivalProject.scenario.durationTicks,
+      evidence: expect.objectContaining({
+        totalTicks: 4_500, readyWorkOverlapTicks: 1_500, idleWindowTicks: 3_000,
+      }),
     }));
 
     const interruptedSource = await maintenanceSource(1);
@@ -1077,12 +1176,13 @@ describe("blueprint compiler", () => {
     ]);
     expect(interrupted.events.filter((event) => event.type === "device.qualification-start").map((event) => event.tick)).toEqual([9_000]);
     expect(interrupted.events).toContainEqual(expect.objectContaining({
-      type: "device.maintenance-cancelled", tick: 5_000, jobsSinceMaintenance: 1,
+      type: "device.maintenance-cancelled", tick: 5_000, jobsSinceMaintenance: 1, occupiedTicks: 1_000,
     }));
     expect(interrupted.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
-      totalCompleted: 1, totalAssetLimit: 1, totalPlannedBoundary: 0, totalCancelled: 1, totalMaintenanceTicks: 3_500,
+      totalCompleted: 1, totalAssetLimit: 1, totalPlannedBoundary: 0, totalCancelled: 1, totalMaintenanceTicks: 4_000,
       totalQualificationCompleted: 1, totalQualificationTicks: 500,
-      totalServiceCrewTicks: 4_500, totalQualificationCrewTicks: 500,
+      totalReadyWorkOverlapTicks: 4_500, totalIdleWindowTicks: 0,
+      totalServiceCrewTicks: 4_000, totalQualificationCrewTicks: 500,
       serviceConsumables: { coal: 2 }, qualificationConsumables: { coal: 1 },
     }));
 
@@ -1094,11 +1194,14 @@ describe("blueprint compiler", () => {
     expect(qualificationInterrupted.events.filter((event) => event.type === "device.maintenance-start").map((event) => event.tick)).toEqual([4_000]);
     expect(qualificationInterrupted.events.filter((event) => event.type === "device.qualification-start").map((event) => event.tick)).toEqual([5_000, 6_500]);
     expect(qualificationInterrupted.events).toContainEqual(expect.objectContaining({
-      type: "device.qualification-cancelled", tick: 5_500, device: "smelter-1", reason: "equipment-breakdown",
+      type: "device.qualification-cancelled", tick: 5_500, device: "smelter-1",
+      occupiedTicks: 500, reason: "equipment-breakdown",
     }));
     expect(qualificationInterrupted.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
       totalCompleted: 1, totalCancelled: 1, totalQualificationCompleted: 1, totalQualificationCancelled: 1,
-      totalMaintenanceTicks: 3_000, totalServiceCrewTicks: 3_500, totalQualificationCrewTicks: 2_500,
+      totalMaintenanceTicks: 1_000, totalQualificationTicks: 2_500,
+      totalReadyWorkOverlapTicks: 3_500, totalIdleWindowTicks: 0,
+      totalServiceCrewTicks: 1_000, totalQualificationCrewTicks: 2_500,
       serviceConsumables: { coal: 1 }, qualificationConsumables: { coal: 2 },
     }));
 
@@ -1180,7 +1283,9 @@ describe("blueprint compiler", () => {
       [8_000, "smelter-1", "maintenance-bay-1"], [9_500, "smelter-2", "maintenance-bay-1"],
     ]);
     expect(sharedCrew.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
-      totalCrewWaitTicks: 1_500, totalCrewBlocks: 1, totalServiceCrewTicks: 3_000,
+      totalCrewWaitTicks: 1_500, totalCrewBlocks: 1, totalServiceCrewTicks: 2_000,
+      totalReadyWorkOverlapTicks: 4_500, totalIdleWindowTicks: 0,
+      totalCrewWaitReadyWorkOverlapTicks: 1_500,
       totalQualificationCrewTicks: 1_000, serviceConsumables: { coal: 2 }, qualificationConsumables: { coal: 2 },
     }));
 
@@ -1192,6 +1297,8 @@ describe("blueprint compiler", () => {
     }));
     expect(noConsumables.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
       totalInputBlocks: 1, totalInputWaitTicks: 2_000, totalCompleted: 0,
+      totalReadyWorkOverlapTicks: 2_000, totalIdleWindowTicks: 0,
+      totalInputWaitReadyWorkOverlapTicks: 2_000,
     }));
 
     const uncovered = await maintenanceSource(2);
@@ -1488,16 +1595,16 @@ describe("blueprint compiler", () => {
     ]);
     expect(baseline.metrics.equipmentMaintenance).toEqual(expect.objectContaining({
       totalCompleted: 8, totalAssetLimit: 8, totalPlannedBoundary: 0, totalOpportunistic: 0,
-      totalUsageTriggered: 7, totalCalendarTriggered: 1, totalMaintenanceTicks: 83_000,
+      totalUsageTriggered: 7, totalCalendarTriggered: 1, totalMaintenanceTicks: 56_000,
       totalQualificationCompleted: 8, totalQualificationTicks: 27_000,
       totalDriftedJobs: 12, totalDriftedLots: 12, totalDriftDefects: 10,
-      totalCrewWaitTicks: 12_300, totalCrewBlocks: 2, totalServiceCrewTicks: 83_000,
+      totalCrewWaitTicks: 12_300, totalCrewBlocks: 2, totalServiceCrewTicks: 56_000,
       totalQualificationCrewTicks: 27_000,
       serviceConsumables: { "chamber-clean-kit": 4, "metrology-calibration-kit": 4 },
       qualificationConsumables: { "tool-qualification-wafer": 4, "metrology-reference-wafer": 4 },
     }));
     expect(baseline.metrics.equipmentMaintenance.providers["maintenance-service-1"]).toEqual(expect.objectContaining({
-      crews: 1, crewsInUse: 0, peakCrewsInUse: 1, assignments: 16, completed: 16, serviceCrewTicks: 83_000,
+      crews: 1, crewsInUse: 0, peakCrewsInUse: 1, assignments: 16, completed: 16, serviceCrewTicks: 56_000,
       qualificationAssignments: 8, qualificationCompleted: 8, qualificationCrewTicks: 27_000,
     }));
     expect(baseline.events.filter((event) => event.type === "device.maintenance-blocked")).toEqual([

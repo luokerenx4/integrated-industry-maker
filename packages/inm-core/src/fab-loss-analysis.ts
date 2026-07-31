@@ -55,6 +55,7 @@ export interface FabLossContributor {
   step: string | null;
   resources: string[];
   processes: string[];
+  readyWorkPlans?: Array<{ process: string; mode: string }>;
   defects: string[];
   lots: string[];
   subjects: FabLossSubject[];
@@ -81,7 +82,7 @@ export interface FabLossBucket {
 }
 
 export interface FabLossProfile {
-  version: 8;
+  version: 9;
   family: string;
   outcome: {
     scheduled: number;
@@ -1174,6 +1175,7 @@ export function analyzeMaintenanceQualification(
     service: Set<string>;
     qualification: Set<string>;
   }>();
+  const observedReadyWorkPlans = new Map<string, Map<string, { process: string; mode: string }>>();
   const providerSet = (device: string) => {
     const current = observedProviders.get(device) ?? {
       service: new Set<string>(),
@@ -1188,6 +1190,11 @@ export function analyzeMaintenanceQualification(
     }
     if (event.type === "device.qualification-start" || event.type === "device.qualification-cancelled") {
       providerSet(event.device).qualification.add(event.provider);
+    }
+    if (event.type === "device.maintenance-ready-work-start") {
+      const plans = observedReadyWorkPlans.get(event.device) ?? new Map();
+      observedReadyWorkPlans.set(event.device, plans);
+      for (const plan of event.plans) plans.set(`${plan.process}\0${plan.mode}`, plan);
     }
   }
 
@@ -1213,6 +1220,9 @@ export function analyzeMaintenanceQualification(
       const allProviders = [...new Set([...serviceProviders, ...qualificationProviders])].sort();
       const serviceConsumables = sortedPositiveRecord(maintenance.serviceConsumables);
       const qualificationConsumables = sortedPositiveRecord(maintenance.qualificationConsumables);
+      const readyWorkPlans = [...(observedReadyWorkPlans.get(device)?.values() ?? [])]
+        .sort((left, right) =>
+          left.process.localeCompare(right.process) || left.mode.localeCompare(right.mode));
       return [{
         id: `device:${device}:maintenance-qualification`,
         label: device,
@@ -1223,7 +1233,8 @@ export function analyzeMaintenanceQualification(
           ...Object.keys(serviceConsumables),
           ...Object.keys(qualificationConsumables),
         ])].sort(),
-        processes: [...new Set((compiled?.processPlans ?? []).map((plan) => plan.definition.id))].sort(),
+        processes: [...new Set(readyWorkPlans.map((plan) => plan.process))].sort(),
+        readyWorkPlans,
         defects: [],
         lots: [],
         subjects: [
@@ -1232,6 +1243,13 @@ export function analyzeMaintenanceQualification(
         ],
         evidence: {
           totalTicks,
+          readyWorkOverlapTicks: maintenance.readyWorkOverlapTicks,
+          idleWindowTicks: maintenance.idleWindowTicks,
+          serviceReadyWorkOverlapTicks: maintenance.serviceReadyWorkOverlapTicks,
+          qualificationReadyWorkOverlapTicks: maintenance.qualificationReadyWorkOverlapTicks,
+          inputWaitReadyWorkOverlapTicks: maintenance.inputWaitReadyWorkOverlapTicks,
+          crewWaitReadyWorkOverlapTicks: maintenance.crewWaitReadyWorkOverlapTicks,
+          readyWorkIntervals: maintenance.readyWorkIntervals,
           maintenanceTicks: maintenance.maintenanceTicks,
           qualificationTicks: maintenance.qualificationTicks,
           inputWaitTicks: maintenance.inputWaitTicks,
@@ -1265,7 +1283,8 @@ export function analyzeMaintenanceQualification(
       }];
     })
     .sort((left, right) =>
-      right.evidence.totalTicks! - left.evidence.totalTicks!
+      right.evidence.readyWorkOverlapTicks! - left.evidence.readyWorkOverlapTicks!
+      || right.evidence.totalTicks! - left.evidence.totalTicks!
       || right.evidence.maintenanceTicks! - left.evidence.maintenanceTicks!
       || left.id.localeCompare(right.id));
 
@@ -1274,6 +1293,13 @@ export function analyzeMaintenanceQualification(
     qualificationTicks: metrics.equipmentMaintenance.totalQualificationTicks,
     inputWaitTicks: metrics.equipmentMaintenance.totalInputWaitTicks,
     crewWaitTicks: metrics.equipmentMaintenance.totalCrewWaitTicks,
+    readyWorkOverlapTicks: metrics.equipmentMaintenance.totalReadyWorkOverlapTicks,
+    idleWindowTicks: metrics.equipmentMaintenance.totalIdleWindowTicks,
+    serviceReadyWorkOverlapTicks: metrics.equipmentMaintenance.totalServiceReadyWorkOverlapTicks,
+    qualificationReadyWorkOverlapTicks: metrics.equipmentMaintenance.totalQualificationReadyWorkOverlapTicks,
+    inputWaitReadyWorkOverlapTicks: metrics.equipmentMaintenance.totalInputWaitReadyWorkOverlapTicks,
+    crewWaitReadyWorkOverlapTicks: metrics.equipmentMaintenance.totalCrewWaitReadyWorkOverlapTicks,
+    readyWorkIntervals: metrics.equipmentMaintenance.totalReadyWorkIntervals,
   };
   for (const [metric, expectedTicks] of Object.entries(expected)) {
     const attributedTicks = contributors.reduce((total, contributor) =>
@@ -1284,23 +1310,47 @@ export function analyzeMaintenanceQualification(
       );
     }
   }
-  const maintenanceTicks = Object.values(expected).reduce((total, ticks) => total + ticks, 0);
+  const workloadTicks = expected.maintenanceTicks
+    + expected.qualificationTicks
+    + expected.inputWaitTicks
+    + expected.crewWaitTicks;
+  if (expected.readyWorkOverlapTicks + expected.idleWindowTicks !== workloadTicks) {
+    throw new Error(
+      `Maintenance workload does not conserve ready/idle attribution: ${expected.readyWorkOverlapTicks} ready + ${expected.idleWindowTicks} idle vs ${workloadTicks} workload`,
+    );
+  }
+  const readyWorkPhaseTicks = expected.serviceReadyWorkOverlapTicks
+    + expected.qualificationReadyWorkOverlapTicks
+    + expected.inputWaitReadyWorkOverlapTicks
+    + expected.crewWaitReadyWorkOverlapTicks;
+  if (readyWorkPhaseTicks !== expected.readyWorkOverlapTicks) {
+    throw new Error(
+      `Maintenance ready-work phases do not conserve overlap: ${readyWorkPhaseTicks} phase ticks vs ${expected.readyWorkOverlapTicks} overlap`,
+    );
+  }
   const primary = contributors[0] ?? null;
   return {
     score: ratio(
-      maintenanceTicks,
+      expected.readyWorkOverlapTicks,
       durationTicks * Math.max(1, Object.keys(metrics.equipmentMaintenance.devices).length),
     ),
     summary: primary
-      ? `${metrics.equipmentMaintenance.totalCompleted} maintenance and ${metrics.equipmentMaintenance.totalQualificationCompleted} qualification completions consumed ${(maintenanceTicks / 1000).toFixed(1)} service/wait device-s; ${primary.label} owns ${(primary.evidence.totalTicks! / 1000).toFixed(1)} s (${(ratio(primary.evidence.totalTicks!, maintenanceTicks) * 100).toFixed(1)}%).`
-      : `${metrics.equipmentMaintenance.totalCompleted} maintenance and ${metrics.equipmentMaintenance.totalQualificationCompleted} qualification completions consumed ${(maintenanceTicks / 1000).toFixed(1)} service/wait device-s.`,
+      ? `${metrics.equipmentMaintenance.totalCompleted} maintenance and ${metrics.equipmentMaintenance.totalQualificationCompleted} qualification completions occupied ${(workloadTicks / 1000).toFixed(1)} device-s; ${(expected.readyWorkOverlapTicks / 1000).toFixed(1)} overlapped complete ready work and ${(expected.idleWindowTicks / 1000).toFixed(1)} occurred in idle or post-production windows. ${primary.label} leads with ${(primary.evidence.readyWorkOverlapTicks! / 1000).toFixed(1)} s of overlap.`
+      : `${metrics.equipmentMaintenance.totalCompleted} maintenance and ${metrics.equipmentMaintenance.totalQualificationCompleted} qualification completions occupied ${(workloadTicks / 1000).toFixed(1)} device-s; ${(expected.readyWorkOverlapTicks / 1000).toFixed(1)} overlapped complete ready work and ${(expected.idleWindowTicks / 1000).toFixed(1)} occurred in idle or post-production windows.`,
     subjects: primary?.subjects ?? [],
     evidence: {
       maintenanceTicks: expected.maintenanceTicks,
       qualificationTicks: expected.qualificationTicks,
       inputWaitTicks: expected.inputWaitTicks,
       crewWaitTicks: expected.crewWaitTicks,
-      totalTicks: maintenanceTicks,
+      readyWorkOverlapTicks: expected.readyWorkOverlapTicks,
+      idleWindowTicks: expected.idleWindowTicks,
+      serviceReadyWorkOverlapTicks: expected.serviceReadyWorkOverlapTicks,
+      qualificationReadyWorkOverlapTicks: expected.qualificationReadyWorkOverlapTicks,
+      inputWaitReadyWorkOverlapTicks: expected.inputWaitReadyWorkOverlapTicks,
+      crewWaitReadyWorkOverlapTicks: expected.crewWaitReadyWorkOverlapTicks,
+      readyWorkIntervals: expected.readyWorkIntervals,
+      totalTicks: workloadTicks,
       attributedTicks: contributors.reduce((total, contributor) => total + contributor.evidence.totalTicks!, 0),
       unattributedTicks: 0,
       contributors: contributors.length,
@@ -1878,7 +1928,7 @@ export function analyzeFabLossProfile(
 
   buckets.sort((left, right) => right.score - left.score || left.id.localeCompare(right.id));
   return {
-    version: 8,
+    version: 9,
     family: metrics.lotFlow.family,
     outcome: {
       scheduled: metrics.lotFlow.scheduled, released: metrics.lotFlow.released, completed: metrics.lotFlow.completed,

@@ -1,4 +1,4 @@
-import type { ActiveDeviceJob, BeltTransit, CarrierMission, DeviceStatus, FactoryState, LotReleaseBlockReason, MaintenanceCause, MaintenanceTrigger, ProcessAmount, ResourceTransit, SourceLotLineageBatch, Tick, TransportBlockCause, TransportBlockStage, WorkLot, WorkLotStatus } from "./types";
+import type { ActiveDeviceJob, BeltTransit, CarrierMission, DeviceStatus, FactoryState, LotReleaseBlockReason, MaintenanceCause, MaintenanceReadyWorkPlan, MaintenanceTrigger, ProcessAmount, ResourceTransit, SourceLotLineageBatch, Tick, TransportBlockCause, TransportBlockStage, WorkLot, WorkLotStatus } from "./types";
 
 export type FactoryStateMutation =
   | { kind: "tick"; tick: Tick }
@@ -63,8 +63,9 @@ export type FactoryStateMutation =
   | { kind: "production.finish"; device: string; driftedLots?: number; driftDefects?: number }
   | { kind: "maintenance.service-finish"; device: string; cause: MaintenanceCause; trigger: MaintenanceTrigger; jobsSinceMaintenance: number; qualificationAgeTicks: Tick; durationTicks: Tick }
   | { kind: "maintenance.qualification-finish"; device: string; cause: MaintenanceCause; trigger: MaintenanceTrigger; qualifiedAtTick: Tick; durationTicks: Tick }
-  | { kind: "maintenance.cancel"; device: string; phase: "service" | "qualification" }
+  | { kind: "maintenance.cancel"; device: string; phase: "service" | "qualification"; occupiedTicks: Tick }
   | { kind: "maintenance.wait"; device: string; phase: "service" | "qualification"; reason: "consumable" | "crew" | null }
+  | { kind: "maintenance.ready-work"; device: string; interval: { phase: "service" | "qualification"; state: "work" | "provider-wait"; reason?: "consumable" | "crew"; plans: MaintenanceReadyWorkPlan[] } | null }
   | { kind: "maintenance.service-start"; device: string; phase: "service" | "qualification"; provider: string; inventoryBuffer: string; crews: number; inputs: ProcessAmount[] }
   | { kind: "maintenance.service-release"; phase: "service" | "qualification"; provider: string; crews: number; occupiedTicks: Tick; outcome: "completed" | "cancelled" }
   | { kind: "tooling.wait"; device: string; process: string; waiting: boolean }
@@ -569,7 +570,6 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       maintenance.completed++;
       maintenance[mutation.cause === "asset-limit" ? "assetLimit" : mutation.cause === "planned-boundary" ? "plannedBoundary" : "opportunistic"]++;
       maintenance[mutation.trigger === "usage" ? "usageTriggered" : "calendarTriggered"]++;
-      maintenance.maintenanceTicks += mutation.durationTicks;
       maintenance.qualificationCompleted++;
       maintenance.qualificationTicks += mutation.durationTicks;
       delete maintenance.qualificationPending;
@@ -579,7 +579,10 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       const maintenance = state.devices[mutation.device]!.maintenance;
       if (!maintenance) throw new Error(`Device '${mutation.device}' does not track equipment maintenance`);
       maintenance.cancelled++;
-      if (mutation.phase === "qualification") maintenance.qualificationCancelled++;
+      if (mutation.phase === "qualification") {
+        maintenance.qualificationCancelled++;
+        maintenance.qualificationTicks += mutation.occupiedTicks;
+      } else maintenance.maintenanceTicks += mutation.occupiedTicks;
       return;
     }
     case "maintenance.wait": {
@@ -595,6 +598,36 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
         maintenance[key]++;
         maintenance.wait = { phase: mutation.phase, reason: mutation.reason, sinceTick: state.tick };
       } else delete maintenance.wait;
+      return;
+    }
+    case "maintenance.ready-work": {
+      const maintenance = state.devices[mutation.device]!.maintenance;
+      if (!maintenance) throw new Error(`Device '${mutation.device}' does not track equipment maintenance`);
+      if (maintenance.readyWork) {
+        const durationTicks = state.tick - maintenance.readyWork.sinceTick;
+        if (durationTicks < 0) throw new Error(`Maintenance ready-work interval for '${mutation.device}' ends before it starts`);
+        maintenance.readyWorkOverlapTicks += durationTicks;
+        const key = maintenance.readyWork.state === "work"
+          ? maintenance.readyWork.phase === "service"
+            ? "serviceReadyWorkOverlapTicks"
+            : "qualificationReadyWorkOverlapTicks"
+          : maintenance.readyWork.reason === "consumable"
+            ? "inputWaitReadyWorkOverlapTicks"
+            : "crewWaitReadyWorkOverlapTicks";
+        maintenance[key] += durationTicks;
+        delete maintenance.readyWork;
+      }
+      if (mutation.interval) {
+        if (!mutation.interval.plans.length) throw new Error(`Maintenance ready-work interval for '${mutation.device}' requires a ready Process plan`);
+        maintenance.readyWork = {
+          sinceTick: state.tick,
+          phase: mutation.interval.phase,
+          state: mutation.interval.state,
+          ...(mutation.interval.reason ? { reason: mutation.interval.reason } : {}),
+          plans: structuredClone(mutation.interval.plans),
+        };
+        maintenance.readyWorkIntervals++;
+      }
       return;
     }
     case "maintenance.service-start": {
@@ -625,11 +658,10 @@ export function mutateFactoryState(state: FactoryState, mutation: FactoryStateMu
       if (!provider || provider.crewsInUse < mutation.crews) throw new Error(`Invalid maintenance service release from '${mutation.provider}'`);
       provider.crewsInUse -= mutation.crews;
       provider[mutation.outcome]++;
-      provider.serviceCrewTicks += mutation.occupiedTicks * mutation.crews;
       if (mutation.phase === "qualification") {
         provider[mutation.outcome === "completed" ? "qualificationCompleted" : "qualificationCancelled"]++;
         provider.qualificationCrewTicks += mutation.occupiedTicks * mutation.crews;
-      }
+      } else provider.serviceCrewTicks += mutation.occupiedTicks * mutation.crews;
       return;
     }
     case "tooling.wait": {

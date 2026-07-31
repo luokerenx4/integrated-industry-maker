@@ -453,15 +453,21 @@ interface Metrics {
     totalQualificationCompleted: number; totalQualificationCancelled: number; totalQualificationTicks: number;
     totalDriftedJobs: number; totalDriftedLots: number; totalDriftDefects: number;
     totalInputWaitTicks: number; totalCrewWaitTicks: number; totalInputBlocks: number; totalCrewBlocks: number; totalServiceCrewTicks: number; totalQualificationCrewTicks: number;
+    totalReadyWorkOverlapTicks: number; totalIdleWindowTicks: number;
+    totalServiceReadyWorkOverlapTicks: number; totalQualificationReadyWorkOverlapTicks: number;
+    totalInputWaitReadyWorkOverlapTicks: number; totalCrewWaitReadyWorkOverlapTicks: number; totalReadyWorkIntervals: number;
     serviceConsumables: Record<string, number>;
     qualificationConsumables: Record<string, number>;
     devices: Record<string, {
       jobsSinceMaintenance: number; qualifiedAtTick: number; qualificationAgeTicks: number; usageTriggered: number; calendarTriggered: number; completed: number; assetLimit: number; plannedBoundary: number; opportunistic: number; cancelled: number; maintenanceTicks: number;
       qualificationCompleted: number; qualificationCancelled: number; qualificationTicks: number;
       driftedJobs: number; driftedLots: number; driftDefects: number; inputWaitTicks: number; crewWaitTicks: number; inputBlocks: number; crewBlocks: number;
+      readyWorkOverlapTicks: number; idleWindowTicks: number; serviceReadyWorkOverlapTicks: number; qualificationReadyWorkOverlapTicks: number;
+      inputWaitReadyWorkOverlapTicks: number; crewWaitReadyWorkOverlapTicks: number; readyWorkIntervals: number;
       serviceConsumables: Record<string, number>; qualificationConsumables: Record<string, number>;
       qualificationPending?: { cause: "asset-limit" | "planned-boundary" | "opportunistic"; trigger: "usage" | "calendar"; jobsSinceMaintenance: number; qualificationAgeTicks: number };
       wait?: { phase: "service" | "qualification"; reason: "consumable" | "crew"; sinceTick: number };
+      readyWork?: { sinceTick: number; phase: "service" | "qualification"; state: "work" | "provider-wait"; reason?: "consumable" | "crew"; plans: Array<{ process: string; mode: string }> };
     }>;
     providers: Record<string, {
       crews: number; crewsInUse: number; peakCrewsInUse: number; assignments: number; completed: number; cancelled: number;
@@ -1601,6 +1607,7 @@ function DeviceInspector({ data, frame, device, onClose, onSelection }: {
         {maintenance && <span><small>MAINTENANCE COMPLETED</small><b>{maintenance.completed} · {maintenance.assetLimit} ASSET / {maintenance.plannedBoundary} PLANNED / {maintenance.opportunistic} OPPORTUNISTIC</b></span>}
         {maintenance?.qualificationPending && <span><small>RELEASE STATE</small><b>AWAITING {maintenance.qualificationPending.cause.toUpperCase()} {maintenance.qualificationPending.trigger.toUpperCase()} QUALIFICATION · {maintenance.qualificationPending.jobsSinceMaintenance} JOBS / {formatTick(maintenance.qualificationPending.qualificationAgeTicks)}</b></span>}
         {maintenance && <span><small>PHYSICAL WORK WAIT</small><b>{formatTick(maintenance.inputWaitTicks)} INPUT / {formatTick(maintenance.crewWaitTicks)} CREW · {maintenance.inputBlocks + maintenance.crewBlocks} BLOCKS{maintenance.wait ? ` · ${maintenance.wait.phase.toUpperCase()} ${maintenance.wait.reason.toUpperCase()}` : ""}</b></span>}
+        {maintenance && <span><small>READY-WORK OVERLAP</small><b>{formatTick(maintenance.readyWorkOverlapTicks)} / {formatTick(maintenance.idleWindowTicks)} IDLE WINDOW · {maintenance.readyWorkIntervals} INTERVALS{maintenance.readyWork ? ` · ${maintenance.readyWork.plans.map((plan) => `${plan.process}/${plan.mode}`).join(" + ")}` : ""}</b></span>}
         {maintenance && <span><small>SERVICE CONSUMABLES</small><b>{Object.entries(maintenance.serviceConsumables).map(([resource, count]) => `${count} ${resource}`).join(" + ") || "NONE"}</b></span>}
         {maintenance && <span><small>QUALIFICATION WORK</small><b>{maintenance.qualificationCompleted} COMPLETE / {maintenance.qualificationCancelled} CANCEL · {formatTick(maintenance.qualificationTicks)}</b></span>}
         {maintenance && <span><small>QUALIFICATION CONSUMABLES</small><b>{Object.entries(maintenance.qualificationConsumables).map(([resource, count]) => `${count} ${resource}`).join(" + ") || "NONE"}</b></span>}
@@ -2367,15 +2374,16 @@ function ProjectOverview({ snapshot, onNavigate, onDiagnostic, onDiagnosticFocus
           </article>)}</div>
         </div>}
         {maintenanceContributors.length > 0 && <div className="q-time-contributors maintenance-contributors" data-testid="maintenance-qualification-contributors">
-          <header><span className="eyebrow">MAINTENANCE + QUALIFICATION CONTRIBUTORS</span><small>Device-owned physical service, release qualification, wait, trigger, consumable, and observed provider evidence · top {Math.min(5, maintenanceContributors.length)} of {maintenanceContributors.length}</small></header>
+          <header><span className="eyebrow">MAINTENANCE + QUALIFICATION CONTRIBUTORS</span><small>Only exact overlap with complete ready work is ranked; idle-window workload remains physical context · top {Math.min(5, maintenanceContributors.length)} of {maintenanceContributors.length}</small></header>
           <div>{maintenanceContributors.slice(0, 5).map((contributor) => {
             const serviceConsumables = Object.entries(contributor.consumables.service)
               .map(([resource, count]) => `${count} ${resource}`).join(" + ") || "none";
             const qualificationConsumables = Object.entries(contributor.consumables.qualification)
               .map(([resource, count]) => `${count} ${resource}`).join(" + ") || "none";
             return <article key={contributor.id} data-testid={`maintenance-qualification-contributor-${contributor.label}`}>
-              <span><small>MAINTENANCE + QUALIFICATION</small><strong>{contributor.label}</strong><code>{contributor.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" → ")}</code></span>
-              <span><b>{(contributor.evidence.totalTicks! / 1000).toFixed(1)}s</b><small>{(contributor.evidence.maintenanceTicks! / 1000).toFixed(1)} SERVICE / {(contributor.evidence.qualificationTicks! / 1000).toFixed(1)} QUALIFICATION</small></span>
+              <span><small>MAINTENANCE + QUALIFICATION</small><strong>{contributor.label}</strong><code>{contributor.readyWorkPlans?.map((plan) => `${plan.process}/${plan.mode}`).join(" + ") || "no observed ready operation"} · {contributor.subjects.map((subject) => `${subject.kind}:${subject.id}`).join(" → ")}</code></span>
+              <span><b>{(contributor.evidence.readyWorkOverlapTicks! / 1000).toFixed(1)}s</b><small>READY-WORK OVERLAP / {(contributor.evidence.idleWindowTicks! / 1000).toFixed(1)}s IDLE WINDOW</small></span>
+              <span><b>{(contributor.evidence.totalTicks! / 1000).toFixed(1)}s</b><small>WORKLOAD · {(contributor.evidence.maintenanceTicks! / 1000).toFixed(1)} SERVICE / {(contributor.evidence.qualificationTicks! / 1000).toFixed(1)} QUALIFICATION</small></span>
               <span><b>{((contributor.evidence.inputWaitTicks! + contributor.evidence.crewWaitTicks!) / 1000).toFixed(1)}s</b><small>INPUT + CREW WAIT · {contributor.evidence.inputBlocks! + contributor.evidence.crewBlocks!} BLOCKS</small></span>
               <span><b>{contributor.evidence.usageTriggered} / {contributor.evidence.calendarTriggered}</b><small>USAGE / CALENDAR · {contributor.evidence.assetLimit} ASSET / {contributor.evidence.plannedBoundary} PLANNED / {contributor.evidence.opportunistic} OPPORTUNISTIC</small></span>
               <code>service: {serviceConsumables} · qualification: {qualificationConsumables} · {contributor.evidence.driftedJobs} drifted jobs / {contributor.evidence.driftDefects} defects</code>
@@ -3795,6 +3803,10 @@ function App() {
                   <Metric
                     label="SERVICE / QUALIFICATION"
                     value={`${(data.metrics.equipmentMaintenance.totalMaintenanceTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentMaintenance.totalQualificationTicks / 1000).toFixed(1)} s`}
+                  />
+                  <Metric
+                    label="READY OVERLAP / IDLE WINDOW"
+                    value={`${(data.metrics.equipmentMaintenance.totalReadyWorkOverlapTicks / 1000).toFixed(1)} / ${(data.metrics.equipmentMaintenance.totalIdleWindowTicks / 1000).toFixed(1)} s`}
                   />
                   <Metric
                     label="QUALIFIED / CANCELLED"

@@ -386,11 +386,11 @@ test("one command enters the exact phase-aware Investigation Design Session", as
           kind: "investigation",
           investigation: expect.objectContaining({
             id: "source-lot-back-end-service",
-            state: "historical",
+            state: "invalid",
             entryCount: 18,
           }),
           handoff: expect.objectContaining({
-            phase: "observe-current-factory",
+            phase: "repair-evidence",
             sourceEntry: expect.objectContaining({
               id: "discard-incumbent-five-seven-campaign",
               sequence: 18,
@@ -401,10 +401,7 @@ test("one command enters the exact phase-aware Investigation Design Session", as
               "incumbent-five-seven-comparison",
               "incumbent-five-seven-review",
             ],
-            authorship: expect.objectContaining({
-              kind: "investigation-entry",
-              entryKind: "observation",
-            }),
+            authorship: null,
           }),
         },
         route: "/memory-fab/investigations/source-lot-back-end-service#investigation-authoring",
@@ -413,11 +410,11 @@ test("one command enters the exact phase-aware Investigation Design Session", as
       }),
       nextActions: [
         expect.objectContaining({
-          actionLabel: "AUTHOR OBSERVATION",
+          actionLabel: "REVIEW EVIDENCE",
           target: expect.objectContaining({
             kind: "investigation",
             investigationId: "source-lot-back-end-service",
-            phase: "observe-current-factory",
+            phase: "repair-evidence",
             sourceEntryId: "discard-incumbent-five-seven-campaign",
           }),
         }),

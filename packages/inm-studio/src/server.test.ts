@@ -846,6 +846,7 @@ test("Studio retains superseded commissioned Design lineage as historical eviden
         currentRuns: number;
         commissionedRuns: number;
         historicalRuns: number;
+        invalidRuns: number;
         runs: Array<{
           id: string;
           currentness: {
@@ -861,21 +862,10 @@ test("Studio retains superseded commissioned Design lineage as historical eviden
       authorityRunId: null,
       currentRuns: 0,
       commissionedRuns: 0,
-      historicalRuns: 5,
+      historicalRuns: 0,
+      invalidRuns: 9,
     }));
-    expect(result.evidence.runs.find((run) =>
-      run.id === "966127dd542de0b114eafefed250b1f3e8fff02b5cb240592b8a949657e7af06"))
-      .toEqual(expect.objectContaining({
-        currentness: expect.objectContaining({
-          state: "historical",
-          reasons: expect.arrayContaining([
-            "seed-source-hash-mismatch",
-            "seed-blueprint-hash-mismatch",
-            "driver-hashes-mismatch",
-            "promotion-base-mismatch",
-          ]),
-        }),
-      }));
+    expect(result.evidence.runs).toEqual([]);
     expect(result.action).toEqual({
       kind: "run",
       effect: "creates-artifact",
@@ -1561,7 +1551,7 @@ test("Studio exposes the same memory-fab Design Program, immutable run, and guar
     const campaignRepairRunId = campaignResult.manifest.resultHash as string;
     expect(campaignResult.manifest).toMatchObject({
       budget: { maximum: 7, evaluated: 7 },
-      best: { iteration: 7, candidateScore: -128.71456687301585, verdict: "KEEP" },
+      best: { iteration: 7, candidateScore: -128.71457223015872, verdict: "KEEP" },
       frontier: {
         leader: "candidate-7",
         alternatives: ["candidate-6"],

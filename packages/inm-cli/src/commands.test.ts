@@ -818,7 +818,7 @@ test("public inspect summary exposes bounded current Design evidence to Agents a
 
 test("public observe binds the exact memory-fab run to shared visual targets without writes", async () => {
   const projectDir = join(repository, "examples/memory-fab");
-  const currentRunId = "110-candidate-trial-run-105-normal-particle-suppress";
+  const currentRunId = "112-simulate";
   const before = await Bun.file(join(projectDir, "blueprints/generated-dram-fab.blueprint.json")).text();
   const [machine, human, help] = await Promise.all([
     runCli(["observe", projectDir, "--run", currentRunId, "--json"]),
@@ -855,7 +855,7 @@ test("public observe binds the exact memory-fab run to shared visual targets wit
         }),
         sourceLotServices: expect.arrayContaining([
           expect.objectContaining({
-            analysisHash: "e3a9603cecb16cc7027c5f215bfc6c5c1330dd1ef2b599f0efd40aa8e6ec73a1",
+            analysisHash: "7869e72a53378716500c2e7f4eff96ab5b3bfdf77629ac779bc17805422e3e35",
             query: expect.objectContaining({
               device: "burn-in-1",
               inputBuffer: "package-input",
@@ -1989,7 +1989,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
     .find((bucket: { id: string }) => bucket.id === "transport-blocking");
   const queueCongestion = lossProfile.buckets
     .find((bucket: { id: string }) => bucket.id === "queue-congestion");
-  expect(lossProfile.version).toBe(8);
+  expect(lossProfile.version).toBe(9);
   expect(queueCongestion).toMatchObject({
     subjects: [
       { kind: "device", id: "probe-1" },
@@ -2120,7 +2120,7 @@ test("public inspect gives Agents and humans the same current loss contributors"
   expect(human.stdout).toContain("probe-1 · process-queue-wait · 22.0s / 32.6% · 9 lots / 9 segments · max 11.6s · dram-front-end · probe-dram · probe-sort-dram-standard · qualified-dram-wafer-lot");
   expect(human.stdout).not.toContain("burn-in-1 · process-queue-wait");
   expect(human.stdout).toContain("Maintenance and qualification contributors:");
-  expect(human.stdout).toContain("lithography-1 · 34.0s total = 26.0s service + 8.0s qualification + 0.0s input wait + 0.0s crew wait · 0 asset / 2 planned / 0 opportunistic · 2 usage / 0 calendar · service 2 chamber-clean-kit · qualification 2 tool-qualification-wafer · lithography-1 → maintenance-service-1");
+  expect(human.stdout).toContain("etch-1 · 17.0s ready-work overlap / 4.0s idle-window context · 21.0s workload = 14.0s service + 7.0s qualification + 0.0s input wait + 0.0s crew wait · etch-cell-layer-1/qualified · 0 asset / 0 planned / 2 opportunistic · 2 usage / 0 calendar · service 2 chamber-clean-kit · qualification 2 tool-qualification-wafer · etch-1 → maintenance-service-1");
   expect(human.stdout).toContain("Power-interruption contributors:");
   expect(human.stdout).toContain("substrate-receiving-to-packaging-loader · grid-cleanroom-shipping-power / loader · 165.4s / 26.6% · 1 shortages / 0 restores · device peak 500mW · grid 262351mJ unserved / 10000mW peak / 113825mJ envelope");
 });
@@ -2433,65 +2433,40 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
       invalidRuns: 32,
     }),
   }));
-  const historicalPrograms = [
-    ["back-end-die-handoff", 2],
-    ["burn-in-changeover-convergence", 4],
-    ["front-end-queue-convergence", 2],
-    ["layer-two-particle-control", 3],
-    ["lithography-maintenance-convergence", 2],
-    ["release-admission-convergence", 2],
-    ["shipping-power-convergence", 3],
+  const invalidPrograms = [
+    ["back-end-die-handoff", 12],
+    ["burn-in-changeover-convergence", 14],
+    ["front-end-queue-convergence", 7],
+    ["layer-two-particle-control", 8],
+    ["lithography-maintenance-convergence", 8],
+    ["release-admission-convergence", 7],
+    ["shipping-power-convergence", 8],
   ] as const;
-  for (const [id, historicalRuns] of historicalPrograms) {
+  for (const [id, invalidRuns] of invalidPrograms) {
     expect(result.designPrograms.find((item: { id: string }) => item.id === id)).toEqual(expect.objectContaining({
       alignment: { state: "aligned", reasons: [] },
-      evidence: {
+      evidence: expect.objectContaining({
         state: "missing",
         authorityRunId: null,
         authorityAddressedLossTargets: [],
         currentRuns: 0,
-        historicalRuns,
-        invalidRuns: 0,
-      },
+        historicalRuns: 0,
+        invalidRuns,
+      }),
     }));
   }
   expect(result.designPrograms.find((item: { id: string }) => item.id === "inspection-supply-path")).toEqual(expect.objectContaining({
     alignment: { state: "aligned", reasons: [] },
-    evidence: {
-      state: "exhausted",
-      authorityRunId: "159ea491ae7862c7a028f8bd4cfe10849d1a4dc6209ac211816f35ffb576f2d8",
-      authorityAddressedLossTargets: [{
-        loss: "input-starvation",
-        target: { contributor: "device:inspection-1:material-input-shortage", metric: "starvationTicks", direction: "decrease" },
-      }],
-      currentRuns: 1,
-      historicalRuns: 3,
-      invalidRuns: 0,
-    },
-  }));
-  expect(result.lossDispositions).toEqual([
-    expect.objectContaining({
-      state: "bounded-deferred",
-      loss: "input-starvation",
-      target: {
-        contributor: "device:inspection-1:material-input-shortage",
-        metric: "starvationTicks",
-        direction: "decrease",
-        currentValue: 59_584,
-      },
-      source: expect.objectContaining({
-        programId: "inspection-supply-path",
-        runId: "159ea491ae7862c7a028f8bd4cfe10849d1a4dc6209ac211816f35ffb576f2d8",
-      }),
-      evidence: expect.objectContaining({
-        attemptedCandidates: 6,
-        improvedCandidates: 6,
-        rejectedCandidates: 6,
-        bestObservedValue: 57_084,
-        largestReduction: 2_500,
-      }),
+    evidence: expect.objectContaining({
+      state: "missing",
+      authorityRunId: null,
+      authorityAddressedLossTargets: [],
+      currentRuns: 0,
+      historicalRuns: 0,
+      invalidRuns: 9,
     }),
-  ]);
+  }));
+  expect(result.lossDispositions).toEqual([]);
   expect(JSON.parse(dispositions.stdout).data).toEqual({
     section: "dispositions",
     result: {
@@ -2501,30 +2476,33 @@ test("public inspect gives Agents and humans the same current WIP and Design evi
   });
   expect(JSON.parse(objective.stdout).data).toEqual({ section: "objective", result: result.objectiveEvidence });
   expect(result.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^design\.inspect:layer-two-particle-control:/),
-    title: "Investigate the leading loss with Layer-two Particle Control",
-    actionLabel: "OPEN DESIGN LOOP",
+    id: expect.stringMatching(/^observation:fab-loss\.input-starvation:/),
+    title: "Observe the leading loss before authoring an intervention",
+    actionLabel: "OBSERVE CURRENT FACTORY",
     effect: "read-only",
-    argv: ["inm", "design", projectDir, "--program", "layer-two-particle-control", "--json"],
-    studioRoute: "/memory-fab/designs/layer-two-particle-control",
+    studioRoute: "/memory-fab/factory?run=112-simulate",
+    target: expect.objectContaining({
+      kind: "diagnostic",
+      diagnosticId: expect.stringMatching(/^fab-loss\.input-starvation:/),
+    }),
   }));
   expect(result.objectiveEvidence).toEqual(expect.objectContaining({
-    runId: "093-simulate",
-    dominantPenalty: { id: "wip", contribution: -41.75164375, role: "penalty" },
+    runId: "112-simulate",
+    dominantPenalty: { id: "wip", contribution: -73.78575000000001, role: "penalty" },
     wip: expect.objectContaining({
       locations: expect.arrayContaining([
-        expect.objectContaining({ physicalLocation: "burn-in-1.package-input", averageInventory: 9.781316666666667 }),
-        expect.objectContaining({ physicalLocation: "packaging-1.die-input", averageInventory: 7.965816666666667 }),
+        expect.objectContaining({ physicalLocation: "burn-in-1.package-input", averageInventory: 9.465691666666666 }),
+        expect.objectContaining({ physicalLocation: "packaging-1.die-input", averageInventory: 7.159541666666667 }),
       ]),
     }),
   }));
-  expect(human.stdout).toContain("Objective evidence: run 093-simulate · score 30.884 · dominant penalty wip -41.752");
-  expect(human.stdout).toContain("packaged-dram-device @ burn-in-1.package-input (buffer): 9.781 average");
-  expect(human.stdout).toContain("known-good-dram-die @ packaging-1.die-input (buffer): 7.966 average");
+  expect(human.stdout).toContain("Objective evidence: run 112-simulate · score 0.745 · dominant penalty wip -73.786");
+  expect(human.stdout).toContain("packaged-dram-device @ burn-in-1.package-input (buffer): 9.466 equivalent / 9.466 raw average");
+  expect(human.stdout).toContain("known-good-dram-die @ packaging-1.die-input (buffer): 7.160 equivalent / 7.160 raw average");
   expect(human.stdout).toContain("Interpretation: Objective accounting evidence, not proof that the inventory is avoidable.");
-  expect(human.stdout).toContain("inspection-supply-path · EXHAUSTED · d7ce29302b98");
-  expect(human.stdout).toContain("Bounded deferred loss evidence:");
-  expect(human.stdout).toContain("Next action: Investigate the leading loss with Layer-two Particle Control");
+  expect(human.stdout).toContain("inspection-supply-path · MISSING");
+  expect(human.stdout).not.toContain("Bounded deferred loss evidence:");
+  expect(human.stdout).toContain("Next action: Observe the leading loss before authoring an intervention");
   const brief = await runCli(["design", projectDir, "--program", "commissioned-dram-fab"]);
   expect({ exitCode: brief.exitCode, stderr: brief.stderr }).toEqual({ exitCode: 0, stderr: "" });
   expect(brief.stdout).toContain("Evidence: 0 current · 0 commissioned · 0 historical · 32 invalid excluded · authority none (missing)");
