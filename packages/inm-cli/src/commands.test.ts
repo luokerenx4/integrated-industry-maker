@@ -1096,6 +1096,22 @@ test("public investigate preserves and resumes exact project-local human/Agent r
             }),
           }),
         }),
+        handoff: expect.objectContaining({
+          phase: "review-candidate",
+          candidateCycle: expect.objectContaining({
+            state: "review-required",
+            activeCandidateId: "inspection-decoupling-buffer",
+            candidates: [
+              expect.objectContaining({
+                id: "inspection-decoupling-buffer",
+                decisionState: "proposed",
+                trial: null,
+                comparison: null,
+                disposition: null,
+              }),
+            ],
+          }),
+        }),
       }),
     },
     artifacts: [expect.objectContaining({
@@ -1241,6 +1257,8 @@ test("public investigate preserves and resumes exact project-local human/Agent r
   expect(human.stdout).toContain("0003 OBSERVATION · agent");
   expect(human.stdout).toContain("introduced: post-hypothesis-factory:factory-observation");
   expect(human.stdout).toContain("expected: Reduce inspection shortage");
+  expect(human.stdout).toContain("Candidate cycle: REVIEW-REQUIRED · hypothesis inspection-decoupling-buffer · active inspection-decoupling-buffer");
+  expect(human.stdout).toContain("inspection-decoupling-buffer · review PROPOSED · trial — · comparison — · decision —");
   expect(human.stdout).toContain("Design Session: FORM-HYPOTHESIS · 0003 post-hypothesis-factory-observed");
   expect(human.stdout).toContain("Evidence: operating-run + diagnostic + post-hypothesis-factory");
   expect((JSON.parse(help.stdout).data.commands as Array<{ id: string }>).map((command) => command.id))

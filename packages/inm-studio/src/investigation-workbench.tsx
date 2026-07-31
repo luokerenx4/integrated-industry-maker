@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import type {
+  BlueprintBenchmarkSummary,
+  CandidatePatch,
   IndustrialInvestigationEntry,
   IndustrialInvestigationInspection,
   IndustrialInvestigationSummary,
@@ -57,6 +59,155 @@ interface ProductionPlanRevisionDraft {
   controlSeed: number;
   baseProductionPlanHash: string;
   productionPlan: ProductionPlan;
+}
+
+function CandidateCycleSession({
+  projectId,
+  inspection,
+  onRefresh,
+}: {
+  projectId: string;
+  inspection: IndustrialInvestigationInspection;
+  onRefresh: () => Promise<void>;
+}) {
+  const cycle = inspection.handoff.candidateCycle;
+  const active = cycle?.activeCandidateId
+    ? cycle.candidates.find((candidate) => candidate.id === cycle.activeCandidateId) ?? null
+    : null;
+  const [benchmarks, setBenchmarks] = useState<BlueprintBenchmarkSummary[]>([]);
+  const [candidateId, setCandidateId] = useState("");
+  const [candidateName, setCandidateName] = useState("");
+  const [benchmark, setBenchmark] = useState("");
+  const [patchText, setPatchText] = useState("");
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (inspection.handoff.phase !== "author-candidate") return;
+    let activeRequest = true;
+    void fetch(`/api/projects/${encodeURIComponent(projectId)}/experiments`)
+      .then((response) => responseJson<{ experiments: BlueprintBenchmarkSummary[] }>(response))
+      .then((value) => {
+        if (!activeRequest) return;
+        setBenchmarks(value.experiments);
+        setBenchmark((current) => current || value.experiments.find((item) => item.locked)?.id || value.experiments[0]?.id || "");
+      })
+      .catch((nextError) => {
+        if (activeRequest) setError(nextError instanceof Error ? nextError.message : String(nextError));
+      });
+    return () => { activeRequest = false; };
+  }, [inspection.handoff.phase, projectId]);
+
+  const createCandidate = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!cycle) return;
+    setWorking(true);
+    setError(null);
+    try {
+      const patch = JSON.parse(patchText) as unknown;
+      if (!Array.isArray(patch) || patch.length === 0) throw new Error("RFC 6902 patch must be a non-empty JSON array.");
+      await responseJson(await fetch(
+        `${apiRoot(projectId)}/${encodeURIComponent(inspection.manifest.id)}/candidate`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            id: candidateId,
+            name: candidateName,
+            benchmark,
+            hypothesisEntry: cycle.hypothesisEntryId,
+            patch: patch as CandidatePatch,
+          }),
+        },
+      ));
+      await onRefresh();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const runTrial = async () => {
+    if (!active) return;
+    setWorking(true);
+    setError(null);
+    try {
+      const started = await startStudioOperation(
+        `${apiRoot(projectId)}/${encodeURIComponent(inspection.manifest.id)}/candidate-trial`,
+        { candidateId: active.id, seed: 42 },
+      );
+      const completed = await followStudioOperation(
+        projectId,
+        started.operation,
+        () => {},
+        new AbortController().signal,
+      );
+      if (completed.status !== "completed") {
+        throw new Error(completed.error?.message ?? `Candidate TRIAL ${completed.status}`);
+      }
+      await onRefresh();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  if (!cycle) return null;
+  return <section className={`candidate-cycle-session ${cycle.state}`} id="candidate-session" data-testid="candidate-cycle-session">
+    <header><span>BLUEPRINT CANDIDATE CYCLE</span><b>{cycle.state.replaceAll("-", " ").toUpperCase()}</b></header>
+    <div className="candidate-cycle-source">
+      <small>HYPOTHESIS · {cycle.hypothesisEntryId}</small>
+      <code>{cycle.hypothesisEntryHash.slice(0, 16)}</code>
+    </div>
+    {cycle.candidates.length > 0 && <div className="candidate-cycle-ledger">
+      {cycle.candidates.map((candidate) => <article className={candidate.id === cycle.activeCandidateId ? "active" : ""} key={candidate.id}>
+        <div><strong>{candidate.name}</strong><code>{candidate.id} · {candidate.proposalHash.slice(0, 12)}</code></div>
+        <span><small>REVIEW</small><b>{candidate.decisionState.toUpperCase()}</b>{candidate.reviewResultHash && <code>{candidate.reviewResultHash.slice(0, 10)}</code>}</span>
+        <span><small>TRIAL</small><b>{candidate.trial?.runId ?? "—"}</b>{candidate.trial && <code>{candidate.trial.resultHash.slice(0, 10)}</code>}</span>
+        <span><small>COMPARISON</small><b>{candidate.comparison?.anchorId ?? "—"}</b>{candidate.comparison && <code>{candidate.comparison.comparisonHash.slice(0, 10)}</code>}</span>
+        <span><small>DECISION</small><b>{candidate.disposition?.disposition.toUpperCase() ?? "—"}</b>{candidate.disposition && <code>{String(candidate.disposition.sequence).padStart(4, "0")} · {candidate.disposition.entryHash.slice(0, 10)}</code>}</span>
+        {candidate.error && <p role="alert">{candidate.error.code} · {candidate.error.message}</p>}
+      </article>)}
+    </div>}
+    {inspection.handoff.phase === "author-candidate" && <form className="candidate-authoring-form" onSubmit={(event) => { void createCandidate(event); }}>
+      <p>Author the smallest explicit Blueprint patch that tests this hypothesis. INM derives source and base hashes; it does not generate the intervention.</p>
+      <div>
+        <label>CANDIDATE ID<input required pattern="[a-z0-9][a-z0-9-]*" value={candidateId} onChange={(event) => setCandidateId(event.target.value)} placeholder="bounded-industrial-change" /></label>
+        <label>NAME<input required value={candidateName} onChange={(event) => setCandidateName(event.target.value)} placeholder="Bounded industrial change" /></label>
+        <label>LOCKED BENCHMARK<select required value={benchmark} onChange={(event) => setBenchmark(event.target.value)}>
+          {benchmarks.map((item) => <option value={item.id} key={item.id}>{item.name}{item.locked ? " · LOCKED" : ""}</option>)}
+        </select></label>
+      </div>
+      <label>RFC 6902 PATCH<textarea
+        required
+        spellCheck={false}
+        value={patchText}
+        placeholder={'[\n  {\n    "op": "replace",\n    "path": "/devices/0/position/x",\n    "value": 3\n  }\n]'}
+        onChange={(event) => setPatchText(event.target.value)}
+      /></label>
+      {error && <div className="investigation-error" role="alert">{error}</div>}
+      <button disabled={working || !benchmark} type="submit">{working ? "VERIFYING…" : "CREATE EXACT CANDIDATE"}</button>
+    </form>}
+    {inspection.handoff.phase === "simulate-candidate" && active && <div className="candidate-cycle-action">
+      <p>The immutable review is current. Run this exact proposed Blueprint under its source operating selection without applying it.</p>
+      {error && <div className="investigation-error" role="alert">{error}</div>}
+      <button disabled={working} onClick={() => { void runTrial(); }}>{working ? "RUNNING TRIAL…" : "RUN CANDIDATE TRIAL"}</button>
+    </div>}
+    {inspection.handoff.phase !== "author-candidate"
+      && inspection.handoff.phase !== "simulate-candidate"
+      && cycle.state !== "completed"
+      && <div className="candidate-cycle-action">
+        <p>{inspection.handoff.nextAction.reason}</p>
+        <a href={inspection.handoff.nextAction.studioRoute}>{inspection.handoff.nextAction.actionLabel} →</a>
+      </div>}
+    {cycle.state === "completed" && active?.disposition && <div className="candidate-cycle-complete">
+      <strong>{active.disposition.disposition.toUpperCase()} · ENTRY {String(active.disposition.sequence).padStart(4, "0")}</strong>
+      <p>This exact Candidate branch is retained as accumulated evidence. Reopening the Investigation will not recreate, re-review, or silently apply it.</p>
+      <code>{active.disposition.entryHash}</code>
+    </div>}
+  </section>;
 }
 
 function ProductionPlanRevisionSession({
@@ -544,6 +695,12 @@ export function InvestigationWorkbench({
             </small>}
           </div>
         </section>
+
+        <CandidateCycleSession
+          projectId={projectId}
+          inspection={inspection}
+          onRefresh={() => loadSelected(inspection.manifest.id)}
+        />
 
         <ProductionPlanRevisionSession
           projectId={projectId}

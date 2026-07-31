@@ -18,6 +18,7 @@ import {
   compileFactoryProject,
   continueDesignRun,
   createIndustrialInvestigation,
+  createInvestigationCandidate,
   createInvestigationProductionPlanRevision,
   ENGINE_VERSION,
   evaluateBenchmarkOperation,
@@ -51,12 +52,14 @@ import {
   resolveProjectDirectory,
   runDesignProgram,
   simulateProjectOperation,
+  simulateCandidateOperation,
   sameProjectEvidenceIdentity,
   stableStringify,
   studioSourceHash,
   validateProjectOperation,
   type ProjectSelection,
   type IndustrialInvestigationEntryInput,
+  type CandidatePatch,
   type ProductionPlan,
   type SourceLotServiceAnalysis,
 } from "@inm/core";
@@ -773,6 +776,98 @@ const server = Bun.serve({
           body as IndustrialInvestigationEntryInput,
         );
         return Response.json(await inspectIndustrialInvestigation(projectDir, investigationId), { status: 201 });
+      }
+
+      const investigationCandidateMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/investigations\/([^/]+)\/candidate$/);
+      if (investigationCandidateMatch) {
+        if (request.method !== "POST") {
+          return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        }
+        const projectDir = await projectDirectory(decoded(investigationCandidateMatch[1]!));
+        const investigationId = decoded(investigationCandidateMatch[2]!);
+        const body = await request.json().catch(() => ({})) as {
+          id?: unknown;
+          name?: unknown;
+          benchmark?: unknown;
+          hypothesisEntry?: unknown;
+          patch?: unknown;
+        };
+        if (typeof body.id !== "string"
+          || typeof body.name !== "string"
+          || typeof body.benchmark !== "string"
+          || typeof body.hypothesisEntry !== "string"
+          || !Array.isArray(body.patch)) {
+          throw new IndustrialInvestigationError(
+            "investigation.invalid-candidate-request",
+            "Candidate authoring requires id, name, benchmark, hypothesisEntry, and an RFC 6902 patch array",
+          );
+        }
+        const created = await createInvestigationCandidate(projectDir, {
+          id: body.id,
+          name: body.name,
+          benchmark: body.benchmark,
+          investigation: investigationId,
+          hypothesisEntry: body.hypothesisEntry,
+          patch: body.patch as CandidatePatch,
+        });
+        return Response.json({
+          created,
+          investigation: await inspectIndustrialInvestigation(projectDir, investigationId),
+        }, { status: 201 });
+      }
+
+      const investigationCandidateTrialMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/investigations\/([^/]+)\/candidate-trial$/);
+      if (investigationCandidateTrialMatch) {
+        if (request.method !== "POST") {
+          return Response.json({ code: "studio.method-not-allowed", error: "Method not allowed" }, { status: 405 });
+        }
+        const projectId = decoded(investigationCandidateTrialMatch[1]!);
+        const projectDir = await projectDirectory(projectId);
+        const investigationId = decoded(investigationCandidateTrialMatch[2]!);
+        const body = await request.json().catch(() => ({})) as {
+          candidateId?: unknown;
+          seed?: unknown;
+        };
+        const seed = body.seed === undefined ? 42 : body.seed;
+        if (typeof body.candidateId !== "string"
+          || !Number.isSafeInteger(seed)
+          || (seed as number) < 0) {
+          throw new IndustrialInvestigationError(
+            "investigation.invalid-candidate-trial-request",
+            "Candidate TRIAL requires candidateId and an optional non-negative integer seed",
+          );
+        }
+        const inspection = await inspectIndustrialInvestigation(projectDir, investigationId);
+        if (inspection.handoff.phase !== "simulate-candidate"
+          || inspection.handoff.candidateCycle?.activeCandidateId !== body.candidateId) {
+          throw new IndustrialInvestigationError(
+            "investigation.candidate-trial-not-current",
+            `Candidate '${body.candidateId}' is not the exact reviewed TRIAL phase for Investigation '${investigationId}'`,
+          );
+        }
+        const started = await operationRegistry.start(projectDir, projectId, {
+          kind: "candidate-trial",
+          investigationId,
+          candidateId: body.candidateId,
+          seed: seed as number,
+        }, async () => {
+          const operation = await simulateCandidateOperation(
+            projectDir,
+            body.candidateId as string,
+            {},
+            { seed: seed as number },
+          );
+          return {
+            result: {
+              command: "candidate",
+              action: "trial",
+              ...operation.data,
+              operation,
+            },
+            artifacts: operation.artifacts,
+          };
+        });
+        return Response.json(started, { status: started.reused ? 200 : 202 });
       }
 
       const investigationProductionPlanMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/investigations\/([^/]+)\/production-plan$/);

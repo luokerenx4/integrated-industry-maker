@@ -26,6 +26,7 @@ const DEFAULT_STUDIO_PORT = Number.isSafeInteger(configuredDefaultPort) && confi
   : 4176;
 const FALLBACK_STUDIO_PORTS = 24;
 const START_TIMEOUT_MS = 15_000;
+const SESSION_REQUEST_TIMEOUT_MS = 30_000;
 const SESSION_RECOVERY_TIMEOUT_MS = 5_000;
 const SESSION_RECOVERY_POLL_MS = 100;
 const repository = resolve(import.meta.dir, "../../..");
@@ -902,7 +903,7 @@ function openBrowser(url: string): void {
 async function responseJson<T>(url: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(url, { ...init, signal: AbortSignal.timeout(START_TIMEOUT_MS) });
+    response = await fetch(url, { ...init, signal: AbortSignal.timeout(SESSION_REQUEST_TIMEOUT_MS) });
   } catch (error) {
     throw new CliCommandError(
       "session.studio-unavailable",

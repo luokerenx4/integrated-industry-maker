@@ -4,6 +4,7 @@ import { z } from "zod";
 import { listRuns } from "./artifacts";
 import { loadBlueprintBenchmark } from "./benchmark";
 import {
+  listCandidateChangeSets,
   loadCandidateChangeSet,
   writeCandidateChangeSet,
   type CandidateChangeSet,
@@ -14,6 +15,7 @@ import {
 import {
   inspectCandidateDecision,
   loadCandidateReviewReceipt,
+  type CandidateDecisionState,
 } from "./candidate-review";
 import { projectEvidenceHashes } from "./execution-identity";
 import { loadFactoryProject, type ProjectSelection } from "./loader";
@@ -346,10 +348,58 @@ export type IndustrialInvestigationPhase =
   | "observe-current-factory"
   | "form-hypothesis"
   | "author-candidate"
+  | "review-candidate"
+  | "simulate-candidate"
+  | "compare-candidate"
+  | "decide-candidate"
   | "author-production-plan"
   | "simulate-production-plan"
   | "compare-production-plan"
   | "resume-project";
+
+export interface InvestigationCandidateCycleCandidate {
+  id: string;
+  name: string;
+  benchmark: string;
+  proposalHash: string;
+  decisionState: CandidateDecisionState;
+  verdict: "KEEP" | "DISCARD" | "UNCHANGED" | null;
+  reviewResultHash: string | null;
+  trial: null | {
+    runId: string;
+    resultHash: string;
+    parentRunId: string;
+  };
+  comparison: null | {
+    anchorId: string;
+    comparisonHash: string;
+  };
+  disposition: null | {
+    entryId: string;
+    entryHash: string;
+    sequence: number;
+    author: "human" | "agent";
+    disposition: "keep" | "revise" | "defer" | "discard";
+    reviewAnchorId: string;
+  };
+  error: null | { code: string; message: string };
+}
+
+export interface InvestigationCandidateCycle {
+  hypothesisEntryId: string;
+  hypothesisEntryHash: string;
+  state:
+    | "not-authored"
+    | "review-required"
+    | "trial-required"
+    | "comparison-required"
+    | "decision-required"
+    | "completed"
+    | "ambiguous"
+    | "invalid";
+  activeCandidateId: string | null;
+  candidates: InvestigationCandidateCycleCandidate[];
+}
 
 export interface IndustrialInvestigationHandoff {
   phase: IndustrialInvestigationPhase;
@@ -390,6 +440,7 @@ export interface IndustrialInvestigationHandoff {
     };
     interventionRunId: string | null;
   };
+  candidateCycle: InvestigationCandidateCycle | null;
   nextAction: WorkbenchNextAction;
 }
 
@@ -2018,6 +2069,10 @@ export async function inspectIndustrialInvestigation(
     && latestEntry.intervention === "production-plan"
     ? await resolveProductionPlanContinuation(projectDir, manifest, latestEntry)
     : null;
+  const candidateCycle = latestEntry?.kind === "hypothesis"
+    && latestEntry.intervention === "production-plan"
+    ? null
+    : await resolveInvestigationCandidateCycle(projectDir, manifest, entries, anchors);
   const handoff = buildIndustrialInvestigationHandoff({
     projectDir,
     manifest,
@@ -2026,6 +2081,7 @@ export async function inspectIndustrialInvestigation(
     state,
     projectNextAction: snapshot.nextAction,
     productionPlanContinuation,
+    candidateCycle,
   });
   return {
     manifest,
@@ -2041,6 +2097,182 @@ export async function inspectIndustrialInvestigation(
 interface ProductionPlanContinuation {
   inspected: InspectedProductionPlanRevision | null;
   interventionRunId: string | null;
+}
+
+function matchingReviewAnchor(
+  entries: readonly IndustrialInvestigationEntry[],
+  candidateId: string,
+  decision: Awaited<ReturnType<typeof inspectCandidateDecision>>,
+): Extract<InvestigationEvidenceAnchor, { kind: "candidate-review" }> | null {
+  if (!decision.proposedCandidateHash || !decision.resultHash || !decision.verdict) return null;
+  return entries.flatMap((entry) => entry.introducedAnchors)
+    .filter((anchor): anchor is Extract<InvestigationEvidenceAnchor, { kind: "candidate-review" }> =>
+      anchor.kind === "candidate-review")
+    .find((anchor) =>
+      anchor.candidateId === candidateId
+      && anchor.proposalHash === decision.proposalHash
+      && anchor.currentCandidateHash === decision.currentCandidateHash
+      && anchor.proposedCandidateHash === decision.proposedCandidateHash
+      && anchor.reviewResultHash === decision.resultHash
+      && anchor.verdict === decision.verdict) ?? null;
+}
+
+async function resolveInvestigationCandidateCycle(
+  projectDir: string,
+  manifest: IndustrialInvestigationManifest,
+  entries: IndustrialInvestigationEntry[],
+  inspectedAnchors: InspectedInvestigationAnchor[],
+): Promise<InvestigationCandidateCycle | null> {
+  const hypothesis = [...entries].reverse().find((entry): entry is Extract<
+    IndustrialInvestigationEntry,
+    { kind: "hypothesis" }
+  > => entry.kind === "hypothesis" && entry.intervention === "blueprint");
+  if (!hypothesis) return null;
+  const candidates = (await listCandidateChangeSets(projectDir)).filter((candidate) =>
+    candidate.source?.kind === "investigation-hypothesis"
+    && candidate.source.project === manifest.project
+    && candidate.source.investigation === manifest.id
+    && candidate.source.manifestHash === manifest.manifestHash
+    && candidate.source.entry === hypothesis.id
+    && candidate.source.entryHash === hypothesis.entryHash);
+  if (!candidates.length) return {
+    hypothesisEntryId: hypothesis.id,
+    hypothesisEntryHash: hypothesis.entryHash,
+    state: "not-authored",
+    activeCandidateId: null,
+    candidates: [],
+  };
+
+  const runs = await listRuns(projectDir);
+  const projected = await Promise.all(candidates.map(async (candidate): Promise<InvestigationCandidateCycleCandidate> => {
+    let decision: Awaited<ReturnType<typeof inspectCandidateDecision>>;
+    try {
+      decision = await inspectCandidateDecision(projectDir, candidate.id);
+    } catch (error) {
+      return {
+        id: candidate.id,
+        name: candidate.name,
+        benchmark: candidate.benchmark,
+        proposalHash: hashValue(candidate),
+        decisionState: "invalid",
+        verdict: null,
+        reviewResultHash: null,
+        trial: null,
+        comparison: null,
+        disposition: null,
+        error: {
+          code: error instanceof IndustrialInvestigationError
+            ? error.code
+            : error && typeof error === "object" && "code" in error && typeof error.code === "string"
+              ? error.code
+            : "investigation.candidate-invalid",
+          message: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+    const reviewAnchor = matchingReviewAnchor(entries, candidate.id, decision);
+    const dispositionEntry = reviewAnchor
+      ? [...entries].reverse().find((entry) =>
+        entry.kind === "decision" && entry.evidence.includes(reviewAnchor.id))
+      : undefined;
+    const exactTrials = decision.resultHash && decision.verdict && decision.sourceEvidence
+      ? runs.filter((run) =>
+        run.manifest.decision === "TRIAL"
+        && run.manifest.parentRun === decision.sourceEvidence!.operatingContext.run.id
+        && run.manifest.candidate?.id === candidate.id
+        && run.manifest.candidate.proposalHash === decision.proposalHash
+        && run.manifest.candidate.reviewResultHash === decision.resultHash
+        && run.manifest.candidate.reviewVerdict === decision.verdict)
+      : [];
+    let error: InvestigationCandidateCycleCandidate["error"] = decision.error
+      ? { ...decision.error }
+      : null;
+    if (exactTrials.length > 1) error = {
+      code: "investigation.ambiguous-candidate-trial",
+      message: `Candidate '${candidate.id}' has ${exactTrials.length} exact TRIAL Runs; the Investigation cannot choose one by filename recency.`,
+    };
+    const trialRun = exactTrials.length === 1 ? exactTrials[0]! : null;
+    let comparison: InvestigationCandidateCycleCandidate["comparison"] = null;
+    if (trialRun?.manifest.parentRun) {
+      const anchor = entries.flatMap((entry) => entry.introducedAnchors)
+        .filter((item): item is Extract<InvestigationEvidenceAnchor, { kind: "run-comparison" }> =>
+          item.kind === "run-comparison")
+        .find((item) =>
+          item.from.runId === trialRun.manifest.parentRun
+          && item.from.resultHash === decision.sourceEvidence?.operatingContext.run.resultHash
+          && item.to.runId === trialRun.name
+          && item.to.resultHash === trialRun.manifest.resultHash);
+      const inspected = anchor
+        ? inspectedAnchors.find((item) => item.anchor.id === anchor.id)
+        : null;
+      if (anchor && inspected
+        && inspected.state !== "missing"
+        && inspected.state !== "invalid") {
+        comparison = {
+          anchorId: anchor.id,
+          comparisonHash: anchor.comparisonHash,
+        };
+      }
+    }
+    return {
+      id: candidate.id,
+      name: candidate.name,
+      benchmark: candidate.benchmark,
+      proposalHash: decision.proposalHash,
+      decisionState: decision.state,
+      verdict: decision.verdict ?? null,
+      reviewResultHash: decision.resultHash ?? null,
+      trial: trialRun?.manifest.parentRun ? {
+        runId: trialRun.name,
+        resultHash: trialRun.manifest.resultHash,
+        parentRunId: trialRun.manifest.parentRun,
+      } : null,
+      comparison,
+      disposition: dispositionEntry?.kind === "decision" && reviewAnchor ? {
+        entryId: dispositionEntry.id,
+        entryHash: dispositionEntry.entryHash,
+        sequence: dispositionEntry.sequence,
+        author: dispositionEntry.author,
+        disposition: dispositionEntry.disposition,
+        reviewAnchorId: reviewAnchor.id,
+      } : null,
+      error,
+    };
+  }));
+  projected.sort((left, right) => left.id.localeCompare(right.id));
+  const unresolved = projected.filter((candidate) => !candidate.disposition);
+  if (unresolved.length > 1) return {
+    hypothesisEntryId: hypothesis.id,
+    hypothesisEntryHash: hypothesis.entryHash,
+    state: "ambiguous",
+    activeCandidateId: null,
+    candidates: projected,
+  };
+  const active = unresolved[0] ?? [...projected].sort((left, right) =>
+    (right.disposition?.sequence ?? -1) - (left.disposition?.sequence ?? -1)
+      || left.id.localeCompare(right.id))[0]!;
+  const state: InvestigationCandidateCycle["state"] = active.error
+    || active.decisionState === "invalid"
+    || active.decisionState === "stale"
+    ? "invalid"
+    : active.disposition
+      ? "completed"
+      : active.decisionState === "proposed"
+        ? "review-required"
+        : active.decisionState === "verified"
+          ? "decision-required"
+          : !active.trial
+            ? "trial-required"
+            : !active.comparison
+              ? "comparison-required"
+              : "decision-required";
+  return {
+    hypothesisEntryId: hypothesis.id,
+    hypothesisEntryHash: hypothesis.entryHash,
+    state,
+    activeCandidateId: active.id,
+    candidates: projected,
+  };
 }
 
 async function resolveProductionPlanContinuation(
@@ -2089,6 +2321,7 @@ function buildIndustrialInvestigationHandoff(input: {
   state: InvestigationAnchorState;
   projectNextAction: WorkbenchNextAction;
   productionPlanContinuation: ProductionPlanContinuation | null;
+  candidateCycle: InvestigationCandidateCycle | null;
 }): IndustrialInvestigationHandoff {
   const latest = input.entries.at(-1) ?? null;
   const sourceEntry = latest
@@ -2157,6 +2390,38 @@ function buildIndustrialInvestigationHandoff(input: {
       evidenceIds,
       authorship: null,
       productionPlanRevision: null,
+      candidateCycle: input.candidateCycle,
+      nextAction,
+    };
+  }
+
+  const awaitingCandidateDecision = input.candidateCycle?.state === "decision-required"
+    && input.candidateCycle.activeCandidateId
+    ? input.candidateCycle.candidates.find((candidate) =>
+      candidate.id === input.candidateCycle!.activeCandidateId) ?? null
+    : null;
+  if (awaitingCandidateDecision) {
+    const suggestedDisposition = awaitingCandidateDecision.verdict === "KEEP"
+      ? "keep"
+      : awaitingCandidateDecision.verdict === "DISCARD"
+        ? "discard"
+        : "revise";
+    const nextAction = action(
+      "decide-candidate",
+      `Record the industrial disposition for Candidate '${awaitingCandidateDecision.id}'`,
+      `The exact review${awaitingCandidateDecision.trial ? `, TRIAL '${awaitingCandidateDecision.trial.runId}', and retained comparison` : ""} now answers hypothesis '${input.candidateCycle!.hypothesisEntryId}'. A human or reasoning Agent must decide KEEP, revise, defer, or discard; a new hypothesis would otherwise abandon unresolved evidence.`,
+      "RECORD EXPLICIT DECISION",
+      {
+        studioRoute: `${investigationRoute}?candidate=${encodeURIComponent(awaitingCandidateDecision.id)}&disposition=${suggestedDisposition}#investigation-authoring`,
+      },
+    );
+    return {
+      phase: "decide-candidate",
+      sourceEntry,
+      evidenceIds,
+      authorship: null,
+      productionPlanRevision: null,
+      candidateCycle: input.candidateCycle,
       nextAction,
     };
   }
@@ -2182,6 +2447,38 @@ function buildIndustrialInvestigationHandoff(input: {
         requiredFields: ["entry-id", "author", "statement"],
       },
       productionPlanRevision: null,
+      candidateCycle: input.candidateCycle,
+      nextAction,
+    };
+  }
+
+  const completedCandidate = input.candidateCycle?.state === "completed"
+    && input.candidateCycle.activeCandidateId
+    ? input.candidateCycle.candidates.find((candidate) =>
+      candidate.id === input.candidateCycle!.activeCandidateId
+      && candidate.disposition?.entryId === latest.id) ?? null
+    : null;
+  if (latest.kind === "decision"
+    && completedCandidate?.disposition
+    && (completedCandidate.disposition.disposition === "discard"
+      || completedCandidate.disposition.disposition === "defer")) {
+    const nextAction = action(
+      "observe-current-factory",
+      `Candidate '${completedCandidate.id}' is ${completedCandidate.disposition.disposition}; observe the current factory before continuing`,
+      `Entry '${latest.id}' closes the exact Candidate cycle through review${completedCandidate.trial ? `, TRIAL '${completedCandidate.trial.runId}', and comparison` : ""}. Preserve that conclusion and bind the next hypothesis to a fresh current factory checkpoint instead of reopening the retired proposal.`,
+      "AUTHOR CURRENT OBSERVATION",
+    );
+    return {
+      phase: "observe-current-factory",
+      sourceEntry,
+      evidenceIds,
+      authorship: {
+        kind: "investigation-entry",
+        entryKind: "observation",
+        requiredFields: ["entry-id", "author", "statement"],
+      },
+      productionPlanRevision: null,
+      candidateCycle: input.candidateCycle,
       nextAction,
     };
   }
@@ -2203,6 +2500,7 @@ function buildIndustrialInvestigationHandoff(input: {
         requiredFields: ["entry-id", "author", "statement", "intervention", "expected-effect"],
       },
       productionPlanRevision: null,
+      candidateCycle: input.candidateCycle,
       nextAction,
     };
   }
@@ -2255,6 +2553,7 @@ function buildIndustrialInvestigationHandoff(input: {
           evidenceIds,
           authorship: null,
           productionPlanRevision: revisionSummary,
+          candidateCycle: input.candidateCycle,
           nextAction,
         };
       }
@@ -2295,6 +2594,7 @@ function buildIndustrialInvestigationHandoff(input: {
           evidenceIds,
           authorship: null,
           productionPlanRevision: revisionSummary,
+          candidateCycle: input.candidateCycle,
           nextAction,
         };
       }
@@ -2315,6 +2615,150 @@ function buildIndustrialInvestigationHandoff(input: {
           requiredFields: ["production-plan-id", "production-plan-file"],
         },
         productionPlanRevision: null,
+        candidateCycle: input.candidateCycle,
+        nextAction,
+      };
+    }
+    const cycle = input.candidateCycle;
+    const activeCandidate = cycle?.activeCandidateId
+      ? cycle.candidates.find((candidate) => candidate.id === cycle.activeCandidateId) ?? null
+      : null;
+    if (cycle?.state === "ambiguous") {
+      const nextAction = action(
+        "review-candidate",
+        `Choose one Candidate branch for hypothesis ${String(latest.sequence).padStart(4, "0")}`,
+        `${cycle.candidates.length} unresolved Candidates cite the same exact hypothesis. INM will not choose among authored alternatives by filename or score; review and explicitly disposition one branch before continuing.`,
+        "REVIEW CANDIDATE ALTERNATIVES",
+      );
+      return {
+        phase: "review-candidate",
+        sourceEntry,
+        evidenceIds,
+        authorship: null,
+        productionPlanRevision: null,
+        candidateCycle: cycle,
+        nextAction,
+      };
+    }
+    if (cycle?.state === "invalid" && activeCandidate) {
+      const nextAction = action(
+        "repair-evidence",
+        `Repair Candidate '${activeCandidate.id}' before continuing`,
+        activeCandidate.error?.message
+          ?? `Candidate '${activeCandidate.id}' is ${activeCandidate.decisionState}; its exact review or TRIAL identity cannot continue this Investigation.`,
+        "REVIEW CANDIDATE EVIDENCE",
+        {
+          studioRoute: `/${encodeURIComponent(input.manifest.project)}/experiments/${encodeURIComponent(activeCandidate.benchmark)}/candidates/${encodeURIComponent(activeCandidate.id)}`,
+        },
+      );
+      return {
+        phase: "repair-evidence",
+        sourceEntry,
+        evidenceIds,
+        authorship: null,
+        productionPlanRevision: null,
+        candidateCycle: cycle,
+        nextAction,
+      };
+    }
+    if (cycle?.state === "review-required" && activeCandidate) {
+      const nextAction = action(
+        "review-candidate",
+        `Review Candidate '${activeCandidate.id}' against locked evidence`,
+        `Candidate '${activeCandidate.id}' exactly cites hypothesis '${latest.id}', but has no immutable review receipt. Evaluate its locked Benchmark and current-factory effect before trial or disposition.`,
+        "REVIEW CANDIDATE",
+        {
+          argv: [
+            "inm", "candidate", resolve(input.projectDir),
+            "--candidate", activeCandidate.id, "--review", "--json",
+          ],
+          studioRoute: `/${encodeURIComponent(input.manifest.project)}/experiments/${encodeURIComponent(activeCandidate.benchmark)}/candidates/${encodeURIComponent(activeCandidate.id)}`,
+          effect: "creates-artifact",
+        },
+      );
+      return {
+        phase: "review-candidate",
+        sourceEntry,
+        evidenceIds,
+        authorship: null,
+        productionPlanRevision: null,
+        candidateCycle: cycle,
+        nextAction,
+      };
+    }
+    if (cycle?.state === "trial-required" && activeCandidate) {
+      const nextAction = action(
+        "simulate-candidate",
+        `Run reviewed Candidate '${activeCandidate.id}' without applying it`,
+        `Review ${activeCandidate.reviewResultHash?.slice(0, 12)} is immutable. Freeze the proposed Blueprint as one TRIAL Run under the hypothesis's exact operating selection; this creates evidence, not current factory authority.`,
+        "RUN CANDIDATE TRIAL",
+        {
+          argv: [
+            "inm", "candidate", resolve(input.projectDir),
+            "--candidate", activeCandidate.id, "--run", "--seed", "42", "--json",
+          ],
+          studioRoute: `${investigationRoute}#candidate-session`,
+          effect: "creates-artifact",
+        },
+      );
+      return {
+        phase: "simulate-candidate",
+        sourceEntry,
+        evidenceIds,
+        authorship: null,
+        productionPlanRevision: null,
+        candidateCycle: cycle,
+        nextAction,
+      };
+    }
+    if (cycle?.state === "comparison-required" && activeCandidate?.trial) {
+      const nextAction = action(
+        "compare-candidate",
+        `Compare Candidate TRIAL '${activeCandidate.trial.runId}' with its exact source`,
+        `The reviewed Candidate has an immutable TRIAL, but this Investigation has not retained the exact control/TRIAL comparison. Inspect quantitative and spatial tradeoffs before recording a disposition.`,
+        "REVIEW EXACT COMPARISON",
+        {
+          argv: [
+            "inm", "compare", resolve(input.projectDir),
+            "--from-run", activeCandidate.trial.parentRunId,
+            "--to-run", activeCandidate.trial.runId,
+            "--json",
+          ],
+          studioRoute: `/${encodeURIComponent(input.manifest.project)}/runs?from=${encodeURIComponent(activeCandidate.trial.parentRunId)}&to=${encodeURIComponent(activeCandidate.trial.runId)}&investigation=${encodeURIComponent(input.manifest.id)}`,
+        },
+      );
+      return {
+        phase: "compare-candidate",
+        sourceEntry,
+        evidenceIds,
+        authorship: null,
+        productionPlanRevision: null,
+        candidateCycle: cycle,
+        nextAction,
+      };
+    }
+    if (cycle?.state === "decision-required" && activeCandidate) {
+      const suggestedDisposition = activeCandidate.verdict === "KEEP"
+        ? "keep"
+        : activeCandidate.verdict === "DISCARD"
+          ? "discard"
+          : "revise";
+      const nextAction = action(
+        "decide-candidate",
+        `Record the industrial disposition for Candidate '${activeCandidate.id}'`,
+        `Review${activeCandidate.trial ? `, TRIAL '${activeCandidate.trial.runId}', and exact comparison` : ""} evidence is retained. A human or reasoning Agent must now decide KEEP, revise, defer, or discard; INM will not derive judgment from score.`,
+        "RECORD EXPLICIT DECISION",
+        {
+          studioRoute: `${investigationRoute}?candidate=${encodeURIComponent(activeCandidate.id)}&disposition=${suggestedDisposition}#investigation-authoring`,
+        },
+      );
+      return {
+        phase: "decide-candidate",
+        sourceEntry,
+        evidenceIds,
+        authorship: null,
+        productionPlanRevision: null,
+        candidateCycle: cycle,
         nextAction,
       };
     }
@@ -2335,6 +2779,7 @@ function buildIndustrialInvestigationHandoff(input: {
         requiredFields: ["candidate-id", "candidate-name", "benchmark", "patch-file"],
       },
       productionPlanRevision: null,
+      candidateCycle: input.candidateCycle,
       nextAction,
     };
   }
@@ -2345,6 +2790,7 @@ function buildIndustrialInvestigationHandoff(input: {
     evidenceIds,
     authorship: null,
     productionPlanRevision: null,
+    candidateCycle: input.candidateCycle,
     nextAction: input.projectNextAction,
   };
 }

@@ -2,7 +2,7 @@ import type { BlueprintBenchmarkProgress } from "./benchmark";
 import type { DesignRunProgress } from "./design-run";
 import type { ProjectSelection } from "./loader";
 
-export type OperationExecutionKind = "simulate" | "benchmark" | "candidate-preview" | "candidate-apply" | "design-run" | "design-continue";
+export type OperationExecutionKind = "simulate" | "benchmark" | "candidate-preview" | "candidate-trial" | "candidate-apply" | "design-run" | "design-continue";
 export type OperationExecutionStatus = "queued" | "running" | "completed" | "failed" | "cancelled" | "interrupted";
 export type OperationExecutionProgress = BlueprintBenchmarkProgress | DesignRunProgress;
 
@@ -16,6 +16,7 @@ export type OperationExecutionSubject =
   }
   | { kind: "benchmark"; benchmarkId: string }
   | { kind: "candidate-preview"; benchmarkId: string; candidateId: string }
+  | { kind: "candidate-trial"; investigationId: string; candidateId: string; seed: number }
   | { kind: "candidate-apply"; benchmarkId: string; candidateId: string }
   | { kind: "design-run"; programId: string; maxCandidates: number }
   | { kind: "design-continue"; programId: string; sourceResultHash: string; maxCandidates: number };

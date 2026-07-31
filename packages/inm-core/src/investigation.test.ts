@@ -704,3 +704,106 @@ test("an Investigation hypothesis creates a strictly sourced Candidate without c
     await rm(root, { recursive: true, force: true });
   }
 }, 30_000);
+
+test("a Candidate-sourced Investigation resumes exact review, TRIAL, comparison, and decision phases", async () => {
+  const root = await mkdtemp(join(tmpdir(), "inm-investigation-candidate-cycle-"));
+  const projectDir = join(root, "memory-fab");
+  await cp(join(repository, "examples/memory-fab"), projectDir, {
+    recursive: true,
+    filter: (source) => !source.split("/").includes(".inm"),
+  });
+  const investigationId = "source-lot-back-end-service";
+  const entries = join(projectDir, "investigations", investigationId, "entries");
+  const candidateId = "incumbent-five-performance-seven-commercial";
+  try {
+    const completed = await inspectIndustrialInvestigation(projectDir, investigationId);
+    expect(completed.handoff).toEqual(expect.objectContaining({
+      phase: "observe-current-factory",
+      candidateCycle: expect.objectContaining({
+        state: "completed",
+        activeCandidateId: candidateId,
+        candidates: [
+          expect.objectContaining({
+            id: candidateId,
+            decisionState: "reviewed-keep",
+            trial: expect.objectContaining({
+              parentRunId: "105-simulate",
+              runId: "109-candidate-trial-incumbent-five-performance-seven",
+            }),
+            comparison: expect.objectContaining({
+              anchorId: "incumbent-five-seven-comparison",
+            }),
+            disposition: expect.objectContaining({
+              entryId: "discard-incumbent-five-seven-campaign",
+              disposition: "discard",
+            }),
+          }),
+        ],
+      }),
+    }));
+
+    await rm(join(entries, "0018-discard-incumbent-five-seven-campaign.entry.json"));
+    const decision = await inspectIndustrialInvestigation(projectDir, investigationId);
+    expect(decision.handoff).toEqual(expect.objectContaining({
+      phase: "decide-candidate",
+      candidateCycle: expect.objectContaining({ state: "decision-required" }),
+      nextAction: expect.objectContaining({
+        actionLabel: "RECORD EXPLICIT DECISION",
+        studioRoute: expect.stringContaining(`candidate=${candidateId}`),
+      }),
+    }));
+
+    await rm(join(entries, "0017-incumbent-five-seven-trial.entry.json"));
+    const comparison = await inspectIndustrialInvestigation(projectDir, investigationId);
+    expect(comparison.handoff).toEqual(expect.objectContaining({
+      phase: "compare-candidate",
+      candidateCycle: expect.objectContaining({ state: "comparison-required" }),
+      nextAction: expect.objectContaining({
+        argv: expect.arrayContaining([
+          "--from-run", "105-simulate",
+          "--to-run", "109-candidate-trial-incumbent-five-performance-seven",
+        ]),
+      }),
+    }));
+
+    await rm(join(projectDir, "runs/109-candidate-trial-incumbent-five-performance-seven"), {
+      recursive: true,
+    });
+    const trial = await inspectIndustrialInvestigation(projectDir, investigationId);
+    expect(trial.handoff).toEqual(expect.objectContaining({
+      phase: "simulate-candidate",
+      candidateCycle: expect.objectContaining({ state: "trial-required" }),
+      nextAction: expect.objectContaining({
+        actionLabel: "RUN CANDIDATE TRIAL",
+        effect: "creates-artifact",
+      }),
+    }));
+
+    await rm(join(projectDir, "candidate-reviews", candidateId), { recursive: true });
+    const review = await inspectIndustrialInvestigation(projectDir, investigationId);
+    expect(review.handoff).toEqual(expect.objectContaining({
+      phase: "review-candidate",
+      candidateCycle: expect.objectContaining({ state: "review-required" }),
+      nextAction: expect.objectContaining({
+        actionLabel: "REVIEW CANDIDATE",
+        effect: "creates-artifact",
+      }),
+    }));
+
+    await rm(join(projectDir, "candidates", `${candidateId}.candidate.json`));
+    const author = await inspectIndustrialInvestigation(projectDir, investigationId);
+    expect(author.handoff).toEqual(expect.objectContaining({
+      phase: "author-candidate",
+      candidateCycle: expect.objectContaining({
+        state: "not-authored",
+        candidates: [],
+      }),
+      authorship: expect.objectContaining({
+        kind: "candidate",
+        hypothesisEntryId: "five-performance-seven-commercial-campaign",
+      }),
+    }));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}, 60_000);

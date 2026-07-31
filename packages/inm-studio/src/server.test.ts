@@ -2,7 +2,7 @@ import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/pr
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { expect, test } from "bun:test";
-import { compareFactoryRuns, createInvestigationCandidate, evaluateBlueprintBenchmark, hashValue, lockBlueprintBenchmark, openFactoryObservationBrief, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
+import { compareFactoryRuns, evaluateBlueprintBenchmark, hashValue, lockBlueprintBenchmark, openFactoryObservationBrief, openProjectWorkbenchSnapshot, simulateProjectOperation, stableStringify, type Blueprint } from "@inm/core";
 import { isTerminalOperationExecution, type OperationExecutionSnapshot, type OperationExecutionStartResponse } from "@inm/core";
 import { parseStudioWatchMessage, type StudioWatchEvent } from "./watch-protocol";
 
@@ -471,13 +471,51 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
         }),
       }),
     }));
-    const sourcedCandidate = await createInvestigationCandidate(projectDir, {
-      id: "inspection-decoupling-buffer",
-      name: "Inspection decoupling buffer",
-      benchmark: "greenfield-dram-design",
-      investigation: "inspection-starvation-next-step",
-      hypothesisEntry: "inspection-decoupling-buffer",
-      patch: [{ op: "replace", path: "/devices/0/position/x", value: 3 }],
+    const authoredCandidate = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/investigations/inspection-starvation-next-step/candidate`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          id: "inspection-decoupling-buffer",
+          name: "Inspection decoupling buffer",
+          benchmark: "greenfield-dram-design",
+          hypothesisEntry: "inspection-decoupling-buffer",
+          patch: [{ op: "replace", path: "/devices/0/position/x", value: 3 }],
+        }),
+      },
+    );
+    expect(authoredCandidate.status).toBe(201);
+    const authoredCandidateBody = await authoredCandidate.json() as {
+      created: { candidate: { id: string } };
+      investigation: { handoff: { phase: string; candidateCycle?: { state: string; activeCandidateId: string | null } } };
+    };
+    expect(authoredCandidateBody).toEqual(expect.objectContaining({
+      created: expect.objectContaining({
+        candidate: expect.objectContaining({ id: "inspection-decoupling-buffer" }),
+      }),
+      investigation: expect.objectContaining({
+        handoff: expect.objectContaining({
+          phase: "review-candidate",
+          candidateCycle: expect.objectContaining({
+            state: "review-required",
+            activeCandidateId: "inspection-decoupling-buffer",
+          }),
+        }),
+      }),
+    }));
+    const sourcedCandidate = authoredCandidateBody.created;
+    const prematureTrial = await fetch(
+      `http://localhost:${port}/api/projects/memory-fab/investigations/inspection-starvation-next-step/candidate-trial`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ candidateId: sourcedCandidate.candidate.id, seed: 42 }),
+      },
+    );
+    expect({ status: prematureTrial.status, body: await prematureTrial.json() }).toEqual({
+      status: 400,
+      body: expect.objectContaining({ code: "investigation.candidate-trial-not-current" }),
     });
     const sourceReview = await fetch(
       `http://localhost:${port}/api/projects/memory-fab/experiments/greenfield-dram-design/candidates/${sourcedCandidate.candidate.id}/review`,
@@ -514,8 +552,12 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
     expect(await detail.json()).toEqual(expect.objectContaining({
       entries: expect.any(Array),
       handoff: expect.objectContaining({
-        phase: "author-candidate",
+        phase: "review-candidate",
         evidenceIds: ["post-hypothesis-factory"],
+        candidateCycle: expect.objectContaining({
+          state: "review-required",
+          activeCandidateId: "inspection-decoupling-buffer",
+        }),
       }),
     }));
     const deepLink = await fetch(
@@ -528,7 +570,7 @@ test("Studio exposes one project-local Investigation through stable HTTP and bro
     await child.exited;
     await rm(root, { recursive: true, force: true });
   }
-}, 30_000);
+}, 60_000);
 
 test("Studio authors the same source-pinned Production Plan revision session", async () => {
   const root = await mkdtemp(join(tmpdir(), "inm-studio-production-plan-revision-"));

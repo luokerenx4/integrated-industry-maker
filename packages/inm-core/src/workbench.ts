@@ -124,6 +124,10 @@ export type WorkbenchNextActionTarget =
       | "observe-current-factory"
       | "form-hypothesis"
       | "author-candidate"
+      | "review-candidate"
+      | "simulate-candidate"
+      | "compare-candidate"
+      | "decide-candidate"
       | "author-production-plan"
       | "simulate-production-plan"
       | "compare-production-plan";

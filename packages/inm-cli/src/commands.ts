@@ -1392,6 +1392,11 @@ export async function investigateCommand(
       `  Plan: ${productionPlanCreation.revision.base.id} ${productionPlanCreation.revision.base.hash.slice(0, 12)} → ${productionPlanCreation.revision.result.id} ${productionPlanCreation.revision.result.hash.slice(0, 12)}`,
       `  Changes: ${productionPlanCreation.changes.filter((change) => change.kind !== "production-plan").length} schedule changes · ${productionPlanCreation.revision.patch.length} patch operations`,
     ] : []),
+    ...(inspection.handoff.candidateCycle ? [
+      `Candidate cycle: ${inspection.handoff.candidateCycle.state.toUpperCase()} · hypothesis ${inspection.handoff.candidateCycle.hypothesisEntryId}${inspection.handoff.candidateCycle.activeCandidateId ? ` · active ${inspection.handoff.candidateCycle.activeCandidateId}` : ""}`,
+      ...inspection.handoff.candidateCycle.candidates.map((candidate) =>
+        `  ${candidate.id} · review ${candidate.decisionState.toUpperCase()}${candidate.verdict ? `/${candidate.verdict}` : ""} · trial ${candidate.trial?.runId ?? "—"} · comparison ${candidate.comparison?.anchorId ?? "—"} · decision ${candidate.disposition?.disposition.toUpperCase() ?? "—"}${candidate.error ? ` · ${candidate.error.code}` : ""}`),
+    ] : []),
     `Design Session: ${inspection.handoff.phase.toUpperCase()}${inspection.handoff.sourceEntry ? ` · ${String(inspection.handoff.sourceEntry.sequence).padStart(4, "0")} ${inspection.handoff.sourceEntry.id}` : ""}`,
     ...(inspection.handoff.evidenceIds.length
       ? [`  Evidence: ${inspection.handoff.evidenceIds.join(" + ")}`]
