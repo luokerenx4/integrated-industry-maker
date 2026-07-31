@@ -1,0 +1,77 @@
+{
+  "author": "agent",
+  "entryHash": "c8ba654784afdb06a9470e803bbf5cce6b0e07f1ed2613b2904c55742afd8752",
+  "evidence": [
+    "operating-run",
+    "diagnostic",
+    "run-114-probe-factory"
+  ],
+  "id": "observe-run-114-probe-service",
+  "introducedAnchors": [
+    {
+      "diagnostic": {
+        "causalHash": "49752e2b3c3277abf1e4dc44624436b5d22bb287f74cb35a6ae4c52971e877a7",
+        "code": "fab-loss.queue-congestion",
+        "diagnosticId": "fab-loss.queue-congestion:device:probe-1+route:dram-front-end:fc4f8e82c4",
+        "loss": {
+          "bucket": "queue-congestion",
+          "contributorId": "device:probe-1:process-queue-wait:dram-front-end:probe-dram:probe-sort-dram-standard"
+        },
+        "message": "Tracked-lot queue congestion is ranked 2 in compatible run 114-candidate-trial-run-112-dimensional-stability (signal 0.1089). Tracked lots averaged 6.5 s queued in a 59.6 s cycle; probe-1/probe-sort-dram-standard accounts for 33.9 s across 9 lots (43.6%).",
+        "priority": 89,
+        "severity": "warning",
+        "subjects": [
+          {
+            "id": "probe-1",
+            "kind": "device"
+          },
+          {
+            "id": "dram-front-end",
+            "kind": "route"
+          }
+        ],
+        "summary": "Tracked lots averaged 6.5 s queued in a 59.6 s cycle; probe-1/probe-sort-dram-standard accounts for 33.9 s across 9 lots (43.6%)."
+      },
+      "hashes": {
+        "blueprintHash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+        "engineVersion": "inm-sim/0.93.1",
+        "executionHash": "756abdd1d3c8688aba65dd8df430ad914cf7a5a4fb84e1789be8cb58cae92def",
+        "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+        "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+        "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+        "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+      },
+      "id": "run-114-probe-factory",
+      "kind": "factory-observation",
+      "resultHash": "89c183540d7a0daa3810e72741837319cd8742ccefc3f963e03cd7a386a77e3c",
+      "runId": "114-candidate-trial-run-112-dimensional-stability",
+      "selection": {
+        "blueprint": "generated-dram-fab",
+        "objective": "dram-output",
+        "productionPlan": "production-window",
+        "scenario": "production-window",
+        "world": "cleanroom"
+      },
+      "sourceLotServices": [
+        {
+          "analysisHash": "4b7e5ccecac2ab09faf6322a2101553851bab42a2e94817a2ee94aaa3b416f50",
+          "device": "burn-in-1",
+          "inputBuffer": "package-input",
+          "inputResource": "packaged-dram-device"
+        },
+        {
+          "analysisHash": "b2bfd5f5bd38bde53038e004a76378a871c09ecc2f0a679e71c281403bf43e91",
+          "device": "packaging-1",
+          "inputBuffer": "die-input",
+          "inputResource": "known-good-dram-die"
+        }
+      ]
+    }
+  ],
+  "investigation": "run-114-probe-identity-dispatch",
+  "kind": "observation",
+  "previousEntryHash": null,
+  "sequence": 1,
+  "statement": "Run 114 shows probe-1 physically between inspection-1 and packaging-1 with direct local lanes. Probe runs 40.0% for twelve uninterrupted 8.0 s jobs, waits 144.0 s, has zero blocked, unpowered, or failed time, and realizes all 96/96 nominal dies; packaging runs 60.0% and burn-in-1 is the 68.3%-utilized downstream bottleneck with eleven served source lots and dram-lot-07 left as eight packaged devices. Compared with Run 112, no-rework control advances dram-lot-03 and dram-lot-05 to Probe but leaves Probe starts and downstream source-lot service essentially unchanged, converting lower process and transport time into queue while mean lot cycle remains 59.5985 s.",
+  "version": 1
+}

@@ -1,0 +1,17 @@
+{
+  "author": "agent",
+  "entryHash": "0b872be52eb613079a91e4369d17754076997fc63f183c43ae22f8840f3ae15a",
+  "evidence": [
+    "run-114-probe-factory"
+  ],
+  "expectedEffect": "Reduce the exact probe-1 queue contributor below 33,932 ticks and its 22,000-tick maximum segment, advance at least one affected source-lot packaging or Burn-in service time, and preserve or improve 88 delivered devices, 49.1905 average WIP-equivalent units, 12/12 on-time completion, 100% first-pass yield, zero scrap and escapes, build cost, area, and every locked current-best case. A policy that only reassigns equal waiting among lot identities or shifts the terminal unscreened batch is not a KEEP.",
+  "id": "reorder-probe-ready-lots",
+  "intervention": "blueprint",
+  "introducedAnchors": [],
+  "investigation": "run-114-probe-identity-dispatch",
+  "kind": "hypothesis",
+  "previousEntryHash": "c8ba654784afdb06a9470e803bbf5cce6b0e07f1ed2613b2904c55742afd8752",
+  "sequence": 2,
+  "statement": "Change only probe-1 lotDispatch within the explicit FIFO, oldest-release, and highest-priority policy family. FIFO or oldest-release should serve the newly early dram-lot-03 before later-arriving due-date-prioritized lots, allowing the Run 114 quality-control time gain to enter packaging and Burn-in without changing Probe physics, transport, buffers, release control, or downstream equipment; highest-priority is the bounded control for the incumbent due/priority order.",
+  "version": 1
+}

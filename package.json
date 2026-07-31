@@ -31,6 +31,7 @@
     "memory-fab:research-route-dispatch": "bun examples/memory-fab/strategies/research/route-dispatch.ts",
     "memory-fab:research-particle-prevention": "bun examples/memory-fab/strategies/research/particle-prevention.ts",
     "memory-fab:research-etch-l1-queue": "bun examples/memory-fab/strategies/research/etch-l1-queue.ts",
+    "memory-fab:research-probe-dispatch": "bun examples/memory-fab/strategies/research/probe-identity-dispatch.ts",
     "memory-fab:research-particle-branch-repair": "bun examples/memory-fab/strategies/research/particle-branch-repair.ts",
     "memory-fab:research-particle-probe-repair": "bun examples/memory-fab/strategies/research/particle-probe-repair.ts",
     "memory-fab:research-particle-backend-repair": "bun examples/memory-fab/strategies/research/particle-probe-repair.ts --backend",

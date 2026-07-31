@@ -638,15 +638,30 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
         entryId: "defer-run-114-layer-one-phase-control",
       }),
     }),
+    expect.objectContaining({
+      state: "current",
+      disposition: "defer",
+      queueEffect: "suppressed",
+      target: expect.objectContaining({
+        anchorId: "run-114-probe-factory",
+        code: "fab-loss.queue-congestion",
+        diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
+      }),
+      source: expect.objectContaining({
+        investigationId: "run-114-probe-identity-dispatch",
+        entryId: "defer-local-probe-identity-dispatch",
+      }),
+    }),
   ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^observation:fab-loss\.queue-congestion:/),
+    id: expect.stringMatching(/^design\.inspect:release-admission-convergence:/),
     effect: "read-only",
     requiresConfirmation: false,
-    studioRoute: "/memory-fab/factory?run=114-candidate-trial-run-112-dimensional-stability",
+    studioRoute: "/memory-fab/designs/release-admission-convergence",
     target: expect.objectContaining({
-      kind: "diagnostic",
-      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
+      kind: "design-program",
+      programId: "release-admission-convergence",
+      diagnosticId: expect.stringMatching(/^fab-loss\.release-admission:/),
     }),
   }));
   const leadingDiagnostic = snapshot.diagnostics.find((diagnostic) =>
@@ -714,7 +729,7 @@ test("memory-fab workbench discovers project-local routes, experiments, and cand
     studioRoute: "/memory-fab/factory?run=114-candidate-trial-run-112-dimensional-stability",
     target: expect.objectContaining({
       kind: "diagnostic",
-      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
+      diagnosticId: expect.stringMatching(/^fab-loss\.release-admission:/),
     }),
   }));
   const exhaustedId = "f".repeat(64);
@@ -854,14 +869,25 @@ test("shared handoff retires dispositions when current causal facts change and a
         entryId: "defer-run-114-layer-one-phase-control",
       }),
     }),
+    expect.objectContaining({
+      state: "current",
+      disposition: "defer",
+      queueEffect: "suppressed",
+      target: expect.objectContaining({ code: "fab-loss.queue-congestion" }),
+      source: expect.objectContaining({
+        investigationId: "run-114-probe-identity-dispatch",
+        entryId: "defer-local-probe-identity-dispatch",
+      }),
+    }),
   ]);
   expect(snapshot.nextAction).toEqual(expect.objectContaining({
-    title: "Observe the leading loss before authoring an intervention",
-    actionLabel: "OBSERVE CURRENT FACTORY",
-    studioRoute: "/memory-fab/factory?run=114-candidate-trial-run-112-dimensional-stability",
+    title: "Investigate the leading loss with Release Admission Convergence",
+    actionLabel: "OPEN DESIGN LOOP",
+    studioRoute: "/memory-fab/designs/release-admission-convergence",
     target: expect.objectContaining({
-      kind: "diagnostic",
-      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
+      kind: "design-program",
+      programId: "release-admission-convergence",
+      diagnosticId: expect.stringMatching(/^fab-loss\.release-admission:/),
     }),
   }));
 });
@@ -1566,10 +1592,11 @@ test("a non-KEEP Candidate receipt resolves review work without displacing curre
     verifiedCount: 1,
   });
   expect(reviewed.nextAction).toEqual(expect.objectContaining({
-    id: expect.stringMatching(/^observation:fab-loss\.queue-congestion:/),
+    id: expect.stringMatching(/^design\.inspect:release-admission-convergence:/),
     target: expect.objectContaining({
-      kind: "diagnostic",
-      diagnosticId: expect.stringMatching(/^fab-loss\.queue-congestion:/),
+      kind: "design-program",
+      programId: "release-admission-convergence",
+      diagnosticId: expect.stringMatching(/^fab-loss\.release-admission:/),
     }),
   }));
 }, 20_000);

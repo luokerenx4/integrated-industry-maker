@@ -1,0 +1,20 @@
+{
+  "author": "agent",
+  "disposition": "defer",
+  "entryHash": "c056e5f544ff9b324d1b705f7de2873510abf99b12d8742634bb8f8eafb3cb7f",
+  "evidence": [
+    "run-114-probe-factory"
+  ],
+  "id": "defer-local-probe-identity-dispatch",
+  "introducedAnchors": [],
+  "investigation": "run-114-probe-identity-dispatch",
+  "kind": "decision",
+  "previousEntryHash": "e141fbc811a9eab50c04e50c3f7cc66cc2b4c45751d6d002a9810e1b18de0686",
+  "sequence": 4,
+  "statement": "Defer the Run 114 Probe queue diagnostic after bounding local identity dispatch. FIFO, oldest-release, and highest-priority improve only the maximum per-lot wait by redistributing one fixed 33.932 s busy-wave queue; they do not reduce the exact contributor, total cycle, WIP, delivery, or any locked-case score. Combined with the retained Probe-cycle negative result, neither local speed nor local identity order converts the upstream quality gain into factory value. Reopen only with a physically distinct downstream service-phase hypothesis that improves total queue, cycle, WIP, or delivery rather than moving wait among source lots; keep the measured Probe queue visible in Analysis.",
+  "target": {
+    "anchorId": "run-114-probe-factory",
+    "kind": "diagnostic"
+  },
+  "version": 1
+}

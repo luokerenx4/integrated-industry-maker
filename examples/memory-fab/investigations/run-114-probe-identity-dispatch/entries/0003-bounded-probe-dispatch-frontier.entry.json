@@ -1,0 +1,15 @@
+{
+  "author": "agent",
+  "entryHash": "e141fbc811a9eab50c04e50c3f7cc66cc2b4c45751d6d002a9810e1b18de0686",
+  "evidence": [
+    "run-114-probe-factory"
+  ],
+  "id": "bounded-probe-dispatch-frontier",
+  "introducedAnchors": [],
+  "investigation": "run-114-probe-identity-dispatch",
+  "kind": "observation",
+  "previousEntryHash": "0b872be52eb613079a91e4369d17754076997fc63f183c43ae22f8840f3ae15a",
+  "sequence": 3,
+  "statement": "A TypeScript replay evaluated FIFO, oldest-release, and highest-priority Probe dispatch across all five locked cases. Each policy redistributed the first busy-wave order from 01,02,04,05,03,06 to 01,02,03,04,05,06 and reduced the maximum Probe wait from 22.000 s to 9.667 s, but exact Probe queue remained 33.932 s and total tracked-lot queue remained 77.909 s. dram-lot-03 packaging service advanced 24.150 s and Burn-in completion advanced 23.000 s while lots 04 and 05 were correspondingly delayed. Every aggregate/current-case score, delivery count and mix, WIP, mean cycle and queue, quality outcome, final dram-lot-07 WIP identity, cost, and area remained unchanged in all five cases.",
+  "version": 1
+}

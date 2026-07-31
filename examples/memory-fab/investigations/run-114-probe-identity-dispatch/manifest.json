@@ -1,0 +1,67 @@
+{
+  "anchors": [
+    {
+      "id": "operating-run",
+      "kind": "operating-run",
+      "resultHash": "89c183540d7a0daa3810e72741837319cd8742ccefc3f963e03cd7a386a77e3c",
+      "runId": "114-candidate-trial-run-112-dimensional-stability"
+    },
+    {
+      "causalHash": "49752e2b3c3277abf1e4dc44624436b5d22bb287f74cb35a6ae4c52971e877a7",
+      "code": "fab-loss.queue-congestion",
+      "diagnosticId": "fab-loss.queue-congestion:device:probe-1+route:dram-front-end:fc4f8e82c4",
+      "id": "diagnostic",
+      "kind": "diagnostic",
+      "loss": {
+        "bucket": "queue-congestion",
+        "contributorId": "device:probe-1:process-queue-wait:dram-front-end:probe-dram:probe-sort-dram-standard"
+      },
+      "message": "Tracked-lot queue congestion is ranked 2 in compatible run 114-candidate-trial-run-112-dimensional-stability (signal 0.1089). Tracked lots averaged 6.5 s queued in a 59.6 s cycle; probe-1/probe-sort-dram-standard accounts for 33.9 s across 9 lots (43.6%).",
+      "priority": 89,
+      "runId": "114-candidate-trial-run-112-dimensional-stability",
+      "severity": "warning",
+      "subjects": [
+        {
+          "id": "probe-1",
+          "kind": "device"
+        },
+        {
+          "id": "dram-front-end",
+          "kind": "route"
+        }
+      ],
+      "summary": "Tracked lots averaged 6.5 s queued in a 59.6 s cycle; probe-1/probe-sort-dram-standard accounts for 33.9 s across 9 lots (43.6%)."
+    }
+  ],
+  "authority": "human-or-agent",
+  "hashes": {
+    "blueprintHash": "71903fdb77fcddd948299de789122dc48111719b151f8a21845bc3b16bc2e694",
+    "engineVersion": "inm-sim/0.93.1",
+    "executionHash": "756abdd1d3c8688aba65dd8df430ad914cf7a5a4fb84e1789be8cb58cae92def",
+    "objectiveHash": "f1c94e68e05d3362c02c7f8f18029a4b5f1da118906e69a74dd3a0e554fd14fd",
+    "productionPlanHash": "b6fd2a4e6075c4544bc68decb277e5411e48252f4fd4f5d9842eef39cbb3a98d",
+    "scenarioHash": "25435a8222360647eb1464e8a7b653b26f1d4bc94f5efdc59c0ba752d86a2a7b",
+    "worldHash": "6db685b8705d8b374f1613393d5b52c9a288aa9b5aab23a748c94668f59438fc"
+  },
+  "id": "run-114-probe-identity-dispatch",
+  "initialNextAction": {
+    "actionLabel": "OBSERVE CURRENT FACTORY",
+    "effect": "read-only",
+    "id": "observation:fab-loss.queue-congestion:device:probe-1+route:dram-front-end:fc4f8e82c4",
+    "reason": "Tracked-lot queue congestion is ranked 2 in compatible run 114-candidate-trial-run-112-dimensional-stability (signal 0.1089). Tracked lots averaged 6.5 s queued in a 59.6 s cycle; probe-1/probe-sort-dram-standard accounts for 33.9 s across 9 lots (43.6%). No exact-target Design Program is qualified for the leading contributor, so inspect the run-qualified factory and record a human/Agent hypothesis before adding a proposal portfolio.",
+    "studioRoute": "/memory-fab/factory?run=114-candidate-trial-run-112-dimensional-stability",
+    "title": "Observe the leading loss before authoring an intervention"
+  },
+  "manifestHash": "ffa33fb40ba7610d4d0cc60d4486b860f88212b77a5866b6aba5eee132047677",
+  "name": "Run 114 Probe identity dispatch",
+  "project": "memory-fab",
+  "question": "Can explicit Probe lot-identity dispatch convert the current upstream quality-control time gain into earlier downstream service without repeating rejected cycle acceleration or weakening locked outcomes?",
+  "selection": {
+    "blueprint": "generated-dram-fab",
+    "objective": "dram-output",
+    "productionPlan": "production-window",
+    "scenario": "production-window",
+    "world": "cleanroom"
+  },
+  "version": 1
+}

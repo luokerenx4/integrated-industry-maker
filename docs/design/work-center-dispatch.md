@@ -63,6 +63,8 @@ Fixed full-batch formation, bounded setup campaigns, physical work-center specia
 
 The commissioned route deliberately does not use one factory-wide lot rule. Project-local TypeScript research evaluates exact per-Device and grouped patches against the five-case Benchmark plus the zero-regression current-best boundary. The current retained policy changes only `lithography-l2` from FIFO to `earliest-due-date`: it leaves steady production, mixed quality, systematic quality excursion, and lithography interruption byte-for-score identical while improving facility-interruption tardiness by `0.053333`. Applying EDD to the shared layer-one lithography bay, the complete front end, or every route Device regresses the lithography-interruption score by `1.643644`, so those broader policies remain explicit negative evidence rather than defaults.
 
+The current Probe boundary demonstrates why identity fairness is not automatically throughput recovery. Under Run 114, `fifo`, `oldest-release`, and `highest-priority` each replace one `22,000`-tick EDD wait with three smaller waits and advance one source lot into downstream service, but equal-duration non-idling Probe work conserves the `33,932`-tick aggregate queue. Packaging, Burn-in, delivery, WIP, cycle, and every locked score remain unchanged. INM therefore exposes maximum and per-lot chronology beside the conserved total, while commissioning still requires an industrial outcome rather than a cosmetically smoother queue distribution.
+
 ## Source of truth
 
 - Types/schema: `packages/inm-core/src/types.ts`, `packages/inm-core/src/schema.ts`
